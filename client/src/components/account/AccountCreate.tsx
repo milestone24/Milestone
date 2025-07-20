@@ -30,8 +30,6 @@ import { useBrokerProviders } from "@/hooks/use-broker-providers";
 import { Button } from "../ui/button";
 import { useFindSecurities } from "@/hooks/use-find-securities";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import AsyncCombobox from "../ui/AsyncCombobox";
-import { Card, CardContent } from "../ui/card";
 import { Trash2 } from "lucide-react";
 import { withTransform } from "@/lib/utils/mappers";
 import { Switch } from "../ui/switch";

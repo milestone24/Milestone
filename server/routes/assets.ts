@@ -14,7 +14,7 @@ import {
   recurringContributionOrphanInsertSchema,
 } from "@shared/schema";
 import { uuidRouteParam } from "@server/utils/uuid";
-
+import asyncCatch from "./utils";
 import { db } from "@server/db";
 import { DatabaseAssetService } from "@server/services/assets/database";
 
@@ -263,7 +263,7 @@ export async function registerRoutes(
   router.get(
     `/broker/${uuidRouteParam("assetId")}/securities/${uuidRouteParam("securityId")}`,
     requireUser,
-    async (req: AuthRequest, res) => {
+    asyncCatch(async (req: AuthRequest, res) => {
       if(!req.params.assetId) {
         return res.status(400).json({ error: "Asset ID is required" });
       }
@@ -275,7 +275,7 @@ export async function registerRoutes(
         req.params.securityId
       );
       res.json(valueItems);
-    }
+    })
   );
 
   // router.post(

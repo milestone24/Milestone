@@ -1,11 +1,11 @@
 import { assetContributions, assetValues, brokerProviderAssets, brokerProviders, generalAssets, brokerProviderAssetAPIKeyConnections, recurringContributions, brokerProvideraAssetSecurities, securities } from "server/db/schema";
 import { Database } from "../../db";
 import { and, between, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
-import { Asset, AssetContribution, assetContributionInsertSchema, AssetType, AssetValue, assetValueInsertSchema, BrokerProvider, BrokerProviderAsset, BrokerProviderAssetAPIKeyConnection, BrokerProviderAssetInsert, BrokerProviderAssetWithAccountChange, GeneralAsset, GeneralAssetInsert, GeneralAssetWithAccountChange, PortfolioHistoryTimePoint, UserAccount, AssetsChange, AssetValueOrphanInsert, AssetContributionOrphanInsert, RecurringContribution, RecurringContributionOrphanInsert, ContributionInterval, WithAssetHistory, SecuritySelect, SecurityInsert, DataRangeQuery, BrokerProviderAssetSecuritySelect, BrokerProviderAssetSecurityInsert, SecuritySearchResult, AssetWithHistory, WithResolvedSecurities } from "@shared/schema";
+import { Asset, AssetContribution, assetContributionInsertSchema, AssetType, AssetValue, assetValueInsertSchema, BrokerProvider, BrokerProviderAsset, BrokerProviderAssetAPIKeyConnection, BrokerProviderAssetInsert, BrokerProviderAssetWithAccountChange, GeneralAsset, GeneralAssetInsert, GeneralAssetWithAccountChange, PortfolioHistoryTimePoint, UserAccount, AssetsChange, AssetValueOrphanInsert, AssetContributionOrphanInsert, RecurringContribution, RecurringContributionOrphanInsert, ContributionInterval, WithAssetHistory, SecuritySelect, SecurityInsert, DataRangeQuery, BrokerProviderAssetSecuritySelect, BrokerProviderAssetSecurityInsert, SecuritySearchResult, AssetWithHistory, WithResolvedSecurities, ResolvedSecurity } from "@shared/schema";
 import { NodePgTransaction } from "drizzle-orm/node-postgres";
 import { Schema, TSchema } from "server/db/types/utils";
 import { QueryParams, QueryParts, ResourceQueryBuilder } from "@server/utils/resource-query-builder";
-import { resolveAssetsWithChange, resolveAssetWithChangeForDateRange, resolveDate, getPortfolioOverviewForAssets } from "@shared/utils/assets";
+import { resolveAssetsWithChange, resolveAssetWithChangeForDateRange, resolveDate, getPortfolioOverviewForAssets, getPortfolioValueHistoryForAssets } from "@shared/utils/assets";
 
 type Transaction = NodePgTransaction<Schema, TSchema>;
 
@@ -118,7 +118,7 @@ export class DatabaseAssetService {
 
     const { where, orderBy, limit, offset } = brokerProviderAssetsQueryBuilder.buildQuery(query);
     const brokerAssets = await this.db.query.brokerProviderAssets.findMany(
-      { with: { provider: true },
+      { with: { provider: true, securities: { with: { security: true } } },
       where: and(eq(brokerProviderAssets.userAccountId, userId), where), orderBy, limit, offset });
     return brokerAssets;
   }
@@ -751,6 +751,20 @@ export class DatabaseAssetService {
       limit, 
       offset 
     });
+  }
+
+  async getBrokerProviderAssetSecurity(assetId: BrokerProviderAsset["id"], securityId: BrokerProviderAssetSecuritySelect["id"]): Promise<ResolvedSecurity> {
+
+    console.log("getBrokerProviderAssetSecurity", assetId, securityId);
+
+    const security = await this.db.query.brokerProvideraAssetSecurities.findFirst({
+      with: { security: true },
+      where: and(eq(brokerProvideraAssetSecurities.brokerProviderAssetId, assetId), eq(brokerProvideraAssetSecurities.id, securityId))
+    });
+    if (!security) {
+      throw new Error(`Broker provider asset security with ID ${securityId} not found for asset ${assetId}`);
+    }
+    return security;
   }
 
   async createBrokerProviderAssetSecurity(assetId: BrokerProviderAsset["id"], data: BrokerProviderAssetSecurityInsert): Promise<BrokerProviderAssetSecuritySelect> {

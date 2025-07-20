@@ -8,7 +8,7 @@ interface DateRangeBarProps {
 
 export default function DateRangeBar({ className }: DateRangeBarProps) {
   return (
-    <div className={cn("flex justify-center px-4 py-2 bg-white border-b", className)}>
+    <div className={cn("flex justify-center px-4 py-2 bg-white", className)}>
       <DateRangeControl />
     </div>
   );

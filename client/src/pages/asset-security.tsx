@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "wouter";
+import { useState } from "react";
+import { useParams } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Pencil, Trash2, Coins, Calendar, RotateCcw } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
@@ -33,23 +33,15 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { BsPiggyBank } from "react-icons/bs";
 import { usePortfolio } from "@/context/PortfolioContext";
-import {
-  AssetValue,
-  AssetContribution,
-  RecurringContribution,
-  ResolvedSecurity,
-} from "shared/schema";
+import { AssetValue, ResolvedSecurity } from "shared/schema";
 import { useBrokerProviders } from "@/hooks/use-broker-providers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { navigate } from "wouter/use-browser-location";
+import { ContributionsPanel } from "@/components/account/ContributionsPanel";
 
 // Form schema for history entry
 const historySchema = z.object({
@@ -59,30 +51,6 @@ const historySchema = z.object({
   recordedAt: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date",
   }),
-});
-
-// Form schema for contribution entry (same structure)
-const contributionSchema = z.object({
-  value: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
-    message: "Value must be a positive number",
-  }),
-  recordedAt: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid date",
-  }),
-});
-
-// Form schema for recurring contribution
-const recurringContributionSchema = z.object({
-  amount: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
-    message: "Amount must be a positive number",
-  }),
-  startDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid date",
-  }),
-  interval: z.enum(["weekly", "biweekly", "monthly"], {
-    required_error: "Interval is required",
-  }),
-  isActive: z.boolean().default(true),
 });
 
 export default function AssetSecurityPage() {
@@ -96,65 +64,7 @@ export default function AssetSecurityPage() {
     addBrokerAssetValue,
     updateBrokerAssetValue,
     deleteBrokerAssetValue,
-    addBrokerAssetContribution,
-    updateBrokerAssetContribution,
-    deleteBrokerAssetContribution,
   } = usePortfolio();
-
-  // Mutations for recurring contributions
-  const addRecurringContribution = useMutation({
-    mutationFn: (data: {
-      assetId: string;
-      amount: number;
-      startDate: Date;
-      interval: "weekly" | "biweekly" | "monthly";
-      isActive: boolean;
-    }) =>
-      apiRequest(
-        "POST",
-        `/api/assets/broker/${data.assetId}/recurring-contributions`,
-        data
-      ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["broker-asset-recurring-contributions", assetId],
-      });
-    },
-  });
-
-  const updateRecurringContribution = useMutation({
-    mutationFn: (data: {
-      assetId: string;
-      contributionId: string;
-      amount: number;
-      startDate: Date;
-      interval: "weekly" | "biweekly" | "monthly";
-      isActive: boolean;
-    }) =>
-      apiRequest(
-        "PUT",
-        `/api/assets/broker/${data.assetId}/recurring-contributions/${data.contributionId}`,
-        data
-      ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["broker-asset-recurring-contributions", assetId],
-      });
-    },
-  });
-
-  const deleteRecurringContribution = useMutation({
-    mutationFn: (data: { assetId: string; contributionId: string }) =>
-      apiRequest(
-        "DELETE",
-        `/api/assets/broker/${data.assetId}/recurring-contributions/${data.contributionId}`
-      ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["broker-asset-recurring-contributions", assetId],
-      });
-    },
-  });
 
   const { data: providers, isLoading: isProvidersLoading } =
     useBrokerProviders();
@@ -165,24 +75,10 @@ export default function AssetSecurityPage() {
   const [historyToDelete, setHistoryToDelete] = useState<string | null>(null);
   const [historyToEdit, setHistoryToEdit] = useState<any>(null);
 
-  // State for contributions tab
-  const [isAddContributionOpen, setIsAddContributionOpen] = useState(false);
-  const [isEditContributionOpen, setIsEditContributionOpen] = useState(false);
-  const [contributionToDelete, setContributionToDelete] = useState<
-    string | null
-  >(null);
-  const [contributionToEdit, setContributionToEdit] = useState<any>(null);
-
   // Active tab state
   const [activeTab, setActiveTab] = useState<"values" | "contributions">(
     "values"
   );
-
-  // State for recurring contributions
-  const [recurringContributions, setRecurringContributions] = useState<
-    RecurringContribution[]
-  >([]);
-  const [isLoadingRecurring, setIsLoadingRecurring] = useState(false);
 
   const {
     data: asset,
@@ -190,7 +86,7 @@ export default function AssetSecurityPage() {
     isError: isAssetError,
     error: assetError,
   } = useQuery<ResolvedSecurity>({
-    queryKey: ["broker-asset", assetId],
+    queryKey: ["broker-asset", assetId, "security", nestedId],
     queryFn: () =>
       apiRequest<ResolvedSecurity>(
         "GET",
@@ -209,56 +105,12 @@ export default function AssetSecurityPage() {
     }
   );
 
-  // Query for asset contributions history
-  const { data: contributions, isLoading: isContributionsLoading } = useQuery<
-    AssetContribution[]
-  >({
-    queryKey: ["broker-asset-contributions", assetId],
-    queryFn: () =>
-      apiRequest<AssetContribution[]>(
-        "GET",
-        `/api/assets/broker/${assetId}/contributions`
-      ),
-  });
-
-  // Query for recurring contributions
-  const { data: recurringContributionsData, isLoading: isRecurringLoading } =
-    useQuery<RecurringContribution[]>({
-      queryKey: ["broker-asset-recurring-contributions", assetId],
-      queryFn: () =>
-        apiRequest<RecurringContribution[]>(
-          "GET",
-          `/api/assets/broker/${assetId}/recurring-contributions`
-        ),
-      enabled: !!assetId,
-    });
-
   // Form for adding/editing history
   const form = useForm<z.infer<typeof historySchema>>({
     resolver: zodResolver(historySchema),
     defaultValues: {
       value: "",
       recordedAt: new Date().toISOString().split("T")[0],
-    },
-  });
-
-  // Form for adding/editing contributions
-  const contributionForm = useForm<z.infer<typeof contributionSchema>>({
-    resolver: zodResolver(contributionSchema),
-    defaultValues: {
-      value: "",
-      recordedAt: new Date().toISOString().split("T")[0],
-    },
-  });
-
-  // Form for recurring contributions
-  const recurringForm = useForm<z.infer<typeof recurringContributionSchema>>({
-    resolver: zodResolver(recurringContributionSchema),
-    defaultValues: {
-      amount: "",
-      startDate: new Date().toISOString().split("T")[0],
-      interval: "monthly",
-      isActive: true,
     },
   });
 
@@ -310,132 +162,7 @@ export default function AssetSecurityPage() {
     }
   };
 
-  // Handlers for contributions
-  const handleCreateContribution = async (
-    values: z.infer<typeof contributionSchema>
-  ) => {
-    if (!assetId) return;
-
-    try {
-      await addBrokerAssetContribution.mutateAsync({
-        assetId: assetId,
-        value: Number(values.value),
-        recordedAt: new Date(values.recordedAt),
-      });
-      setIsAddContributionOpen(false);
-      contributionForm.reset();
-    } catch (error) {
-      console.error("Error creating contribution:", error);
-    }
-  };
-
-  const handleEditContribution = async (
-    values: z.infer<typeof contributionSchema>
-  ) => {
-    if (!contributionToEdit || !assetId) return;
-    try {
-      await updateBrokerAssetContribution.mutateAsync({
-        contributionId: contributionToEdit.id,
-        assetId: assetId,
-        value: Number(values.value),
-        recordedAt: new Date(values.recordedAt),
-      });
-      setIsEditContributionOpen(false);
-      contributionForm.reset();
-      setContributionToEdit(null);
-    } catch (error) {
-      console.error("Error updating contribution:", error);
-    }
-  };
-
-  const handleDeleteContribution = async () => {
-    if (!contributionToDelete || !assetId) return;
-
-    try {
-      await deleteBrokerAssetContribution.mutateAsync({
-        assetId: assetId,
-        contributionId: contributionToDelete,
-      });
-      setContributionToDelete(null);
-    } catch (error) {
-      console.error("Error deleting contribution:", error);
-    }
-  };
-
-  // State for recurring contributions modal
-  const [isAddRecurringOpen, setIsAddRecurringOpen] = useState(false);
-  const [isEditRecurringOpen, setIsEditRecurringOpen] = useState(false);
-  const [recurringToEdit, setRecurringToEdit] =
-    useState<RecurringContribution | null>(null);
-  const [recurringToDelete, setRecurringToDelete] = useState<string | null>(
-    null
-  );
-
-  // Handlers for recurring contributions
-  const handleCreateRecurringContribution = async (
-    values: z.infer<typeof recurringContributionSchema>
-  ) => {
-    if (!assetId) return;
-
-    try {
-      await addRecurringContribution.mutateAsync({
-        assetId: assetId,
-        amount: Number(values.amount),
-        startDate: new Date(values.startDate),
-        interval: values.interval,
-        isActive: values.isActive,
-      });
-      setIsAddRecurringOpen(false);
-      recurringForm.reset();
-    } catch (error) {
-      console.error("Error creating recurring contribution:", error);
-    }
-  };
-
-  const handleEditRecurringContribution = async (
-    values: z.infer<typeof recurringContributionSchema>
-  ) => {
-    if (!recurringToEdit || !assetId) return;
-
-    try {
-      await updateRecurringContribution.mutateAsync({
-        contributionId: recurringToEdit.id,
-        assetId: assetId,
-        amount: Number(values.amount),
-        startDate: new Date(values.startDate),
-        interval: values.interval,
-        isActive: values.isActive,
-      });
-      setIsEditRecurringOpen(false);
-      recurringForm.reset();
-      setRecurringToEdit(null);
-    } catch (error) {
-      console.error("Error updating recurring contribution:", error);
-    }
-  };
-
-  const handleDeleteRecurringContribution = async () => {
-    if (!recurringToDelete || !assetId) return;
-
-    try {
-      await deleteRecurringContribution.mutateAsync({
-        assetId: assetId,
-        contributionId: recurringToDelete,
-      });
-      setRecurringToDelete(null);
-    } catch (error) {
-      console.error("Error deleting recurring contribution:", error);
-    }
-  };
-
-  const handleSecurityClick = (item: { id: string }) => {
-    navigate(`/asset/broker/${assetId}/security/${item.id}`);
-  };
-
-  console.log("asset security", asset);
-  console.log("Asset loading", isAssetLoading);
-
-  if (isAssetLoading || isHistoryLoading || isContributionsLoading) {
+  if (isAssetLoading || isHistoryLoading) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8">
         <Card>
@@ -480,527 +207,180 @@ export default function AssetSecurityPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <Card>
-        <CardContent className="p-4">
-          {/* Account Header */}
-          <div className="flex flex-col items-start mb-6">
-            <div className="flex items-center gap-2">
-              <div>
-                <div className="mb-2">
-                  <h1 className="text-xl ">
-                    {asset.security?.name ?? "Unknown Security"}
-                  </h1>
-                </div>
-              </div>
+      <div className="flex flex-col items-start mb-6">
+        <div className="flex items-center gap-2">
+          <div>
+            <div className="mb-2">
+              <h1 className="text-xl ">
+                {asset.security?.name ?? "Unknown Security"}
+              </h1>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Current Value */}
-          <div className="mb-6">
-            <h2 className="text-lg font-medium mb-2">Current Value</h2>
-            <p className="text-2xl font-bold">
-              £{Number(asset.calculatedValue?.value ?? 0).toLocaleString()}
-            </p>
-          </div>
+      {/* Current Value */}
+      <div className="mb-6">
+        <h2 className="text-lg font-medium mb-2">Current Value</h2>
+        <p className="text-2xl font-bold">
+          £{Number(asset.calculatedValue?.value ?? 0).toLocaleString()}
+        </p>
+      </div>
 
-          {/* Tabs for Values/Contributions */}
-          <Tabs
-            value={activeTab}
-            onValueChange={(value) =>
-              setActiveTab(value as "values" | "contributions")
-            }
-          >
-            <TabsList className="mb-4 w-full">
-              <TabsTrigger value="values" className="flex-1">
-                Account Values
-              </TabsTrigger>
-              <TabsTrigger value="contributions" className="flex-1">
-                Transactions  
-              </TabsTrigger>
-            </TabsList>
+      {/* Tabs for Values/Contributions */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) =>
+          setActiveTab(value as "values" | "contributions")
+        }
+      >
+        <TabsList className="mb-4 w-full">
+          <TabsTrigger value="values" className="flex-1">
+            Account Values
+          </TabsTrigger>
+          <TabsTrigger value="contributions" className="flex-1">
+            Contributions
+          </TabsTrigger>
+        </TabsList>
 
-            {/* Values Tab Content */}
-            <TabsContent value="values">
-              <div>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-medium">History</h2>
-                  <Dialog
-                    open={isAddHistoryOpen}
-                    onOpenChange={setIsAddHistoryOpen}
+        {/* Values Tab Content */}
+        <TabsContent value="values">
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-medium">History</h2>
+              <Dialog
+                open={isAddHistoryOpen}
+                onOpenChange={setIsAddHistoryOpen}
+              >
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center"
                   >
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Value
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add History Entry</DialogTitle>
-                        <DialogDescription>
-                          Add a new value record for this account.
-                        </DialogDescription>
-                      </DialogHeader>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Value
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add History Entry</DialogTitle>
+                    <DialogDescription>
+                      Add a new value record for this account.
+                    </DialogDescription>
+                  </DialogHeader>
 
-                      <Form {...form}>
-                        <form
-                          onSubmit={form.handleSubmit(handleCreateHistory)}
-                          className="space-y-4"
-                        >
-                          <FormField
-                            control={form.control}
-                            name="value"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Value</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    placeholder="Enter value"
-                                    {...field}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={form.control}
-                            name="recordedAt"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Date</FormLabel>
-                                <FormControl>
-                                  <Input type="date" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <DialogFooter>
-                            <Button type="submit">Add Entry</Button>
-                          </DialogFooter>
-                        </form>
-                      </Form>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-
-                {/* History List */}
-                <div className="space-y-4">
-                  {history?.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      No account value history available.
-                    </div>
-                  )}
-                  {history?.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
+                  <Form {...form}>
+                    <form
+                      onSubmit={form.handleSubmit(handleCreateHistory)}
+                      className="space-y-4"
                     >
-                      <div>
-                        <p className="font-medium">
-                          £{Number(entry.value).toLocaleString()}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {new Date(entry.recordedAt).toLocaleDateString(
-                            "en-GB",
-                            {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            }
-                          )}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => {
-                            setHistoryToEdit(entry);
-                            form.reset({
-                              value: entry.value.toString(),
-                              recordedAt: new Date(entry.recordedAt)
-                                .toISOString()
-                                .split("T")[0],
-                            });
-                            setIsEditHistoryOpen(true);
-                          }}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => setHistoryToDelete(entry.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </TabsContent>
+                      <FormField
+                        control={form.control}
+                        name="value"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Value</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder="Enter value"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-            {/* Contributions Tab Content */}
-            <TabsContent value="contributions">
-              <div>
-                {/* Contribution Summary Section */}
-                {contributions && contributions.length > 0 && (
-                  <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                    <h3 className="text-lg font-medium mb-2 flex items-center">
-                      <BsPiggyBank className="h-5 w-5 mr-2 text-green-600" />
-                      Contribution Summary
-                    </h3>
-                    <div className="grid grid-cols-2 gap-4 mt-3">
-                      <div>
-                        <p className="text-sm text-gray-600">
-                          Total Contributed
-                        </p>
-                        <p className="text-xl font-semibold">
-                          £
-                          {contributions
-                            .reduce((sum, item) => sum + Number(item.value), 0)
-                            .toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">
-                          Number of Contributions
-                        </p>
-                        <p className="text-xl font-semibold">
-                          {contributions.length}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">
-                          First Contribution
-                        </p>
-                        <p className="text-base font-medium">
-                          {contributions.length > 0
-                            ? new Date(
-                                Math.min(
-                                  ...contributions.map((c) =>
-                                    new Date(c.recordedAt).getTime()
-                                  )
-                                )
-                              ).toLocaleDateString("en-GB", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              })
-                            : "N/A"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">
-                          Latest Contribution
-                        </p>
-                        <p className="text-base font-medium">
-                          {contributions.length > 0
-                            ? new Date(
-                                Math.max(
-                                  ...contributions.map((c) =>
-                                    new Date(c.recordedAt).getTime()
-                                  )
-                                )
-                              ).toLocaleDateString("en-GB", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              })
-                            : "N/A"}
-                        </p>
-                      </div>
-                    </div>
+                      <FormField
+                        control={form.control}
+                        name="recordedAt"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Date</FormLabel>
+                            <FormControl>
+                              <Input type="date" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <DialogFooter>
+                        <Button type="submit">Add Entry</Button>
+                      </DialogFooter>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* History List */}
+            <div className="space-y-4">
+              {history?.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No account value history available.
+                </div>
+              )}
+              {history?.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
+                >
+                  <div>
+                    <p className="font-medium">
+                      £{Number(entry.value).toLocaleString()}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {new Date(entry.recordedAt).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </p>
                   </div>
-                )}
-
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-medium">Contributions</h2>
-                  <Dialog
-                    open={isAddContributionOpen}
-                    onOpenChange={setIsAddContributionOpen}
-                  >
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Contribution
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add Contribution</DialogTitle>
-                        <DialogDescription>
-                          Record a new contribution to this account.
-                        </DialogDescription>
-                      </DialogHeader>
-
-                      <Tabs defaultValue="single" className="mt-4">
-                        <TabsList className="grid w-full grid-cols-2 mb-4">
-                          <TabsTrigger value="single">Single</TabsTrigger>
-                          <TabsTrigger value="recurring">Recurring</TabsTrigger>
-                        </TabsList>
-
-                        <TabsContent value="single">
-                          <Form {...contributionForm}>
-                            <form
-                              onSubmit={contributionForm.handleSubmit(
-                                handleCreateContribution
-                              )}
-                              className="space-y-4"
-                            >
-                              <div className="grid grid-cols-2 gap-4">
-                                <FormField
-                                  control={contributionForm.control}
-                                  name="recordedAt"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel>Date</FormLabel>
-                                      <FormControl>
-                                        <Input type="date" {...field} />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-
-                                <FormField
-                                  control={contributionForm.control}
-                                  name="value"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel>Amount (£)</FormLabel>
-                                      <FormControl>
-                                        <Input
-                                          type="number"
-                                          step="0.01"
-                                          placeholder="Enter amount"
-                                          {...field}
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                              </div>
-
-                              <DialogFooter>
-                                <Button type="submit">Add Contribution</Button>
-                              </DialogFooter>
-                            </form>
-                          </Form>
-                        </TabsContent>
-
-                        <TabsContent value="recurring">
-                          <Form {...recurringForm}>
-                            <form
-                              onSubmit={recurringForm.handleSubmit(
-                                handleCreateRecurringContribution
-                              )}
-                              className="space-y-4"
-                            >
-                              <div className="grid grid-cols-2 gap-4">
-                                <FormField
-                                  control={recurringForm.control}
-                                  name="startDate"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel>Start Date</FormLabel>
-                                      <FormControl>
-                                        <Input type="date" {...field} />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-
-                                <FormField
-                                  control={recurringForm.control}
-                                  name="amount"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel>Amount (£)</FormLabel>
-                                      <FormControl>
-                                        <Input
-                                          type="number"
-                                          step="0.01"
-                                          placeholder="Enter amount"
-                                          {...field}
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                              </div>
-
-                              <FormField
-                                control={recurringForm.control}
-                                name="interval"
-                                render={({ field }) => (
-                                  <FormItem className="space-y-3">
-                                    <FormLabel>Frequency</FormLabel>
-                                    <FormControl>
-                                      <ToggleGroup
-                                        type="single"
-                                        onValueChange={field.onChange}
-                                        defaultValue={field.value}
-                                        className="justify-start"
-                                      >
-                                        <ToggleGroupItem
-                                          value="weekly"
-                                          aria-label="Weekly"
-                                        >
-                                          Weekly
-                                        </ToggleGroupItem>
-                                        <ToggleGroupItem
-                                          value="biweekly"
-                                          aria-label="Biweekly"
-                                        >
-                                          Biweekly
-                                        </ToggleGroupItem>
-                                        <ToggleGroupItem
-                                          value="monthly"
-                                          aria-label="Monthly"
-                                        >
-                                          Monthly
-                                        </ToggleGroupItem>
-                                      </ToggleGroup>
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={recurringForm.control}
-                                name="isActive"
-                                render={({ field }) => (
-                                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value}
-                                        onCheckedChange={field.onChange}
-                                      />
-                                    </FormControl>
-                                    <div className="space-y-1 leading-none">
-                                      <FormLabel>Active</FormLabel>
-                                      <p className="text-sm text-muted-foreground">
-                                        Enable or disable this recurring
-                                        contribution
-                                      </p>
-                                    </div>
-                                  </FormItem>
-                                )}
-                              />
-
-                              <DialogFooter>
-                                <Button type="submit">
-                                  Add Recurring Contribution
-                                </Button>
-                              </DialogFooter>
-                            </form>
-                          </Form>
-                          <div className="mt-4">
-                            <p className="text-center text-sm text-muted-foreground">
-                              Set up recurring contributions to automatically
-                              track regular investments to your portfolio.
-                            </p>
-                          </div>
-                        </TabsContent>
-                      </Tabs>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-
-                {/* Contributions List */}
-                <div className="space-y-4">
-                  {contributions?.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      No contributions recorded for this account.
-                    </div>
-                  )}
-                  {contributions?.map((contribution) => (
-                    <div
-                      key={contribution.id}
-                      className="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => {
+                        setHistoryToEdit(entry);
+                        form.reset({
+                          value: entry.value.toString(),
+                          recordedAt: new Date(entry.recordedAt)
+                            .toISOString()
+                            .split("T")[0],
+                        });
+                        setIsEditHistoryOpen(true);
+                      }}
                     >
-                      <div>
-                        <div className="flex items-center">
-                          <Coins className="h-4 w-4 mr-1 text-green-600" />
-                          <p className="font-medium">
-                            £{Number(contribution.value).toLocaleString()}
-                          </p>
-                        </div>
-                        <p className="text-sm text-gray-600">
-                          {new Date(contribution.recordedAt).toLocaleDateString(
-                            "en-GB",
-                            {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            }
-                          )}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => {
-                            setContributionToEdit(contribution);
-                            contributionForm.reset({
-                              value: contribution.value.toString(),
-                              recordedAt: new Date(contribution.recordedAt)
-                                .toISOString()
-                                .split("T")[0],
-                            });
-                            setIsEditContributionOpen(true);
-                          }}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() =>
-                            setContributionToDelete(contribution.id)
-                          }
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => setHistoryToDelete(entry.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </TabsContent>
+              ))}
+            </div>
+          </div>
+        </TabsContent>
 
-            {/* Recurring Contributions Tab Content */}
-          </Tabs>
-        </CardContent>
-      </Card>
+        {/* Contributions Tab Content */}
+        <TabsContent value="contributions">
+          <ContributionsPanel assetId={assetId ?? ""} />
+        </TabsContent>
+
+        {/* Recurring Contributions Tab Content */}
+      </Tabs>
 
       {/* Edit History Dialog */}
       <Dialog open={isEditHistoryOpen} onOpenChange={setIsEditHistoryOpen}>
@@ -1058,65 +438,6 @@ export default function AssetSecurityPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Contribution Dialog */}
-      <Dialog
-        open={isEditContributionOpen}
-        onOpenChange={setIsEditContributionOpen}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Contribution</DialogTitle>
-            <DialogDescription>
-              Update the amount and date of this contribution.
-            </DialogDescription>
-          </DialogHeader>
-
-          <Form {...contributionForm}>
-            <form
-              onSubmit={contributionForm.handleSubmit(handleEditContribution)}
-              className="space-y-4"
-            >
-              <FormField
-                control={contributionForm.control}
-                name="value"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Amount</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="Enter contribution amount"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={contributionForm.control}
-                name="recordedAt"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter>
-                <Button type="submit">Update Contribution</Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
       {/* Delete History Confirmation Dialog */}
       <AlertDialog
         open={!!historyToDelete}
@@ -1134,31 +455,6 @@ export default function AssetSecurityPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteHistory}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Delete Contribution Confirmation Dialog */}
-      <AlertDialog
-        open={!!contributionToDelete}
-        onOpenChange={() => setContributionToDelete(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Contribution</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this contribution record? This
-              action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteContribution}
               className="bg-red-600 hover:bg-red-700"
             >
               Delete
