@@ -5,6 +5,7 @@ import { pgTable, text, uuid } from "drizzle-orm/pg-core";
 
 export const securities = pgTable("securities", {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  sourceIdentifier: text("sourceIdentifier").notNull(), // e.g., "eodhd", "alphavantage"
   symbol: text("symbol").notNull(), // e.g., "AAPL", "VWRL.L"
   name: text("name").notNull(), // e.g., "Apple Inc.", "Vanguard FTSE All-World UCITS ETF"
   exchange: text("exchange"), // e.g., "NASDAQ", "LSE"

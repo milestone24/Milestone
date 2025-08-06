@@ -36,6 +36,7 @@ export const securitySearchResultSchema = z.object({
   cusip: z.string().optional(),
   figi: z.string().optional(),
   fromCache: z.boolean(),
+  sourceIdentifier: z.string(),
 });
 
 export type SecuritySearchResult = z.infer<typeof securitySearchResultSchema>;

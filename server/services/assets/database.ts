@@ -47,30 +47,6 @@ const generalAssetsQueryBuilder = new ResourceQueryBuilder({
   maxLimit: 50,
 });
 
-const securitiesQueryBuilder = new ResourceQueryBuilder({
-  table: securities,
-  allowedSortFields: [
-    "createdAt",
-    "updatedAt", 
-    "symbol",
-    "name",
-    "exchange",
-    "country",
-    "currency",
-    "type"
-  ],
-  allowedFilterFields: [
-    "exchange",
-    "country", 
-    "currency",
-    "type",
-    "symbol"
-  ],
-  defaultSort: { field: "symbol", direction: "asc" },
-  maxLimit: 100,
-});
-
-
 export class DatabaseAssetService {
   constructor(private db: Database) {}
 
@@ -643,99 +619,6 @@ export class DatabaseAssetService {
     }
     
     return nextDate;
-  }
-
-  /**
-   * Securities (Cache management)
-   */
-
-  async getSecurities(query: QueryParams): Promise<SecuritySelect[]> {
-    const { where, orderBy, limit, offset } = securitiesQueryBuilder.buildQuery(query);
-    return this.db.query.securities.findMany({ 
-      where,
-      orderBy,
-      limit,
-      offset
-    });
-  }
-
-  async getSecurity(id: SecuritySelect["id"]): Promise<SecuritySelect> {
-    const security = await this.db.query.securities.findFirst({
-      where: eq(securities.id, id)
-    });
-    if (!security) {
-      throw new Error(`Security with ID ${id} not found`);
-    }
-    return security;
-  }
-
-  async findSecurityMatch(security: SecuritySearchResult): Promise<SecuritySelect | null> {
-    const securityFound = await this.db.query.securities.findFirst({
-      where: and(
-        //TODO identify if we need to add more fields to the match
-        //Should we use ISIN, CUSIP, FIGI, etc.
-        eq(securities.symbol, security.symbol),
-        eq(securities.name, security.name),
-        eq(securities.exchange, security.exchange ?? ""),
-      )
-    });
-    return securityFound || null;
-  }
-
-  async searchCachedSecurities(query: string): Promise<SecuritySelect[]> {
-    const searchTerm = `%${query.toLowerCase()}%`;
-    
-    // Search by symbol (exact match gets priority) and name (partial match)
-    const results = await this.db.query.securities.findMany({
-      where: sql`
-        LOWER(${securities.symbol}) LIKE ${searchTerm} 
-        OR LOWER(${securities.name}) LIKE ${searchTerm}
-        OR LOWER(${securities.isin}) LIKE ${searchTerm}
-      `,
-      orderBy: [
-        // Prioritize exact symbol matches
-        sql`CASE WHEN LOWER(${securities.symbol}) = ${query.toLowerCase()} THEN 0 ELSE 1 END`,
-        // Then symbol starts with
-        sql`CASE WHEN LOWER(${securities.symbol}) LIKE ${query.toLowerCase() + '%'} THEN 0 ELSE 1 END`,
-        // Then by symbol alphabetically
-        securities.symbol
-      ],
-      limit: 20 // Limit cached results to avoid too many
-    });
-    
-    return results;
-  }
-
-  async createOrFindSecurity(data: SecurityInsert): Promise<SecuritySelect> {
-    // First try to find existing security by symbol
-    const existingSecurity = await this.findSecurityMatch(data.symbol);
-    if (existingSecurity) {
-      return existingSecurity;
-    }
-
-    // If not found, create new security
-    const [insertedSecurity] = await this.db.insert(securities).values(data).returning();
-    return insertedSecurity;
-  }
-
-  async updateSecurity(id: SecuritySelect["id"], data: SecurityInsert): Promise<SecuritySelect> {
-    const [updatedSecurity] = await this.db.update(securities)
-      .set({
-        ...data,
-      })
-      .where(eq(securities.id, id))
-      .returning();
-
-    if (!updatedSecurity) {
-      throw new Error(`Security with ID ${id} not found`);
-    }
-    return updatedSecurity;
-  }
-
-  async deleteSecurity(id: SecuritySelect["id"]): Promise<boolean> {
-    const result = await this.db.delete(securities)
-      .where(eq(securities.id, id));
-    return (result?.rowCount ?? 0) > 0;
   }
 
   /**
