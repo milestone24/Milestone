@@ -1,23 +1,29 @@
 import { SecurityInfoService, IntradayOptions, SecurityIdentifier } from "../types"
 import { findSecurities } from "./search"
 import { getSecurityHistoryForDateRange, getSecurityHistoryForDate, getIntradaySecurityHistoryForDate } from "./history"
+import { ALPHA_VANTAGE_SOURCE_IDENTIFIER, ALPHA_VANTAGE_NAME } from "./const"
 
 export const factory = (): SecurityInfoService => ({
-  identifier: "alpha-vantage",
-  name: "Alpha Vantage",
+  identifier: ALPHA_VANTAGE_SOURCE_IDENTIFIER,
+  name: ALPHA_VANTAGE_NAME,
   canFindSecurities: true,
   findSecurities: async (securityIdentifiers: string[]) => {
     return findSecurities(securityIdentifiers)
   },
 
+  canGetSecurityHistoryLiveForDateRange: true,
+  getSecurityHistoryLiveForDateRange: async (identifier: SecurityIdentifier, startDate: Date, endDate: Date) => {
+    throw new Error("Not implemented")
+  },
+
   canGetSecurityHistoryForDateRange: true,
-  getSecurityHistoryForDateRange: async (symbol: string, startDate: Date, endDate: Date) => {
-    return getSecurityHistoryForDateRange(symbol, startDate, endDate);
+  getSecurityHistoryForDateRange: async (identifier: SecurityIdentifier, startDate: Date, endDate: Date) => {
+    return getSecurityHistoryForDateRange(identifier, startDate, endDate);
   },
 
   canGetSecurityHistoryForDate: true,
-  getSecurityHistoryForDate: async (symbol: string, date: Date) => {
-    return getSecurityHistoryForDate(symbol, date);
+  getSecurityHistoryForDate: async (identifier: SecurityIdentifier, date: Date) => {
+    return getSecurityHistoryForDate(identifier, date);
   },
 
   canGetIntradaySecurityHistoryForDate: true,

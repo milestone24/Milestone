@@ -1,11 +1,16 @@
 import { assetContributions, assetValues, brokerProviderAssets, brokerProviders, generalAssets, brokerProviderAssetAPIKeyConnections, recurringContributions, brokerProvideraAssetSecurities, securities } from "server/db/schema";
 import { Database } from "../../db";
 import { and, between, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
-import { Asset, AssetContribution, assetContributionInsertSchema, AssetType, AssetValue, assetValueInsertSchema, BrokerProvider, BrokerProviderAsset, BrokerProviderAssetAPIKeyConnection, BrokerProviderAssetInsert, BrokerProviderAssetWithAccountChange, GeneralAsset, GeneralAssetInsert, GeneralAssetWithAccountChange, PortfolioHistoryTimePoint, UserAccount, AssetsChange, AssetValueOrphanInsert, AssetContributionOrphanInsert, RecurringContribution, RecurringContributionOrphanInsert, ContributionInterval, WithAssetHistory, SecuritySelect, SecurityInsert, DataRangeQuery, BrokerProviderAssetSecuritySelect, BrokerProviderAssetSecurityInsert, SecuritySearchResult, AssetWithHistory, WithResolvedSecurities, ResolvedSecurity } from "@shared/schema";
+import { Asset, AssetContribution, assetContributionInsertSchema, AssetType, AssetValue, assetValueInsertSchema, BrokerProvider, BrokerProviderAsset, BrokerProviderAssetAPIKeyConnection, BrokerProviderAssetInsert, BrokerProviderAssetWithAccountChange, GeneralAsset, GeneralAssetInsert, GeneralAssetWithAccountChange, PortfolioHistoryTimePoint, UserAccount, AssetsChange, AssetValueOrphanInsert, AssetContributionOrphanInsert, RecurringContribution, RecurringContributionOrphanInsert, ContributionInterval, WithAssetHistory, SecuritySelect, SecurityInsert, DataRangeQuery, BrokerProviderAssetSecuritySelect, BrokerProviderAssetSecurityInsert, SecuritySearchResult, AssetWithHistory, WithResolvedSecurities, ResolvedSecurity, BrokerPlatform } from "@shared/schema";
 import { NodePgTransaction } from "drizzle-orm/node-postgres";
 import { Schema, TSchema } from "server/db/types/utils";
 import { QueryParams, QueryParts, ResourceQueryBuilder } from "@server/utils/resource-query-builder";
 import { resolveAssetsWithChange, resolveAssetWithChangeForDateRange, resolveDate, getPortfolioOverviewForAssets, getPortfolioValueHistoryForAssets } from "@shared/utils/assets";
+
+import { factory as securitiesFactory } from "@server/services/securities";
+import { AssetSecurity } from "../securities/types";
+
+const securitiesService = securitiesFactory();
 
 type Transaction = NodePgTransaction<Schema, TSchema>;
 
@@ -20,6 +25,14 @@ const brokerProviderAssetsQueryBuilder = new ResourceQueryBuilder({
   ],
   allowedFilterFields: ["providerId", "accountType"],
   defaultSort: { field: "createdAt", direction: "desc" },
+  maxLimit: 50,
+});
+
+const assetValuesQueryBuilder = new ResourceQueryBuilder({
+  table: assetValues,
+  allowedSortFields: ["recordedAt"],
+  allowedFilterFields: [],
+  defaultSort: { field: "recordedAt", direction: "desc" },
   maxLimit: 50,
 });
 
@@ -157,10 +170,10 @@ export class DatabaseAssetService {
     });
     //return { ...brokerAsset, accountChange: resolveAssetWithChange(brokerAsset, { start: query.start, end: query.end }) };
   }
-  
 
   async getBrokerProviderAssetValueHistory(id: BrokerProviderAsset["id"], query: QueryParams): Promise<AssetValue[]> {
-    const { where, orderBy, limit, offset } = brokerProviderAssetsQueryBuilder.buildQuery(query);
+    const { where, orderBy, limit, offset } = assetValuesQueryBuilder.buildQuery(query);
+    console.log("getBrokerProviderAssetValueHistory orderBy", orderBy);
     return this.db.query.assetValues.findMany({ where: and(eq(assetValues.assetId, id), where), orderBy, limit, offset });
   }
   
@@ -176,38 +189,60 @@ export class DatabaseAssetService {
         currentValue: data.currentValue ?? 0
       }).returning();
 
+      if(!insertedBrokerProviderAsset) {
+        throw new Error("Failed to create broker provider asset");
+      }
+
       const securities = data.securities.map((security) => ({
         ...security,
         assetId: insertedBrokerProviderAsset.id,
       }));
 
+      console.log("createBrokerProviderAsset securities", securities);
+
       const securitiesToInsert = await Promise.all(securities.map(async (security) => {
-        const persistedSecurity = await this.createOrFindSecurity(security.security);
+        const persistedSecurity = await securitiesService.createOrFindCachedSecurity(security.security);
         return {
           securityId: persistedSecurity.id,
           brokerProviderAssetId: insertedBrokerProviderAsset.id,
           recordedAt: security.recordedAt ?? new Date(),
           shareHolding: security.shareHolding,
           gainLoss: security.gainLoss,
+          startDate: security.startDate,
         };
       }));
 
-      console.log("securitiesToInsert", securitiesToInsert);
+      console.log("createBrokerProviderAsset securitiesToInsert", securitiesToInsert);
 
       if(securitiesToInsert.length > 0) {
         await tx.insert(brokerProvideraAssetSecurities).values(securitiesToInsert);
       }
 
-      await tx.insert(assetValues).values({
-        assetId: insertedBrokerProviderAsset.id,
-        value: data.currentValue ?? 0,
-        recordedAt: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }).returning();
+      if(data.valueMethod === "manual") {
+        await tx.insert(assetValues).values({
+          assetId: insertedBrokerProviderAsset.id,
+          value: data.currentValue ?? 0,
+          valueDate: data.startDate,
+          recordedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+      }
+
       return insertedBrokerProviderAsset;
     });
+
+    const assetPersistence = assetPersistenceFactory(this, insertedBrokerProviderAsset.id)
+
+    await securitiesService.updateAssetValues(assetPersistence);
+
     return insertedBrokerProviderAsset ;
+  }
+
+  async updateBrokerProviderAssetHistories(id: BrokerProviderAsset["id"]): Promise<BrokerProviderAsset> {
+    const assetPersistence = assetPersistenceFactory(this, id)
+    await securitiesService.updateAssetValues(assetPersistence);
+    return this.getBrokerProviderAsset(id);
   }
 
   async updateBrokerProviderAsset(id: BrokerProviderAsset["id"], data: BrokerProviderAssetInsert): Promise<BrokerProviderAsset> {
@@ -335,6 +370,11 @@ export class DatabaseAssetService {
         ...data,
         currentValue: data.currentValue ?? 0
       }).returning();
+
+      if(!insertedGeneralAsset) {
+        throw new Error("Failed to create general asset");
+      }
+
       await tx.insert(assetValues).values({
         assetId: insertedGeneralAsset.id,
         value: data.currentValue ?? 0,
@@ -374,7 +414,7 @@ export class DatabaseAssetService {
 
   async createGeneralAssetValueHistory(id: GeneralAsset["id"], data: AssetValueOrphanInsert): Promise<AssetValue> {
 
-    return this.withValueTransaction(async (tx: Transaction) => {
+    const value = await this.withValueTransaction(async (tx: Transaction) => {
       const [insertedAssetValue] = await tx.insert(assetValues).values({
         ...data,
         assetId: id
@@ -382,6 +422,25 @@ export class DatabaseAssetService {
       return insertedAssetValue;
     }, "general", id);
 
+    if(!value) {
+      throw new Error("Failed to create asset value history")
+    }
+
+    return value
+
+  }
+
+  async pushAssetValuesForAsset(assetId: BrokerProviderAsset["id"], values: AssetValueOrphanInsert[]): Promise<AssetValue[]> {
+    const insertedValues = await this.db.insert(assetValues).values(values.map(value => ({
+      ...value,
+      assetId
+    }))).returning();
+
+    if(!insertedValues) {
+      throw new Error("Failed to create asset value history")
+    }
+
+    return insertedValues
   }
 
   async createGeneralAssetContributionHistory(id: GeneralAsset["id"], data: AssetContributionOrphanInsert): Promise<AssetContribution> {
@@ -484,6 +543,11 @@ export class DatabaseAssetService {
     }))
     
     return getPortfolioValueHistoryForAssets(assetsWithHistory, query);
+  }
+
+
+  async getBrokerPlatforms(): Promise<BrokerPlatform[]> {
+    return this.db.query.brokerPlatforms.findMany();
   }
 
   async getBrokerAssetProviders(): Promise<BrokerProvider[]> {
@@ -712,6 +776,49 @@ export class DatabaseAssetService {
       .where(eq(brokerProvideraAssetSecurities.id, securityId));
 
     return (result?.rowCount ?? 0) > 0;
+  }
+}
+
+export type AssetPersistence = {
+  getAssetById: () => Promise<{id: string}>
+  getLastAssetValue: () => Promise<AssetValue | null>
+  getAssetSecurities: () => Promise<AssetSecurity[]>
+  insertAssetValues: (values: AssetValueOrphanInsert[]) => Promise<AssetValue[]>
+}
+
+export const assetPersistenceFactory = (service: DatabaseAssetService, assetId: string): AssetPersistence => {
+  return {
+    getAssetById: async (): Promise<{id: string}> => {
+      return service.getBrokerProviderAsset(assetId)
+    },
+
+    getLastAssetValue: async (): Promise<AssetValue | null> => {
+      const historyOfOne = await service.getBrokerProviderAssetValueHistory(assetId, {
+        limit: 1,
+        sort: [{ field: "recordedAt", direction: "desc" }]
+      })
+
+      return historyOfOne.at(-1) ?? null
+    },
+
+    getAssetSecurities: async (): Promise<AssetSecurity[]> => {
+      const securities = await service.getBrokerProviderAssetSecurities(assetId, {
+        limit: 1000,
+        sort: [{ field: "recordedAt", direction: "desc" }]
+      })
+      return securities.map(security => ({
+        securityId: security.securityId,
+        symbol: security.security.symbol,
+        exchange: security.security.exchange ?? undefined,
+        shareHolding: security.shareHolding,
+        gainLoss: security.gainLoss,
+        startDate: security.startDate,
+      }))
+    },
+
+    insertAssetValues: async (values: AssetValueOrphanInsert[]): Promise<AssetValue[]> => {
+      return service.pushAssetValuesForAsset(assetId, values)
+    }
   }
 }
 

@@ -16,7 +16,7 @@ import {
 import { uuidRouteParam } from "@server/utils/uuid";
 import asyncCatch from "./utils";
 import { db } from "@server/db";
-import { DatabaseAssetService } from "@server/services/assets/database";
+import { assetPersistenceFactory, DatabaseAssetService } from "@server/services/assets/database";
 
 const assetService = new DatabaseAssetService(db);
 
@@ -106,6 +106,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Asset ID is required" });
       }
       const queryParams = parseQueryParamsExpress(req.query);
+      //console.log("GET broker asset history queryParams", queryParams);
       const history = await assetService.getBrokerProviderAssetValueHistory(
         req.params.assetId,
         queryParams
@@ -127,6 +128,20 @@ export async function registerRoutes(
         data
       );
       res.json(history);
+    }
+  );
+
+  router.put(
+    `/broker/${uuidRouteParam("assetId")}/history/update`,
+    requireUser,
+    async (req: AuthRequest, res) => {
+      if(!req.params.assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+
+      await assetService.updateBrokerProviderAssetHistories(req.params.assetId);
+
+      res.json({ success: true });
     }
   );
   
@@ -487,6 +502,15 @@ export async function registerRoutes(
         req.params.historyId
       );
       res.json(history);
+    }
+  );
+
+  router.get(
+    "/broker-platforms",
+    requireUser,
+    async (req: AuthRequest, res) => {
+      const platforms = await assetService.getBrokerPlatforms();
+      res.json(platforms);
     }
   );
 

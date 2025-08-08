@@ -30,7 +30,7 @@ export type AlphaVantageHistoryResponse = {
 }
 
 export const getSecurityHistoryForDateRange = async (
-  symbol: string, 
+  identifier: SecurityIdentifier, 
   startDate: Date, 
   endDate: Date
 ): Promise<SecurityHistory[]> => {
@@ -38,6 +38,8 @@ export const getSecurityHistoryForDateRange = async (
   if (!apiKey) {
     return []
   }
+
+  const { symbol } = identifier
 
   try {
     const url = buildAlphaVantageUrl({
@@ -71,11 +73,12 @@ export const getSecurityHistoryForDateRange = async (
 }
 
 export const getSecurityHistoryForDate = async (
-  symbol: string, 
+  identifier: SecurityIdentifier,
   date: Date
 ): Promise<SecurityHistory> => {
   const apiKey = validateApiKey("ALPHA_VANTAGE_API_KEY", "Alpha Vantage")
 
+  const { symbol } = identifier
   try {
     const url = buildAlphaVantageUrl({
       function: "TIME_SERIES_DAILY",

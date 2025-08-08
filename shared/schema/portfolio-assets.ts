@@ -14,6 +14,7 @@ import {
   // AssetDebitSelect as DBAssetDebitSelect,
   BrokerProviderAssetAPIKeyConnectionSelect as DBBrokerProviderAssetAPIKeyConnection,
   BrokerProviderSelect as DBBrokerProvider,
+  BrokerPlatformSelect as DBBrokerPlatform,
   AccountType as DBAccountType,
   RecurringContributionInsert as DBRecurringContributionInsert,
   RecurringContributionSelect as DBRecurringContributionSelect,
@@ -49,6 +50,7 @@ export const brokerProviderAssetSecurityInsertSchema = z.object({
   security: securityInsertSchema,
   shareHolding: z.number().transform((val) => typeof val === "string" ? parseFloat(val) : val),
   gainLoss: z.number().transform((val) => typeof val === "string" ? parseFloat(val) : val),
+  startDate: z.coerce.date(),
   recordedAt: z.coerce.date().optional(),
 })
 
@@ -56,8 +58,18 @@ export type BrokerProviderInsertSecurityItem = z.infer<typeof brokerProviderAsse
 
 export const brokerProviderAssetOrphanInsertSchema = z.object({
   name: z.string(),
-  providerId: z.string(),
+  platformId: z.string().optional(),
+  providerId: z.string().optional(),
+
+  //TODO Account type to become a wrapper type
+  //wrapperType: z.string().optional(),
   accountType: z.string(),
+
+  startDate: z.coerce.date(),
+  
+  valueMethod: z.enum(['manual', 'calculated']),
+
+  //Only to be specified by user if the asset is to be manually updated
   currentValue: z.number().optional(),
   securities: z.array(brokerProviderAssetSecurityInsertSchema),
   contributions: z.object({
@@ -76,9 +88,10 @@ export const brokerProviderAssetOrphanInsertSchema = z.object({
 })
 
 type ZodBrokerProviderAssetOrphan = z.infer<typeof brokerProviderAssetOrphanInsertSchema>;
+brokerProviderAssetOrphanInsertSchema satisfies ZodType<Omit<DBBrokerProviderAssetInsert, "userAccountId">>
 export type BrokerProviderAssetOrphanInsert = ZodBrokerProviderAssetOrphan
 //export type BrokerProviderAssetOrphanInsert = IfConstructorEquals<ZodBrokerProviderAssetOrphan, Orphan<DBBrokerProviderAssetInsert>, never>;
-brokerProviderAssetOrphanInsertSchema satisfies ZodType<BrokerProviderAssetOrphanInsert>;
+//brokerProviderAssetOrphanInsertSchema satisfies ZodType<BrokerProviderAssetOrphanInsert>;
 
 export const brokerProviderAssetInsertSchema = brokerProviderAssetOrphanInsertSchema.extend({
   userAccountId: z.string()
@@ -97,6 +110,7 @@ export type BrokerProviderAssetWithAccountChange = WithAccountChange<BrokerProvi
 export const assetValueOrphanInsertSchema = z.object({
   value: z.number(),
   recordedAt: z.coerce.date(),
+  valueDate: z.coerce.date(),
 })
 
 type ZodAssetValueOrphanInsert = z.infer<typeof assetValueOrphanInsertSchema>;
@@ -193,7 +207,7 @@ export type AssetHistoryTimePoint = {
 }
 
 /**
- * @deprecated Use AssetHistoryTimePoint instead
+ * @deprecated Alias for AssetHistoryTimePoint - Use AssetHistoryTimePoint instead
  */
 export type PortfolioHistoryTimePoint = AssetHistoryTimePoint
 
@@ -201,11 +215,14 @@ export type BrokerProviderAssetAPIKeyConnection = DBBrokerProviderAssetAPIKeyCon
 
 export type AccountType = DBAccountType
 
+export type BrokerPlatform = DBBrokerPlatform
+
 export type BrokerProvider = DBBrokerProvider
 
-export type BrokerProviderAssetSecuritySelect = DBBrokerProviderAssetSecuritySelect
+export type BrokerProviderAssetSecuritySelect = DBBrokerProviderAssetSecuritySelect & {
+  security: SecuritySelect
+}
 export type BrokerProviderAssetSecurityInsert = DBBrokerProviderAssetSecurityInsert
-
 
 export type CalculatedValue = {
   value: number;

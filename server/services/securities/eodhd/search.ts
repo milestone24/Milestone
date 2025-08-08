@@ -29,6 +29,7 @@ import { withErrorHandling } from "../../../utils/error-handling"
 import { validateArrayResponse } from "../../../utils/response-validation"
 import { buildEodhdSearchUrl } from "../utils/provider-url-builders"
 import { validateEodhdResponse } from "../utils/provider-response-validation"
+import { EODHD_API_KEY_NAME, EODHD_NAME } from "./const"
 
 export type EODHDSearchResponse = EODHDSecurity[] | {
   error?: string;
@@ -37,7 +38,7 @@ export type EODHDSearchResponse = EODHDSecurity[] | {
 }
 
 export async function findSecurities(securityIdentifiers: string[]): Promise<EODHDSecurity[]> {
-  const apiKey = validateApiKeyOptional("EODHD_API_KEY", "EODHD")
+  const apiKey = validateApiKeyOptional(EODHD_API_KEY_NAME, EODHD_NAME)
   if (!apiKey) {
     return []
   }

@@ -3,6 +3,23 @@
 
 This service module handles everything related to investment securities resolution and search functionality.
 
+## Important Requirements
+
+### ⚠️ CRITICAL REQUIREMENT: Cache-First Strategy
+**All operations for obtaining security information and history from external resources should always use a cache-first strategy.** This means:
+- Always check local database/cache before making external API calls
+- Only query external providers (EODHD, Alpha Vantage) when data is not available locally
+- Store retrieved data in cache for future use
+- Implement proper cache invalidation strategies
+
+### 📅 Historical Data Limitations
+**All historical data retrieval operations are subject to configurable time limitations.** Current implementation:
+- **Maximum History**: 3 months (configurable via `SECURITIES_MAX_HISTORY_MONTHS`)
+- **Automatic Truncation**: Date ranges beyond limit are automatically truncated
+- **Provider Research**: Ongoing research for precise provider-specific limitations
+
+See [Historical Data Limitations Documentation](docs/historical-data-limitations.md) for detailed information about provider constraints, configuration options, and future enhancement plans.
+
 ## API Providers
 
 The service integrates with multiple financial data providers to resolve securities information:
@@ -131,6 +148,9 @@ EODHD_ENABLE_SEARCH_EXPIRATION=true           # Enable/disable expiration (defau
 ALPHA_VANTAGE_MAX_SEARCHES=10                 # Maximum searches per identifier (default: 10)
 ALPHA_VANTAGE_SEARCH_EXPIRATION_HOURS=24      # Hours before search count resets (default: 24)
 ALPHA_VANTAGE_ENABLE_SEARCH_EXPIRATION=true   # Enable/disable expiration (default: false)
+
+# Historical Data Limitations
+SECURITIES_MAX_HISTORY_MONTHS=3               # Maximum months of history to fetch (default: 3)
 ```
 
 ## Usage

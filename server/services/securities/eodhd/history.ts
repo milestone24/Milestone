@@ -6,6 +6,7 @@ import { withErrorHandling } from "../../../utils/error-handling"
 import { validateArrayResponse } from "../../../utils/response-validation"
 import { buildEodhdEodUrl } from "../utils/provider-url-builders"
 import { mapEodhdToSecurityHistory } from "../utils/security-history-mapper"
+import { EODHD_SOURCE_IDENTIFIER } from "./const"
 
 export type EODHDHistoryResponse = {
   date: string;
@@ -63,13 +64,12 @@ export const getSecurityHistoryLiveForDateRange = async (
   }
 
   try {
-    const { startDateStr, endDateStr } = validateAndExtractDateRange(startDate, endDate)
+    //const { startDateStr, endDateStr } = validateAndExtractDateRange(startDate, endDate)
     //const url = buildEodhdEodUrl(identifier, apiKey, startDateStr, endDateStr)
 
     const url = `https://eodhd.com/api/real-time/${identifier.symbol}.${identifier.exchange}?api_token=${apiKey}&fmt=json`
     
     const data: EODHDHistoryResponse[] = await makeApiRequest(url, "EODHD")
-
 
     console.log("DATA", data)
 
@@ -125,8 +125,6 @@ export const getIntradaySecurityHistoryForDate = async (identifier: SecurityIden
     if (!apiKey) {
       return []
     }
-
-    const dateStr = validateAndExtractDateString(date)
     
     // Convert date to Unix timestamps for the start and end of the day
     const startOfDay = new Date(date)
@@ -162,11 +160,13 @@ export const getIntradaySecurityHistoryForDate = async (identifier: SecurityIden
  * @param symbol The security symbol
  * @returns SecurityHistory object
  */
-export const mapEodhdIntradayToSecurityHistory = (item: EODHDIntradayResponse, symbol: string): SecurityHistory => ({
+export const mapEodhdIntradayToSecurityHistory = (item: EODHDIntradayResponse, symbol: string, exchange: string): SecurityHistory => ({
   symbol,
+  exchange,
   date: new Date(item.datetime), // EODHD provides datetime in UTC
   open: item.open,
   high: item.high,
   low: item.low,
   close: item.close,
+  sourceIdentifier: EODHD_SOURCE_IDENTIFIER
 })

@@ -63,6 +63,22 @@ This directory contains important documentation for the Securities Service, incl
 - When designing database schema for financial data
 - When planning cache warming and management strategies
 
+### [Historical Data Limitations](historical-data-limitations.md)
+**Purpose**: Documents the limitations and constraints for retrieving historical security data from external API providers, including current known limitations and research requirements.
+
+**Key Topics**:
+- Current 3-month configurable limitation and rationale
+- Known provider limitations (EODHD, Alpha Vantage)
+- Configuration options and environment variables
+- Research requirements for precise provider limitations
+- Future implementation strategy for dynamic limitations
+
+**When to Read**: 
+- When implementing historical data retrieval functionality
+- When planning asset value calculations requiring historical data
+- When troubleshooting historical data availability issues
+- When designing systems that depend on long-term historical data
+
 ## Documentation Standards
 
 All documentation in this directory should:

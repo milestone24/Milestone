@@ -5,6 +5,7 @@ import { getSecurityHistoryForDateRange as getSecurityHistoryForDateRangeOrigina
   getSecurityHistoryLiveForDateRange as getSecurityHistoryLiveForDateRangeOriginal } from "./history";
 import { SecurityInfoService, IntradayOptions, SecurityIdentifier } from "../types";
 import { SecuritySearchResult } from "@shared/schema"
+import { EODHD_NAME, EODHD_SOURCE_IDENTIFIER } from "./const";
 
 
 export type EODHDSecurity = {
@@ -30,12 +31,12 @@ const normalizeSecurityInfo = (security: EODHDSecurity): SecuritySearchResult =>
   cusip: undefined,
   figi: undefined,
   fromCache: false,
-  sourceIdentifier: "eodhd",
+  sourceIdentifier: EODHD_SOURCE_IDENTIFIER,
 });   
 
 export const factory = (): SecurityInfoService => ({
-  identifier: "eodhd",
-  name: "EODHD",
+  identifier: EODHD_SOURCE_IDENTIFIER,
+  name: EODHD_NAME,
   canFindSecurities: true,
   findSecurities: async (securityIdentifiers: string[]) => {
     return findSecuritiesOriginal(securityIdentifiers)

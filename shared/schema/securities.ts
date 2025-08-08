@@ -1,14 +1,17 @@
-import { z, ZodType } from "zod";
-import {
+import { z } from "zod";
+import type {
   SecuritySelect as DBSecuritySelect,
-  SecurityInsert as DBSecurityInsert,
 } from "@server/db/schema/index";
-import { IfConstructorEquals, Orphan } from "./utils";
+
+export type {
+  SecurityDailyHistorySelect,
+} from "@server/db/schema/index"
 
 // Security Insert Schemas
 export const securityInsertSchema = z.object({
   symbol: z.string().min(1, "Symbol is required"),
   name: z.string().min(1, "Name is required"),
+  sourceIdentifier: z.string().min(1, "Source identifier is required"),
   exchange: z.string().optional(),
   country: z.string().optional(),
   currency: z.string().optional(),

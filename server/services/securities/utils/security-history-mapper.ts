@@ -1,3 +1,5 @@
+import { ALPHA_VANTAGE_SOURCE_IDENTIFIER } from "../alpha-vantage/const";
+import { EODHD_SOURCE_IDENTIFIER } from "../eodhd/const";
 import { SecurityHistory } from "../types"
 
 export type EODHDHistoryResponse = {
@@ -31,6 +33,7 @@ export const mapEodhdToSecurityHistory = (item: EODHDHistoryResponse, symbol: st
   high: item.high,
   low: item.low,
   close: item.close,
+  sourceIdentifier: EODHD_SOURCE_IDENTIFIER
 })
 
 /**
@@ -65,5 +68,6 @@ export const mapAlphaVantageToSecurityHistory = (
     high: parseFloat(values["2. high"]),
     low: parseFloat(values["3. low"]),
     close: parseFloat(values["4. close"]),
+    sourceIdentifier: ALPHA_VANTAGE_SOURCE_IDENTIFIER
   }
 } 
