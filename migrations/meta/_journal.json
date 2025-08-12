@@ -57,6 +57,34 @@
       "when": 1754557059734,
       "tag": "0007_security-source-identifier",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1754972818776,
+      "tag": "0008_history-sync",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1755147691786,
+      "tag": "0009_create-asset-update-2025-08-14",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1755149693956,
+      "tag": "0010_create-asset-update-2025-08-14-(2)",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1755245705053,
+      "tag": "0011_create-asset-update-2025-08-15",
+      "breakpoints": true
     }
   ]
 }
