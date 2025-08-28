@@ -1,7 +1,7 @@
 ---
-description: General preferred practices for all code of teh code base.
+description: General preferred practices for all code of the code base.
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
 - all requested changes should be done keeping in mind small relevant and controlleed git hub commits
 - all git hub commit message should be of a user story and follow a pattern of "[subject] should [action]".
@@ -12,3 +12,4 @@ alwaysApply: false
 - Never make changes outside of the scope that you have been asked to work on
 - Never use toast for form errors
 - Always consider git commit best practices when making changes. Commits should be small and to the point with no uneccessary changes
+- Always avoid complicated loops and within a loop delegate to a function to handle one item
