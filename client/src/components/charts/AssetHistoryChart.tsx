@@ -11,7 +11,7 @@ import {
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
-import { AssetHistoryTimePoint } from "shared/schema";
+import { AssetHistoryTimePoint, AssetValue } from "shared/schema";
 import { usePortfolio } from "@/context/PortfolioContext";
 import { useDateRange } from "@/context/DateRangeContext";
 import {
@@ -102,12 +102,16 @@ export default function AssetHistoryChart({
     return getDateRange(dateRange as DateRangeOption);
   }, [dateRange]);
 
-  // Fetch portfolio history data
-  const { data: historyData, isLoading } = useQuery<AssetHistoryTimePoint[]>({
+  console.log("startDate", startDate)
+  console.log("endDate", endDate)
+
+  // Fetch asset history data
+  //const { data: historyData, isLoading } = useQuery<AssetHistoryTimePoint[]>({
+  const { data: historyData, isLoading } = useQuery<AssetValue[]>({
     queryKey: [url, startDate, endDate],
     queryFn: async () => {
       const response = await fetch(
-        `${url}?${getDateUrlParams(startDate, endDate)}`
+        `${url}?${getDateUrlParams(startDate, endDate)}&sort=valueDate,asc`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch portfolio history");
@@ -116,12 +120,21 @@ export default function AssetHistoryChart({
     },
   });
 
+  console.log("historyData", historyData)
+
   //Mopve to utility
   const data: ChartData[] =
     Array.isArray(historyData) && historyData.length > 0
       ? combineDataPoints(
           historyData.map((item) => {
-            const itemDate = new Date(item.date);
+
+            //console.log("item", item);
+
+            //const itemDate = new Date(item.date);
+            const itemDate = new Date(item.valueDate);
+
+            //console.log("itemDate", itemDate);
+
             // Find the highest milestone achieved at this point
             const achievedMilestone = milestones
               ?.filter((m) => {
@@ -137,7 +150,8 @@ export default function AssetHistoryChart({
                 day: "2-digit",
               }),
               value: Number(item.value),
-              changes: item.changes,
+              //changes: item.changes,
+              changes: [],
               achievedMilestone: achievedMilestone
                 ? {
                     name: achievedMilestone.name,
@@ -148,6 +162,8 @@ export default function AssetHistoryChart({
           })
         )
       : [];
+
+  console.log("data", data);
 
   // Add milestone data if enabled
   const chartData = [...data];

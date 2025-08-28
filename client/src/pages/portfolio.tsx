@@ -83,6 +83,7 @@ function Portfolio() {
   );
 
   const onSubmit = async (values: BrokerProviderAssetOrphanInsert) => {
+    console.log("submit account create values : ", values)
     try {
       setIsAddingAccount(true);
       await addBrokerAsset.mutateAsync(values);

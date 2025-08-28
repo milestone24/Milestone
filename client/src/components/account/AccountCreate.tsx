@@ -5,7 +5,7 @@ import {
   SecuritySearchResult,
   brokerProviderAssetSecurityInsertSchema,
 } from "@shared/schema";
-import { useForm, useFormContext, useFieldArray } from "react-hook-form";
+import { useForm, useFormContext, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Form,
@@ -34,6 +34,8 @@ import { Trash2 } from "lucide-react";
 import { withTransform } from "@/lib/utils/mappers";
 import { Switch } from "../ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
+import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
+import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 
 type AccountCreateProps = {
   onSubmit: (data: BrokerProviderAssetOrphanInsert) => void;
@@ -104,31 +106,33 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
       })
     ),
     mode: "onBlur",
-    defaultValues: {
-      securities: [],
-      contributions: {
-        process: "automatic",
-        securityDistribution: [],
-      },
-    },
     // defaultValues: {
-    //   name: "Mine 3",
-    //   providerId: "3d723d74-ecf5-49fa-a4d9-4c52c1842de7",
-    //   accountType: "ISA",
-    //   securities: [
-    //     {
-    //       security: {
-    //         symbol: "AAPL",
-    //         name: "Apple Inc.",
-    //       },
-    //       shareHolding: 100,
-    //       gainLoss: 100,
-    //     },
-    //   ],
+    //   securities: [],
+    //   contributions: {
+    //     process: "automatic",
+    //     securityDistribution: [],
+    //   },
     // },
+    defaultValues: {
+      name: "Mine 5",
+      platformId: "3d723d74-ecf5-49fa-a4d9-4c52c1842de7",
+      accountType: "ISA",
+      startDate: new Date("2025-01-01"),
+      valueMethod: "calculated",
+      securities: [
+        // {
+        //   security: {
+        //     symbol: "AAPL",
+        //     name: "Apple Inc.",
+        //   },
+        //   shareHolding: 100,
+        //   gainLoss: 100,
+        // },
+      ],
+    },
   });
 
-  const [formStage, setFormStage] = useState<number>(1);
+  const [formStage, setFormStage] = useState<number>(2);
 
   const submitForm = (data: BrokerProviderAssetOrphanInsert) => {
     onSubmit(data);
@@ -139,8 +143,6 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
     handleSubmit,
     formState: { errors },
   } = form;
-
-  console.log("errors", errors);
 
   return (
     <>
@@ -242,25 +244,29 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
     formState: { isSubmitting },
   } = form;
 
-  const { data: brokerProviders, isLoading: isLoadingBrokerProviders } =
-    useBrokerProviders();
+  // const { data: brokerProviders, isLoading: isLoadingBrokerProviders } =
+  //   useBrokerProviders();
 
-  const selectedProviderId = form.watch("providerId");
-  const selectedProvider = brokerProviders?.find(
-    (p) => p.id === selectedProviderId
+
+  const { data: brokerPlatforms, isLoading: isLoadingBrokerPlatforms } =
+    useBrokerPlatforms();
+
+  const selectedPlatformId = form.watch("platformId");
+  const selectedPlatform = brokerPlatforms?.find(
+    (p) => p.id === selectedPlatformId
   );
 
   const nameFieldState = form.getFieldState("name");
-  const providerFieldState = form.getFieldState("providerId");
+  const platformFieldState = form.getFieldState("platformId");
   const accountTypeFieldState = form.getFieldState("accountType");
 
   console.log("nameFieldState", nameFieldState);
-  console.log("providerFieldState", providerFieldState);
+  console.log("platformFieldState", platformFieldState);
   console.log("accountTypeFieldState", accountTypeFieldState);
 
   const canNext =
     !nameFieldState.invalid &&
-    !providerFieldState.invalid &&
+    !platformFieldState.invalid &&
     !accountTypeFieldState.invalid;
 
   const actionsBarProps = {
@@ -289,25 +295,28 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
       />
       <FormField
         control={form.control}
-        name="providerId"
+        name="platformId"
         rules={{
           required: true,
           validate: (value) => {
             if (!value) {
-              return "Provider is required";
-            } else if (!brokerProviders?.find((p) => p.id === value)) {
-              return "Provider is invalid";
+              return "Platform is required";
+            } else if (!brokerPlatforms?.find((p) => p.id === value)) {
+              return "Platform is invalid";
             }
             return true;
           },
         }}
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Select Provider</FormLabel>
+            <FormLabel>Select Platform</FormLabel>
+            <FormDescription>
+              Did you use a broker platform to manage your assets?
+            </FormDescription>
             <Select
               onValueChange={field.onChange}
               defaultValue={field.value}
-              disabled={isLoadingBrokerProviders}
+              disabled={isLoadingBrokerPlatforms}
             >
               <FormControl>
                 <SelectTrigger>
@@ -315,9 +324,9 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {brokerProviders?.map((provider) => (
-                  <SelectItem key={provider.id} value={provider.id}>
-                    {provider.name}
+                {brokerPlatforms?.map((platform) => (
+                  <SelectItem key={platform.id} value={platform.id}>
+                    {platform.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -337,7 +346,7 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
             <Select
               onValueChange={field.onChange}
               defaultValue={field.value}
-              disabled={!selectedProvider}
+              disabled={!selectedPlatform}
             >
               <FormControl>
                 <SelectTrigger>
@@ -345,8 +354,8 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {selectedProvider &&
-                  selectedProvider.supportedAccountTypes.map((type) => (
+                {selectedPlatform &&
+                  selectedPlatform.supportedAccountTypes.map((type) => (
                     <SelectItem key={type} value={type}>
                       {type}
                     </SelectItem>
@@ -358,6 +367,30 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
         )}
       />
 
+      <FormField
+        control={form.control}
+        name="startDate"
+        render={() => (
+          <FormItem>
+            <FormLabel>Select Start Date</FormLabel>
+            <FormDescription>
+              When did you start this account?
+            </FormDescription>
+            <Controller
+              control={form.control}
+              name="startDate"
+              render={({ field }) => (
+                <Input
+                  type="date"
+                  onChange={(e) => field.onChange(new Date(e.target.value))}
+                  value={field.value ? field.value.toISOString().split("T")[0] : ""} />
+              )}
+            />
+            <FormMessage />
+          </FormItem>
+        )}
+      />  
+
       <section>
         <ActionsBar {...actionsBarProps} isProcessing={isSubmitting} />
       </section>
@@ -368,6 +401,8 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
 const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
   const form = useFormContext<BrokerProviderAssetOrphanInsert>();
 
+  const { watch } = form;
+
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "securities",
@@ -375,41 +410,98 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
 
   const [addingSecurity, setAddingSecurity] = useState<boolean>(false);
 
+  const valueMethod = watch("valueMethod");
+
+  const securities = watch("securities");
+
+  console.log("Two securities : ", securities)
+
+  const startDate = watch("startDate");
+
   const {
     formState: { isSubmitting },
   } = form;
 
   return (
     <>
-      <div className="flex flex-row justify-between items-center">
-        <h2 className="text-lg font-bold">Add Securities</h2>
-      </div>
-      <div className="space-y-2 flex flex-col gap-2">
-        {fields.map((field, index) => (
-          <div key={field.id} className="flex flex-row gap-2 items-start">
-            <div className="flex-1">
-              <SecurityCard security={field} />
-            </div>
-            <Button variant="outline" onClick={() => remove(index)}>
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        ))}
-        {addingSecurity ? (
-          <SecurityAddForm
-            onAdd={(security) => {
-              setAddingSecurity(false);
-              append(security);
-            }}
-          />
-        ) : (
-          <Button onClick={() => setAddingSecurity(true)}>Add Security</Button>
+      <FormField
+        control={form.control}
+        name="valueMethod"
+        rules={{ required: true }}
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Select Control</FormLabel>
+            <FormDescription>
+              How do you want to control this account?
+            </FormDescription>
+            <FormControl>
+              <RadioGroup
+                value={field.value}
+                onValueChange={field.onChange}
+              >
+                <div className="flex flex-row gap-2 items-start">
+                  <div className="flex flex-col gap-2 pt-2">
+                    <RadioGroupItem value="calculated" id="calculated" className="flex-shrink-0" />
+                  </div>
+                  <div className="flex flex-col pt-1">
+                    <label htmlFor="calculated">Calculated</label>
+                    <span className="text-xs block">We will calculate the value of your account based on the securities you tell us are held in the account</span>
+                  </div>
+                </div>
+                <div className="flex flex-row gap-2 items-start">
+                  <div className="flex flex-col gap-2 pt-2">
+                    <RadioGroupItem value="manual" id="manual" className="flex-shrink-0" />
+                  </div>
+                  <div className="flex flex-col pt-1">
+                    <label htmlFor="manual">Manual</label>
+                    <span className="text-xs block">You will need to manually enter the value of your account each time</span>
+                    </div>
+                </div>
+              </RadioGroup>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
         )}
-        <ActionsBar {...props} isProcessing={isSubmitting} />
-      </div>
+      />
+      {valueMethod === "calculated" ? (
+        <>
+          <div>
+            <FormLabel>Add Securities</FormLabel>
+            <FormDescription>In order to calculate the value of your account, we need to know which securities are held in the account</FormDescription>
+          </div>
+          <div className="space-y-2 flex flex-col gap-2">
+            {fields.map((field, index) => (
+              <div key={field.id} className="flex flex-row gap-2 items-start">
+                <div className="flex-1">
+                  <SecurityCard security={field} />
+                </div>
+                <Button variant="outline" onClick={() => remove(index)}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+            {addingSecurity ? (
+              <SecurityAddForm
+                onCancel={() => setAddingSecurity(false)}
+                onAdd={(security) => {
+                  setAddingSecurity(false);
+                  append({
+                    ...security,
+                    startDate,
+                  });
+                }}
+              />
+            ) : (
+              <Button onClick={() => setAddingSecurity(true)}>Add Security</Button>
+            )}
+            <ActionsBar {...props} isProcessing={isSubmitting} />
+          </div>
+        </>
+      ) : null}
     </>
   );
 };
+
 
 // Debounce utility
 function useDebouncedCallback<T extends (...args: any[]) => void>(
@@ -445,12 +537,17 @@ const SecurityOptions = ({
   return <div {...innerProps}>{data.label}</div>;
 };
 
+
+type BrokerProviderInsertSecurityItemWithoutStartDate = Omit<BrokerProviderInsertSecurityItem, "startDate">;
+
 const SecurityAddForm = ({
   onAdd,
+  onCancel,
 }: {
-  onAdd: (value: BrokerProviderInsertSecurityItem) => void;
+  onAdd: (value: BrokerProviderInsertSecurityItemWithoutStartDate) => void;
+  onCancel: () => void;
 }) => {
-  const form = useForm<Partial<BrokerProviderInsertSecurityItem>>({
+  const form = useForm<Partial<Omit<BrokerProviderInsertSecurityItemWithoutStartDate, "startDate">>>({
     //We need this as the form library does not use react-hook form effectively to allow valueAsNumber to work
     //And we really need a float anyway
 
@@ -463,6 +560,7 @@ const SecurityAddForm = ({
 
   const {
     control,
+    watch,
     formState: { errors },
   } = form;
 
@@ -527,24 +625,28 @@ const SecurityAddForm = ({
           </FormItem>
         )}
       />
-      <Button
-        onClick={() => {
-          if (selectedSecurity) {
-            onAdd({
-              tempId: crypto.randomUUID(),
-              security: selectedSecurity,
-              shareHolding: form.getValues("shareHolding") || 0,
-              gainLoss: form.getValues("gainLoss") || 0,
-            } as BrokerProviderInsertSecurityItem);
-            setSelectedSecurity(null);
-            setSearchInput("");
-            form.reset();
-          }
-        }}
-        disabled={!selectedSecurity}
-      >
-        Add
-      </Button>
+      <div className="flex flex-row gap-2">
+        <Button variant="outline" onClick={() => onCancel()}>Cancel</Button>
+        <Button
+          onClick={() => {
+            if (selectedSecurity) {
+              onAdd({
+                tempId: crypto.randomUUID(),
+                security: selectedSecurity,
+                shareHolding: form.getValues("shareHolding") || 0,
+                gainLoss: form.getValues("gainLoss") || 0,
+              } as BrokerProviderInsertSecurityItemWithoutStartDate);
+              setSelectedSecurity(null);
+              setSearchInput("");
+              form.reset();
+            }
+          }}
+          disabled={!selectedSecurity}
+        >
+          Add
+        </Button>
+      </div>
+      
     </>
   );
 };
@@ -555,18 +657,22 @@ type SecurityCardProps = {
 
 const SecurityCard = ({ security }: SecurityCardProps) => {
   return (
-    <div className="flex flex-col gap-2 p-2 border rounded-md">
-      <div className="flex flex-row gap-2 text-ellipsis">
-        <span>{security.security.symbol}</span>
-        <span>{security.security.name}</span>
+    <div className="flex flex-col gap-1 p-2 border rounded-md">
+      <div className="flex flex-row gap-2 text-ellipsis text-sm">
+        <span className="text-sm">{security.security.symbol}</span>
+        <span className="text-sm">{security.security.name}</span>
       </div>
-      <div className="flex flex-row gap-2">
+      <div className="flex flex-row gap-2 text-sm">
         <span>Share Holdings:</span>
         <span>{security.shareHolding}</span>
       </div>
-      <div className="flex flex-row gap-2">
+      <div className="flex flex-row gap-2 text-sm">
         <span>Gain/Loss:</span>
         <span>{security.gainLoss}</span>
+      </div>
+      <div className="flex flex-row gap-2 text-sm">
+        <span>Start Date:</span>
+        <span>{security.startDate?.toLocaleDateString() || "N/A"}</span>
       </div>
       {/* <div className="flex flex-row gap-2">
           <span className="text-sm">Name:</span>
@@ -641,8 +747,8 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
   const { securitiesFields } = useContributionSecurities(securities);
 
   const process = watch("contributions.process");
-
-  console.log("securitiesFields", securitiesFields);
+  
+  console.log("Three securities : ", securities)
 
   return (
     <>

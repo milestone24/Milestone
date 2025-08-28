@@ -56,6 +56,7 @@ import { navigate } from "wouter/use-browser-location";
 import AssetHistoryChart from "@/components/charts/AssetHistoryChart";
 import DateRangeBar from "@/components/layout/DateRangeBar";
 import { ContributionsPanel } from "@/components/account/ContributionsPanel";
+import { useSecuritiesUpdate } from "@/hooks/use-securities-update";
 
 // Form schema for history entry
 const historySchema = z.object({
@@ -117,6 +118,9 @@ export default function AssetPage() {
     }
   );
 
+  const { mutateAsync: updateAssetHistories } = useSecuritiesUpdate(assetId ?? "");
+  const [isUpdatingHistories, setIsUpdatingHistories] = useState(false);
+
   // Form for adding/editing history
   const form = useForm<z.infer<typeof historySchema>>({
     resolver: zodResolver(historySchema),
@@ -133,7 +137,8 @@ export default function AssetPage() {
       await addBrokerAssetValue.mutateAsync({
         assetId: assetId,
         value: Number(values.value),
-        recordedAt: new Date(values.recordedAt),
+        recordedAt: new Date(),
+        valueDate: new Date(values.recordedAt),
       });
       setIsAddHistoryOpen(false);
       form.reset();
@@ -149,7 +154,8 @@ export default function AssetPage() {
         historyId: historyToEdit.id,
         assetId: assetId,
         value: Number(values.value),
-        recordedAt: new Date(values.recordedAt),
+        valueDate: new Date(values.recordedAt),
+        recordedAt: new Date(),
       });
       setIsEditHistoryOpen(false);
       form.reset();
@@ -220,6 +226,24 @@ export default function AssetPage() {
 
   const brokerName = getBrokerName(asset.providerId, providers ?? []);
 
+  console.log("securities", asset.securities);
+
+  const isSecuritiesAsset = (asset.securities?.length ?? 0) > 0;
+  
+  console.log("isSecuritiesAsset", isSecuritiesAsset);
+
+  const handleUpdateAssetHistories = async () => {
+    if (!assetId) return;
+    setIsUpdatingHistories(true);
+    await updateAssetHistories()
+    .then(() => {
+      setIsUpdatingHistories(false);
+    })
+    .catch(() => {
+      setIsUpdatingHistories(false);
+    });
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="flex flex-col items-start mb-6">
@@ -259,8 +283,11 @@ export default function AssetPage() {
       {/* Date Range Control */}
       <DateRangeBar />
 
+      <div className="flex justify-end">
+        <Button onClick={handleUpdateAssetHistories} disabled={isUpdatingHistories}>Update</Button>
+      </div>
+
       <div>
-        {(asset.securities?.length ?? 0) > 0 ? (
           <div className="">
             <h2 className="text-lg font-medium mb-2">Holdings</h2>
             <SecuritiesList
@@ -268,7 +295,6 @@ export default function AssetPage() {
               onItemClick={handleSecurityClick}
             />
           </div>
-        ) : (
           <Tabs
             value={activeTab}
             onValueChange={(value) =>
@@ -289,7 +315,8 @@ export default function AssetPage() {
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-lg font-medium">History</h2>
-                  <Dialog
+                  {!isSecuritiesAsset
+                    ? (<Dialog
                     open={isAddHistoryOpen}
                     onOpenChange={setIsAddHistoryOpen}
                   >
@@ -355,7 +382,8 @@ export default function AssetPage() {
                         </form>
                       </Form>
                     </DialogContent>
-                  </Dialog>
+                  </Dialog>)
+                  : null}
                 </div>
 
                 {/* History List */}
@@ -424,7 +452,6 @@ export default function AssetPage() {
             </TabsContent>
             {/* Recurring Contributions Tab Content */}
           </Tabs>
-        )}
       </div>
 
       {/* Edit History Dialog */}
