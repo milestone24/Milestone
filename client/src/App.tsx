@@ -112,7 +112,7 @@ function Router() {
           )}
         </Route>
         */}
-        <Route path="/asset/broker/:id">
+        <Route path="/asset/:id">
           {() => (
             <ProtectedRoute>
               <RouteWithLayout component={AssetPage} />

@@ -40,7 +40,8 @@ import { z } from "zod";
 import { usePortfolio } from "@/context/PortfolioContext";
 import {
   AssetValue,
-  BrokerProviderAsset,
+  ResolvedUserAsset,
+  UserAsset,
   WithResolvedSecurities,
 } from "shared/schema";
 import {
@@ -71,12 +72,12 @@ const historySchema = z.object({
 export default function AssetPage() {
   const params = useParams();
 
-  const assetId: BrokerProviderAsset["id"] | undefined = params?.id;
+  const assetId: UserAsset["id"] | undefined = params?.id;
 
   const {
-    addBrokerAssetValue,
-    updateBrokerAssetValue,
-    deleteBrokerAssetValue,
+    addAssetValue,
+    updateAssetValue,
+    deleteAssetValue,
   } = usePortfolio();
 
   const { data: providers, isLoading: isProvidersLoading } =
@@ -98,25 +99,29 @@ export default function AssetPage() {
     isLoading: isAssetLoading,
     isError: isAssetError,
     error: assetError,
-  } = useQuery<WithResolvedSecurities<BrokerProviderAsset>>({
+  } = useQuery<ResolvedUserAsset>({
     queryKey: ["broker-asset", assetId],
     queryFn: () =>
-      apiRequest<WithResolvedSecurities<BrokerProviderAsset>>(
+      apiRequest<ResolvedUserAsset>(
         "GET",
-        `/api/assets/broker/${assetId}`
+        `/api/assets/${assetId}`
       ),
   });
 
   const { data: history, isLoading: isHistoryLoading } = useQuery<AssetValue[]>(
     {
-      queryKey: ["broker-asset-history", assetId],
+      queryKey: ["user-asset-history", assetId],
       queryFn: () =>
         apiRequest<AssetValue[]>(
           "GET",
-          `/api/assets/broker/${assetId}/history`
+          `/api/assets/${assetId}/history`
         ),
     }
   );
+
+  console.log("asset", asset);
+
+  console.log("history", history);
 
   const { mutateAsync: updateAssetHistories } = useSecuritiesUpdate(assetId ?? "");
   const [isUpdatingHistories, setIsUpdatingHistories] = useState(false);
@@ -134,7 +139,7 @@ export default function AssetPage() {
     if (!assetId) return;
 
     try {
-      await addBrokerAssetValue.mutateAsync({
+      await addAssetValue.mutateAsync({
         assetId: assetId,
         value: Number(values.value),
         recordedAt: new Date(),
@@ -150,7 +155,7 @@ export default function AssetPage() {
   const handleEditHistory = async (values: z.infer<typeof historySchema>) => {
     if (!historyToEdit || !assetId) return;
     try {
-      await updateBrokerAssetValue.mutateAsync({
+      await updateAssetValue.mutateAsync({
         historyId: historyToEdit.id,
         assetId: assetId,
         value: Number(values.value),
@@ -170,7 +175,7 @@ export default function AssetPage() {
 
     try {
       if (!assetId) return;
-      await deleteBrokerAssetValue.mutateAsync({
+      await deleteAssetValue.mutateAsync({
         assetId: assetId,
         historyId: historyToDelete,
       });
@@ -224,7 +229,9 @@ export default function AssetPage() {
     );
   }
 
-  const brokerName = getBrokerName(asset.providerId, providers ?? []);
+  // const brokerName = asset.providerId
+  //   ? getBrokerName(asset.providerId, providers ?? [])
+  //   : null;
 
   console.log("securities", asset.securities);
 
@@ -249,14 +256,14 @@ export default function AssetPage() {
       <div className="flex flex-col items-start mb-6">
         <div className="flex items-center gap-2">
           <BrokerLogoBoxed
-            broker={getBrokerSlugFromName(brokerName)}
+            broker={asset.platform ? getBrokerSlugFromName(asset.platform.name) : undefined}
             size="md"
           />
           <div>
             <div className="mb-2">
               <h1 className="text-xl ">{asset.name}</h1>
             </div>
-            <h1 className="text-xl font-semibold">{brokerName}</h1>
+            <h1 className="text-xl font-semibold">{asset.platform?.name}</h1>
             <span className="text-sm text-gray-600">
               {getBrokerAccountTypeFullName(asset.accountType)}
             </span>
@@ -275,7 +282,7 @@ export default function AssetPage() {
       <AssetHistoryChart
         className="mt-4"
         showMilestones={false}
-        url={`/api/assets/broker/${assetId}/history`}
+        url={`/api/assets/${assetId}/history`}
         // nextMilestone={
         //   nextMilestone ? Number(nextMilestone.targetValue) : undefined
         // }

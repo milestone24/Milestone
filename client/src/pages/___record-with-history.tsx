@@ -27,19 +27,20 @@ import {
 import { History, Edit, Check, X } from "lucide-react";
 import { usePortfolio } from "@/context/PortfolioContext";
 import { useToast } from "@/hooks/use-toast";
-import { AccountHistory } from "server/db/schema";
+import { AssetValue } from "@shared/schema";
 
 type AccountFormData = {
   [key: string]: string;
 };
 
 export default function Record() {
-  const { accounts, addAccountHistory, isLoading, accountsHistory } =
+  const { assets, addBrokerAssetValue, isLoading, accountsHistory } =
     usePortfolio();
 
   const { toast } = useToast();
   const [accountValues, setAccountValues] = useState<AccountFormData>({});
   const [date, setDate] = useState<string>(
+    /** @ts-ignore */
     new Date().toISOString().split("T")[0]
   );
   const [submitting, setSubmitting] = useState(false);

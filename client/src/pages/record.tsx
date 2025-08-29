@@ -45,7 +45,7 @@ import { useToast } from "@/hooks/use-toast";
 import DateRangeBar from "@/components/layout/DateRangeBar";
 import { getBrokerName } from "@/lib/broker";
 import {
-  BrokerProviderAsset,
+  UserAsset,
   AssetValue,
   AssetContribution,
   AssetContributionInsert,
@@ -148,6 +148,7 @@ export default function Record() {
     {}
   );
   const [date, setDate] = useState<string>(
+    /** @ts-ignore */
     new Date().toISOString().split("T")[0]
   );
 
@@ -234,9 +235,9 @@ export default function Record() {
   const getAssetName = (assetId: string) => {
     const asset = brokerAssets.find((acc) => acc.id === assetId);
 
-    return asset
+    return asset?.providerId
       ? `${getBrokerName(asset.providerId, brokerProviders ?? [])} (${
-          asset.assetType
+          asset.accountType
         })`
       : "Unknown Account";
   };
@@ -264,7 +265,8 @@ export default function Record() {
       await updateBrokerAssetValue.mutateAsync({
         assetId: editHistoryRecord.assetId,
         value: Number(editValue),
-        recordedAt: new Date(editHistoryRecord.recordedAt),
+        valueDate: new Date(editHistoryRecord.recordedAt),
+        recordedAt: new Date(),
         historyId: editHistoryRecord.id,
       });
 
@@ -315,7 +317,8 @@ export default function Record() {
       await addBrokerAssetValue.mutateAsync({
         assetId,
         value,
-        recordedAt: new Date(date),
+        valueDate: new Date(date),
+        recordedAt: new Date(),
       });
 
       toast({
@@ -376,12 +379,6 @@ export default function Record() {
     }
   };
 
-  const getFullAssetName = (asset: BrokerProviderAsset) => {
-    return `${getBrokerName(asset.providerId, brokerProviders ?? [])} (${
-      asset.accountType
-    })`;
-  };
-
   // Handle submission of all accounts at once
   const handleSubmitAll = async () => {
     const dataWithValues: [string, number][] =
@@ -390,7 +387,8 @@ export default function Record() {
     const accountsToUpdate = dataWithValues.map(([id, value]) => ({
       assetId: id,
       value: value,
-      recordedAt: new Date(date),
+      valueDate: new Date(date),
+      recordedAt: new Date(),
     }));
 
     if (accountsToUpdate.length === 0) {
@@ -602,18 +600,22 @@ export default function Record() {
                             <div className="flex items-center">
                               <div className="w-10 h-10 rounded-md flex items-center justify-center mr-3">
                                 {getProviderLogo(
-                                  getBrokerName(
-                                    asset.providerId,
-                                    brokerProviders ?? []
-                                  )
+                                  asset.providerId
+                                    ? getBrokerName(
+                                        asset.providerId,
+                                        brokerProviders ?? []
+                                      )
+                                    : "Unknown Account"
                                 )}
                               </div>
                               <div>
                                 <h3 className="font-medium">
-                                  {getBrokerName(
-                                    asset.providerId,
-                                    brokerProviders ?? []
-                                  )}
+                                  {asset.providerId
+                                    ? getBrokerName(
+                                        asset.providerId,
+                                        brokerProviders ?? []
+                                      )
+                                    : "Unknown Account"}
                                 </h3>
                                 <span
                                   className={`text-sm ${getAccountTypeColor(
@@ -771,18 +773,22 @@ export default function Record() {
                             <div className="flex items-center">
                               <div className="w-10 h-10 rounded-md flex items-center justify-center mr-3">
                                 {getProviderLogo(
-                                  getBrokerName(
-                                    asset.providerId,
-                                    brokerProviders ?? []
-                                  )
+                                  asset.providerId
+                                    ? getBrokerName(
+                                        asset.providerId,
+                                        brokerProviders ?? []
+                                      )
+                                    : "Unknown Account"
                                 )}
                               </div>
                               <div>
                                 <h3 className="font-medium">
-                                  {getBrokerName(
-                                    asset.providerId,
-                                    brokerProviders ?? []
-                                  )}
+                                  {asset.providerId
+                                    ? getBrokerName(
+                                        asset.providerId,
+                                        brokerProviders ?? []
+                                      )
+                                    : "Unknown Account"}
                                 </h3>
                                 <span
                                   className={`text-sm ${getAccountTypeColor(

@@ -17,6 +17,13 @@ export async function registerRoutes(
   router.get("/:id", requireUser, async (req: AuthRequest, res) => {
     try {
       const settingsId = req.params.id;
+
+      if (!settingsId) {
+        return res
+          .status(400)
+          .json({ message: "FIRE settings ID is required" });
+      }
+
       const settings = await fireSettingsService.get(settingsId);
 
       if (!settings) {
@@ -34,6 +41,10 @@ export async function registerRoutes(
     "/user/:userAccountId",
     requireUser,
     async (req: AuthRequest, res) => {
+      if (!req.params.userAccountId) {
+        return res.status(400).json({ message: "User account ID is required" });
+      }
+
       try {
         const userAccountId = req.params.userAccountId;
         const settings = await fireSettingsService.getByUserAccountId(
@@ -58,14 +69,11 @@ export async function registerRoutes(
       const settings = await fireSettingsService.create(settingsData);
       res.status(201).json(settings);
     } catch (error) {
-
       if (error instanceof z.ZodError) {
-        return res
-          .status(400)
-          .json({
-            message: "Invalid FIRE settings data",
-            errors: error.errors,
-          });
+        return res.status(400).json({
+          message: "Invalid FIRE settings data",
+          errors: error.errors,
+        });
       }
       res.status(500).json({ message: "Failed to create FIRE settings" });
     }
@@ -74,6 +82,12 @@ export async function registerRoutes(
   // Update FIRE settings
   router.patch("/:id", requireUser, async (req: AuthRequest, res) => {
     try {
+      if (!req.params.id) {
+        return res
+          .status(400)
+          .json({ message: "FIRE settings ID is required" });
+      }
+
       const settingsId = req.params.id;
       const settingsData = fireSettingsInsertSchema.partial().parse(req.body);
       const settings = await fireSettingsService.update(
@@ -83,12 +97,10 @@ export async function registerRoutes(
       res.json(settings);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res
-          .status(400)
-          .json({
-            message: "Invalid FIRE settings data",
-            errors: error.errors,
-          });
+        return res.status(400).json({
+          message: "Invalid FIRE settings data",
+          errors: error.errors,
+        });
       }
       if (
         error instanceof Error &&
@@ -104,6 +116,13 @@ export async function registerRoutes(
   router.delete("/:id", requireUser, async (req: AuthRequest, res) => {
     try {
       const settingsId = req.params.id;
+
+      if (!settingsId) {
+        return res
+          .status(400)
+          .json({ message: "FIRE settings ID is required" });
+      }
+
       const success = await fireSettingsService.delete(settingsId);
 
       if (!success) {
@@ -121,6 +140,10 @@ export async function registerRoutes(
     "/user/:userAccountId",
     requireUser,
     async (req: AuthRequest, res) => {
+      if (!req.params.userAccountId) {
+        return res.status(400).json({ message: "User account ID is required" });
+      }
+
       try {
         const userAccountId = req.params.userAccountId;
         const settingsData = fireSettingsInsertSchema.partial().parse(req.body);

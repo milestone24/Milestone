@@ -61,9 +61,9 @@ export default function AssetSecurityPage() {
   const nestedId: string | undefined = params?.nestedId;
 
   const {
-    addBrokerAssetValue,
-    updateBrokerAssetValue,
-    deleteBrokerAssetValue,
+    addAssetValue,
+    updateAssetValue,
+    deleteAssetValue,
   } = usePortfolio();
 
   const { data: providers, isLoading: isProvidersLoading } =
@@ -118,10 +118,11 @@ export default function AssetSecurityPage() {
     if (!assetId) return;
 
     try {
-      await addBrokerAssetValue.mutateAsync({
+      await addAssetValue.mutateAsync({
         assetId: assetId,
         value: Number(values.value),
         recordedAt: new Date(values.recordedAt),
+        valueDate: new Date(values.recordedAt),
       });
       setIsAddHistoryOpen(false);
       form.reset();
@@ -133,11 +134,12 @@ export default function AssetSecurityPage() {
   const handleEditHistory = async (values: z.infer<typeof historySchema>) => {
     if (!historyToEdit || !assetId) return;
     try {
-      await updateBrokerAssetValue.mutateAsync({
+      await updateAssetValue.mutateAsync({
         historyId: historyToEdit.id,
         assetId: assetId,
         value: Number(values.value),
         recordedAt: new Date(values.recordedAt),
+        valueDate: new Date(values.recordedAt),
       });
       setIsEditHistoryOpen(false);
       form.reset();
@@ -152,7 +154,7 @@ export default function AssetSecurityPage() {
 
     try {
       if (!assetId) return;
-      await deleteBrokerAssetValue.mutateAsync({
+      await deleteAssetValue.mutateAsync({
         assetId: assetId,
         historyId: historyToDelete,
       });

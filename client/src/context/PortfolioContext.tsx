@@ -17,17 +17,16 @@ import {
   Milestone,
   FireSettings,
   SessionUser,
-  BrokerProviderAsset,
-  //BrokerProviderAssetInsert,
-  BrokerProviderAssetOrphanInsert,
+  UserAsset,
+  UserAssetOrphanInsert,
   AssetsChange,
   AssetValue,
-  AssetValueInsert,
+  UserAssetValueInsert,
   AssetContribution,
   AssetContributionInsert,
   MilestoneOrphanInsert,
   FireSettingsInsert,
-  BrokerProviderAssetWithAccountChange,
+  UserAssetWithAccountChange,
   MilestoneInsert,
   FireSettingsOrphan,
 } from "@shared/schema";
@@ -37,18 +36,18 @@ import { AccountType } from "@server/db/schema/portfolio-assets";
 import { getDateUrlParams } from "@/lib/date";
 
 export type PortfolioContextType = {
-  brokerAssets: BrokerProviderAsset[];
+  assets: UserAsset[];
   milestones: Milestone[];
   fireSettings: FireSettings | null;
   activeSection: string;
   portfolioOverview: AssetsChange;
 };
 
-type BrokerProviderAssetUpdate = BrokerProviderAssetOrphanInsert & {
-  id: BrokerProviderAsset["id"];
+type UserAssetUpdate = UserAssetOrphanInsert & {
+  id: UserAsset["id"];
 };
 
-type AssetValueUpdate = AssetValueInsert & {
+type AssetValueUpdate = UserAssetValueInsert & {
   historyId: AssetValue["id"];
 };
 
@@ -57,7 +56,7 @@ type AssetContributionUpdate = AssetContributionInsert & {
 };
 
 type AssetValueDelete = {
-  assetId: BrokerProviderAsset["id"];
+  assetId: UserAsset["id"];
   historyId: AssetValue["id"];
 };
 
@@ -76,14 +75,14 @@ const PortfolioContext = createContext<PortfolioContextType | undefined>(
 // Provider component
 export const PortfolioProvider = ({ children }: { children: ReactNode }) => {
   const value: PortfolioContextType = {
-    brokerAssets: [],
+    assets: [],
     milestones: [],
     fireSettings: null,
     activeSection: "portfolio",
     portfolioOverview: {
       value: 0,
-      currencyChange: 0,
-      percentageChange: 0,
+      currentChange: 0,
+      currentChangePercentage: 0,
       startValue: 0,
       startDate: new Date(),
       endDate: new Date(),
@@ -133,7 +132,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
   ]);
   const portfolioHistoryPath = "/api/assets/portfolio-value/history";
   const portfolioHistoryQueryKey = getAuthQueryKey([portfolioHistoryPath]);
-  const brokerAssetsQueryKey = ["/api/assets/broker", user?.account.id];
+  const assetsQueryKey = ["/api/assets", user?.account.id];
 
   const invalidateAccounts = useCallback(() => {
     queryClient.invalidateQueries({
@@ -165,18 +164,18 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     queryClient.invalidateQueries({ queryKey: fireSettingsQueryKey });
   }, [fireSettingsQueryKey]);
 
-  // Fetch broker assets
+  // Fetch assets
   const {
-    data: brokerAssets = [],
-    isLoading: isLoadingBrokerAssets,
-    isError: isBrokerAssetsError,
-  } = useQuery<BrokerProviderAssetWithAccountChange[]>({
-    queryKey: [...brokerAssetsQueryKey, startDate, endDate],
+    data: assets = [],
+    isLoading: isLoadingAssets,
+    isError: isAssetsError,
+  } = useQuery<UserAssetWithAccountChange[]>({
+    queryKey: [...assetsQueryKey, startDate, endDate],
     queryFn: apiEnabled
       ? async () =>
           apiRequest(
             "GET",
-            `/api/assets/broker?${getDateUrlParams(startDate, endDate)}`
+            `/api/assets?${getDateUrlParams(startDate, endDate)}`
           )
       : skipToken,
   });
@@ -189,7 +188,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
   } = useQuery<Milestone[]>({
     queryKey: milestonesQueryKey,
     queryFn: apiEnabled
-      ? async () => apiRequest("GET", milestonesQueryKey[0])
+      ? async () => apiRequest("GET", milestonesQueryKey[0] ?? "")
       : skipToken,
   });
 
@@ -201,7 +200,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
   } = useQuery<FireSettings>({
     queryKey: fireSettingsQueryKey,
     queryFn: apiEnabled
-      ? async () => apiRequest("GET", fireSettingsQueryKey[0])
+      ? async () => apiRequest("GET", fireSettingsQueryKey[0] ?? "")
       : skipToken,
   });
 
@@ -221,14 +220,14 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
         : skipToken,
     });
 
-  // Mutations for broker assets
-  const addBrokerAsset = useMutation<
-    BrokerProviderAsset,
+  // Mutations for assets
+  const addAsset = useMutation<
+    UserAsset,
     Error,
-    BrokerProviderAssetOrphanInsert
+    UserAssetOrphanInsert
   >({
     mutationFn: (newAsset) =>
-      apiRequest<BrokerProviderAsset>("POST", "/api/assets/broker", {
+      apiRequest<UserAsset>("POST", "/api/assets/", {
         ...newAsset,
         userAccountId: user?.account.id,
         securities: newAsset.securities.map((security) => ({
@@ -237,16 +236,16 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
         })),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: brokerAssetsQueryKey });
+      queryClient.invalidateQueries({ queryKey: assetsQueryKey });
       toast({
-        title: "Broker Asset added",
-        description: "Your broker asset has been added successfully.",
+        title: "Asset added",
+        description: "Your asset has been added successfully.",
       });
     },
     onError: (error) => {
-      console.error("Error adding broker asset", error);
+      console.error("Error adding asset", error);
       toast({
-        title: "Error adding broker asset",
+        title: "Error adding asset",
         description:
           error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive",
@@ -254,31 +253,31 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     },
   });
 
-  const updateBrokerAsset = useMutation<
-    BrokerProviderAsset,
+  const updateAsset = useMutation<
+    UserAsset,
     Error,
-    BrokerProviderAssetUpdate
+    UserAssetUpdate
   >({
     mutationFn: (data) => {
       const { id, ...rest } = data;
-      return apiRequest<BrokerProviderAsset>(
+      return apiRequest<UserAsset>(
         "PUT",
-        `/api/assets/broker/${id}`,
+        `/api/assets/${id}`,
         {
           ...rest,
         }
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: brokerAssetsQueryKey });
+      queryClient.invalidateQueries({ queryKey: assetsQueryKey });
       toast({
-        title: "Broker Asset updated",
-        description: "Your broker asset has been updated successfully.",
+        title: "Asset updated",
+        description: "Your asset has been updated successfully.",
       });
     },
     onError: (error) => {
       toast({
-        title: "Error updating broker asset",
+        title: "Error updating asset",
         description:
           error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive",
@@ -286,20 +285,20 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     },
   });
 
-  const deleteBrokerAsset = useMutation<void, Error, BrokerProviderAsset["id"]>(
+  const deleteAsset = useMutation<void, Error, UserAsset["id"]>(
     {
       mutationFn: (id) =>
-        apiRequest<void>("DELETE", `/api/assets/broker/${id}`),
+        apiRequest<void>("DELETE", `/api/assets/${id}`),
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: brokerAssetsQueryKey });
+        queryClient.invalidateQueries({ queryKey: assetsQueryKey });
         toast({
-          title: "Broker Asset deleted",
-          description: "Your broker asset has been deleted successfully.",
+          title: "Asset deleted",
+          description: "Your asset has been deleted successfully.",
         });
       },
       onError: (error) => {
         toast({
-          title: "Error deleting broker asset",
+          title: "Error deleting asset",
           description:
             error instanceof Error
               ? error.message
@@ -311,16 +310,16 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
   );
 
   // Add new mutations for account history
-  const addBrokerAssetValue = useMutation<
-    AssetValueInsert,
+  const addAssetValue = useMutation<
+    UserAssetValueInsert,
     Error,
-    AssetValueInsert
+    UserAssetValueInsert
   >({
-    mutationFn: (data: AssetValueInsert) => {
+    mutationFn: (data: UserAssetValueInsert) => {
       const { assetId, ...rest } = data;
       return apiRequest<AssetValue>(
         "POST",
-        `/api/assets/broker/${assetId}/history`,
+        `/api/assets/${assetId}/history`,
         {
           ...rest,
           recordedAt: data.recordedAt ?? new Date(),
@@ -330,13 +329,13 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     onSuccess: () => {
       invalidateAccounts();
       toast({
-        title: "Broker provider asset value added",
-        description: "Broker provider asset value has been added successfully.",
+        title: "Asset value added",
+        description: "Asset value has been added successfully.",
       });
     },
     onError: (error) => {
       toast({
-        title: "Error adding broker provider asset value",
+        title: "Error adding asset value",
         description:
           error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive",
@@ -344,7 +343,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     },
   });
 
-  const updateBrokerAssetValue = useMutation<
+  const updateAssetValue = useMutation<
     AssetValue,
     Error,
     AssetValueUpdate
@@ -353,7 +352,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
       const { assetId, historyId, ...rest } = data;
       return apiRequest<AssetValue>(
         "PUT",
-        `/api/assets/broker/${assetId}/history/${historyId}`,
+        `/api/assets/${assetId}/history/${historyId}`,
         {
           ...rest,
         }
@@ -362,14 +361,14 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     onSuccess: () => {
       invalidateAccounts();
       toast({
-        title: "Broker provider asset value updated",
+        title: "Asset value updated",
         description:
-          "Broker provider asset value has been updated successfully.",
+          "Asset value has been updated successfully.",
       });
     },
     onError: (error) => {
       toast({
-        title: "Error adding broker provider asset value",
+        title: "Error adding asset value",
         description:
           error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive",
@@ -377,23 +376,23 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     },
   });
 
-  const deleteBrokerAssetValue = useMutation<void, Error, AssetValueDelete>({
+  const deleteAssetValue = useMutation<void, Error, AssetValueDelete>({
     mutationFn: ({ assetId, historyId }) =>
       apiRequest<void>(
         "DELETE",
-        `/api/assets/broker/${assetId}/history/${historyId}`
+        `/api/assets/${assetId}/history/${historyId}`
       ),
     onSuccess: () => {
       invalidateAccounts();
       toast({
-        title: "Broker provider asset value deleted",
+        title: "Asset value deleted",
         description:
-          "Broker provider asset value has been deleted successfully.",
+          "Asset value has been deleted successfully.",
       });
     },
     onError: (error) => {
       toast({
-        title: "Error adding broker provider asset value",
+        title: "Error adding asset value",
         description:
           error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive",
@@ -401,26 +400,26 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     },
   });
 
-  const connectBrokerProviderAssetApi = useMutation<
+  const connectAssetApi = useMutation<
     void,
     Error,
-    { id: BrokerProviderAsset["id"]; apiKey: string }
+    { id: UserAsset["id"]; apiKey: string }
   >({
     mutationFn: async ({ id, apiKey }) =>
-      apiRequest("PATCH", `/api/assets/broker/${id}/connect-api`, {
+      apiRequest("PATCH", `/api/assets/${id}/connect-api`, {
         apiKey,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: brokerAssetsQueryKey });
+      queryClient.invalidateQueries({ queryKey: assetsQueryKey });
       toast({
         title: "API connected",
         description:
-          "Your broker asset has been connected to the API successfully.",
+          "Your asset has been connected to the API successfully.",
       });
     },
     onError: (error) => {
       toast({
-        title: "Error adding broker provider asset value",
+        title: "Error adding asset value",
         description:
           error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive",
@@ -429,7 +428,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
   });
 
   // Asset contribution mutations
-  const addBrokerAssetContribution = useMutation<
+  const addAssetContribution = useMutation<
     AssetContribution,
     Error,
     AssetContributionInsert
@@ -438,10 +437,10 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
       const { assetId, ...rest } = data;
       return apiRequest<AssetContribution>(
         "POST",
-        `/api/assets/broker/${assetId}/contributions`,
+        `/api/assets/${assetId}/contributions`,
         {
           ...rest,
-          recordedAt: data.recordedAt ?? new Date(),
+          recordedAt: new Date(),
         }
       );
     },
@@ -462,7 +461,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     },
   });
 
-  const updateBrokerAssetContribution = useMutation<
+  const updateAssetContribution = useMutation<
     AssetContribution,
     Error,
     AssetContributionUpdate
@@ -471,7 +470,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
       const { assetId, contributionId, ...rest } = data;
       return apiRequest<AssetContribution>(
         "PUT",
-        `/api/assets/broker/${assetId}/contributions/${contributionId}`,
+        `/api/assets/${assetId}/contributions/${contributionId}`,
         {
           ...rest,
         }
@@ -494,18 +493,18 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     },
   });
 
-  const deleteBrokerAssetContribution = useMutation<
+  const deleteAssetContribution = useMutation<
     void,
     Error,
     {
-      assetId: BrokerProviderAsset["id"];
+      assetId: UserAsset["id"];
       contributionId: AssetContribution["id"];
     }
   >({
     mutationFn: ({ assetId, contributionId }) =>
       apiRequest(
         "DELETE",
-        `/api/assets/broker/${assetId}/contributions/${contributionId}`
+        `/api/assets/${assetId}/contributions/${contributionId}`
       ),
     onSuccess: () => {
       invalidateAccounts();
@@ -660,11 +659,11 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
 
   // Check for errors and show notifications
   useEffect(() => {
-    if (isBrokerAssetsError) {
+    if (isAssetsError) {
       toast({
-        title: "Failed to load broker assets",
+        title: "Failed to load assets",
         description:
-          "There was an error loading your broker assets. Please try again.",
+          "There was an error loading your assets. Please try again.",
         variant: "destructive",
       });
     }
@@ -686,33 +685,33 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
         variant: "destructive",
       });
     }
-  }, [isBrokerAssetsError, isMilestonesError, isFireSettingsError]);
+  }, [isAssetsError, isMilestonesError, isFireSettingsError]);
 
   const isLoading =
-    isLoadingBrokerAssets ||
+    isLoadingAssets ||
     isLoadingMilestones ||
     isLoadingFireSettings ||
     isLoadingPortfolioOverview;
 
   return {
     ...context,
-    addBrokerAsset,
-    updateBrokerAsset,
-    deleteBrokerAsset,
-    addBrokerAssetValue,
-    updateBrokerAssetValue,
-    deleteBrokerAssetValue,
-    addBrokerAssetContribution,
-    updateBrokerAssetContribution,
-    deleteBrokerAssetContribution,
-    connectBrokerProviderAssetApi,
+    addAsset,
+    updateAsset,
+    deleteAsset,
+    addAssetValue,
+    updateAssetValue,
+    deleteAssetValue,
+    addAssetContribution,
+    updateAssetContribution,
+    deleteAssetContribution,
+    connectAssetApi,
     addMilestone,
     deleteMilestone,
     updateMilestone,
     updateFireSettings,
     createFireSettings,
     isLoading,
-    brokerAssets,
+    assets,
     milestones,
     fireSettings,
     portfolioOverview,

@@ -26,7 +26,9 @@ export default function Fire() {
   const { toast } = useToast();
 
   // Default values if fireSettings is not loaded yet
-  const defaultSettings: Omit<FireSettingsInsert, "id" | "userAccountId"> = {
+  const defaultSettings: Omit<FireSettingsInsert, "id" | "userAccountId"> & {
+    statePensionAge: number;
+  } = {
     targetRetirementAge: 60,
     annualIncomeGoal: "48000",
     expectedAnnualReturn: "7",

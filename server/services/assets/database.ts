@@ -1,11 +1,61 @@
-import { assetContributions, assetValues, brokerProviderAssets, brokerProviders, generalAssets, brokerProviderAssetAPIKeyConnections, recurringContributions, brokerProvideraAssetSecurities, securities } from "server/db/schema";
+import {
+  assetValues,
+  userAssets,
+  brokerProviders,
+  recurringContributions,
+  securities,
+  userAssetAPIKeyConnections,
+  assetTransactions,
+  userAssetSecurities,
+} from "server/db/schema";
 import { Database } from "../../db";
 import { and, between, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
-import { Asset, AssetContribution, assetContributionInsertSchema, AssetType, AssetValue, assetValueInsertSchema, BrokerProvider, BrokerProviderAsset, BrokerProviderAssetAPIKeyConnection, BrokerProviderAssetInsert, BrokerProviderAssetWithAccountChange, GeneralAsset, GeneralAssetInsert, GeneralAssetWithAccountChange, PortfolioHistoryTimePoint, UserAccount, AssetsChange, AssetValueOrphanInsert, AssetContributionOrphanInsert, RecurringContribution, RecurringContributionOrphanInsert, ContributionInterval, WithAssetHistory, SecuritySelect, SecurityInsert, DataRangeQuery, BrokerProviderAssetSecuritySelect, BrokerProviderAssetSecurityInsert, SecuritySearchResult, AssetWithHistory, WithResolvedSecurities, ResolvedSecurity, BrokerPlatform } from "@shared/schema";
+import {
+  UserAsset,
+  AssetContribution,
+  assetContributionInsertSchema,
+  AccountType,
+  AssetValue,
+  userAssetValueInsertSchema,
+  BrokerProvider,
+  PortfolioHistoryTimePoint,
+  UserAccount,
+  AssetsChange,
+  UserAssetValueOrphanInsert,
+  RecurringContribution,
+  RecurringContributionOrphanInsert,
+  ContributionInterval,
+  WithAssetHistory,
+  SecuritySelect,
+  SecurityInsert,
+  DataRangeQuery,
+  UserAssetSecuritySelect,
+  UserAssetSecurityInsert,
+  SecuritySearchResult,
+  AssetWithHistory,
+  WithResolvedSecurities,
+  ResolvedSecurity,
+  BrokerPlatform,
+  UserAssetWithAccountChange,
+  UserAssetInsert,
+  UserAssetTransactionOrphanInsert,
+  AssetTransaction,
+  ResolvedUserAsset,
+} from "@shared/schema";
 import { NodePgTransaction } from "drizzle-orm/node-postgres";
 import { Schema, TSchema } from "server/db/types/utils";
-import { QueryParams, QueryParts, ResourceQueryBuilder } from "@server/utils/resource-query-builder";
-import { resolveAssetsWithChange, resolveAssetWithChangeForDateRange, resolveDate, getPortfolioOverviewForAssets, getPortfolioValueHistoryForAssets } from "@shared/utils/assets";
+import {
+  QueryParams,
+  QueryParts,
+  ResourceQueryBuilder,
+} from "@server/utils/resource-query-builder";
+import {
+  resolveAssetsWithChange,
+  resolveAssetWithChangeForDateRange,
+  resolveDate,
+  getPortfolioOverviewForAssets,
+  getPortfolioValueHistoryForAssets,
+} from "@shared/utils/assets";
 
 import { factory as securitiesFactory } from "@server/services/securities";
 import { AssetSecurity } from "../securities/types";
@@ -14,8 +64,8 @@ const securitiesService = securitiesFactory();
 
 type Transaction = NodePgTransaction<Schema, TSchema>;
 
-const brokerProviderAssetsQueryBuilder = new ResourceQueryBuilder({
-  table: brokerProviderAssets,
+const userAssetsQueryBuilder = new ResourceQueryBuilder({
+  table: userAssets,
   allowedSortFields: [
     "createdAt",
     "updatedAt",
@@ -36,6 +86,22 @@ const assetValuesQueryBuilder = new ResourceQueryBuilder({
   maxLimit: 50,
 });
 
+const userAssetSecuritiesQueryBuilder = new ResourceQueryBuilder({
+  table: userAssetSecurities,
+  allowedSortFields: ["recordedAt"],
+  allowedFilterFields: [],
+  defaultSort: { field: "recordedAt", direction: "desc" },
+  maxLimit: 50,
+});
+
+const assetTransactionsQueryBuilder = new ResourceQueryBuilder({
+  table: assetTransactions,
+  allowedSortFields: ["recordedAt"],
+  allowedFilterFields: [],
+  defaultSort: { field: "recordedAt", direction: "desc" },
+  maxLimit: 50,
+});
+
 const recurringContributionsQueryBuilder = new ResourceQueryBuilder({
   table: recurringContributions,
   allowedSortFields: [
@@ -45,17 +111,9 @@ const recurringContributionsQueryBuilder = new ResourceQueryBuilder({
     "startDate",
     "lastProcessedDate",
     "interval",
-    "isActive"
+    "isActive",
   ],
   allowedFilterFields: ["interval", "isActive"],
-  defaultSort: { field: "createdAt", direction: "desc" },
-  maxLimit: 50,
-});
-
-const generalAssetsQueryBuilder = new ResourceQueryBuilder({
-  table: generalAssets,
-  allowedSortFields: ["createdAt", "updatedAt", "name", "assetType"],
-  allowedFilterFields: ["assetType"],
   defaultSort: { field: "createdAt", direction: "desc" },
   maxLimit: 50,
 });
@@ -63,488 +121,597 @@ const generalAssetsQueryBuilder = new ResourceQueryBuilder({
 export class DatabaseAssetService {
   constructor(private db: Database) {}
 
-
-  private async recalculateAssetValue(tx: Transaction, assetType: AssetType, assetId: Asset["id"]): Promise<void> {
+  private async recalculateAssetValue(
+    tx: Transaction,
+    assetId: UserAsset["id"]
+  ): Promise<void> {
     // Get the most recent history entry for the account
     const latestHistory = await tx.query.assetValues.findFirst({
       where: eq(assetValues.assetId, assetId),
       orderBy: (assetValues, { desc }) => [desc(assetValues.recordedAt)],
     });
 
-    const assetTable = assetType === "general"
-      ? generalAssets
-      : assetType === "broker"
-      ? brokerProviderAssets
-      : null;
-
-    if(!assetTable) {
-      throw new Error("Invalid asset type");
-    }
-
     if (latestHistory) {
       // Update the account's current value with the latest history value
       await tx
-        .update(assetTable)
+        .update(userAssets)
         .set({ currentValue: latestHistory.value })
-        .where(eq(assetTable.id, assetId));
+        .where(eq(userAssets.id, assetId));
     }
   }
 
   private async withValueTransaction<T>(
     operation: (tx: Transaction) => Promise<T>,
-    assetType: AssetType,
-    assetId: Asset["id"]
+    assetId: UserAsset["id"]
   ): Promise<T> {
-
     return this.db.transaction(async (tx) => {
       const result = await operation(tx);
-      await this.recalculateAssetValue(tx, assetType, assetId);
+      await this.recalculateAssetValue(tx, assetId);
       return result;
     });
   }
 
-  async getBrokerProviderAssetsForUser(userId: UserAccount["id"], query: QueryParams): Promise<BrokerProviderAsset[]> {
-
-    const { where, orderBy, limit, offset } = brokerProviderAssetsQueryBuilder.buildQuery(query);
-    const brokerAssets = await this.db.query.brokerProviderAssets.findMany(
-      { with: { provider: true, securities: { with: { security: true } } },
-      where: and(eq(brokerProviderAssets.userAccountId, userId), where), orderBy, limit, offset });
+  async getUserAssets(
+    userId: UserAccount["id"],
+    query: QueryParams
+  ): Promise<UserAsset[]> {
+    const { where, orderBy, limit, offset } =
+      userAssetsQueryBuilder.buildQuery(query);
+    const brokerAssets = await this.db.query.userAssets.findMany({
+      with: { provider: true, securities: { with: { security: true } } },
+      where: and(eq(userAssets.userAccountId, userId), where),
+      orderBy,
+      limit,
+      offset,
+    });
     return brokerAssets;
   }
 
-  async getBrokerProviderAssetsWithAccountValueChangeForUser(userId: UserAccount["id"], query: QueryParams): Promise<BrokerProviderAssetWithAccountChange[]> {
+  async getUserAssetsWithAccountValueChange(
+    userId: UserAccount["id"],
+    query: QueryParams
+  ): Promise<UserAssetWithAccountChange[]> {
     console.log("getBrokerProviderAssetsWithAccountChangeForUser", query);
-    const brokerAssets = await this.getBrokerProviderAssetsForUser(userId, query);
-    const assetsWithHistory = await Promise.all(brokerAssets.map(async (asset) => {
-      const assetValues = await this.getPortfolioAssetValuesForAssetsForDateRange([asset.id]);
-      return { ...asset, history: assetValues };
-    }));
+    const brokerAssets = await this.getUserAssets(userId, query);
+    const assetsWithHistory = await Promise.all(
+      brokerAssets.map(async (asset) => {
+        const assetValues =
+          await this.getPortfolioAssetValuesForAssetsForDateRange([asset.id]);
+        return { ...asset, history: assetValues };
+      })
+    );
     return resolveAssetsWithChange(assetsWithHistory);
   }
 
-  async getBrokerProviderAsset(id: BrokerProviderAsset["id"]): Promise<WithResolvedSecurities<BrokerProviderAsset>> {
-
-    const brokerProviderAsset = await this.db.query.brokerProviderAssets.findFirst(
-      { with: { securities: { with: { security: true } } },
-      where: eq(brokerProviderAssets.id, id) });
-    if (!brokerProviderAsset) {
-      throw new Error("Broker provider asset not found");
+  async getUserAsset(id: UserAsset["id"]): Promise<ResolvedUserAsset> {
+    const userAsset = await this.db.query.userAssets.findFirst({
+      with: {
+        platform: true,
+        securities: { with: { security: true } },
+      },
+      where: eq(userAssets.id, id),
+    });
+    if (!userAsset) {
+      throw new Error("User asset not found");
     }
+
+    console.log("userAsset", userAsset.platform);
     //return brokerProviderAsset;
     return {
-      ...brokerProviderAsset,
-      securities: brokerProviderAsset.securities.map((security) => ({
+      ...userAsset,
+      platform: userAsset.platform ?? undefined,
+      securities: userAsset.securities.map((security) => ({
         ...security,
         calculatedValue: {
           value: 0,
           currentChange: 0,
           currentChangePercentage: 0,
-        }
-      }))
-    }
+        },
+      })),
+    };
   }
 
-  async getBrokerProviderAssetWithValueHistory(id: BrokerProviderAsset["id"]): Promise<WithAssetHistory<BrokerProviderAsset>> {
-    const brokerAssetWithHistory = await this.db.transaction(async (tx) => {
-      const brokerAsset = await tx.query.brokerProviderAssets.findFirst({ where: eq(brokerProviderAssets.id, id) });
-      if (!brokerAsset) {
-        throw new Error("Broker provider asset not found");
+  async getUserAssetWithValueHistory(
+    id: UserAsset["id"]
+  ): Promise<WithAssetHistory<UserAsset>> {
+    const userAssetWithHistory = await this.db.transaction(async (tx) => {
+      const userAsset = await tx.query.userAssets.findFirst({
+        where: eq(userAssets.id, id),
+      });
+      if (!userAsset) {
+        throw new Error("User asset not found");
       }
-      const assetValues = await this.getPortfolioAssetValuesForAssetsForDateRange([brokerAsset.id]);
-      return { ...brokerAsset, history: assetValues };
-    })
-    return brokerAssetWithHistory;
+      const assetValues =
+        await this.getPortfolioAssetValuesForAssetsForDateRange([userAsset.id]);
+      return { ...userAsset, history: assetValues };
+    });
+    return userAssetWithHistory;
   }
 
-  async getBrokerProviderAssetWithAccountValueChangeForUser(id: BrokerProviderAsset["id"]): Promise<BrokerProviderAssetWithAccountChange> {
-
-    const brokerAsset = await this.db.query.brokerProviderAssets.findFirst({ with: { provider: true }, where: eq(brokerProviderAssets.id, id) });
-    if (!brokerAsset) {
-      throw new Error("Broker provider asset not found");
+  async getUserAssetWithAccountValueChangeForUser(
+    id: UserAsset["id"]
+  ): Promise<UserAssetWithAccountChange> {
+    const userAsset = await this.db.query.userAssets.findFirst({
+      with: { provider: true },
+      where: eq(userAssets.id, id),
+    });
+    if (!userAsset) {
+      throw new Error("User asset not found");
     }
-    const brokerAssetHistory = await this.db.query.assetValues.findMany({ where: eq(assetValues.assetId, id) });
+    const userAssetHistory = await this.db.query.assetValues.findMany({
+      where: eq(assetValues.assetId, id),
+    });
 
     return resolveAssetWithChangeForDateRange({
-      ...brokerAsset,
-      history: brokerAssetHistory,
+      ...userAsset,
+      history: userAssetHistory,
     });
     //return { ...brokerAsset, accountChange: resolveAssetWithChange(brokerAsset, { start: query.start, end: query.end }) };
   }
 
-  async getBrokerProviderAssetValueHistory(id: BrokerProviderAsset["id"], query: QueryParams): Promise<AssetValue[]> {
-    const { where, orderBy, limit, offset } = assetValuesQueryBuilder.buildQuery(query);
-    console.log("getBrokerProviderAssetValueHistory orderBy", orderBy);
-    return this.db.query.assetValues.findMany({ where: and(eq(assetValues.assetId, id), where), orderBy, limit, offset });
-  }
-  
-  async getBrokerProviderAssetContributionHistory(id: BrokerProviderAsset["id"], query: QueryParams): Promise<AssetContribution[]> {
-    const { where, orderBy, limit, offset } = brokerProviderAssetsQueryBuilder.buildQuery(query);
-    return this.db.query.assetContributions.findMany({ where: and(eq(assetContributions.assetId, id), where), orderBy, limit, offset });
+  async getUserAssetValueHistory(
+    id: UserAsset["id"],
+    query: QueryParams
+  ): Promise<AssetValue[]> {
+    const { where, orderBy, limit, offset } =
+      assetValuesQueryBuilder.buildQuery(query);
+    console.log("getUserAssetValueHistory orderBy", orderBy);
+    return this.db.query.assetValues.findMany({
+      where: and(eq(assetValues.assetId, id), where),
+      orderBy,
+      limit,
+      offset,
+    });
   }
 
-  async createBrokerProviderAsset(data: BrokerProviderAssetInsert): Promise<BrokerProviderAsset> {
-    const insertedBrokerProviderAsset = await this.db.transaction(async (tx) => {
-      const [insertedBrokerProviderAsset] = await tx.insert(brokerProviderAssets).values({
-        ...data,
-        currentValue: data.currentValue ?? 0
-      }).returning();
+  async getUserAssetTransactions(
+    id: UserAsset["id"],
+    query: QueryParams
+  ): Promise<AssetContribution[]> {
+    const { where, orderBy, limit, offset } =
+      assetTransactionsQueryBuilder.buildQuery(query);
+    return this.db.query.assetTransactions.findMany({
+      where: and(eq(assetTransactions.assetId, id), where),
+      orderBy,
+      limit,
+      offset,
+    });
+  }
 
-      if(!insertedBrokerProviderAsset) {
-        throw new Error("Failed to create broker provider asset");
+  async createUserAsset(data: UserAssetInsert): Promise<UserAsset> {
+    const insertedUserAsset = await this.db.transaction(async (tx) => {
+      const [insertedUserAsset] = await tx
+        .insert(userAssets)
+        .values({
+          ...data,
+          currentValue: data.currentValue ?? 0,
+        })
+        .returning();
+
+      if (!insertedUserAsset) {
+        throw new Error("Failed to create user asset");
       }
 
       const securities = data.securities.map((security) => ({
         ...security,
-        assetId: insertedBrokerProviderAsset.id,
+        assetId: insertedUserAsset.id,
       }));
 
-      console.log("createBrokerProviderAsset securities", securities);
+      const securitiesToInsert = await Promise.all(
+        securities.map(async (security) => {
+          const persistedSecurity =
+            await securitiesService.createOrFindCachedSecurity(
+              security.security
+            );
+          return {
+            securityId: persistedSecurity.id,
+            userAssetId: insertedUserAsset.id,
+            recordedAt: security.recordedAt ?? new Date(),
+            shareHolding: security.shareHolding,
+            gainLoss: security.gainLoss,
+            startDate: security.startDate,
+          };
+        })
+      );
 
-      const securitiesToInsert = await Promise.all(securities.map(async (security) => {
-        const persistedSecurity = await securitiesService.createOrFindCachedSecurity(security.security);
-        return {
-          securityId: persistedSecurity.id,
-          brokerProviderAssetId: insertedBrokerProviderAsset.id,
-          recordedAt: security.recordedAt ?? new Date(),
-          shareHolding: security.shareHolding,
-          gainLoss: security.gainLoss,
-          startDate: security.startDate,
-        };
-      }));
-
-      console.log("createBrokerProviderAsset securitiesToInsert", securitiesToInsert);
-
-      if(securitiesToInsert.length > 0) {
-        await tx.insert(brokerProvideraAssetSecurities).values(securitiesToInsert);
+      if (securitiesToInsert.length > 0) {
+        await tx.insert(userAssetSecurities).values(securitiesToInsert);
       }
 
-      if(data.valueMethod === "manual") {
+      if (data.valueMethod === "manual") {
         await tx.insert(assetValues).values({
-          assetId: insertedBrokerProviderAsset.id,
+          assetId: insertedUserAsset.id,
           value: data.currentValue ?? 0,
           valueDate: data.startDate,
           recordedAt: new Date(),
           createdAt: new Date(),
           updatedAt: new Date(),
-        })
+        });
       }
 
-      return insertedBrokerProviderAsset;
+      return insertedUserAsset;
     });
 
-    const assetPersistence = assetPersistenceFactory(this, insertedBrokerProviderAsset.id)
+    const assetPersistence = assetPersistenceFactory(
+      this,
+      insertedUserAsset.id
+    );
 
     await securitiesService.updateAssetValues(assetPersistence);
 
-    return insertedBrokerProviderAsset ;
+    return insertedUserAsset;
   }
 
-  async updateBrokerProviderAssetHistories(id: BrokerProviderAsset["id"]): Promise<BrokerProviderAsset> {
-    const assetPersistence = assetPersistenceFactory(this, id)
-    await securitiesService.updateAssetValues(assetPersistence);
-    return this.getBrokerProviderAsset(id);
+  async updateUserAsset(
+    id: UserAsset["id"],
+    data: UserAssetInsert
+  ): Promise<UserAsset> {
+    const [updatedUserAsset] = await this.db
+      .update(userAssets)
+      .set(data)
+      .where(eq(userAssets.id, id))
+      .returning();
+
+    if (!updatedUserAsset) {
+      throw new Error("Failed to update user asset");
+    }
+
+    return updatedUserAsset;
   }
 
-  async updateBrokerProviderAsset(id: BrokerProviderAsset["id"], data: BrokerProviderAssetInsert): Promise<BrokerProviderAsset> {
-    const [updatedBrokerProviderAsset] = await this.db.update(brokerProviderAssets).set(data).where(eq(brokerProviderAssets.id, id)).returning();
-    return { ...updatedBrokerProviderAsset };
-  }
-
-  async deleteBrokerProviderAsset(id: BrokerProviderAsset["id"]): Promise<boolean> {
-
+  async deleteUserAsset(id: UserAsset["id"]): Promise<boolean> {
     const result = await this.db.transaction(async (tx) => {
-      await tx.delete(brokerProvideraAssetSecurities).where(eq(brokerProvideraAssetSecurities.brokerProviderAssetId, id));
-      await tx.delete(brokerProviderAssetAPIKeyConnections).where(eq(brokerProviderAssetAPIKeyConnections.brokerProviderAssetId, id));
+      await tx
+        .delete(userAssetSecurities)
+        .where(eq(userAssetSecurities.userAssetId, id));
+      await tx
+        .delete(userAssetAPIKeyConnections)
+        .where(eq(userAssetAPIKeyConnections.userAssetId, id));
       await tx.delete(assetValues).where(eq(assetValues.assetId, id));
-      await tx.delete(assetContributions).where(eq(assetContributions.assetId, id));
-      return tx.delete(brokerProviderAssets).where(eq(brokerProviderAssets.id, id));
+      await tx
+        .delete(assetTransactions)
+        .where(eq(assetTransactions.assetId, id));
+      return tx.delete(userAssets).where(eq(userAssets.id, id));
     });
     return (result?.rowCount ?? 0) > 0;
   }
 
-  async getBrokerProviderAssetsValueHistoryForUser(userId: UserAccount["id"], query: QueryParams): Promise<BrokerProviderAsset[]> {
-    const { where, orderBy, limit, offset } = brokerProviderAssetsQueryBuilder.buildQuery(query);
-    return this.db.query.brokerProviderAssets.findMany({ with: { provider: true }, where: and(eq(brokerProviderAssets.userAccountId, userId), where), orderBy, limit, offset });
+  async updateUserAssetHistories(id: UserAsset["id"]): Promise<UserAsset> {
+    const assetPersistence = assetPersistenceFactory(this, id);
+    await securitiesService.updateAssetValues(assetPersistence);
+    return this.getUserAsset(id);
   }
 
-  async createBrokerProviderAssetValueHistory(id: BrokerProviderAsset["id"], data: AssetValueOrphanInsert): Promise<AssetValue> {
+  async getUserAssetsValueHistoryForUser(
+    userId: UserAccount["id"],
+    query: QueryParams
+  ): Promise<UserAsset[]> {
+    const { where, orderBy, limit, offset } =
+      userAssetsQueryBuilder.buildQuery(query);
+    return this.db.query.userAssets.findMany({
+      with: { provider: true },
+      where: and(eq(userAssets.userAccountId, userId), where),
+      orderBy,
+      limit,
+      offset,
+    });
+  }
+
+  async createUserAssetValueHistory(
+    id: UserAsset["id"],
+    data: UserAssetValueOrphanInsert
+  ): Promise<AssetValue | undefined> {
     return this.withValueTransaction(async (tx: Transaction) => {
-      const [insertedAssetValue] = await tx.insert(assetValues).values({
-        ...data,
-        assetId: id
-      }).returning();
+      const [insertedAssetValue] = await tx
+        .insert(assetValues)
+        .values({
+          ...data,
+          assetId: id,
+        })
+        .returning();
       return insertedAssetValue;
-    }, "broker", id);
+    }, id);
   }
 
-  async createBrokerProviderAssetContributionHistory(id: BrokerProviderAsset["id"], data: AssetContributionOrphanInsert): Promise<AssetContribution> {
-    const [insertedAssetContribution] = await this.db.insert(assetContributions).values({
-      ...data,
-      assetId: id
-    }).returning();
-    return insertedAssetContribution;
+  async pushAssetValuesForAsset(
+    assetId: UserAsset["id"],
+    values: UserAssetValueOrphanInsert[]
+  ): Promise<AssetValue[]> {
+    const insertedValues = await this.db
+      .insert(assetValues)
+      .values(
+        values.map((value) => ({
+          ...value,
+          assetId,
+        }))
+      )
+      .returning();
+
+    if (!insertedValues) {
+      throw new Error("Failed to create asset value history");
+    }
+
+    return insertedValues;
   }
 
-  async updateBrokerProviderAssetValueHistory(id: BrokerProviderAsset["id"], assetValueId: AssetValue["id"], data: AssetValueOrphanInsert): Promise<AssetValue> {
-    const [updatedAssetValue] = await this.db.update(assetValues).set(data).where(and(eq(assetValues.assetId, id), eq(assetValues.id, assetValueId))).returning();
+  async updateUserAssetValueHistory(
+    id: UserAsset["id"],
+    assetValueId: AssetValue["id"],
+    data: UserAssetValueOrphanInsert
+  ): Promise<AssetValue> {
+    const [updatedAssetValue] = await this.db
+      .update(assetValues)
+      .set(data)
+      .where(and(eq(assetValues.assetId, id), eq(assetValues.id, assetValueId)))
+      .returning();
+
+    if (!updatedAssetValue) {
+      throw new Error("Failed to update user asset value history");
+    }
+
     return updatedAssetValue;
   }
 
-  async updateBrokerProviderAssetContributionHistory(id: BrokerProviderAsset["id"], assetContributionId: AssetContribution["id"], data: AssetContributionOrphanInsert): Promise<AssetContribution> {
-    const [updatedAssetContribution] = await this.db.update(assetContributions).set(data).where(and(eq(assetContributions.assetId, id), eq(assetContributions.id, assetContributionId))).returning();
-    return updatedAssetContribution;
-  }
-
-  async deleteBrokerProviderAssetValueHistory(id: BrokerProviderAsset["id"], assetValueId: AssetValue["id"]): Promise<boolean> {
-    const result = await this.db.delete(assetValues).where(and(eq(assetValues.assetId, id), eq(assetValues.id, assetValueId)));
+  async deleteUserAssetValueHistory(
+    id: UserAsset["id"],
+    assetValueId: AssetValue["id"]
+  ): Promise<boolean> {
+    const result = await this.db
+      .delete(assetValues)
+      .where(
+        and(eq(assetValues.assetId, id), eq(assetValues.id, assetValueId))
+      );
     return (result?.rowCount ?? 0) > 0;
   }
 
-  async deleteBrokerProviderAssetContributionHistory(id: BrokerProviderAsset["id"], assetContributionId: AssetContribution["id"]): Promise<boolean> {
-    const result = await this.db.delete(assetContributions).where(and(eq(assetContributions.assetId, id), eq(assetContributions.id, assetContributionId)));
+  // async createUserAssetContributionHistory(
+  //   id: UserAsset["id"],
+  //   data: UserAssetTransactionOrphanInsert
+  // ): Promise<AssetTransaction> {
+  //   const [insertedAssetContribution] = await this.db
+  //     .insert(assetTransactions)
+  //     .values({
+  //       ...data,
+  //       assetId: id,
+  //     })
+  //     .returning();
+  //   return insertedAssetContribution;
+  // }
+
+  /* Transactions */
+
+  async createUserAssetTransaction(
+    id: UserAsset["id"],
+    data: UserAssetTransactionOrphanInsert
+  ): Promise<AssetTransaction> {
+    const [insertedAssetTransaction] = await this.db
+      .insert(assetTransactions)
+      .values({
+        ...data,
+        assetId: id,
+        recordedAt: data.recordedAt ?? new Date(),
+      })
+      .returning();
+
+    if (!insertedAssetTransaction) {
+      throw new Error("Failed to create user asset transaction");
+    }
+
+    return insertedAssetTransaction;
+  }
+
+  async updateUserAssetTransaction(
+    id: UserAsset["id"],
+    assetTransactionId: AssetTransaction["id"],
+    data: UserAssetTransactionOrphanInsert
+  ): Promise<AssetTransaction> {
+    const [updatedAssetTransaction] = await this.db
+      .update(assetTransactions)
+      .set(data)
+      .where(
+        and(
+          eq(assetTransactions.assetId, id),
+          eq(assetTransactions.id, assetTransactionId)
+        )
+      )
+      .returning();
+
+    if (!updatedAssetTransaction) {
+      throw new Error("Failed to update user asset transaction");
+    }
+
+    return updatedAssetTransaction;
+  }
+
+  async deleteUserAssetTransaction(
+    id: UserAsset["id"],
+    assetTransactionId: AssetTransaction["id"]
+  ): Promise<boolean> {
+    const result = await this.db
+      .delete(assetTransactions)
+      .where(
+        and(
+          eq(assetTransactions.assetId, id),
+          eq(assetTransactions.id, assetTransactionId)
+        )
+      );
     return (result?.rowCount ?? 0) > 0;
   }
 
-  async setBrokerProviderAPIKey(id: BrokerProviderAsset["id"], apiKey: string): Promise<BrokerProviderAssetAPIKeyConnection> {
+  // async setBrokerProviderAPIKey(
+  //   id: BrokerProviderAsset["id"],
+  //   apiKey: string
+  // ): Promise<BrokerProviderAssetAPIKeyConnection> {
+  //   const existingBrokerProviderAsset = await this.getBrokerProviderAsset(id);
+  //   if (!existingBrokerProviderAsset) {
+  //     throw new Error("Broker provider asset not found");
+  //   }
 
-    const existingBrokerProviderAsset = await this.getBrokerProviderAsset(id);
-    if(!existingBrokerProviderAsset) {
-      throw new Error("Broker provider asset not found");
-    }
+  //   const provider = await this.db.query.brokerProviders.findFirst({
+  //     where: eq(brokerProviders.id, existingBrokerProviderAsset.providerId),
+  //   });
 
-    const provider = await this.db.query.brokerProviders.findFirst({ where: eq(brokerProviders.id, existingBrokerProviderAsset.providerId) });
+  //   if (!provider) {
+  //     throw new Error("Broker provider not found");
+  //   }
 
-    if(!provider) {
-      throw new Error("Broker provider not found");
-    }
+  //   if (!provider.supportsAPIKey) {
+  //     throw new Error("Broker provider does not support API keys");
+  //   }
 
-    if(!provider.supportsAPIKey) {
-      throw new Error("Broker provider does not support API keys");
-    }
+  //   const existingAPIKeyConnection =
+  //     await this.db.query.brokerProviderAssetAPIKeyConnections.findFirst({
+  //       where: eq(
+  //         brokerProviderAssetAPIKeyConnections.brokerProviderAssetId,
+  //         id
+  //       ),
+  //     });
 
-    const existingAPIKeyConnection = await this.db.query.brokerProviderAssetAPIKeyConnections.findFirst({ where: eq(brokerProviderAssetAPIKeyConnections.brokerProviderAssetId, id) });
-
-    if(existingAPIKeyConnection) {
-      const [updatedAPIKeyConnection] = await this.db.update(brokerProviderAssetAPIKeyConnections).set({ apiKey }).where(eq(brokerProviderAssetAPIKeyConnections.id, existingAPIKeyConnection.id)).returning();
-      return updatedAPIKeyConnection; 
-    } else {
-      const [insertedAPIKeyConnection] = await this.db.insert(brokerProviderAssetAPIKeyConnections).values({ brokerProviderAssetId: id, apiKey }).returning();
-      return insertedAPIKeyConnection;
-    }
-  }
+  //   if (existingAPIKeyConnection) {
+  //     const [updatedAPIKeyConnection] = await this.db
+  //       .update(brokerProviderAssetAPIKeyConnections)
+  //       .set({ apiKey })
+  //       .where(
+  //         eq(
+  //           brokerProviderAssetAPIKeyConnections.id,
+  //           existingAPIKeyConnection.id
+  //         )
+  //       )
+  //       .returning();
+  //     return updatedAPIKeyConnection;
+  //   } else {
+  //     const [insertedAPIKeyConnection] = await this.db
+  //       .insert(brokerProviderAssetAPIKeyConnections)
+  //       .values({ brokerProviderAssetId: id, apiKey })
+  //       .returning();
+  //     return insertedAPIKeyConnection;
+  //   }
+  // }
 
   /**
-   * General Assets
+   * @deprecated This is no longer in use
    */
+  // private async getCombinedAssetsForUser(
+  //   userAccountId: UserAccount["id"]
+  // ): Promise<UserAsset[]> {
+  //   throw new Error("This is no longer in use");
+  // const brokerProviderQuery: QueryParts = {
+  //   where: and(eq(brokerProviderAssets.userAccountId, userAccountId)),
+  //   orderBy: [desc(brokerProviderAssets.createdAt)],
+  // };
 
-  async getGeneralAssetsForUser(userId: UserAccount["id"], query: QueryParams): Promise<GeneralAsset[]> {
-    const { where, orderBy, limit, offset } = generalAssetsQueryBuilder.buildQuery(query);
-    return this.db.query.generalAssets.findMany({ where: and(eq(generalAssets.userAccountId, userId), where), orderBy, limit, offset });
-  }
+  // const brokerProviderAssetsSelected =
+  //   await this.getBrokerProviderAssetsForUser(
+  //     userAccountId,
+  //     brokerProviderQuery
+  //   );
 
-  async getGeneralAssetsWithAccountChangeForUser(userId: UserAccount["id"], query: QueryParams): Promise<GeneralAssetWithAccountChange[]> {
-    const brokerAssets = await this.getGeneralAssetsForUser(userId, query);
-    const assetsWithHistory = await Promise.all(brokerAssets.map(async (asset) => {
-      const assetValues = await this.getPortfolioAssetValuesForAssetsForDateRange([asset.id] /* Add date range query */);
-      return { ...asset, history: assetValues };
-    }));
-    return resolveAssetsWithChange(assetsWithHistory);
-  }
+  // const generalQuery: QueryParts = {
+  //   where: eq(generalAssets.userAccountId, userAccountId),
+  //   orderBy: [desc(generalAssets.createdAt)],
+  // };
 
-  async getGeneralAsset(id: GeneralAsset["id"]): Promise<GeneralAsset> {
-    const generalAsset = await this.db.query.generalAssets.findFirst({ where: eq(generalAssets.id, id) });
-    if (!generalAsset) {
-      throw new Error("General asset not found");
-    }
-    return generalAsset;
-  }
+  // const generalAssetsSelected = await this.getGeneralAssetsForUser(
+  //   userAccountId,
+  //   generalQuery
+  // );
 
-  async getGeneralAssetHistory(id: GeneralAsset["id"], query: QueryParams): Promise<GeneralAsset[]> {
-    const { where, orderBy, limit, offset } = generalAssetsQueryBuilder.buildQuery(query);
-    return this.db.query.generalAssets.findMany({ where: and(eq(generalAssets.id, id), where), orderBy, limit, offset });
-  }
+  // const assets: Asset[] = [
+  //   ...brokerProviderAssetsSelected,
+  //   ...generalAssetsSelected,
+  // ];
 
-  async createGeneralAsset(data: GeneralAssetInsert): Promise<GeneralAsset> {
-    const insertedGeneralAsset = await this.db.transaction(async (tx) => {
-      const [insertedGeneralAsset] = await tx.insert(generalAssets).values({
-        ...data,
-        currentValue: data.currentValue ?? 0
-      }).returning();
+  // return assets;
+  //}
 
-      if(!insertedGeneralAsset) {
-        throw new Error("Failed to create general asset");
-      }
+  private async getPortfolioAssetValuesForAssetsForDateRange(
+    assetIds: UserAsset["id"][],
+    query?: DataRangeQuery
+  ): Promise<AssetValue[]> {
+    const startDate = resolveDate(query?.start);
+    const endDate = resolveDate(query?.end);
 
-      await tx.insert(assetValues).values({
-        assetId: insertedGeneralAsset.id,
-        value: data.currentValue ?? 0,
-        recordedAt: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }).returning();
-      return insertedGeneralAsset;
-    });
-    return insertedGeneralAsset ;
-  }
-
-  async updateGeneralAsset(id: GeneralAsset["id"], data: GeneralAssetInsert): Promise<GeneralAsset> {
-    const [updatedGeneralAsset] = await this.db.update(generalAssets).set(data).where(eq(generalAssets.id, id)).returning();
-    return updatedGeneralAsset;
-  }
-
-  async deleteGeneralAsset(id: GeneralAsset["id"]): Promise<boolean> {
-    const result = await this.db.delete(generalAssets).where(eq(generalAssets.id, id));
-    return (result?.rowCount ?? 0) > 0;
-  }
-
-  async getGeneralAssetsHistoryForUser(userId: UserAccount["id"], query: QueryParams): Promise<GeneralAsset[]> {
-    const { where, orderBy, limit, offset } = generalAssetsQueryBuilder.buildQuery(query);
-    return this.db.query.generalAssets.findMany({ where: and(eq(generalAssets.userAccountId, userId), where), orderBy, limit, offset });
-  }
-
-  async getGeneralAssetsValueHistory(id: GeneralAsset["id"], query: QueryParams): Promise<AssetValue[]> {
-    const { where, orderBy, limit, offset } = generalAssetsQueryBuilder.buildQuery(query);
-    return this.db.query.assetValues.findMany({ where: and(eq(assetValues.assetId, id), where), orderBy, limit, offset });
-  }
-
-  async getGeneralAssetsContributionHistory(id: GeneralAsset["id"], query: QueryParams): Promise<AssetContribution[]> {
-    const { where, orderBy, limit, offset } = generalAssetsQueryBuilder.buildQuery(query);
-    return this.db.query.assetContributions.findMany({ where: and(eq(assetContributions.assetId, id), where), orderBy, limit, offset });
-  }
-
-  async createGeneralAssetValueHistory(id: GeneralAsset["id"], data: AssetValueOrphanInsert): Promise<AssetValue> {
-
-    const value = await this.withValueTransaction(async (tx: Transaction) => {
-      const [insertedAssetValue] = await tx.insert(assetValues).values({
-        ...data,
-        assetId: id
-      }).returning();
-      return insertedAssetValue;
-    }, "general", id);
-
-    if(!value) {
-      throw new Error("Failed to create asset value history")
-    }
-
-    return value
-
-  }
-
-  async pushAssetValuesForAsset(assetId: BrokerProviderAsset["id"], values: AssetValueOrphanInsert[]): Promise<AssetValue[]> {
-    const insertedValues = await this.db.insert(assetValues).values(values.map(value => ({
-      ...value,
-      assetId
-    }))).returning();
-
-    if(!insertedValues) {
-      throw new Error("Failed to create asset value history")
-    }
-
-    return insertedValues
-  }
-
-  async createGeneralAssetContributionHistory(id: GeneralAsset["id"], data: AssetContributionOrphanInsert): Promise<AssetContribution> {
-    const [insertedAssetContribution] = await this.db.insert(assetContributions).values({
-      ...data,
-      assetId: id
-    }).returning();
-    return insertedAssetContribution;
-  }
-
-  async updateGeneralAssetValueHistory(id: GeneralAsset["id"], assetValueId: AssetValue["id"], data: AssetValueOrphanInsert): Promise<AssetValue> {
-    const parsedData = assetValueInsertSchema.parse(data);
-    const [updatedAssetValue] = await this.db.update(assetValues).set(parsedData).where(and(eq(assetValues.assetId, id), eq(assetValues.id, assetValueId))).returning();
-    return updatedAssetValue;
-  }
-
-  async updateGeneralAssetContributionHistory(id: GeneralAsset["id"], assetContributionId: AssetContribution["id"], data: AssetContributionOrphanInsert): Promise<AssetContribution> {
-    const parsedData = assetContributionInsertSchema.parse(data);
-    const [updatedAssetContribution] = await this.db.update(assetContributions).set(parsedData).where(and(eq(assetContributions.assetId, id), eq(assetContributions.id, assetContributionId))).returning();
-    return updatedAssetContribution;
-  }
-
-  async deleteGeneralAssetValueHistory(id: GeneralAsset["id"], assetValueId: AssetValue["id"]): Promise<boolean> {
-    const result = await this.db.delete(assetValues).where(and(eq(assetValues.assetId, id), eq(assetValues.id, assetValueId)));
-    return (result?.rowCount ?? 0) > 0;
-  }
-
-  async deleteGeneralAssetContributionHistory(id: GeneralAsset["id"], assetContributionId: AssetContribution["id"]): Promise<boolean> {
-    const result = await this.db.delete(assetContributions).where(and(eq(assetContributions.assetId, id), eq(assetContributions.id, assetContributionId)));
-    return (result?.rowCount ?? 0) > 0;
-  }
-
-  
-
-  private async getCombinedAssetsForUser(userAccountId: UserAccount["id"]): Promise<Asset[]> {
-    const brokerProviderQuery: QueryParts = {
-      where: and(eq(brokerProviderAssets.userAccountId, userAccountId)),
-      orderBy: [desc(brokerProviderAssets.createdAt)]
-    }
-
-    const brokerProviderAssetsSelected = await this.getBrokerProviderAssetsForUser(userAccountId, brokerProviderQuery);
-
-    const generalQuery: QueryParts = {
-      where: eq(generalAssets.userAccountId, userAccountId),
-      orderBy: [desc(generalAssets.createdAt)],
-    }
-
-    const generalAssetsSelected = await this.getGeneralAssetsForUser(userAccountId, generalQuery);
-
-    const assets: Asset[] = [...brokerProviderAssetsSelected, ...generalAssetsSelected];
-
-    return assets;
-  }
-
-  private async getPortfolioAssetValuesForAssetsForDateRange(assetIds: Asset["id"][], query?: DataRangeQuery): Promise<AssetValue[]> {
-
-    const startDate = resolveDate(query?.start)
-    const endDate = resolveDate(query?.end)
-
-    const dateQueries = startDate && endDate ? [between(assetValues.recordedAt, startDate, endDate)]
-      : startDate ? [gte(assetValues.recordedAt, startDate)]
-      : endDate ? [lte(assetValues.recordedAt, endDate)] 
-      : [];
+    const dateQueries =
+      startDate && endDate
+        ? [between(assetValues.recordedAt, startDate, endDate)]
+        : startDate
+        ? [gte(assetValues.recordedAt, startDate)]
+        : endDate
+        ? [lte(assetValues.recordedAt, endDate)]
+        : [];
 
     const assetValuesQuery: QueryParts = {
       where: and(inArray(assetValues.assetId, assetIds), ...dateQueries),
-      orderBy: [desc(assetValues.recordedAt)]
-    }
+      orderBy: [desc(assetValues.recordedAt)],
+    };
 
     const { where, orderBy, limit, offset } = assetValuesQuery;
 
-    const assetValuesToCalculate = await this.db.query.assetValues.findMany({ 
+    const assetValuesToCalculate = await this.db.query.assetValues.findMany({
       where,
       orderBy,
       limit,
-      offset
+      offset,
     });
 
     return assetValuesToCalculate;
   }
 
-  async getPortfolioOverviewForUserForDateRange(userAccountId: UserAccount["id"], query?: DataRangeQuery): Promise<AssetsChange> {
+  async getPortfolioOverviewForUserForDateRange(
+    userAccountId: UserAccount["id"],
+    query?: DataRangeQuery
+  ): Promise<AssetsChange> {
+    const assetsToCalculate = await this.getUserAssets(userAccountId, {});
 
-    const assetsToCalculate = await this.getCombinedAssetsForUser(userAccountId);
+    // const assetsToCalculateBefore = await this.getCombinedAssetsForUser(
+    //   userAccountId
+    // );
 
-    const assetsWithHistory = await Promise.all(assetsToCalculate.map(async (asset) => {
-      const assetValues = await this.getPortfolioAssetValuesForAssetsForDateRange([asset.id], query);
-      return { ...asset, history: assetValues };
-    }));
+    const assetsWithHistory = await Promise.all(
+      assetsToCalculate.map(async (asset) => {
+        const assetValues =
+          await this.getPortfolioAssetValuesForAssetsForDateRange(
+            [asset.id],
+            query
+          );
+        return { ...asset, history: assetValues };
+      })
+    );
 
-    return getPortfolioOverviewForAssets(assetsWithHistory, /*Need to add query */)
+    return getPortfolioOverviewForAssets(
+      assetsWithHistory /*Need to add query */
+    );
   }
 
-  async getPortfolioValueHistoryForUserForDateRange(userAccountId: UserAccount["id"], query?: DataRangeQuery): Promise<PortfolioHistoryTimePoint[]> {
+  async getPortfolioValueHistoryForUserForDateRange(
+    userAccountId: UserAccount["id"],
+    query?: DataRangeQuery
+  ): Promise<PortfolioHistoryTimePoint[]> {
+    const assetsToCalculate = await this.getUserAssets(userAccountId, {});
 
-    const assetsToCalculate = await this.getCombinedAssetsForUser(userAccountId);
-    const assetsWithHistory = await Promise.all(assetsToCalculate.map(async (asset): Promise<AssetWithHistory> => {
-      const assetValues = await this.getPortfolioAssetValuesForAssetsForDateRange([asset.id], query);
-      return { ...asset, history: assetValues.sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime()) };``
-    }))
-    
+    // const assetsToCalculateBefore = await this.getCombinedAssetsForUser(
+    //   userAccountId
+    // );
+
+    const assetsWithHistory = await Promise.all(
+      assetsToCalculate.map(async (asset): Promise<AssetWithHistory> => {
+        const assetValues =
+          await this.getPortfolioAssetValuesForAssetsForDateRange(
+            [asset.id],
+            query
+          );
+        return {
+          ...asset,
+          history: assetValues.sort(
+            (a, b) => a.recordedAt.getTime() - b.recordedAt.getTime()
+          ),
+        };
+        ``;
+      })
+    );
+
     return getPortfolioValueHistoryForAssets(assetsWithHistory, query);
   }
-
 
   async getBrokerPlatforms(): Promise<BrokerPlatform[]> {
     return this.db.query.brokerPlatforms.findMany();
@@ -558,69 +725,102 @@ export class DatabaseAssetService {
    * Recurring Contributions
    */
 
-  async getRecurringContributionsForAsset(assetId: BrokerProviderAsset["id"], query: QueryParts): Promise<RecurringContribution[]> {
-    const { where, orderBy, limit, offset } = query;
+  async getRecurringContributionsForAsset(
+    assetId: UserAsset["id"],
+    query: QueryParams
+  ): Promise<RecurringContribution[]> {
+    const { where, orderBy, limit, offset } =
+      recurringContributionsQueryBuilder.buildQuery(query);
     return this.db.query.recurringContributions.findMany({
       where: and(eq(recurringContributions.assetId, assetId), where),
       orderBy,
       limit,
-      offset
+      offset,
     });
   }
 
-  async createRecurringContribution(assetId: BrokerProviderAsset["id"], data: RecurringContributionOrphanInsert): Promise<RecurringContribution> {
+  async createRecurringContribution(
+    assetId: UserAsset["id"],
+    data: RecurringContributionOrphanInsert
+  ): Promise<RecurringContribution> {
     // Make sure the asset exists
-    const asset = await this.getBrokerProviderAsset(assetId);
+    const asset = await this.getUserAsset(assetId);
     if (!asset) {
       throw new Error(`Asset with ID ${assetId} not found`);
     }
 
-    const [insertedContribution] = await this.db.insert(recurringContributions).values({
-      ...data,
-      assetId,
-    }).returning();
+    const [insertedRecurringContribution] = await this.db
+      .insert(recurringContributions)
+      .values({
+        ...data,
+        assetId,
+      })
+      .returning();
 
-    return insertedContribution;
-  }
-
-  async updateRecurringContribution(assetId: BrokerProviderAsset["id"], contributionId: RecurringContribution["id"], data: RecurringContributionOrphanInsert): Promise<RecurringContribution> {
-    // Make sure the contribution exists and belongs to the asset
-    const existingContribution = await this.db.query.recurringContributions.findFirst({
-      where: and(
-        eq(recurringContributions.id, contributionId),
-        eq(recurringContributions.assetId, assetId)
-      )
-    });
-
-    if (!existingContribution) {
-      throw new Error(`Recurring contribution with ID ${contributionId} not found for asset ${assetId}`);
+    if (!insertedRecurringContribution) {
+      throw new Error("Failed to create recurring contribution");
     }
 
-    const [updatedContribution] = await this.db.update(recurringContributions)
+    return insertedRecurringContribution;
+  }
+
+  async updateRecurringContribution(
+    assetId: UserAsset["id"],
+    contributionId: RecurringContribution["id"],
+    data: RecurringContributionOrphanInsert
+  ): Promise<RecurringContribution> {
+    // Make sure the contribution exists and belongs to the asset
+    const existingContribution =
+      await this.db.query.recurringContributions.findFirst({
+        where: and(
+          eq(recurringContributions.id, contributionId),
+          eq(recurringContributions.assetId, assetId)
+        ),
+      });
+
+    if (!existingContribution) {
+      throw new Error(
+        `Recurring contribution with ID ${contributionId} not found for asset ${assetId}`
+      );
+    }
+
+    const [updatedContribution] = await this.db
+      .update(recurringContributions)
       .set({
         ...data,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       })
       .where(eq(recurringContributions.id, contributionId))
       .returning();
 
+    if (!updatedContribution) {
+      throw new Error("Failed to update recurring contribution");
+    }
+
     return updatedContribution;
   }
 
-  async deleteRecurringContribution(assetId: BrokerProviderAsset["id"], contributionId: RecurringContribution["id"]): Promise<boolean> {
+  async deleteRecurringContribution(
+    assetId: UserAsset["id"],
+    contributionId: RecurringContribution["id"]
+  ): Promise<boolean> {
     // Make sure the contribution exists and belongs to the asset
-    const existingContribution = await this.db.query.recurringContributions.findFirst({
-      where: and(
-        eq(recurringContributions.id, contributionId),
-        eq(recurringContributions.assetId, assetId)
-      )
-    });
+    const existingContribution =
+      await this.db.query.recurringContributions.findFirst({
+        where: and(
+          eq(recurringContributions.id, contributionId),
+          eq(recurringContributions.assetId, assetId)
+        ),
+      });
 
     if (!existingContribution) {
-      throw new Error(`Recurring contribution with ID ${contributionId} not found for asset ${assetId}`);
+      throw new Error(
+        `Recurring contribution with ID ${contributionId} not found for asset ${assetId}`
+      );
     }
 
-    const result = await this.db.delete(recurringContributions)
+    const result = await this.db
+      .delete(recurringContributions)
       .where(eq(recurringContributions.id, contributionId));
 
     return (result?.rowCount ?? 0) > 0;
@@ -631,30 +831,42 @@ export class DatabaseAssetService {
     let processedCount = 0;
 
     // Find all active recurring contributions that need processing
-    const dueContributions = await this.db.query.recurringContributions.findMany({
-      where: and(
-        eq(recurringContributions.isActive, true),
-        lte(recurringContributions.lastProcessedDate, this.getNextProcessingDate(now, 'weekly')) // Most aggressive interval
-      )
-    });
+    const dueContributions =
+      await this.db.query.recurringContributions.findMany({
+        where: and(
+          eq(recurringContributions.isActive, true),
+          lte(
+            recurringContributions.lastProcessedDate,
+            this.getNextProcessingDate(now, "weekly")
+          ) // Most aggressive interval
+        ),
+      });
 
     // Process each contribution that is due
     for (const contribution of dueContributions) {
-      const nextDate = this.getNextProcessingDate(contribution.lastProcessedDate, contribution.interval as ContributionInterval);
-      
+      const nextDate = this.getNextProcessingDate(
+        contribution.lastProcessedDate,
+        contribution.interval as ContributionInterval
+      );
+
       // Check if the next processing date is due
       if (nextDate <= now) {
         // Create a contribution (debit) entry
-        await this.createBrokerProviderAssetContributionHistory(contribution.assetId, {
+        await this.createUserAssetTransaction(contribution.assetId, {
           value: contribution.amount,
+          valueDate: new Date(),
           recordedAt: new Date(),
+          // currency: "GBP", default GBP is set at the DB level
+          // currencyValue: contribution.currencyValue, set to default zero at DB level
+          // fees: contribution.fees, set to default zero at DB level
         });
 
         // Update the last processed date
-        await this.db.update(recurringContributions)
+        await this.db
+          .update(recurringContributions)
           .set({
             lastProcessedDate: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
           })
           .where(eq(recurringContributions.id, contribution.id));
 
@@ -665,161 +877,211 @@ export class DatabaseAssetService {
     return processedCount;
   }
 
-  private getNextProcessingDate(lastDate: Date | null, interval: ContributionInterval): Date {
+  private getNextProcessingDate(
+    lastDate: Date | null,
+    interval: ContributionInterval
+  ): Date {
     const nextDate = lastDate ? new Date(lastDate) : new Date();
-    
+
     switch (interval) {
-      case 'weekly':
+      case "weekly":
         nextDate.setDate(nextDate.getDate() + 7);
         break;
-      case 'biweekly':
+      case "biweekly":
         nextDate.setDate(nextDate.getDate() + 14);
         break;
-      case 'monthly':
+      case "monthly":
         nextDate.setMonth(nextDate.getMonth() + 1);
         break;
       default:
         throw new Error(`Invalid interval: ${interval}`);
     }
-    
+
     return nextDate;
   }
 
-  /**
-   * Broker Provider Asset Value Items (Individual Holdings)
-   */
+  /* Asset Securities */
 
-  async getBrokerProviderAssetSecurities(assetId: BrokerProviderAsset["id"], query: QueryParams): Promise<BrokerProviderAssetSecuritySelect[]> {
-    const { where, orderBy, limit, offset } = brokerProviderAssetsQueryBuilder.buildQuery(query);
-    return this.db.query.brokerProvideraAssetSecurities.findMany({ 
+  async getUserAssetSecurities(
+    assetId: UserAsset["id"],
+    query: QueryParams
+  ): Promise<UserAssetSecuritySelect[]> {
+    const { where, orderBy, limit, offset } =
+      userAssetSecuritiesQueryBuilder.buildQuery(query);
+    return this.db.query.userAssetSecurities.findMany({
       with: { security: true },
-      where: and(eq(brokerProvideraAssetSecurities.brokerProviderAssetId, assetId), where), 
-      orderBy: orderBy || [desc(brokerProvideraAssetSecurities.recordedAt)], 
-      limit, 
-      offset 
+      where: and(eq(userAssetSecurities.userAssetId, assetId), where),
+      orderBy: orderBy || [desc(userAssetSecurities.recordedAt)],
+      limit,
+      offset,
     });
   }
 
-  async getBrokerProviderAssetSecurity(assetId: BrokerProviderAsset["id"], securityId: BrokerProviderAssetSecuritySelect["id"]): Promise<ResolvedSecurity> {
+  async getUserAssetSecurity(
+    assetId: UserAsset["id"],
+    securityId: UserAssetSecuritySelect["id"]
+  ): Promise<ResolvedSecurity> {
+    console.log("getUserAssetSecurity", assetId, securityId);
 
-    console.log("getBrokerProviderAssetSecurity", assetId, securityId);
-
-    const security = await this.db.query.brokerProvideraAssetSecurities.findFirst({
+    const security = await this.db.query.userAssetSecurities.findFirst({
+      where: and(
+        eq(userAssetSecurities.userAssetId, assetId),
+        eq(userAssetSecurities.id, securityId)
+      ),
       with: { security: true },
-      where: and(eq(brokerProvideraAssetSecurities.brokerProviderAssetId, assetId), eq(brokerProvideraAssetSecurities.id, securityId))
     });
     if (!security) {
-      throw new Error(`Broker provider asset security with ID ${securityId} not found for asset ${assetId}`);
+      throw new Error(
+        `User asset security with ID ${securityId} not found for asset ${assetId}`
+      );
     }
-    return security;
+    return security as ResolvedSecurity;
   }
 
-  async createBrokerProviderAssetSecurity(assetId: BrokerProviderAsset["id"], data: BrokerProviderAssetSecurityInsert): Promise<BrokerProviderAssetSecuritySelect> {
+  async createUserAssetSecurity(
+    assetId: UserAsset["id"],
+    data: UserAssetSecurityInsert
+  ): Promise<UserAssetSecuritySelect> {
     // Make sure the asset exists
-    const asset = await this.getBrokerProviderAsset(assetId);
+    const asset = await this.getUserAsset(assetId);
     if (!asset) {
-      throw new Error(`Broker provider asset with ID ${assetId} not found`);
+      throw new Error(`User asset with ID ${assetId} not found`);
     }
 
     // Make sure the security exists
-    const security = await this.getSecurity(data.securityId);
+    const security = await this.getCachedSecurity(data.securityId);
     if (!security) {
       throw new Error(`Security with ID ${data.securityId} not found`);
     }
 
-    const [insertedValueItem] = await this.db.insert(brokerProvideraAssetSecurities).values({
-      ...data,
-      brokerProviderAssetId: assetId,
-    }).returning();
+    const [insertedValueItem] = await this.db
+      .insert(userAssetSecurities)
+      .values({
+        ...data,
+        userAssetId: assetId,
+      })
+      .returning();
+
+    if (!insertedValueItem) {
+      throw new Error("Failed to create user asset security");
+    }
 
     return insertedValueItem;
   }
 
-  async updateBrokerProviderAssetSecurity(assetId: BrokerProviderAsset["id"], valueItemId: BrokerProviderAssetSecuritySelect["id"], data: BrokerProviderAssetSecurityInsert): Promise<BrokerProviderAssetSecuritySelect> {
+  async updateBrokerProviderAssetSecurity(
+    assetId: UserAsset["id"],
+    securityId: UserAssetSecuritySelect["id"],
+    data: UserAssetSecurityInsert
+  ): Promise<UserAssetSecuritySelect> {
     // Make sure the value item exists and belongs to the asset
-    const existingValueItem = await this.db.query.brokerProvideraAssetSecurities.findFirst({
-      where: and(
-        eq(brokerProvideraAssetSecurities.id, valueItemId),
-        eq(brokerProvideraAssetSecurities.brokerProviderAssetId, assetId)
-      )
-    });
+    const existingValueItem = await this.db.query.userAssetSecurities.findFirst(
+      {
+        where: and(
+          eq(userAssetSecurities.id, securityId),
+          eq(userAssetSecurities.userAssetId, assetId)
+        ),
+      }
+    );
 
     if (!existingValueItem) {
-      throw new Error(`Broker provider asset value item with ID ${valueItemId} not found for asset ${assetId}`);
+      throw new Error(
+        `User asset security with ID ${securityId} not found for asset ${assetId}`
+      );
     }
 
-    const [updatedValueItem] = await this.db.update(brokerProvideraAssetSecurities)
+    const [updatedValueItem] = await this.db
+      .update(userAssetSecurities)
       .set({
         ...data,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       })
-      .where(eq(brokerProvideraAssetSecurities.id, valueItemId))
+      .where(eq(userAssetSecurities.id, securityId))
       .returning();
+
+    if (!updatedValueItem) {
+      throw new Error("Failed to update user asset security");
+    }
 
     return updatedValueItem;
   }
 
-  async deleteBrokerProviderAssetSecurity(assetId: BrokerProviderAsset["id"], securityId: BrokerProviderAssetSecuritySelect["id"]): Promise<boolean> {
+  async deleteBrokerProviderAssetSecurity(
+    assetId: UserAsset["id"],
+    securityId: UserAssetSecuritySelect["id"]
+  ): Promise<boolean> {
     // Make sure the value item exists and belongs to the asset
-    const existingValueItem = await this.db.query.brokerProvideraAssetSecurities.findFirst({
-      where: and(
-        eq(brokerProvideraAssetSecurities.id, securityId),
-        eq(brokerProvideraAssetSecurities.brokerProviderAssetId, assetId)
-      )
-    });
+    const existingValueItem = await this.db.query.userAssetSecurities.findFirst(
+      {
+        where: and(
+          eq(userAssetSecurities.id, securityId),
+          eq(userAssetSecurities.userAssetId, assetId)
+        ),
+      }
+    );
 
     if (!existingValueItem) {
-      throw new Error(`Broker provider asset security with ID ${securityId} not found for asset ${assetId}`);
+      throw new Error(
+        `User asset security with ID ${securityId} not found for asset ${assetId}`
+      );
     }
 
-    const result = await this.db.delete(brokerProvideraAssetSecurities)
-      .where(eq(brokerProvideraAssetSecurities.id, securityId));
+    const result = await this.db
+      .delete(userAssetSecurities)
+      .where(eq(userAssetSecurities.id, securityId));
 
     return (result?.rowCount ?? 0) > 0;
   }
 }
 
-export type AssetPersistence = {
-  getAssetById: () => Promise<{id: string}>
-  getLastAssetValue: () => Promise<AssetValue | null>
-  getAssetSecurities: () => Promise<AssetSecurity[]>
-  insertAssetValues: (values: AssetValueOrphanInsert[]) => Promise<AssetValue[]>
-}
+/* Asset Persistence Utility */
 
-export const assetPersistenceFactory = (service: DatabaseAssetService, assetId: string): AssetPersistence => {
+export type AssetPersistence = {
+  getAssetById: () => Promise<{ id: string }>;
+  getLastAssetValue: () => Promise<AssetValue | null>;
+  getAssetSecurities: () => Promise<AssetSecurity[]>;
+  insertAssetValues: (
+    values: UserAssetValueOrphanInsert[]
+  ) => Promise<AssetValue[]>;
+};
+
+export const assetPersistenceFactory = (
+  service: DatabaseAssetService,
+  assetId: string
+): AssetPersistence => {
   return {
-    getAssetById: async (): Promise<{id: string}> => {
-      return service.getBrokerProviderAsset(assetId)
+    getAssetById: async (): Promise<{ id: string }> => {
+      return service.getUserAsset(assetId);
     },
 
     getLastAssetValue: async (): Promise<AssetValue | null> => {
-      const historyOfOne = await service.getBrokerProviderAssetValueHistory(assetId, {
+      const historyOfOne = await service.getUserAssetValueHistory(assetId, {
         limit: 1,
-        sort: [{ field: "recordedAt", direction: "desc" }]
-      })
+        sort: [{ field: "recordedAt", direction: "desc" }],
+      });
 
-      return historyOfOne.at(-1) ?? null
+      return historyOfOne.at(-1) ?? null;
     },
 
     getAssetSecurities: async (): Promise<AssetSecurity[]> => {
-      const securities = await service.getBrokerProviderAssetSecurities(assetId, {
+      const securities = await service.getUserAssetSecurities(assetId, {
         limit: 1000,
-        sort: [{ field: "recordedAt", direction: "desc" }]
-      })
-      return securities.map(security => ({
+        sort: [{ field: "recordedAt", direction: "desc" }],
+      });
+      return securities.map((security) => ({
         securityId: security.securityId,
         symbol: security.security.symbol,
         exchange: security.security.exchange ?? undefined,
         shareHolding: security.shareHolding,
         gainLoss: security.gainLoss,
         startDate: security.startDate,
-      }))
+      }));
     },
 
-    insertAssetValues: async (values: AssetValueOrphanInsert[]): Promise<AssetValue[]> => {
-      return service.pushAssetValuesForAsset(assetId, values)
-    }
-  }
-}
-
-
+    insertAssetValues: async (
+      values: UserAssetValueOrphanInsert[]
+    ): Promise<AssetValue[]> => {
+      return service.pushAssetValuesForAsset(assetId, values);
+    },
+  };
+};

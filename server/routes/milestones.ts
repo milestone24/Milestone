@@ -18,6 +18,10 @@ export async function registerRoutes(
     "/user/:userAccountId",
     requireUser,
     async (req: AuthRequest, res) => {
+      if (!req.params.userAccountId) {
+        return res.status(400).json({ message: "User account ID is required" });
+      }
+
       try {
         const userAccountId = req.params.userAccountId;
         const milestones = await milestoneService.getByUserAccountId(
@@ -32,6 +36,10 @@ export async function registerRoutes(
 
   // Get milestone by ID
   router.get("/:id", requireUser, async (req: AuthRequest, res) => {
+    if (!req.params.id) {
+      return res.status(400).json({ message: "Milestone ID is required" });
+    }
+
     try {
       const milestoneId = req.params.id;
       const milestone = await milestoneService.get(milestoneId);
@@ -48,6 +56,10 @@ export async function registerRoutes(
 
   // Create milestone
   router.post("/", requireUser, async (req: AuthRequest, res) => {
+    if (!req.body) {
+      return res.status(400).json({ message: "Milestone data is required" });
+    }
+
     try {
       const milestoneData = milestoneInsertSchema.parse(req.body);
       const milestone = await milestoneService.create(milestoneData);
@@ -64,6 +76,10 @@ export async function registerRoutes(
 
   // Update milestone
   router.patch("/:id", requireUser, async (req: AuthRequest, res) => {
+    if (!req.params.id) {
+      return res.status(400).json({ message: "Milestone ID is required" });
+    }
+
     try {
       const milestoneId = req.params.id;
       const milestoneData = milestoneInsertSchema.partial().parse(req.body);
@@ -87,6 +103,10 @@ export async function registerRoutes(
 
   // Delete milestone
   router.delete("/:id", requireUser, async (req: AuthRequest, res) => {
+    if (!req.params.id) {
+      return res.status(400).json({ message: "Milestone ID is required" });
+    }
+
     try {
       const milestoneId = req.params.id;
       const success = await milestoneService.delete(milestoneId);
@@ -109,6 +129,10 @@ export async function registerRoutes(
     "/:id/completion",
     requireUser,
     async (req: AuthRequest, res) => {
+      if (!req.params.id) {
+        return res.status(400).json({ message: "Milestone ID is required" });
+      }
+
       try {
         const milestoneId = req.params.id;
         const { isCompleted } = req.body;

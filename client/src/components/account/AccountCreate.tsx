@@ -1,9 +1,10 @@
 import {
-  brokerProviderAssetOrphanInsertSchema,
-  BrokerProviderAssetOrphanInsert,
-  BrokerProviderInsertSecurityItem,
+  userAssetOrphanInsertSchema,
+  UserAssetOrphanInsert,
+  UserAssetSecurityInsert,
   SecuritySearchResult,
-  brokerProviderAssetSecurityInsertSchema,
+  userAssetSecurityInsertSchema,
+  UserAssetInsertSecurityItem,
 } from "@shared/schema";
 import { useForm, useFormContext, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,7 +39,7 @@ import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 
 type AccountCreateProps = {
-  onSubmit: (data: BrokerProviderAssetOrphanInsert) => void;
+  onSubmit: (data: UserAssetOrphanInsert) => void;
   onCancel: () => void;
 };
 
@@ -61,10 +62,10 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
   onSubmit,
   onCancel,
 }) => {
-  const form = useForm<BrokerProviderAssetOrphanInsert>({
+  const form = useForm<UserAssetOrphanInsert>({
     //resolver: zodResolver(brokerProviderAssetOrphanInsertSchema),
     resolver: withTransform(
-      zodResolver(brokerProviderAssetOrphanInsertSchema),
+      zodResolver(userAssetOrphanInsertSchema),
       (values) => ({
         ...values,
         securities:
@@ -84,7 +85,7 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
         contributions: {
           process: "automatic",
           amount: values.contributions?.amount
-            ? parseFloat(values.contributions.amount as string)
+            ? parseFloat(values.contributions.amount as unknown as string)
             : 0,
           date: new Date(),
           notificationPeriod:
@@ -134,7 +135,7 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
 
   const [formStage, setFormStage] = useState<number>(2);
 
-  const submitForm = (data: BrokerProviderAssetOrphanInsert) => {
+  const submitForm = (data: UserAssetOrphanInsert) => {
     onSubmit(data);
     form.reset();
   };
@@ -238,7 +239,7 @@ const ActionsBar = ({
 };
 
 const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
-  const form = useFormContext<BrokerProviderAssetOrphanInsert>();
+  const form = useFormContext<UserAssetOrphanInsert>();
 
   const {
     formState: { isSubmitting },
@@ -399,7 +400,7 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
 };
 
 const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
-  const form = useFormContext<BrokerProviderAssetOrphanInsert>();
+  const form = useFormContext<UserAssetOrphanInsert>();
 
   const { watch } = form;
 
@@ -538,16 +539,16 @@ const SecurityOptions = ({
 };
 
 
-type BrokerProviderInsertSecurityItemWithoutStartDate = Omit<BrokerProviderInsertSecurityItem, "startDate">;
+type UserAssetInsertSecurityItemWithoutStartDate = Omit<UserAssetInsertSecurityItem, "startDate">;
 
 const SecurityAddForm = ({
   onAdd,
   onCancel,
 }: {
-  onAdd: (value: BrokerProviderInsertSecurityItemWithoutStartDate) => void;
+  onAdd: (value: UserAssetInsertSecurityItemWithoutStartDate) => void;
   onCancel: () => void;
 }) => {
-  const form = useForm<Partial<Omit<BrokerProviderInsertSecurityItemWithoutStartDate, "startDate">>>({
+  const form = useForm<Partial<Omit<UserAssetInsertSecurityItemWithoutStartDate, "startDate">>>({
     //We need this as the form library does not use react-hook form effectively to allow valueAsNumber to work
     //And we really need a float anyway
 
@@ -635,7 +636,7 @@ const SecurityAddForm = ({
                 security: selectedSecurity,
                 shareHolding: form.getValues("shareHolding") || 0,
                 gainLoss: form.getValues("gainLoss") || 0,
-              } as BrokerProviderInsertSecurityItemWithoutStartDate);
+              } as UserAssetInsertSecurityItemWithoutStartDate);
               setSelectedSecurity(null);
               setSearchInput("");
               form.reset();
@@ -652,7 +653,7 @@ const SecurityAddForm = ({
 };
 
 type SecurityCardProps = {
-  security: BrokerProviderInsertSecurityItem & { id: string };
+  security: UserAssetInsertSecurityItem & { id: string };
 };
 
 const SecurityCard = ({ security }: SecurityCardProps) => {
@@ -691,12 +692,12 @@ const SecurityCard = ({ security }: SecurityCardProps) => {
 };
 
 const useContributionSecurities = (
-  securities: BrokerProviderInsertSecurityItem[]
+  securities: UserAssetInsertSecurityItem[]
 ) => {
-  const form = useFormContext<BrokerProviderAssetOrphanInsert>();
+  const form = useFormContext<UserAssetOrphanInsert>();
 
   const { fields: securitiesFields, append } = useFieldArray<
-    BrokerProviderAssetOrphanInsert,
+    UserAssetOrphanInsert,
     "contributions.securityDistribution",
     "id"
   >({
@@ -734,7 +735,7 @@ const useContributionSecurities = (
 };
 
 const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
-  const form = useFormContext<BrokerProviderAssetOrphanInsert>();
+  const form = useFormContext<UserAssetOrphanInsert>();
 
   const {
     watch,

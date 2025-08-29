@@ -29,8 +29,10 @@ export const fireSettingsOrphanSchema = z.object({
   safeWithdrawalRate: z.string(),
   monthlyInvestment: z.string(),
   currentAge: z.number().int(),
-  adjustInflation: z.boolean().default(DEFAULT_ADJUST_INFLATION),
-  statePensionAge: z.number().int().default(DEFAULT_STATE_PENSION_AGE),
+  //adjustInflation: z.boolean().default(DEFAULT_ADJUST_INFLATION),
+  adjustInflation: z.boolean().optional(),
+  //statePensionAge: z.number().int().default(DEFAULT_STATE_PENSION_AGE),
+  statePensionAge: z.number().int().optional(),
 });
 
 type ZodFireSettingsOrphan = z.infer<typeof fireSettingsOrphanSchema>;

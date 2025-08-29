@@ -1,7 +1,7 @@
 import { InferSelectModel, sql, relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { InferInsertModelBasic, timestampColumns } from "./utils";
-import { pgTable, text, uuid, date, decimal, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, date, decimal, unique, timestamp, real } from "drizzle-orm/pg-core";
 
 export const securities = pgTable("securities", {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
@@ -18,6 +18,9 @@ export const securities = pgTable("securities", {
   ...timestampColumns()
 });
 
+export type SecuritySelect = InferSelectModel<typeof securities>;
+export type SecurityInsert = InferInsertModelBasic<typeof securities>;
+
 export const securityDailyHistory = pgTable("security_daily_history", {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   securityId: uuid("security_id").notNull().references(() => securities.id),
@@ -32,9 +35,6 @@ export const securityDailyHistory = pgTable("security_daily_history", {
   // Composite unique constraint to prevent duplicates
   unique("unique_security_date").on(table.securityId, table.date)
 ]);
-
-export type SecuritySelect = InferSelectModel<typeof securities>;
-export type SecurityInsert = InferInsertModelBasic<typeof securities>;
 
 export type SecurityDailyHistorySelect = InferSelectModel<typeof securityDailyHistory>;
 export type SecurityDailyHistoryInsert = InferInsertModelBasic<typeof securityDailyHistory>;

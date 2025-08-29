@@ -24,6 +24,11 @@ export class DatabaseFireSettingsService {
 
   async create(data: FireSettingsInsert): Promise<FireSettings> {
     const [settings] = await this.db.insert(fireSettings).values(data).returning();
+
+    if (!settings) {
+      throw new Error("Failed to create FIRE settings");
+    }
+
     return settings;
   }
 

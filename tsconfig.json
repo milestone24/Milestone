@@ -9,7 +9,7 @@
     "module": "ESNext",
     "strict": true,
     "target": "es2015",
-    "lib": ["dom", "es2015"],
+    "lib": ["dom", "es2023"],
     "jsx": "preserve",
     "esModuleInterop": true,
     "skipLibCheck": true,

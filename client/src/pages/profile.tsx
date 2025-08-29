@@ -12,7 +12,7 @@ import { useSession } from "../hooks/use-session";
 
 export default function Profile() {
   const { user, profileImage, setProfileImage } = useSession();
-  const joinDate = user ? new Date(user.account.createdAt).toLocaleDateString('en-US', { 
+  const joinDate = user?.account?.createdAt ? new Date(user.account.createdAt).toLocaleDateString('en-US', { 
     month: 'short', 
     year: 'numeric' 
   }) : 'N/A';
