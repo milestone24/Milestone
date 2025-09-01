@@ -7,6 +7,7 @@ import {
   userAssetAPIKeyConnections,
   assetTransactions,
   userAssetSecurities,
+  securityTransactions,
 } from "server/db/schema";
 import { Database } from "../../db";
 import { and, between, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
@@ -41,6 +42,9 @@ import {
   UserAssetTransactionOrphanInsert,
   AssetTransaction,
   ResolvedUserAsset,
+  AssetHistoryTimePoint,
+  SecurityTransactionOrphanInsert,
+  SecurityTransaction,
 } from "@shared/schema";
 import { NodePgTransaction } from "drizzle-orm/node-postgres";
 import { Schema, TSchema } from "server/db/types/utils";
@@ -80,9 +84,9 @@ const userAssetsQueryBuilder = new ResourceQueryBuilder({
 
 const assetValuesQueryBuilder = new ResourceQueryBuilder({
   table: assetValues,
-  allowedSortFields: ["recordedAt"],
+  allowedSortFields: ["valueDate"],
   allowedFilterFields: [],
-  defaultSort: { field: "recordedAt", direction: "desc" },
+  defaultSort: { field: "valueDate", direction: "asc" },
   maxLimit: 50,
 });
 
@@ -171,7 +175,6 @@ export class DatabaseAssetService {
     userId: UserAccount["id"],
     query: QueryParams
   ): Promise<UserAssetWithAccountChange[]> {
-    console.log("getBrokerProviderAssetsWithAccountChangeForUser", query);
     const brokerAssets = await this.getUserAssets(userId, query);
     const assetsWithHistory = await Promise.all(
       brokerAssets.map(async (asset) => {
@@ -195,8 +198,6 @@ export class DatabaseAssetService {
       throw new Error("User asset not found");
     }
 
-    console.log("userAsset", userAsset.platform);
-    //return brokerProviderAsset;
     return {
       ...userAsset,
       platform: userAsset.platform ?? undefined,
@@ -255,13 +256,51 @@ export class DatabaseAssetService {
   ): Promise<AssetValue[]> {
     const { where, orderBy, limit, offset } =
       assetValuesQueryBuilder.buildQuery(query);
-    console.log("getUserAssetValueHistory orderBy", orderBy);
     return this.db.query.assetValues.findMany({
       where: and(eq(assetValues.assetId, id), where),
       orderBy,
       limit,
       offset,
     });
+  }
+
+  async getUserAssetValueHistoryGraph(
+    id: UserAsset["id"],
+    query?: DataRangeQuery
+  ): Promise<AssetHistoryTimePoint[]> {
+    let { start, end } = query ?? {};
+
+    end = end ? (typeof end === "string" ? new Date(end) : end) : new Date();
+
+    start = start
+      ? typeof start === "string"
+        ? new Date(start)
+        : start
+      : new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const dateWhere =
+      start && end ? between(assetValues.valueDate, start, end) : undefined;
+
+    const assetValuesFound = await this.db.query.assetValues.findMany({
+      where: and(eq(assetValues.assetId, id), dateWhere),
+      orderBy: (assetValues, { asc }) => [asc(assetValues.valueDate)],
+      limit: 1000,
+      offset: 0,
+    });
+
+    return assetValuesFound.map((assetValue) => ({
+      date: assetValue.valueDate,
+      value: assetValue.value,
+      changes: [
+        // {
+        //   assetId: id,
+        //   previousValue: assetValue.value,
+        //   newValue: assetValue.value,
+        //   change: assetValue.value,
+        // },
+      ],
+      metadata: assetValue.metadata as Record<string, unknown>,
+    }));
   }
 
   async getUserAssetTransactions(
@@ -292,31 +331,44 @@ export class DatabaseAssetService {
         throw new Error("Failed to create user asset");
       }
 
-      const securities = data.securities.map((security) => ({
-        ...security,
-        assetId: insertedUserAsset.id,
-      }));
-
-      const securitiesToInsert = await Promise.all(
-        securities.map(async (security) => {
+      await Promise.all(
+        data.securities.map(async (security) => {
           const persistedSecurity =
             await securitiesService.createOrFindCachedSecurity(
               security.security
             );
-          return {
+          const assetSecurityData = {
             securityId: persistedSecurity.id,
             userAssetId: insertedUserAsset.id,
             recordedAt: security.recordedAt ?? new Date(),
             shareHolding: security.shareHolding,
             gainLoss: security.gainLoss,
             startDate: security.startDate,
+            currency: persistedSecurity.currency ?? "GBP",
           };
+
+          const [assetSecurity] = await tx
+            .insert(userAssetSecurities)
+            .values(assetSecurityData)
+            .returning();
+
+          if (!assetSecurity) {
+            throw new Error("Failed to create user asset security");
+          }
+
+          const transaction = await tx.insert(securityTransactions).values({
+            securityId: assetSecurity.id,
+            value: assetSecurity.shareHolding,
+            currency: assetSecurityData.currency ?? "GBP",
+            recordedAt: new Date(),
+            valueDate: insertedUserAsset.startDate,
+          });
+
+          if (!transaction) {
+            throw new Error("Failed to create security transaction");
+          }
         })
       );
-
-      if (securitiesToInsert.length > 0) {
-        await tx.insert(userAssetSecurities).values(securitiesToInsert);
-      }
 
       if (data.valueMethod === "manual") {
         await tx.insert(assetValues).values({
@@ -538,6 +590,25 @@ export class DatabaseAssetService {
     return (result?.rowCount ?? 0) > 0;
   }
 
+  async createUserAssetSecurityTransaction(
+    securityId: string,
+    data: SecurityTransactionOrphanInsert
+  ): Promise<SecurityTransaction> {
+    const [securityTransaction] = await this.db
+      .insert(securityTransactions)
+      .values({
+        securityId,
+        ...data,
+      })
+      .returning();
+
+    if (!securityTransaction) {
+      throw new Error("Failed to create security transaction");
+    }
+
+    return securityTransaction;
+  }
+
   // async setBrokerProviderAPIKey(
   //   id: BrokerProviderAsset["id"],
   //   apiKey: string
@@ -686,7 +757,7 @@ export class DatabaseAssetService {
   async getPortfolioValueHistoryForUserForDateRange(
     userAccountId: UserAccount["id"],
     query?: DataRangeQuery
-  ): Promise<PortfolioHistoryTimePoint[]> {
+  ): Promise<AssetHistoryTimePoint[]> {
     const assetsToCalculate = await this.getUserAssets(userAccountId, {});
 
     // const assetsToCalculateBefore = await this.getCombinedAssetsForUser(
@@ -921,8 +992,6 @@ export class DatabaseAssetService {
     assetId: UserAsset["id"],
     securityId: UserAssetSecuritySelect["id"]
   ): Promise<ResolvedSecurity> {
-    console.log("getUserAssetSecurity", assetId, securityId);
-
     const security = await this.db.query.userAssetSecurities.findFirst({
       where: and(
         eq(userAssetSecurities.userAssetId, assetId),
@@ -1057,7 +1126,7 @@ export const assetPersistenceFactory = (
     getLastAssetValue: async (): Promise<AssetValue | null> => {
       const historyOfOne = await service.getUserAssetValueHistory(assetId, {
         limit: 1,
-        sort: [{ field: "recordedAt", direction: "desc" }],
+        sort: [{ field: "valueDate", direction: "desc" }],
       });
 
       return historyOfOne.at(-1) ?? null;

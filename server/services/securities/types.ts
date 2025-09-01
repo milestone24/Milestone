@@ -72,13 +72,18 @@ export interface AssetSecurity {
 // Simplified return type
 export interface AssetValueResult {
   value: number;
-  entryMethod: 'calculated';
+  entryMethod: "calculated";
   valueDate: Date;
   metadata: {
     calculatedAt: string;
     securitiesProcessed: number;
     securitiesTotal: number;
-    dataStatus: 'complete' | 'partial';
+    dataStatus: "complete" | "partial";
     sourcesUsed: string[]; // Dynamic source identifiers from actual services
+    securities: {
+      securityName: string;
+      securitySymbol: string;
+      value: number;
+    }[];
   };
 }

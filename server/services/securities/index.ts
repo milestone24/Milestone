@@ -3,8 +3,15 @@ import { factory as assetValueSyncFactory } from "./sync/asset-value"
 //import { factory as cacheFactory } from "./sync/cache"
 import { factory as gatewayFactory } from "./gateway"
 
-const gateway = gatewayFactory()
-const assetValueSync = assetValueSyncFactory()
+import { DatabaseSecurityService } from "./database";
+import { db } from "@server/db";
+
+const databaseService = new DatabaseSecurityService(db);
+
+const gateway = gatewayFactory();
+const assetValueSync = assetValueSyncFactory();
+
+
 //const cacheSync = cacheFactory()
 
 export const factory = () => {
@@ -20,6 +27,6 @@ export const factory = () => {
     updateCachedSecurity,
     deleteCachedSecurity,
     getCachedSecurity,
-    
-  }
+    //createSecurityTransaction: databaseService.createSecurityTransaction,
+  };
 }

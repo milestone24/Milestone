@@ -170,7 +170,7 @@ export const userAssetSecurities = pgTable("user_asset_securities", {
     .default(sql`gen_random_uuid()`),
   userAssetId: uuid("user_asset_id")
     .notNull()
-    .references(() => userAssets.id),
+    .references(() => userAssets.id, { onDelete: "cascade" }),
   securityId: uuid("security_id")
     .notNull()
     .references(() => securities.id),
@@ -180,6 +180,46 @@ export const userAssetSecurities = pgTable("user_asset_securities", {
   recordedAt: timestamp("recorded_at").notNull(),
   ...timestampColumns(),
 });
+
+export const securityTransactions = pgTable("security_transactions", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  securityId: uuid("security_id")
+    .notNull()
+    .references(() => userAssetSecurities.id, { onDelete: "cascade" }),
+  value: real("value").notNull(), //The number of shares held
+  //TODO
+  //We should have this but when user is adding there account they might not know the currency value.
+  //Do we force the user to add the currency value? or do we obtain the currency value from the
+  //cache or api?
+  //currencyValue: real("currency_value").notNull().default(0),
+  currencyValue: real("currency_value"),
+  fees: real("fees").default(0),
+  //TODO
+  //The currency information will need to be added and not optional with default value eventually
+  currency: text("currency").notNull().default("GBP"),
+  valueDate: timestamp("value_date").notNull(),
+  recordedAt: timestamp("recorded_at").notNull(),
+  ...timestampColumns(),
+});
+
+export type SecurityTransactionSelect = InferSelectModel<
+  typeof securityTransactions
+>;
+export type SecurityTransactionInsert = InferInsertModelBasic<
+  typeof securityTransactions
+>;
+
+export const securityTransactionRelations = relations(
+  securityTransactions,
+  ({ one }) => ({
+    assetSecurity: one(userAssetSecurities, {
+      fields: [securityTransactions.securityId],
+      references: [userAssetSecurities.id],
+    }),
+  })
+);
 
 export const userAssetAPIKeyConnections = pgTable(
   "user_asset_api_key_connections",
@@ -194,39 +234,6 @@ export const userAssetAPIKeyConnections = pgTable(
     ...timestampColumns(),
   }
 );
-
-export const securityTransactions = pgTable("security_transactions", {
-  id: uuid("id")
-    .notNull()
-    .default(sql`gen_random_uuid()`),
-  value: real("value").notNull(), // Value of shares or other measure of value added or removed
-  currencyValue: real("currency_value").notNull().default(0), // Value of shares added or removed in currency
-  fees: real("fees").notNull().default(0), // Fees paid for the transaction
-  currency: text("currency").notNull(), // Currency of the transaction
-  valueDate: timestamp("value_date").notNull(),
-  recordedAt: timestamp("recorded_at").notNull(),
-  securityId: uuid("asset_security_id")
-    .notNull()
-    .references(() => userAssetSecurities.id),
-  ...timestampColumns(),
-});
-
-export const securityTransactionRelations = relations(
-  securityTransactions,
-  ({ one }) => ({
-    assetSecurity: one(userAssetSecurities, {
-      fields: [securityTransactions.securityId],
-      references: [userAssetSecurities.id],
-    }),
-  })
-);
-
-export type SecurityTransactionSelect = InferSelectModel<
-  typeof securityTransactions
->;
-export type SecurityTransactionInsert = InferInsertModelBasic<
-  typeof securityTransactions
->;
 
 export const userAssetsRelations = relations(userAssets, ({ one, many }) => ({
   provider: one(brokerProviders, {

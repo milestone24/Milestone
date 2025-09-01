@@ -33,7 +33,6 @@ export async function registerRoutes(
       req.tenant,
       async (tenant) => {
         const queryParams = parseQueryParamsExpress(req.query);
-        console.log("GET broker queryParams", queryParams);
         const assets = await assetService.getUserAssetsWithAccountValueChange(
           tenant.userAccountId,
           queryParams
@@ -48,9 +47,11 @@ export async function registerRoutes(
   router.post("/", requireUser, async (req: AuthRequest, res) => {
     try {
       const data = userAssetInsertSchema.parse(req.body);
+
       const asset = await assetService.createUserAsset(data);
       res.json(asset);
     } catch (error) {
+      console.error("Error creating user asset", error);
       res.status(400).json({
         error:
           error instanceof Error ? error.message : "An unknown error occurred",
@@ -106,10 +107,29 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Asset ID is required" });
       }
       const queryParams = parseQueryParamsExpress(req.query);
-      //console.log("GET broker asset history queryParams", queryParams);
       const history = await assetService.getUserAssetValueHistory(
         req.params.assetId,
         queryParams
+      );
+      res.json(history);
+    }
+  );
+
+  router.get(
+    `/${uuidRouteParam("assetId")}/history/graph`,
+    requireUser,
+    async (req: AuthRequest, res) => {
+      if (!req.params.assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+
+      const queryParams = parseQueryParamsExpress(req.query);
+      const history = await assetService.getUserAssetValueHistoryGraph(
+        req.params.assetId,
+        {
+          start: req.query?.start ? new Date(req.query.start as string) : null,
+          end: req.query?.end ? new Date(req.query.end as string) : null,
+        }
       );
       res.json(history);
     }

@@ -43,74 +43,96 @@ import { populateSecuritiesDailyHistoryCache, populateSecurityDailyHistoryCache 
 /**
  * Calculate asset value for a specific date using injected securities
  * This will always use the cache and so would always expect the cache to be populated
+ * This is in appropriate as in doing large number of calls to the db for cached history for one day.
  */
 const calculateAssetValueForDateFromCache = async (
   assetSecurities: AssetSecurity[],
   date: Date
 ): Promise<AssetValueResult | null> => {
-  
   if (assetSecurities.length === 0) {
-    return null
+    return null;
   }
-  
-  const securityHistory = await Promise.all(assetSecurities.map(async (security) => {
-    const history = await getSecurityHistoryForDateRangeCache(security.securityId, date, date)
-    return history.map(record => ({
-      //TODO: close can not be null
-      close: Number(record.close ?? 0),
-      shareHolding: security.shareHolding,
-      source: record.source
-    }))
-  }))
 
-  return calculateAssetValue(date, securityHistory)
-}
+  const securityHistory = await Promise.all(
+    assetSecurities.map(async (security) => {
+      const history = await getSecurityHistoryForDateRangeCache(
+        security.securityId,
+        date,
+        date
+      );
+      return history.map((record) => ({
+        //TODO: close can not be null
+        close: Number(record.close ?? 0),
+        shareHolding: security.shareHolding,
+        source: record.source,
+        securityName: record.security.name,
+        securitySymbol: record.security.symbol,
+      }));
+    })
+  );
+
+  return calculateAssetValue(date, securityHistory);
+};
 
 type SecurityHistoryForAssetCalculation = {
-  close: number
-  shareHolding: number
-  source: string
-}
+  close: number;
+  shareHolding: number;
+  source: string;
+  securityName: string;
+  securitySymbol: string;
+};
 
 const calculateAssetValue = async (
   historyDate: Date,
   securityHistory: SecurityHistoryForAssetCalculation[][]
 ): Promise<AssetValueResult | null> => {
-  const calculationTimestamp = new Date().toISOString()
-  let totalValue = 0
-  let securitiesProcessed = 0
-  const sourcesUsed = new Set<string>()
+  const calculationTimestamp = new Date().toISOString();
+  let totalValue = 0;
+  let securitiesProcessed = 0;
+  const sourcesUsed = new Set<string>();
+  const values: {
+    value: number;
+    securityName: string;
+    securitySymbol: string;
+  }[] = [];
 
-  for(const history of securityHistory) {
-    for(const security of history) {
-      totalValue += security.close * security.shareHolding
-      securitiesProcessed++
-      sourcesUsed.add(security.source)
+  for (const history of securityHistory) {
+    for (const security of history) {
+      totalValue += security.close * security.shareHolding;
+      securitiesProcessed++;
+      sourcesUsed.add(security.source);
+      values.push({
+        securityName: security.securityName,
+        securitySymbol: security.securitySymbol,
+        value: security.close * security.shareHolding,
+      });
     }
   }
 
   // Return null if no securities could be valued
   if (securitiesProcessed === 0) {
-    return null
+    return null;
   }
 
   return {
     value: totalValue,
-    entryMethod: 'calculated',
+    entryMethod: "calculated",
     valueDate: historyDate,
     metadata: {
       calculatedAt: calculationTimestamp,
       securitiesProcessed,
       securitiesTotal: securityHistory.length,
-      dataStatus: securitiesProcessed === securityHistory.length ? 'complete' : 'partial',
-      sourcesUsed: Array.from(sourcesUsed) // Dynamic source identifiers from actual services
-    }
-  }
-}
+      securities: values,
+      dataStatus:
+        securitiesProcessed === securityHistory.length ? "complete" : "partial",
+      sourcesUsed: Array.from(sourcesUsed), // Dynamic source identifiers from actual services
+    },
+  };
+};
 
 // /**
 //  * Calculate and create asset value records for a date range
-//  * @param assetId - The broker provider asset ID  
+//  * @param assetId - The broker provider asset ID
 //  * @param startDate - Start date for calculations
 //  * @param endDate - End date for calculations
 //  * @returns Promise with creation results
@@ -138,69 +160,82 @@ const calculateAssetValue = async (
 //   throw new Error("Not implemented")
 // }
 
-const updateAssetValues = async (
-  assetPersistence: AssetPersistence,
-) => {
-
-  const assetSecurities = await assetPersistence.getAssetSecurities()
+const updateAssetValues = async (assetPersistence: AssetPersistence) => {
+  const assetSecurities = await assetPersistence.getAssetSecurities();
 
   //TODO Consider if this should be done here.
   //Make sure this method is optimised to only retrieve the dates that are needed.
-  const results = await populateSecuritiesDailyHistoryCache(assetSecurities.map(security => ({
-    securityId: security.securityId,
-    startDate: security.startDate,
-    endDate: new Date()
-  })))
+  const results = await populateSecuritiesDailyHistoryCache(
+    assetSecurities.map((security) => ({
+      securityId: security.securityId,
+      startDate: security.startDate,
+      endDate: new Date(),
+    }))
+  );
 
-  const earliestStartDate = assetSecurities.reduce((min, security) => {
-    return security.startDate < min ? security.startDate : min
-  }, new Date())
+  const earliestSecurityStartDate = assetSecurities.reduce((min, security) => {
+    return security.startDate < min ? security.startDate : min;
+  }, new Date());
+
+  const lastAssetValue = await assetPersistence.getLastAssetValue();
+  const lastValueDatePlusADay = lastAssetValue
+    ? new Date(
+        new Date(lastAssetValue.valueDate).getTime() + 24 * 60 * 60 * 1000
+      )
+    : null;
 
   //TODO Ensure cache is populated for all securities
 
-  let currentDate = earliestStartDate
-  const values: AssetValueResult[] = []
+  let currentDate = lastValueDatePlusADay
+    ? lastValueDatePlusADay > earliestSecurityStartDate
+      ? lastValueDatePlusADay
+      : earliestSecurityStartDate
+    : earliestSecurityStartDate;
 
-  console.log("STARTING ASSET VALUE CALCULATION", currentDate)
+  const values: AssetValueResult[] = [];
 
   const todayMinusOne = new Date();
   todayMinusOne.setDate(todayMinusOne.getDate() - 1);
 
-  console.log("STARTING ASSET VALUE CALCULATION LOOP", currentDate, todayMinusOne)
+  console.log(
+    "STARTING ASSET VALUE CALCULATION LOOP",
+    currentDate,
+    todayMinusOne
+  );
 
-  while(currentDate < todayMinusOne) {
-
-    const assetValue = await calculateAssetValueForDateFromCache(assetSecurities, currentDate)
+  while (currentDate < todayMinusOne) {
+    const assetValue = await calculateAssetValueForDateFromCache(
+      assetSecurities,
+      currentDate
+    );
 
     //console.log("ASSET VALUE", assetValue)
 
-    if(assetValue) {
-      values.push(assetValue)
+    if (assetValue) {
+      values.push(assetValue);
     } else {
       //TODO: Handle this
     }
 
-    currentDate = addDays(currentDate, 1)
+    currentDate = addDays(currentDate, 1);
   }
 
-  const lastValueDate = values.at(-1)?.valueDate
+  const today = new Date();
 
-  const today = new Date()
-
-  if(values.length > 0) {
-    await assetPersistence.insertAssetValues(values.map(value => ({
-      value: value.value,
-      recordedAt: today,
-      valueDate: value.valueDate,
-      entryMethod: value.entryMethod,
-      metadata: value.metadata
-    })))
+  if (values.length > 0) {
+    await assetPersistence.insertAssetValues(
+      values.map((value) => ({
+        value: value.value,
+        recordedAt: today,
+        valueDate: value.valueDate,
+        entryMethod: value.entryMethod,
+        metadata: value.metadata,
+      }))
+    );
   } else {
-    console.log("NO ASSET VALUES TO INSERT")
+    console.log("NO ASSET VALUES TO INSERT");
   }
-  
-
-}
+};
 
 /**
  * Triggered when user adds/modifies securities for an asset

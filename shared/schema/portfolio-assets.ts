@@ -297,6 +297,7 @@ export type AssetHistoryTimePoint = {
     newValue: number;
     change: number;
   }[];
+  metadata?: Record<string, unknown>;
 };
 
 /**
@@ -351,9 +352,7 @@ export type WithResolvedSecurities<T extends { id: string }> = T & {
   securities: ResolvedSecurity[];
 };
 
-export type ResolvedSecurity = WithCalculatedValue<
-  WithSecurity<UserAssetSecuritySelect>
->;
+export type ResolvedSecurity = WithSecurity<UserAssetSecuritySelect>;
 
 export type WithPlatform<T extends { id: string }> = T & {
   platform?: BrokerPlatform;

@@ -1,10 +1,19 @@
 import { InferSelectModel, sql, relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { InferInsertModelBasic, timestampColumns } from "./utils";
-import { pgTable, text, uuid, date, decimal, unique, timestamp, real } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  uuid,
+  date,
+  decimal,
+  unique,
+} from "drizzle-orm/pg-core";
 
 export const securities = pgTable("securities", {
-  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   sourceIdentifier: text("sourceIdentifier").notNull(), // e.g., "eodhd", "alphavantage"
   symbol: text("symbol").notNull(), // e.g., "AAPL", "VWRL.L"
   name: text("name").notNull(), // e.g., "Apple Inc.", "Vanguard FTSE All-World UCITS ETF"
@@ -15,29 +24,45 @@ export const securities = pgTable("securities", {
   isin: text("isin"), // International Securities Identification Number
   cusip: text("cusip"), // Committee on Uniform Securities Identification Procedures
   figi: text("figi"), // Financial Instrument Global Identifier
-  ...timestampColumns()
+  ...timestampColumns(),
 });
 
 export type SecuritySelect = InferSelectModel<typeof securities>;
 export type SecurityInsert = InferInsertModelBasic<typeof securities>;
 
-export const securityDailyHistory = pgTable("security_daily_history", {
-  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
-  securityId: uuid("security_id").notNull().references(() => securities.id),
-  date: date("date").notNull(), // DATE type for efficient date queries
-  open: decimal("open", { precision: 10, scale: 4 }),
-  high: decimal("high", { precision: 10, scale: 4 }),
-  low: decimal("low", { precision: 10, scale: 4 }),
-  close: decimal("close", { precision: 10, scale: 4 }),
-  source: text("source").notNull(), // 'eodhd' | 'alphavantage'
-  ...timestampColumns()
-}, (table) => [
-  // Composite unique constraint to prevent duplicates
-  unique("unique_security_date").on(table.securityId, table.date)
-]);
+export const securityDailyHistory = pgTable(
+  "security_daily_history",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    securityId: uuid("security_id")
+      .notNull()
+      .references(() => securities.id),
+    date: date("date").notNull(), // DATE type for efficient date queries
+    open: decimal("open", { precision: 10, scale: 4 }),
+    high: decimal("high", { precision: 10, scale: 4 }),
+    low: decimal("low", { precision: 10, scale: 4 }),
+    close: decimal("close", { precision: 10, scale: 4 }),
+    source: text("source").notNull(), // 'eodhd' | 'alphavantage'
+    ...timestampColumns(),
+  },
+  (table) => [
+    // Composite unique constraint to prevent duplicates
+    unique("unique_security_date").on(table.securityId, table.date),
+  ]
+);
 
-export type SecurityDailyHistorySelect = InferSelectModel<typeof securityDailyHistory>;
-export type SecurityDailyHistoryInsert = InferInsertModelBasic<typeof securityDailyHistory>;
+export type SecurityDailyHistorySelect = InferSelectModel<
+  typeof securityDailyHistory
+>;
+export type SecurityDailyHistoryInsert = InferInsertModelBasic<
+  typeof securityDailyHistory
+>;
+
+export type SecurityDailyHistoryWithSecurity = SecurityDailyHistorySelect & {
+  security: Pick<SecuritySelect, "name" | "symbol">;
+};
 
 export const securityInsertSchema = createInsertSchema(securities);
 export const securitySelectSchema = createSelectSchema(securities);

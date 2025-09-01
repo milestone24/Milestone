@@ -1,11 +1,12 @@
-import { z } from "zod";
+import { z, ZodType } from "zod";
 import type {
   SecuritySelect as DBSecuritySelect,
+  SecurityTransactionSelect as DBSecurityTransactionSelect,
+  SecurityTransactionInsert as DBSecurityTransactionInsert,
 } from "@server/db/schema/index";
+import { IfConstructorEquals } from ".";
 
-export type {
-  SecurityDailyHistorySelect,
-} from "@server/db/schema/index"
+export type { SecurityDailyHistorySelect } from "@server/db/schema/index";
 
 // Security Insert Schemas
 export const securityInsertSchema = z.object({
@@ -16,14 +17,14 @@ export const securityInsertSchema = z.object({
   country: z.string().optional(),
   currency: z.string().optional(),
   type: z.string().optional(),
-  isin: z.string().optional(),
-  cusip: z.string().optional(),
-  figi: z.string().optional(),
+  isin: z.string().optional().nullable(),
+  cusip: z.string().optional().nullable(),
+  figi: z.string().optional().nullable(),
 });
 
 type ZodSecurityInsert = z.infer<typeof securityInsertSchema>;
-export type SecurityInsert = ZodSecurityInsert
-export type SecuritySelect = DBSecuritySelect
+export type SecurityInsert = ZodSecurityInsert;
+export type SecuritySelect = DBSecuritySelect;
 // export type SecurityInsert = IfConstructorEquals<ZodSecurityInsert, DBSecurityInsert, never>;
 // securityInsertSchema satisfies ZodType<SecurityInsert>;
 
@@ -43,6 +44,39 @@ export const securitySearchResultSchema = z.object({
 });
 
 export type SecuritySearchResult = z.infer<typeof securitySearchResultSchema>;
+
+export type SecurityTransaction = DBSecurityTransactionSelect;
+
+export const securityTransactionOrphanInsertSchema = z.object({
+  value: z.number(),
+  currencyValue: z.number().optional().nullable(),
+  fees: z.number().optional().nullable(),
+  currency: z.string().optional(),
+  valueDate: z.coerce.date(),
+  recordedAt: z.coerce.date(),
+});
+
+type ZodSecurityTransactionOrphanInsert = z.infer<
+  typeof securityTransactionOrphanInsertSchema
+>;
+
+export type SecurityTransactionOrphanInsert = IfConstructorEquals<
+  ZodSecurityTransactionOrphanInsert,
+  Omit<DBSecurityTransactionInsert, "securityId"> & {
+    recordedAt: Date;
+    valueDate: Date;
+  },
+  never
+>;
+
+securityTransactionOrphanInsertSchema satisfies ZodType<SecurityTransactionOrphanInsert>;
+
+export type SecurityTransactionSelect = DBSecurityTransactionSelect;
+
+export const securityTransactionInsertSchema =
+  securityTransactionOrphanInsertSchema.extend({
+    securityId: z.string(),
+  });
 
 // // Cache Management Types
 // export const securityCacheRequestSchema = z.object({

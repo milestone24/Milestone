@@ -126,11 +126,16 @@ export const populateSecurityDailyHistoryCache = async (
   // the live data API. For asset values maybe we should not store values of unclosed markets. This should only
   //be visible when the user is looking at the assets individual securities.
 
-  if(securityHistory.length === 0) {
-    return []
+  console.log(
+    "populateSecurityDailyHistoryCache SECURITY HISTORY",
+    securityHistory.length
+  );
+
+  if (securityHistory.length === 0) {
+    return [];
   }
 
-  if(lastRecord) {
+  if (lastRecord) {
     //If the last record existed we need to:
     //1. check the date of the last record of cache and the first record obtained from the gateway match
     //2. if they do not match, we need to fill the gap
@@ -138,28 +143,29 @@ export const populateSecurityDailyHistoryCache = async (
     // This is particlarly important for the close price. at this time, and as the gateway supports more APIS,
     // we are unsure what the close price will be if the last day is today and the market is still open.
 
-    const lastRecordDate = new Date(lastRecord.date)
-    const firstRecordDate = new Date(securityHistory[0]!.date)
-    const lastRecordClose = Number(lastRecord.close)
-    const firstRecordClose = Number(securityHistory[0]!.close)
-    
-    if(lastRecordDate.getTime() !== firstRecordDate.getTime()) {
-      //We need to fill the gap
-      const gapDays = differenceInDays(firstRecordDate, lastRecordDate)
+    const lastRecordDate = new Date(lastRecord.date);
+    const firstRecordDate = new Date(securityHistory[0]!.date);
+    const lastRecordClose = Number(lastRecord.close);
+    const firstRecordClose = Number(securityHistory[0]!.close);
 
-      if(gapDays > 0) {
+    if (lastRecordDate.getTime() !== firstRecordDate.getTime()) {
+      //We need to fill the gap
+      const gapDays = differenceInDays(firstRecordDate, lastRecordDate);
+
+      if (gapDays > 0) {
         //We are going to skip this as days could be missing due to weekends or holidays
         //throw new Error(`Gap found in security history for ${security.symbol}`)
       }
 
-      if(lastRecordClose !== firstRecordClose) {
+      if (lastRecordClose !== firstRecordClose) {
         //We need to update the last record in cache
-        await db.update(securityDailyHistory).set({ close: firstRecordClose.toString() }).where(eq(securityDailyHistory.id, lastRecord.id))
+        await db
+          .update(securityDailyHistory)
+          .set({ close: firstRecordClose.toString() })
+          .where(eq(securityDailyHistory.id, lastRecord.id));
       }
     }
   }
-
-  console.log("CACHE POPULATION SECURITY HISTORY", securityHistory)
 
   await db.insert(securityDailyHistory).values(securityHistory.map(record => ({
     securityId,
