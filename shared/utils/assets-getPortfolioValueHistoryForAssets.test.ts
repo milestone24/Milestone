@@ -1,57 +1,61 @@
 import { describe, it, test, expect } from "vitest";
 
-import { getPortfolioValueHistoryForAssets } from "./assets";
+import { resolveDayValueHistoryForAssetsForDateRange } from "./assets";
 import { AssetWithHistory } from "@shared/schema";
 import { arrayToAsyncIterator } from "./async";
-import { generateMockAssetHistory, generateMockAssets } from "./assets-test-helpers";
+import {
+  generateMockAssetHistory,
+  generateMockAssets,
+} from "./assets-test-helpers";
 
 describe("getPortfolioValueHistoryForAssets", () => {
-
-
   it.only("foo one", async () => {
-    const assets = [{
-      id: "a1",
-      history: [
-        {
-          id: "v1",
-          assetId: "a1",
-          value: 100,
-          recordedAt: new Date("2024-01-10T00:00:00Z"),
-          createdAt: new Date("2024-01-10T00:00:00Z"),
-          updatedAt: new Date("2024-01-10T00:00:00Z"),
-        },
-        {
-          id: "v2",
-          assetId: "a1",  
-          value: 150,
-          recordedAt: new Date("2024-02-02T00:00:00Z"),
-          createdAt: new Date("2024-02-02T00:00:00Z"),
-          updatedAt: new Date("2024-02-02T00:00:00Z"),
-        },
-      ]
-    }, {
-      id: "a2",
-      history: [
-        {
-          id: "v1",
-          assetId: "a2",
-          value: 100,
-          recordedAt: new Date("2024-01-02T10:00:00Z"),
-          createdAt: new Date("2024-01-02T00:00:00Z"),
-          updatedAt: new Date("2024-01-02T00:00:00Z"),
-        },
-        {
-          id: "v2",
-          assetId: "a2",
-          value: 100,
-          recordedAt: new Date("2024-01-10T10:00:00Z"),
-          createdAt: new Date("2024-01-10T00:00:00Z"),
-          updatedAt: new Date("2024-01-10T00:00:00Z"),
-        },
-      ]
-    }]
+    const assets = [
+      {
+        id: "a1",
+        history: [
+          {
+            id: "v1",
+            assetId: "a1",
+            value: 100,
+            recordedAt: new Date("2024-01-10T00:00:00Z"),
+            createdAt: new Date("2024-01-10T00:00:00Z"),
+            updatedAt: new Date("2024-01-10T00:00:00Z"),
+          },
+          {
+            id: "v2",
+            assetId: "a1",
+            value: 150,
+            recordedAt: new Date("2024-02-02T00:00:00Z"),
+            createdAt: new Date("2024-02-02T00:00:00Z"),
+            updatedAt: new Date("2024-02-02T00:00:00Z"),
+          },
+        ],
+      },
+      {
+        id: "a2",
+        history: [
+          {
+            id: "v1",
+            assetId: "a2",
+            value: 100,
+            recordedAt: new Date("2024-01-02T10:00:00Z"),
+            createdAt: new Date("2024-01-02T00:00:00Z"),
+            updatedAt: new Date("2024-01-02T00:00:00Z"),
+          },
+          {
+            id: "v2",
+            assetId: "a2",
+            value: 100,
+            recordedAt: new Date("2024-01-10T10:00:00Z"),
+            createdAt: new Date("2024-01-10T00:00:00Z"),
+            updatedAt: new Date("2024-01-10T00:00:00Z"),
+          },
+        ],
+      },
+    ];
 
-    const result = await getPortfolioValueHistoryForAssets(assets, {
+    const result = await resolveDayValueHistoryForAssetsForDateRange(assets, {
       start: new Date("2024-01-01T00:00:00Z"),
       end: new Date("2024-03-01T10:00:00Z"),
     });
@@ -79,53 +83,55 @@ describe("getPortfolioValueHistoryForAssets", () => {
     if (result[3]) {
       expect(result[3].value).toBe(250);
     }
-  })
-
+  });
 
   it("foo two", async () => {
-    const assets = [{
-      id: "a1",
-      history: [
-        {
-          id: "v1",
-          assetId: "a1",
-          value: 100,
-          recordedAt: new Date("2024-01-01T00:00:00Z"),
-          createdAt: new Date("2024-01-01T00:00:00Z"),
-          updatedAt: new Date("2024-01-01T00:00:00Z"),
-        },
-        {
-          id: "v2",
-          assetId: "a1",  
-          value: 150,
-          recordedAt: new Date("2024-02-02T00:00:00Z"),
-          createdAt: new Date("2024-02-02T00:00:00Z"),
-          updatedAt: new Date("2024-02-02T00:00:00Z"),
-        },
-      ]
-    }, {
-      id: "a2",
-      history: [
-        {
-          id: "v1",
-          assetId: "a2",
-          value: 100,
-          recordedAt: new Date("2024-01-01T10:00:00Z"),
-          createdAt: new Date("2024-01-01T00:00:00Z"),
-          updatedAt: new Date("2024-01-01T00:00:00Z"),
-        },
-        {
-          id: "v2",
-          assetId: "a2",
-          value: 100,
-          recordedAt: new Date("2024-01-10T10:00:00Z"),
-          createdAt: new Date("2024-01-01T00:00:00Z"),
-          updatedAt: new Date("2024-01-01T00:00:00Z"),
-        },
-      ]
-    }]
+    const assets = [
+      {
+        id: "a1",
+        history: [
+          {
+            id: "v1",
+            assetId: "a1",
+            value: 100,
+            recordedAt: new Date("2024-01-01T00:00:00Z"),
+            createdAt: new Date("2024-01-01T00:00:00Z"),
+            updatedAt: new Date("2024-01-01T00:00:00Z"),
+          },
+          {
+            id: "v2",
+            assetId: "a1",
+            value: 150,
+            recordedAt: new Date("2024-02-02T00:00:00Z"),
+            createdAt: new Date("2024-02-02T00:00:00Z"),
+            updatedAt: new Date("2024-02-02T00:00:00Z"),
+          },
+        ],
+      },
+      {
+        id: "a2",
+        history: [
+          {
+            id: "v1",
+            assetId: "a2",
+            value: 100,
+            recordedAt: new Date("2024-01-01T10:00:00Z"),
+            createdAt: new Date("2024-01-01T00:00:00Z"),
+            updatedAt: new Date("2024-01-01T00:00:00Z"),
+          },
+          {
+            id: "v2",
+            assetId: "a2",
+            value: 100,
+            recordedAt: new Date("2024-01-10T10:00:00Z"),
+            createdAt: new Date("2024-01-01T00:00:00Z"),
+            updatedAt: new Date("2024-01-01T00:00:00Z"),
+          },
+        ],
+      },
+    ];
 
-    const result = await getPortfolioValueHistoryForAssets(assets);
+    const result = await resolveDayValueHistoryForAssetsForDateRange(assets);
 
     console.log("result :", JSON.stringify(result, null, 2));
 
@@ -142,7 +148,7 @@ describe("getPortfolioValueHistoryForAssets", () => {
     if (result[2]) {
       expect(result[2].value).toBe(250);
     }
-  })
+  });
 
   it("returns correct portfolio history for a single asset with two values", async () => {
     const asset: AssetWithHistory = {
@@ -167,7 +173,7 @@ describe("getPortfolioValueHistoryForAssets", () => {
       ],
     };
 
-    const result = await getPortfolioValueHistoryForAssets([asset]);
+    const result = await resolveDayValueHistoryForAssetsForDateRange([asset]);
     expect(result).toHaveLength(2);
     expect(result[0]).toBeDefined();
     expect(result[1]).toBeDefined();
@@ -180,7 +186,7 @@ describe("getPortfolioValueHistoryForAssets", () => {
   });
 
   it("returns empty array for empty input", async () => {
-    const result = await getPortfolioValueHistoryForAssets([]);
+    const result = await resolveDayValueHistoryForAssetsForDateRange([]);
     expect(result).toEqual([]);
   });
 
@@ -192,7 +198,7 @@ describe("getPortfolioValueHistoryForAssets", () => {
       intervalDays: 1,
       valueFn: (i) => 100 + i * 10,
     });
-    const result = await getPortfolioValueHistoryForAssets([asset]);
+    const result = await resolveDayValueHistoryForAssetsForDateRange([asset]);
     expect(result).toHaveLength(5);
     expect(result.map((r) => r.value)).toEqual([100, 110, 120, 130, 140]);
     expect(result.map((r) => r.date.toISOString().split("T")[0])).toEqual([
@@ -212,7 +218,7 @@ describe("getPortfolioValueHistoryForAssets", () => {
       intervalDays: 2,
       valueFn: (i) => 200 + i * 20,
     });
-    const result = await getPortfolioValueHistoryForAssets([asset]);
+    const result = await resolveDayValueHistoryForAssetsForDateRange([asset]);
     expect(result).toHaveLength(4);
     expect(result.map((r) => r.value)).toEqual([200, 220, 240, 260]);
     expect(result.map((r) => r.date.toISOString().split("T")[0])).toEqual([
@@ -231,7 +237,7 @@ describe("getPortfolioValueHistoryForAssets", () => {
       intervalDays: 1,
       valueFn: (assetIdx, valueIdx) => 100 * (assetIdx + 1) + valueIdx * 10,
     });
-    const result = await getPortfolioValueHistoryForAssets(assets);
+    const result = await resolveDayValueHistoryForAssetsForDateRange(assets);
     expect(result).toHaveLength(3);
     // Day 1: 100+200, Day 2: 110+210, Day 3: 120+220
     expect(result.map((r) => r.value)).toEqual([300, 320, 340]);
@@ -257,11 +263,18 @@ describe("getPortfolioValueHistoryForAssets", () => {
       intervalDays: 1,
       valueFn: (i) => 200 + i * 20,
     });
-    const result = await getPortfolioValueHistoryForAssets([asset1, asset2]);
+    const result = await resolveDayValueHistoryForAssetsForDateRange([
+      asset1,
+      asset2,
+    ]);
     expect(result).toHaveLength(6);
     expect(result.map((r) => r.value)).toEqual([
-      100, 110, 120, // asset1 only
-      0 + 200, 0 + 220, 0 + 240 // asset2 only, asset1 is 0
+      100,
+      110,
+      120, // asset1 only
+      0 + 200,
+      0 + 220,
+      0 + 240, // asset2 only, asset1 is 0
     ]);
     expect(result.map((r) => r.date.toISOString().split("T")[0])).toEqual([
       "2024-01-01",
@@ -281,7 +294,7 @@ describe("getPortfolioValueHistoryForAssets", () => {
       intervalDays: 1,
       valueFn: (i) => 100 + i * 10,
     });
-    const result = await getPortfolioValueHistoryForAssets([asset], {
+    const result = await resolveDayValueHistoryForAssetsForDateRange([asset], {
       start: new Date("2024-01-03"),
       end: new Date("2024-01-05"),
     });
@@ -302,7 +315,7 @@ describe("getPortfolioValueHistoryForAssets", () => {
       intervalDays: 1,
       valueFn: (i) => 100 + i * 10,
     });
-    const result = await getPortfolioValueHistoryForAssets([asset], {
+    const result = await resolveDayValueHistoryForAssetsForDateRange([asset], {
       start: new Date("2024-02-01"),
       end: new Date("2024-02-05"),
     });
@@ -322,7 +335,10 @@ describe("getPortfolioValueHistoryForAssets", () => {
       endDate: new Date("2024-01-01"),
       valueFn: () => 200,
     });
-    const result = await getPortfolioValueHistoryForAssets([asset1, asset2]);
+    const result = await resolveDayValueHistoryForAssetsForDateRange([
+      asset1,
+      asset2,
+    ]);
     expect(result).toHaveLength(1);
     expect(result[0].value).toBe(300);
     expect(result[0].date.toISOString().split("T")[0]).toBe("2024-01-01");
@@ -350,7 +366,7 @@ describe("getPortfolioValueHistoryForAssets", () => {
         },
       ],
     };
-    const result = await getPortfolioValueHistoryForAssets([asset]);
+    const result = await resolveDayValueHistoryForAssetsForDateRange([asset]);
     expect(result).toHaveLength(2);
     expect(result[0]).toBeDefined();
     expect(result[1]).toBeDefined();

@@ -60,6 +60,7 @@ const calculateAssetValueForDateFromCache = async (
         date,
         date
       );
+
       return history.map((record) => ({
         //TODO: close can not be null
         close: Number(record.close ?? 0),
@@ -90,11 +91,7 @@ const calculateAssetValue = async (
   let totalValue = 0;
   let securitiesProcessed = 0;
   const sourcesUsed = new Set<string>();
-  const values: {
-    value: number;
-    securityName: string;
-    securitySymbol: string;
-  }[] = [];
+  const values: AssetValueResult["metadata"]["securities"] = [];
 
   for (const history of securityHistory) {
     for (const security of history) {
@@ -105,6 +102,7 @@ const calculateAssetValue = async (
         securityName: security.securityName,
         securitySymbol: security.securitySymbol,
         value: security.close * security.shareHolding,
+        shareHolding: security.shareHolding,
       });
     }
   }
@@ -197,22 +195,29 @@ const updateAssetValues = async (assetPersistence: AssetPersistence) => {
   const todayMinusOne = new Date();
   todayMinusOne.setDate(todayMinusOne.getDate() - 1);
 
-  console.log(
-    "STARTING ASSET VALUE CALCULATION LOOP",
-    currentDate,
-    todayMinusOne
-  );
-
   while (currentDate < todayMinusOne) {
+    const assetSecurityShareHoldings =
+      await assetPersistence.getAssetSecurityShareHoldingsForDate(currentDate);
+
+    const assetSecuritiesWithShareHolding = assetSecurities.map((security) => {
+      const shareholding = assetSecurityShareHoldings.find(
+        (shareholding) => shareholding.securityId === security.securityId
+      );
+      return {
+        ...security,
+        shareHolding: shareholding?.shareHolding ?? 0,
+      };
+    });
+
     const assetValue = await calculateAssetValueForDateFromCache(
-      assetSecurities,
+      assetSecuritiesWithShareHolding,
       currentDate
     );
 
-    //console.log("ASSET VALUE", assetValue)
-
     if (assetValue) {
-      values.push(assetValue);
+      if (assetValue.metadata.dataStatus === "complete") {
+        values.push(assetValue);
+      }
     } else {
       //TODO: Handle this
     }

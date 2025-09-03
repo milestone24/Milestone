@@ -16,43 +16,44 @@ export const fetchFilteredSecurityHistoryForDates = async (
   securityIdentifier: { symbol: string; exchange?: string },
   datesToFetch: [Date, Date]
 ): Promise<SecurityHistory[]> => {
-
-  const gateway = gatewayFactory()
-  const historyData: SecurityHistory[] = []
+  const gateway = gatewayFactory();
+  const historyData: SecurityHistory[] = [];
 
   try {
     const gatewayData = await gateway.getSecurityHistoryForDateRange(
       securityIdentifier,
       datesToFetch[0],
       datesToFetch[1]
-    )
+    );
 
-    console.log("GATEWAY DATA first", gatewayData.at(0))
+    // console.log("GATEWAY DATA first", gatewayData.at(0))
 
-    console.log("GATEWAY DATA last", gatewayData.at(-1))
+    // console.log("GATEWAY DATA last", gatewayData.at(-1))
 
-    console.log("DATES TO FETCH", datesToFetch)
-    
+    // console.log("DATES TO FETCH", datesToFetch)
+
     /**
      * Although we give the gateway a date range, it is not gauranteed that it will return data for all dates in the range.
      * We need to filter the data to only include the dates that were actually fetched.
      */
     // const filteredData = gatewayData
-    //   .filter(item => datesToFetch.some(date => 
+    //   .filter(item => datesToFetch.some(date =>
     //     date.toISOString().split('T')[0] === item.date.toISOString().split('T')[0]
     //   ))
 
     // historyData.push(...filteredData)
 
-    return gatewayData
-    
+    return gatewayData;
   } catch (error) {
-    throw new Error(`Gateway API error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    throw new Error(
+      `Gateway API error: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
   }
 
-  return historyData
-}
-
+  return historyData;
+};
 
 /**
  * Populate security daily history for a specific security.
@@ -65,53 +66,50 @@ export const fetchFilteredSecurityHistoryForDates = async (
  * @returns Promise with cache population results
  */
 export const populateSecurityDailyHistoryCache = async (
-  securityContext: SecurityContext,
+  securityContext: SecurityContext
 ): Promise<Date[]> => {
+  // console.log("populateSecurityDailyHistoryCache SECURITY CONTEXT", securityContext)
 
-  console.log("populateSecurityDailyHistoryCache SECURITY CONTEXT", securityContext)
-
-  const { securityId, startDate } = securityContext
+  const { securityId, startDate } = securityContext;
 
   const security = await db.query.securities.findFirst({
-    where: eq(securities.id, securityId)
-  })
+    where: eq(securities.id, securityId),
+  });
 
-  console.log("populateSecurityDailyHistoryCache SECURITY", security)
+  // console.log("populateSecurityDailyHistoryCache SECURITY", security)
 
   if (!security) {
-    throw new Error(`Security with ID ${securityId} not found`)
+    throw new Error(`Security with ID ${securityId} not found`);
   }
 
   const lastRecord = await db.query.securityDailyHistory.findFirst({
     where: eq(securityDailyHistory.securityId, securityId),
-    orderBy: sql`${securityDailyHistory.date} DESC`
-  })
+    orderBy: sql`${securityDailyHistory.date} DESC`,
+  });
 
-  console.log("populateSecurityDailyHistoryCache LAST RECORD", lastRecord)
+  //console.log("populateSecurityDailyHistoryCache LAST RECORD", lastRecord)
 
   //Before it was presumed that hen giving a start date to the gateway (particularly eodhd) it would actually start
   //from the day after the start date. It is now believed that this is not the case and what was seen before was
   //due to non business days where teh markets are closed.
 
   let lastRecordDate = lastRecord?.date
-    ? new Date(new Date(lastRecord.date).getTime() + (24 * 60 * 60 * 1000)) //Add 1 day to the last record date
-    : null
+    ? new Date(new Date(lastRecord.date).getTime() + 24 * 60 * 60 * 1000) //Add 1 day to the last record date
+    : null;
 
-  const dateRange: [Date, Date] = [
-    lastRecordDate ?? startDate,
-    new Date()]
+  const dateRange: [Date, Date] = [lastRecordDate ?? startDate, new Date()];
 
-  console.log("populateSecurityDailyHistoryCache DATE RANGE", dateRange)
+  //console.log("populateSecurityDailyHistoryCache DATE RANGE", dateRange);
 
   const securityHistory = await fetchFilteredSecurityHistoryForDates(
     {
       symbol: security.symbol,
-      exchange: security.exchange ?? undefined //TODO Should not allow undefined
+      exchange: security.exchange ?? undefined, //TODO Should not allow undefined
     },
     //We need to fill the security history from the last date we have,
     // or the start date of the security until today
     dateRange
-  )
+  );
 
   //We should not throw this error.
   //How ever this error should never need to be thrown as prelimary checks should see
@@ -125,11 +123,6 @@ export const populateSecurityDailyHistoryCache = async (
   //We should consider if we attempt to detect if teh market should have closed today, then fetch or try
   // the live data API. For asset values maybe we should not store values of unclosed markets. This should only
   //be visible when the user is looking at the assets individual securities.
-
-  console.log(
-    "populateSecurityDailyHistoryCache SECURITY HISTORY",
-    securityHistory.length
-  );
 
   if (securityHistory.length === 0) {
     return [];
@@ -167,18 +160,20 @@ export const populateSecurityDailyHistoryCache = async (
     }
   }
 
-  await db.insert(securityDailyHistory).values(securityHistory.map(record => ({
-    securityId,
-    date: record.date.toISOString().split('T')[0]!,
-    open: record.open.toString(),
-    high: record.high.toString(),
-    low: record.low.toString(),
-    close: record.close.toString(),
-    source: record.sourceIdentifier
-  })))
+  await db.insert(securityDailyHistory).values(
+    securityHistory.map((record) => ({
+      securityId,
+      date: record.date.toISOString().split("T")[0]!,
+      open: record.open.toString(),
+      high: record.high.toString(),
+      low: record.low.toString(),
+      close: record.close.toString(),
+      source: record.sourceIdentifier,
+    }))
+  );
 
-  return securityHistory.map(record => record.date)
-}
+  return securityHistory.map((record) => record.date);
+};
 
 export const populateSecuritiesDailyHistoryCache = async (
   securityContexts: SecurityContext[]

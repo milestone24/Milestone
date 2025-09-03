@@ -120,9 +120,17 @@ type ZodUserAssetInsert = z.infer<typeof userAssetInsertSchema>;
 export type UserAssetInsert = ZodUserAssetInsert;
 
 export type UserAsset = DBUserAsset;
-export type UserAssetWithAccountChange = WithAccountChange<UserAsset>;
+export type UserAssetWithHistoryAndAccountChange = WithAccountChange<
+  WithAssetHistory<UserAsset>
+>;
 
-export type ResolvedUserAsset = WithPlatform<WithResolvedSecurities<UserAsset>>;
+export type ResolvedUserAsset = WithPlatform<
+  WithResolvedSecurities<
+    UserAsset & {
+      lastValueDate: Date | null;
+    }
+  >
+>;
 
 export const userAssetValueOrphanInsertSchema = z.object({
   value: z.number(),
@@ -152,6 +160,20 @@ export type UserAssetValueInsert = IfConstructorEquals<
   never
 >;
 userAssetValueInsertSchema satisfies ZodType<UserAssetValueInsert>;
+
+export type AssetValueMetadata = {
+  calculatedAt: string;
+  securitiesProcessed: number;
+  securitiesTotal: number;
+  dataStatus: "complete" | "partial";
+  sourcesUsed: string[]; // Dynamic source identifiers from actual services
+  securities: {
+    securityName: string;
+    securitySymbol: string;
+    value: number;
+    shareHolding: number;
+  }[];
+} | null;
 
 export type AssetValue = DBAssetValueSelect;
 
@@ -282,12 +304,6 @@ recurringContributionInsertSchema satisfies ZodType<RecurringContributionInsert>
 
 export type RecurringContribution = DBRecurringContributionSelect;
 
-export type PotfolioValue = {
-  totalValue: number;
-  totalChange: number;
-  totalChangePercentage: number;
-};
-
 export type AssetHistoryTimePoint = {
   date: Date;
   value: number;
@@ -297,13 +313,21 @@ export type AssetHistoryTimePoint = {
     newValue: number;
     change: number;
   }[];
-  metadata?: Record<string, unknown>;
+  metadata?: AssetValueMetadata[];
 };
 
-/**
- * @deprecated Alias for AssetHistoryTimePoint - Use AssetHistoryTimePoint instead
- */
-export type PortfolioHistoryTimePoint = AssetHistoryTimePoint;
+export type CombinedDayValuesChange = {
+  assetId: UserAsset["id"];
+  previousValue: number;
+  newValue: number;
+  change: number;
+};
+
+export type CombinedDayValues = {
+  value: number;
+  changes: CombinedDayValuesChange[];
+  metadata: AssetValueMetadata[];
+};
 
 export type UserAssetAPIKeyConnection = DBUserAssetAPIKeyConnection;
 
@@ -336,6 +360,7 @@ export type WithCalculatedValue<T extends { id: string }> = T & {
 export type WithAccountChange<T extends { id: string }> = T & {
   accountChange: AssetsChange;
 };
+
 export type WithAssetHistory<T extends { id: string }> = T & {
   history: AssetValue[];
 };
@@ -358,9 +383,34 @@ export type WithPlatform<T extends { id: string }> = T & {
   platform?: BrokerPlatform;
 };
 
-//This is used when a dummy asset value is needed for a date range that is before the first asset value
-export type PossibleDummyAssetValue = Omit<AssetValue, "id"> & {
-  id: string | null;
+/**
+ * This is used when a dummy asset value is needed for a date range that is before the first asset value
+ * or after the last asset value.
+ * This is the case when the start point or endpoint of a date range does not have any values to calculate
+ * and the value would normally be zero
+ */
+
+export type PossibleDummyAssetValue = Omit<
+  AssetValue,
+  "id" | "assetId" | "recordedAt"
+> &
+  (
+    | {
+        valueType: "synthetic";
+        id: null;
+        //It could be that the synthetic value is from a real asset
+        //but the value date is synthetic to match a start or end date
+        assetId: string | null;
+      }
+    | (AssetValue & {
+        valueType: "asset";
+        id: string;
+        assetId: string;
+      })
+  );
+
+export type ResolvedAssetValue = AssetValue & {
+  securities: UserAssetSecuritySelect[];
 };
 
 export type DataRangeQuery = {
@@ -377,7 +427,8 @@ export type AssetHistoryPoint = {
   id: string;
   type: "value" | "transaction";
   value: number;
-  recordedAt: Date;
+  valueDate: Date;
+  //recordedAt: Date;
 };
 
 export type SecurityHistoryPoint = {

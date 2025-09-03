@@ -11,6 +11,7 @@ import {
   assetContributionOrphanInsertSchema,
   userAssetInsertSchema,
   recurringContributionOrphanInsertSchema,
+  securityTransactionOrphanInsertSchema,
 } from "@shared/schema";
 import { uuidRouteParam } from "@server/utils/uuid";
 import asyncCatch from "./utils";
@@ -37,7 +38,17 @@ export async function registerRoutes(
           tenant.userAccountId,
           queryParams
         );
-        return assets;
+        /**
+         * This is a temporray fix to make sure the current value
+         * is from live data and not the DB value until DB functions or procedures
+         * may be implementd or long term way to always use calculated value.
+         */
+        const modifiedAssets = assets.map((asset) => ({
+          ...asset,
+          currentValue: asset.accountChange.value,
+        }));
+
+        return modifiedAssets;
       }
     );
 
@@ -47,11 +58,9 @@ export async function registerRoutes(
   router.post("/", requireUser, async (req: AuthRequest, res) => {
     try {
       const data = userAssetInsertSchema.parse(req.body);
-
       const asset = await assetService.createUserAsset(data);
       res.json(asset);
     } catch (error) {
-      console.error("Error creating user asset", error);
       res.status(400).json({
         error:
           error instanceof Error ? error.message : "An unknown error occurred",
@@ -165,6 +174,27 @@ export async function registerRoutes(
     }
   );
 
+  router.post(
+    `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam(
+      "securityId"
+    )}/transactions`,
+    requireUser,
+    async (req: AuthRequest, res) => {
+      if (!req.params.assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+      if (!req.params.securityId) {
+        return res.status(400).json({ error: "Security ID is required" });
+      }
+      const data = securityTransactionOrphanInsertSchema.parse(req.body);
+      const transaction = await assetService.createUserAssetSecurityTransaction(
+        req.params.securityId,
+        data
+      );
+      res.json(transaction);
+    }
+  );
+
   // Broker asset contributions (debits)
   router.post(
     `/${uuidRouteParam("assetId")}/contributions`,
@@ -190,11 +220,19 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Asset ID is required" });
       }
       const queryParams = parseQueryParamsExpress(req.query);
-      const contributions = await assetService.getUserAssetTransactions(
-        req.params.assetId,
-        queryParams
-      );
-      res.json(contributions);
+
+      const securityTransactionHistory =
+        await assetService.getUserAssetsSecurityTransactionHistory(
+          req.params.assetId
+        );
+
+      res.json(securityTransactionHistory);
+
+      // const contributions = await assetService.getUserAssetTransactions(
+      //   req.params.assetId,
+      //   queryParams
+      // );
+      // res.json(contributions);
     }
   );
 
@@ -359,7 +397,7 @@ export async function registerRoutes(
       if (!req.params.securityId) {
         return res.status(400).json({ error: "Security ID is required" });
       }
-      const result = await assetService.deleteBrokerProviderAssetSecurity(
+      const result = await assetService.deleteUserAssetSecurity(
         req.params.assetId,
         req.params.securityId
       );
@@ -389,16 +427,11 @@ export async function registerRoutes(
     const response = await requireTenantWithUserAccountId(
       req.tenant,
       async (tenant) => {
-        const value =
-          await assetService.getPortfolioOverviewForUserForDateRange(
-            tenant.userAccountId,
-            {
-              start: req.query?.start
-                ? new Date(req.query.start as string)
-                : null,
-              end: req.query?.end ? new Date(req.query.end as string) : null,
-            }
-          );
+        const query = parseQueryParamsExpress(req.query);
+        const value = await assetService.getPortfolioOverviewForUser(
+          tenant.userAccountId,
+          query
+        );
         return value;
       }
     );
@@ -413,16 +446,12 @@ export async function registerRoutes(
       const response = await requireTenantWithUserAccountId(
         req.tenant,
         async (tenant) => {
-          const history =
-            await assetService.getPortfolioValueHistoryForUserForDateRange(
-              tenant.userAccountId,
-              {
-                start: req.query?.start
-                  ? new Date(req.query.start as string)
-                  : null,
-                end: req.query?.end ? new Date(req.query.end as string) : null,
-              }
-            );
+          const query = parseQueryParamsExpress(req.query);
+
+          const history = await assetService.getPortfolioValueHistoryForUser(
+            tenant.userAccountId,
+            query
+          );
           return history;
         }
       );

@@ -4,14 +4,48 @@ import {
   AssetValue,
   AssetWithHistory,
   AssetWithValueHistoryAsyncIterators,
-  AssetWithValueHistoryIterators,
   DataRangeQuery,
-  PortfolioHistoryTimePoint,
   PossibleDummyAssetValue,
   WithAccountChange,
+  AssetHistoryTimePoint,
+  AssetValueMetadata,
+  WithAssetHistory,
+  UserAssetWithHistoryAndAccountChange,
+  CombinedDayValues,
+  CombinedDayValuesChange,
 } from "@shared/schema";
-import { start } from "node:repl";
 import { arrayToAsyncIterator } from "./async";
+import { QueryParams } from "@server/utils/resource-query-builder";
+
+export const dateRangeToQueryFilter = (
+  query?: DataRangeQuery
+): QueryParams["filter"] => {
+  return {
+    filter: {
+      start: {
+        eq: query?.start,
+      },
+      end: {
+        eq: query?.end,
+      },
+    },
+  };
+};
+
+export const queryParamsFilterToDateRange = (
+  filter: QueryParams["filter"] | undefined
+): DataRangeQuery => {
+  return {
+    start: resolveDate(
+      /*@ts-ignore*/
+      filter?.start?.eq ?? undefined
+    ),
+    end: resolveDate(
+      /*@ts-ignore*/
+      filter?.end?.eq ?? undefined
+    ),
+  };
+};
 
 export const resolveDate = (
   date: string | Date | null | undefined
@@ -27,7 +61,7 @@ const resolveAssetValuesForIndexes = (
   ...indexes: number[]
 ): (PossibleDummyAssetValue | null)[] => {
   const sorted = assetValues.toSorted(
-    (a, b) => a.recordedAt.getTime() - b.recordedAt.getTime()
+    (a, b) => a.valueDate.getTime() - b.valueDate.getTime()
   );
   return indexes.map((index) => sorted.at(index) ?? null);
 };
@@ -59,16 +93,16 @@ export const calculateAssetsChange = (
           lastAssetValue.value
         )),
         {
-          startDate: firstAssetValue.recordedAt,
-          endDate: lastAssetValue.recordedAt,
+          startDate: firstAssetValue.valueDate,
+          endDate: lastAssetValue.valueDate,
           startValue: firstAssetValue.value,
           value: lastAssetValue.value,
           currentChange: lastAssetValue.value - firstAssetValue.value,
           currentChangePercentage: percentageChange,
         })
       : {
-          startDate: firstAssetValue.recordedAt,
-          endDate: firstAssetValue.recordedAt,
+          startDate: firstAssetValue.valueDate,
+          endDate: firstAssetValue.valueDate,
           startValue: firstAssetValue.value,
           value: firstAssetValue.value,
           currentChange: firstAssetValue.value - firstAssetValue.value,
@@ -113,134 +147,152 @@ const defineAssetValuesForDateRange = (
   assetValues: AssetValue[],
   query?: DataRangeQuery
 ): PossibleDummyAssetValue[] => {
-  const assetValuesSorted = assetValues.sort(
-    (a, b) => a.recordedAt.getTime() - b.recordedAt.getTime()
+  const assetValuesSorted = assetValues.toSorted(
+    (a, b) => a.valueDate.getTime() - b.valueDate.getTime()
   );
 
   const queryStartDate = resolveDate(query?.start);
   const queryEndDate = resolveDate(query?.end);
 
-  const withStartPoint: (
-    values: PossibleDummyAssetValue[]
-  ) => PossibleDummyAssetValue[] = queryStartDate
-    ? (values) => {
-      /**
-       * We see if there is a value that exists for the queryStartDate matching its day only.
-       * We filter and take the first from the sorted array because there might be multiple values for the same date with different times
-       * Here we only match the day not the time, we are relying on the sorted array so that this will match the earliest
-       * if there are more than on asset values for that day.
-       * We set the value as NaN to indicate that this does not have a value because the queryStartDate does not exist.
-       */
-      const valueIndexForQueryStartDate = values.findIndex(
-        (assetValue) =>
-          assetValue.recordedAt.getUTCFullYear() ===
-            queryStartDate.getUTCFullYear() &&
-          assetValue.recordedAt.getUTCMonth() ===
-            queryStartDate.getUTCMonth() &&
-          assetValue.recordedAt.getUTCDate() === queryStartDate.getUTCDate()
-      );
-      const lastValueIndexBeforeQueryStartDate = values.findLastIndex(
-        (assetValue) => assetValue.recordedAt < queryStartDate
-      );
-      const lastValueBeforeQueryStartDate =
-        values[lastValueIndexBeforeQueryStartDate];
-
-      const addStartPoint = (
-        assetValue: Omit<PossibleDummyAssetValue, "recordedAt">,
-        slicePoint: number
-      ) => [
-        {
-          ...assetValue,
-          recordedAt: queryStartDate,
-        },
-        ...values.slice(slicePoint),
-      ];
-
-      return valueIndexForQueryStartDate > -1
-        ? values.slice(valueIndexForQueryStartDate)
-        : lastValueBeforeQueryStartDate
-        ? addStartPoint(
-            lastValueBeforeQueryStartDate,
-            valueIndexForQueryStartDate
-          )
-        : addStartPoint(
-            {
-              id: null,
-              value: 0,
-              assetId: values[0]?.assetId ?? "",
-              createdAt: queryStartDate,
-              updatedAt: queryStartDate,
-              valueDate: queryStartDate,
-              entryMethod: "manual",
-              metadata: {},
-            },
-            valueIndexForQueryStartDate
+  const withStartPoint: (values: AssetValue[]) => PossibleDummyAssetValue[] =
+    queryStartDate
+      ? (values) => {
+          /**
+           * We see if there is a value that exists for the queryStartDate matching its day only.
+           * We filter and take the first from the sorted array because there might be multiple values for the same date with different times
+           * Here we only match the day not the time, we are relying on the sorted array so that this will match the earliest
+           * if there are more than on asset values for that day.
+           * We set the value as NaN to indicate that this does not have a value because the queryStartDate does not exist.
+           */
+          const valueIndexForQueryStartDate = values.findIndex(
+            (assetValue) =>
+              assetValue.valueDate.getUTCFullYear() ===
+                queryStartDate.getUTCFullYear() &&
+              assetValue.valueDate.getUTCMonth() ===
+                queryStartDate.getUTCMonth() &&
+              assetValue.valueDate.getUTCDate() === queryStartDate.getUTCDate()
           );
-    }
-    : (values) => {
-        return values.slice();
-      };
+          const lastValueIndexBeforeQueryStartDate = values.findLastIndex(
+            (assetValue) => assetValue.valueDate < queryStartDate
+          );
+          const lastValueBeforeQueryStartDate =
+            values[lastValueIndexBeforeQueryStartDate];
+
+          const addStartPoint = (
+            assetValue: Omit<PossibleDummyAssetValue, "recordedAt">,
+            slicePoint: number
+          ): PossibleDummyAssetValue[] => [
+            {
+              ...assetValue,
+              id: null,
+              valueDate: queryStartDate,
+              valueType: "synthetic",
+            },
+            ...values.slice(slicePoint).map(
+              (value): PossibleDummyAssetValue => ({
+                ...value,
+                valueType: "asset",
+              })
+            ),
+          ];
+
+          return valueIndexForQueryStartDate > -1
+            ? values.slice(valueIndexForQueryStartDate).map(
+                (value): PossibleDummyAssetValue => ({
+                  ...value,
+                  valueType: "asset",
+                })
+              )
+            : lastValueBeforeQueryStartDate
+            ? addStartPoint(
+                { ...lastValueBeforeQueryStartDate, valueType: "synthetic" },
+                lastValueIndexBeforeQueryStartDate
+              )
+            : addStartPoint(
+                {
+                  id: null,
+                  value: 0,
+                  assetId: values[0]?.assetId ?? "",
+                  createdAt: queryStartDate,
+                  updatedAt: queryStartDate,
+                  valueDate: queryStartDate,
+                  entryMethod: "manual",
+                  metadata: null,
+                  valueType: "synthetic",
+                },
+                lastValueIndexBeforeQueryStartDate
+              );
+        }
+      : (values) => {
+          return values.slice().map(
+            (value): PossibleDummyAssetValue => ({
+              ...value,
+              valueType: "asset",
+            })
+          );
+        };
 
   const withEndPoint: (
     values: PossibleDummyAssetValue[]
   ) => PossibleDummyAssetValue[] = queryEndDate
     ? (values) => {
-      /**
-       * We see if there is a value that exists for the queryEndDate matching its day only.
-       * We filter and take the last from the sorted array because there might be multiple values for the same date with different times
-       * Here we only match the day not the time, we are relying on the sorted array so that this will match the latest
-       * if there are more than on asset values for that day.
-       * We set the value as NaN to indicate that this does not have a value because the queryEndDate does not exist.
-       */
-      const valueIndexForQueryEndDate = assetValuesSorted.findLastIndex(
-        (assetValue) =>
-          assetValue.recordedAt.getUTCFullYear() ===
-            queryEndDate.getUTCFullYear() &&
-          assetValue.recordedAt.getUTCMonth() === queryEndDate.getUTCMonth() &&
-          assetValue.recordedAt.getUTCDate() === queryEndDate.getUTCDate()
-      );
+        /**
+         * We see if there is a value that exists for the queryEndDate matching its day only.
+         * We filter and take the last from the sorted array because there might be multiple values for the same date with different times
+         * Here we only match the day not the time, we are relying on the sorted array so that this will match the latest
+         * if there are more than on asset values for that day.
+         * We set the value as NaN to indicate that this does not have a value because the queryEndDate does not exist.
+         */
+        const valueIndexForQueryEndDate = values.findLastIndex(
+          (assetValue) =>
+            assetValue.valueDate.getUTCFullYear() ===
+              queryEndDate.getUTCFullYear() &&
+            assetValue.valueDate.getUTCMonth() === queryEndDate.getUTCMonth() &&
+            assetValue.valueDate.getUTCDate() === queryEndDate.getUTCDate()
+        );
 
-      const lastValueIndexBeforeQueryEndDate = assetValuesSorted.findLastIndex(
-        (assetValue) => assetValue.recordedAt < queryEndDate
-      );
-      const lastValueBeforeQueryEndDate =
-        values[lastValueIndexBeforeQueryEndDate];
+        const lastValueIndexBeforeQueryEndDate = values.findLastIndex(
+          (assetValue) => assetValue.valueDate < queryEndDate
+        );
+        const lastValueBeforeQueryEndDate =
+          values[lastValueIndexBeforeQueryEndDate];
 
-      const addEndPoint = (
-        assetValue: Omit<PossibleDummyAssetValue, "recordedAt">,
-        slicePoint: number
-      ) => [
-        ...values.slice(0, slicePoint),
-        {
-          ...assetValue,
-          recordedAt: queryEndDate,
-        },
-      ];
+        const addEndPoint = (
+          assetValue: PossibleDummyAssetValue,
+          slicePoint: number
+        ) => [
+          ...values.slice(0, slicePoint),
+          {
+            ...assetValue,
+            valueDate: queryEndDate,
+          },
+        ];
 
-      return valueIndexForQueryEndDate > 1
-        ? values.slice(0, valueIndexForQueryEndDate)
-        : lastValueBeforeQueryEndDate
-        ? addEndPoint(lastValueBeforeQueryEndDate, valueIndexForQueryEndDate)
-        : addEndPoint(
-            {
-              id: null,
-              value: 0,
-              assetId: values[0]?.assetId ?? "",
-              createdAt: queryEndDate,
-              updatedAt: queryEndDate,
-              valueDate: queryEndDate,
-              entryMethod: "manual",
-              metadata: {},
-            },
-            valueIndexForQueryEndDate
-          );
-    }
+        return valueIndexForQueryEndDate > 1
+          ? values.slice(0, valueIndexForQueryEndDate)
+          : lastValueBeforeQueryEndDate
+          ? addEndPoint(lastValueBeforeQueryEndDate, valueIndexForQueryEndDate)
+          : addEndPoint(
+              {
+                id: null,
+                value: 0,
+                assetId: values[0]?.assetId ?? "",
+                createdAt: queryEndDate,
+                updatedAt: queryEndDate,
+                valueDate: queryEndDate,
+                entryMethod: "manual",
+                metadata: null,
+                valueType: "synthetic",
+              },
+              valueIndexForQueryEndDate
+            );
+      }
     : (values) => {
         return values.slice();
       };
 
   return withEndPoint(withStartPoint(assetValuesSorted)).sort(
-    (a, b) => a.recordedAt.getTime() - b.recordedAt.getTime()
+    (a, b) => a.valueDate.getTime() - b.valueDate.getTime()
   );
 };
 
@@ -251,7 +303,7 @@ const defineAssetValuesForDateRange = (
  * It yields all values within the specified date range, and inserts synthetic start/end values if needed.
  * Only minimal state is buffered (last value before start, last value seen, etc.).
  *
- * Input must be an async generator (or async iterator) yielding asset values in ascending order by recordedAt.
+ * Input must be an async generator (or async iterator) yielding asset values in ascending order by valueDate.
  *
  * Usage:
  *   const stream = asyncStreamAssetValuesForDateRange(query)(mergeSortedAssetHistories(assets));
@@ -266,59 +318,102 @@ export function streamAssetValuesForDateRange(query?: DataRangeQuery) {
   //Do not delete this comment it is for reference to allow flexibility later
   // return async function* (assetValues: AsyncGenerator<PossibleDummyAssetValue, void, unknown> | AsyncIterator<PossibleDummyAssetValue>): AsyncGenerator<PossibleDummyAssetValue> {
   return async function* (
-    assetValues: AsyncIterator<PossibleDummyAssetValue>
+    assetValues: AsyncIterator<AssetValue>
+    //boundaries: Boundaries
   ): AsyncGenerator<PossibleDummyAssetValue> {
-    //console.log("streamAssetValuesForDateRange query FFFF :", query);
-
     const queryStartDate = resolveDate(query?.start);
     const queryEndDate = resolveDate(query?.end);
+    //let lastBeforeStart: PossibleDummyAssetValue | null = null;
 
-    let lastBeforeStart: PossibleDummyAssetValue | null = null;
+    //Should this be a weak map
+    const valuesBeforeStart: Map<string, AssetValue> = new Map();
+
     let yieldedStart = false;
     let yieldedEnd = false;
-    let lastValue: PossibleDummyAssetValue | null = null;
+    let lastValue: AssetValue | null = null;
 
     let next = await assetValues.next();
     while (!next.done) {
       const value = next.value;
 
-      //console.log("streamAssetValuesForDateRange value :", value);
-
       // Track last value before start
-      if (queryStartDate && value.recordedAt < queryStartDate) {
-        lastBeforeStart = value;
+      // Keep continuing to the next value until we find a value that is after the query start date
+      if (queryStartDate && value.valueDate < queryStartDate) {
+        //lastBeforeStart = value;
+        valuesBeforeStart.set(value.assetId, value);
         lastValue = value;
         next = await assetValues.next();
         continue;
       }
 
+      //Now we are in the realm of values that are after the query start date
+
       // Handle synthetic start
       if (queryStartDate && !yieldedStart) {
-        if (
-          value.recordedAt.getUTCFullYear() ===
-            queryStartDate.getUTCFullYear() &&
-          value.recordedAt.getUTCMonth() === queryStartDate.getUTCMonth() &&
-          value.recordedAt.getUTCDate() === queryStartDate.getUTCDate()
-        ) {
-          yield value;
-        } else {
-          // Insert synthetic start value
+        for (const value of valuesBeforeStart.values()) {
           yield {
-            ...(lastBeforeStart ?? {
+            ...value,
+            id: null,
+            valueDate: queryStartDate,
+            valueType: "synthetic",
+          };
+        }
+
+        if (
+          value.valueDate.getUTCFullYear() ===
+            queryStartDate.getUTCFullYear() &&
+          value.valueDate.getUTCMonth() === queryStartDate.getUTCMonth() &&
+          value.valueDate.getUTCDate() === queryStartDate.getUTCDate()
+        ) {
+          yield {
+            ...value,
+            valueType: "asset",
+          };
+        } else {
+          if (valuesBeforeStart.size < 1) {
+            yield {
               id: null,
               value: 0,
-              assetId: "SYNTH",
+              assetId: null,
+              valueType: "synthetic",
               createdAt: queryStartDate,
               updatedAt: queryStartDate,
               valueDate: queryStartDate,
-              entryMethod: "manual",
-              metadata: {},
-            }),
-            recordedAt: queryStartDate,
-          };
+              entryMethod: "calculated",
+              metadata: null,
+            };
+          }
+
+          // const before =
+          //   lastBeforeStart ?? boundaries.get(value.assetId)?.before;
+          // // Insert synthetic start value
+          // yield before
+          //   ? {
+          //       id: null,
+          //       value: before.value ?? 0,
+          //       assetId: before.assetId,
+          //       createdAt: queryStartDate,
+          //       updatedAt: queryStartDate,
+          //       valueDate: queryStartDate,
+          //       entryMethod: before.entryMethod,
+          //       metadata: before.metadata,
+          //     }
+          //   : {
+          //       id: null,
+          //       value: 0,
+          //       assetId: value.assetId, //This is wrong
+          //       createdAt: queryStartDate,
+          //       updatedAt: queryStartDate,
+          //       valueDate: queryStartDate,
+          //       entryMethod: "manual", //This is wrong should be synthetic
+          //       metadata: null,
+          //     };
           // Then yield current value if within range
-          if (!queryEndDate || value.recordedAt <= queryEndDate) {
-            yield value;
+          if (!queryEndDate || value.valueDate <= queryEndDate) {
+            yield {
+              ...value,
+              valueType: "asset",
+            };
           }
         }
         yieldedStart = true;
@@ -328,13 +423,13 @@ export function streamAssetValuesForDateRange(query?: DataRangeQuery) {
       }
 
       // If after end, yield synthetic end and finish
-      if (queryEndDate && value.recordedAt > queryEndDate) {
+      if (queryEndDate && value.valueDate > queryEndDate) {
         if (!yieldedEnd) {
-          //console.log("getPortfolioValueHistoryForAssets yieldedEnd :", yieldedEnd);
           yield {
             ...(lastValue ?? value),
-            assetId: "SYNTH",
-            recordedAt: queryEndDate,
+            id: null,
+            valueDate: queryEndDate,
+            valueType: "synthetic",
           };
           yieldedEnd = true;
         }
@@ -344,21 +439,27 @@ export function streamAssetValuesForDateRange(query?: DataRangeQuery) {
       // If matches end, yield and finish
       if (
         queryEndDate &&
-        value.recordedAt.getUTCFullYear() === queryEndDate.getUTCFullYear() &&
-        value.recordedAt.getUTCMonth() === queryEndDate.getUTCMonth() &&
-        value.recordedAt.getUTCDate() === queryEndDate.getUTCDate()
+        value.valueDate.getUTCFullYear() === queryEndDate.getUTCFullYear() &&
+        value.valueDate.getUTCMonth() === queryEndDate.getUTCMonth() &&
+        value.valueDate.getUTCDate() === queryEndDate.getUTCDate()
       ) {
-        yield value;
+        yield {
+          ...value,
+          valueType: "asset",
+        };
         yieldedEnd = true;
         break;
       }
 
       // Otherwise, yield value if within range
       if (
-        (!queryStartDate || value.recordedAt >= queryStartDate) &&
-        (!queryEndDate || value.recordedAt <= queryEndDate)
+        (!queryStartDate || value.valueDate >= queryStartDate) &&
+        (!queryEndDate || value.valueDate <= queryEndDate)
       ) {
-        yield value;
+        yield {
+          ...value,
+          valueType: "asset",
+        };
       }
       lastValue = value;
       next = await assetValues.next();
@@ -368,43 +469,13 @@ export function streamAssetValuesForDateRange(query?: DataRangeQuery) {
     if (queryEndDate && !yieldedEnd && lastValue) {
       yield {
         ...lastValue,
-        assetId: "SYNTH",
-        recordedAt: queryEndDate,
+        id: null,
+        valueType: "synthetic",
+        valueDate: queryEndDate,
       };
     }
   };
 }
-
-// const b = (query?: DataRangeQuery): (assetValues: Iterable<PossibleDummyAssetValue>) => Iterable<PossibleDummyAssetValue> => {
-//   const assetValues: PossibleDummyAssetValue[] = [{
-//     //Add syntjetic start value
-//   }];
-//   const queryStartDate = resolveDate(query?.start)
-//   const queryEndDate = resolveDate(query?.end)
-
-//   function *f(a:Iterable<PossibleDummyAssetValue>) {
-//     for (const value of a) {
-//       //on receiving the first asset value, if it matches the queryStartDate, we replace the synthtic start value with the actual value
-//       //On recieving the asset values we check if they fit in the date ramge and yeild if they do.
-//       //We continue to yeild the incoming values that are within the date range.
-//       //IF an asset value comes in those date is a match to the query end date we yeild and finish.
-//       //If an assets value comes in that is after the query end date we replace with a synthetic end value and finish.
-//       //When the iterable has finished
-
-//     }
-//     //At the end of the  loop we check if there are assets in the array that match precisely the queryStartDate and queryEndDate
-
-//   }
-// }
-
-// const c = b({
-//   start: new Date("2025-01-01"),
-//   end: new Date("2025-01-02"),
-// })(mergeSortedAssetHistories([]))
-
-// for (const value of c) {
-//   console.log(value);
-// }
 
 /**
  * Merges multiple sorted asset histories into a single globally ordered stream.
@@ -412,8 +483,8 @@ export function streamAssetValuesForDateRange(query?: DataRangeQuery) {
  * then yields all values with that date (sorted by assetId if needed).
  * This ensures no value is yielded until it is certain that no earlier value remains in any iterator.
  *
- * @param assets Iterable of AssetWithHistory (each history must be sorted by recordedAt)
- * @yields AssetValue objects in strict global order by recordedAt (and assetId for tie-breaks)
+ * @param assets Iterable of AssetWithHistory (each history must be sorted by valueDate)
+ * @yields AssetValue objects in strict global order by valueDate (and assetId for tie-breaks)
  */
 export async function* mergeSortedAssetHistories(
   assets: Iterable<AssetWithValueHistoryAsyncIterators>
@@ -432,8 +503,8 @@ export async function* mergeSortedAssetHistories(
     let minDate: Date | null = null;
     for (const next of buffer) {
       if (next !== undefined && !next.done) {
-        if (!minDate || next.value.recordedAt < minDate) {
-          minDate = next.value.recordedAt;
+        if (!minDate || next.value.valueDate < minDate) {
+          minDate = next.value.valueDate;
         }
       }
     }
@@ -448,7 +519,7 @@ export async function* mergeSortedAssetHistories(
         buf !== undefined &&
         !buf.done &&
         buf.value &&
-        buf.value.recordedAt < minDate
+        buf.value.valueDate < minDate
       ) {
         if (iterators[i] === undefined) break;
         buffer[i] = await iterators[i]!.next();
@@ -465,7 +536,7 @@ export async function* mergeSortedAssetHistories(
       if (
         buf &&
         !buf.done &&
-        buf.value.recordedAt.getTime() === minDate.getTime()
+        buf.value.valueDate.getTime() === minDate.getTime()
       ) {
         toYield.push({ value: buf.value, idx: i });
       }
@@ -491,6 +562,7 @@ export const resolveAssetWithChangeForDateRange = <T extends AssetWithHistory>(
     start: startDate,
     end: endDate,
   });
+
   return {
     ...asset,
     accountChange: calculateAssetsChange(assetValuesForRange),
@@ -512,6 +584,22 @@ export const resolveAssetsWithChange = <T extends AssetWithHistory>(
   );
 };
 
+export const resolveDayValueHistoryForAssetForDateRange = async (
+  asset: WithAssetHistory<UserAsset>,
+  query?: DataRangeQuery
+): Promise<AssetHistoryTimePoint[]> => {
+  const asyncIterator = {
+    ...asset,
+    history: arrayToAsyncIterator(asset.history),
+  };
+
+  const stream = streamAssetValuesForDateRange(query)(
+    mergeSortedAssetHistories([asyncIterator])
+  );
+
+  return getCombinedDayValuesForValues(stream);
+};
+
 /**
  * Aggregates all asset histories into a portfolio-level time series for a given date range.
  *
@@ -522,32 +610,12 @@ export const resolveAssetsWithChange = <T extends AssetWithHistory>(
  * @param query Optional date range
  * @returns Array of PortfolioHistoryTimePoint objects, sorted by date
  */
-export const getPortfolioValueHistoryForAssets = async <T extends AssetWithHistory>(
+export const resolveDayValueHistoryForAssetsForDateRange = async <
+  T extends WithAssetHistory<UserAsset>
+>(
   assets: Iterable<T>,
   query?: DataRangeQuery
-): Promise<PortfolioHistoryTimePoint[]> => {
-  console.log(
-    "getPortfolioValueHistoryForAssets assets :",
-    JSON.stringify(assets, null, 2)
-  );
-
-  // Create a map to track the latest known value for each account
-  const accountLatestValues = new Map<string, number>();
-
-  // Create a map to store portfolio values and changes at each timestamp
-  const portfolioValues = new Map<
-    string,
-    {
-      value: number;
-      changes: {
-        assetId: UserAsset["id"];
-        previousValue: number;
-        newValue: number;
-        change: number;
-      }[];
-    }
-  >();
-
+): Promise<AssetHistoryTimePoint[]> => {
   const assetsWithHistoryAsyncIterators = Array.from(assets, (asset) => ({
     ...asset,
     history: arrayToAsyncIterator(asset.history),
@@ -557,19 +625,90 @@ export const getPortfolioValueHistoryForAssets = async <T extends AssetWithHisto
     mergeSortedAssetHistories(assetsWithHistoryAsyncIterators)
   );
 
+  return getCombinedDayValuesForValues(stream);
+};
+
+export const getCombinedDayValuesForValues = async (
+  stream: AsyncGenerator<PossibleDummyAssetValue>
+): Promise<AssetHistoryTimePoint[]> => {
+  // Create a map to track the latest known value for each account
+  const accountLatestValues = new Map<string, number>();
+
+  // Create a map to store portfolio values and changes at each timestamp
+  const portfolioValues = new Map<string, CombinedDayValues>();
+
+  const addPortfolioValue = (
+    dateKey: string,
+    entry: PossibleDummyAssetValue,
+    totalValue: number
+  ) => {
+    const change: CombinedDayValuesChange | null =
+      entry.valueType === "asset"
+        ? (() => {
+            const previousValue = accountLatestValues.get(entry.assetId) || 0;
+            const newValue = Number(entry.value);
+            const change = newValue - previousValue;
+            return {
+              assetId: entry.assetId,
+              previousValue,
+              newValue,
+              change,
+            };
+          })()
+        : null;
+    // If we already have an entry for this date, update it with the new changes
+    if (portfolioValues.has(dateKey)) {
+      const existingEntry = portfolioValues.get(dateKey)!;
+      existingEntry.value = totalValue;
+      if (change) {
+        existingEntry.changes.push(change);
+      }
+      existingEntry.metadata.push(entry.metadata);
+    } else {
+      // Otherwise create a new entry for this date
+      portfolioValues.set(dateKey, {
+        value: totalValue,
+        changes: change ? [change] : [],
+        metadata: [entry.metadata],
+      });
+    }
+  };
+
   for await (const entry of stream) {
-    //console.log("getPortfolioValueHistoryForAssets entry :", entry);
+    // Format the date to YYYY-MM-DD for consistent daily grouping
+    const dateKey = entry.valueDate.toISOString().split("T")[0]!;
 
-    const previousValue = accountLatestValues.get(entry.assetId) || 0;
-    const newValue = Number(entry.value);
-    const change = newValue - previousValue;
+    // console.log("getCombinedDayValuesForValues dateKey", dateKey);
+    // console.log("getCombinedDayValuesForValues entry", entry);
 
-    //console.log("getPortfolioValueHistoryForAssets previousValue :", previousValue);
-    //console.log("getPortfolioValueHistoryForAssets newValue :", newValue);
-    //console.log("getPortfolioValueHistoryForAssets change :", change);
+    if (!dateKey) continue;
 
-    // Update the latest known value for this account
-    accountLatestValues.set(entry.assetId, newValue);
+    // if (entry.valueType === "synthetic") {
+    //   addPortfolioValue(dateKey, entry, entry.value);
+    //   continue;
+    // }
+
+    const value = entry.value ?? 0;
+
+    const change: CombinedDayValuesChange | null =
+      entry.valueType === "asset"
+        ? ((): CombinedDayValuesChange => {
+            const previousValue = entry.assetId
+              ? accountLatestValues.get(entry.assetId) || 0
+              : 0;
+            const change = value - previousValue;
+            return {
+              assetId: entry.assetId,
+              previousValue,
+              newValue: value,
+              change,
+            };
+          })()
+        : null;
+
+    if (entry.assetId) {
+      accountLatestValues.set(entry.assetId, value);
+    }
 
     // Calculate total portfolio value at this point in time
     const totalValue = Array.from(accountLatestValues.values()).reduce(
@@ -577,37 +716,20 @@ export const getPortfolioValueHistoryForAssets = async <T extends AssetWithHisto
       0
     );
 
-    //console.log("getPortfolioValueHistoryForAssets totalValue :", totalValue);
-
-    // Format the date to YYYY-MM-DD for consistent daily grouping
-    const dateKey = entry.recordedAt.toISOString().split("T")[0];
-
-    if (!dateKey) continue;
-
     // If we already have an entry for this date, update it with the new changes
     if (portfolioValues.has(dateKey)) {
-      //console.log("getPortfolioValueHistoryForAssets dateKey exists :", dateKey);
       const existingEntry = portfolioValues.get(dateKey)!;
       existingEntry.value = totalValue;
-      existingEntry.changes.push({
-        assetId: entry.assetId,
-        previousValue,
-        newValue,
-        change,
-      });
+      if (entry.assetId && change) {
+        existingEntry.changes.push(change);
+      }
+      existingEntry.metadata.push(entry.metadata);
     } else {
-      //console.log("getPortfolioValueHistoryForAssets dateKey does not exist :", dateKey);
       // Otherwise create a new entry for this date
       portfolioValues.set(dateKey, {
         value: totalValue,
-        changes: [
-          {
-            assetId: entry.assetId,
-            previousValue,
-            newValue,
-            change,
-          },
-        ],
+        changes: change ? [change] : [],
+        metadata: [entry.metadata],
       });
     }
   }
@@ -617,22 +739,16 @@ export const getPortfolioValueHistoryForAssets = async <T extends AssetWithHisto
       date: new Date(timestamp),
       value: data.value,
       changes: data.changes,
+      metadata: data.metadata,
     }))
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 };
 
-export const getPortfolioOverviewForAssets = async <T extends AssetWithHistory>(
-  assets: T[],
+export const getPortfolioOverviewForAssets = async (
+  assets: UserAssetWithHistoryAndAccountChange[],
   query?: DataRangeQuery
 ): Promise<AssetsChange> => {
-  const assetsWithValueChanges: WithAccountChange<T[][number]>[] =
-    await Promise.all(
-      assets.map(async (asset) => {
-        return resolveAssetWithChangeForDateRange(asset, query);
-      })
-    );
-
-  const assetsValueChanges: AssetsChange = assetsWithValueChanges
+  const assetsValueChanges: AssetsChange = assets
     .map((asset) => asset.accountChange)
     .reduce(
       (acc: AssetsChange, asset) => {

@@ -1,25 +1,33 @@
 import {
   assetValues,
   userAssets,
-  brokerProviders,
   recurringContributions,
   securities,
   userAssetAPIKeyConnections,
   assetTransactions,
   userAssetSecurities,
   securityTransactions,
+  securityDailyHistory,
 } from "server/db/schema";
 import { Database } from "../../db";
-import { and, between, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  between,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  lt,
+  lte,
+  sum,
+} from "drizzle-orm";
 import {
   UserAsset,
   AssetContribution,
-  assetContributionInsertSchema,
-  AccountType,
   AssetValue,
-  userAssetValueInsertSchema,
   BrokerProvider,
-  PortfolioHistoryTimePoint,
   UserAccount,
   AssetsChange,
   UserAssetValueOrphanInsert,
@@ -27,17 +35,12 @@ import {
   RecurringContributionOrphanInsert,
   ContributionInterval,
   WithAssetHistory,
-  SecuritySelect,
-  SecurityInsert,
   DataRangeQuery,
   UserAssetSecuritySelect,
   UserAssetSecurityInsert,
-  SecuritySearchResult,
-  AssetWithHistory,
-  WithResolvedSecurities,
   ResolvedSecurity,
   BrokerPlatform,
-  UserAssetWithAccountChange,
+  UserAssetWithHistoryAndAccountChange,
   UserAssetInsert,
   UserAssetTransactionOrphanInsert,
   AssetTransaction,
@@ -45,6 +48,7 @@ import {
   AssetHistoryTimePoint,
   SecurityTransactionOrphanInsert,
   SecurityTransaction,
+  UserAssetSecurityTransactionResolved,
 } from "@shared/schema";
 import { NodePgTransaction } from "drizzle-orm/node-postgres";
 import { Schema, TSchema } from "server/db/types/utils";
@@ -55,14 +59,17 @@ import {
 } from "@server/utils/resource-query-builder";
 import {
   resolveAssetsWithChange,
-  resolveAssetWithChangeForDateRange,
   resolveDate,
   getPortfolioOverviewForAssets,
-  getPortfolioValueHistoryForAssets,
+  resolveDayValueHistoryForAssetsForDateRange,
+  resolveDayValueHistoryForAssetForDateRange,
+  dateRangeToQueryFilter,
+  queryParamsFilterToDateRange,
 } from "@shared/utils/assets";
 
 import { factory as securitiesFactory } from "@server/services/securities";
 import { AssetSecurity } from "../securities/types";
+import { union, unionAll } from "drizzle-orm/pg-core";
 
 const securitiesService = securitiesFactory();
 
@@ -171,83 +178,299 @@ export class DatabaseAssetService {
     return brokerAssets;
   }
 
-  async getUserAssetsWithAccountValueChange(
+  async getUserAssetHistory(
+    assetId: UserAsset["id"],
+    query: QueryParams
+  ): Promise<AssetValue[]> {
+    const {
+      /**@ts-ignore */
+      start: { eq: start } = { eq: null },
+      /**@ts-ignore */
+      end: { eq: end } = { eq: null },
+    } = query.filter;
+
+    const startDate = resolveDate(start);
+    const endDate = resolveDate(end);
+
+    const historyResult = await this.db
+      .select()
+      .from(assetValues)
+      .where(
+        and(
+          eq(assetValues.assetId, assetId),
+          startDate != null && endDate != null
+            ? between(assetValues.valueDate, startDate, endDate)
+            : startDate != null
+            ? gte(assetValues.valueDate, startDate)
+            : endDate != null
+            ? lte(assetValues.valueDate, endDate)
+            : undefined
+        )
+      )
+      .orderBy(asc(assetValues.valueDate));
+
+    return historyResult;
+  }
+
+  async getResolvedUserAssetHistory(
+    assetId: UserAsset["id"],
+    query: QueryParams
+  ): Promise<
+    {
+      assetValues: AssetValue;
+      securities: UserAssetSecuritySelect[] | null;
+    }[]
+  > {
+    const {
+      /**@ts-ignore */
+      start: { eq: start } = { eq: null },
+      /**@ts-ignore */
+      end: { eq: end } = { eq: null },
+    } = query.filter;
+
+    const startDate = resolveDate(start);
+    const endDate = resolveDate(end);
+
+    const historyResult = await this.db
+      .select({
+        assetValues,
+        securities: userAssetSecurities,
+      })
+      .from(assetValues)
+      .leftJoin(
+        userAssetSecurities,
+        eq(assetValues.assetId, userAssetSecurities.userAssetId)
+      )
+      .leftJoin(
+        securityTransactions,
+        eq(userAssetSecurities.securityId, securityTransactions.securityId)
+      )
+      .where(
+        and(
+          eq(assetValues.assetId, assetId),
+          startDate != null && endDate != null
+            ? between(assetValues.valueDate, startDate, endDate)
+            : startDate != null
+            ? gte(assetValues.valueDate, startDate)
+            : endDate != null
+            ? lte(assetValues.valueDate, endDate)
+            : undefined
+        )
+      )
+      .orderBy(asc(assetValues.valueDate));
+
+    return historyResult;
+  }
+
+  async getUserAssetHistoryWithBoundary(
+    assetId: UserAsset["id"],
+    query?: QueryParams
+  ): Promise<AssetValue[]> {
+
+    const dateRange = queryParamsFilterToDateRange(query?.filter);
+
+    const startDate = resolveDate(dateRange.start);
+    const endDate = resolveDate(dateRange.end);
+
+    const mainQuery = this.db
+      .select()
+      .from(assetValues)
+      .where(
+        and(
+          eq(assetValues.assetId, assetId),
+          startDate != null && endDate != null
+            ? between(assetValues.valueDate, startDate, endDate)
+            : startDate != null
+            ? gte(assetValues.valueDate, startDate)
+            : endDate != null
+            ? lte(assetValues.valueDate, endDate)
+            : undefined
+        )
+      );
+
+    const beforeQuery = this.db
+      .select()
+      .from(assetValues)
+      .where(
+        startDate
+          ? and(
+              eq(assetValues.assetId, assetId),
+              lt(assetValues.valueDate, startDate)
+            )
+          : and(eq(assetValues.assetId, assetId))
+      )
+      .orderBy(desc(assetValues.valueDate))
+      .limit(1);
+
+    const afterQuery = this.db
+      .select()
+      .from(assetValues)
+      .where(
+        endDate
+          ? and(
+              eq(assetValues.assetId, assetId),
+              gt(assetValues.valueDate, endDate)
+            )
+          : and(eq(assetValues.assetId, assetId))
+      )
+      .orderBy(asc(assetValues.valueDate))
+      .limit(1);
+
+    const allData =
+      startDate && endDate
+        ? await unionAll(mainQuery, beforeQuery, afterQuery).orderBy(
+            asc(assetValues.valueDate)
+          )
+        : startDate
+        ? await unionAll(mainQuery, beforeQuery).orderBy(
+            asc(assetValues.valueDate)
+          )
+        : endDate
+        ? await unionAll(mainQuery, afterQuery).orderBy(
+            asc(assetValues.valueDate)
+          )
+        : await mainQuery.orderBy(asc(assetValues.valueDate));
+
+    // console.log(
+    //   "allData",
+    //   [...allData.slice(0, 3), ...allData.slice(-3)].map(
+    //     (item) => item.valueDate
+    //   )
+    // );
+
+    return allData;
+  }
+
+  async getUserAssetsWithAssetValueHistory(
     userId: UserAccount["id"],
     query: QueryParams
-  ): Promise<UserAssetWithAccountChange[]> {
-    const brokerAssets = await this.getUserAssets(userId, query);
-    const assetsWithHistory = await Promise.all(
-      brokerAssets.map(async (asset) => {
-        const assetValues =
-          await this.getPortfolioAssetValuesForAssetsForDateRange([asset.id]);
-        return { ...asset, history: assetValues };
-      })
+  ): Promise<WithAssetHistory<UserAsset>[]> {
+    const {
+      /**@ts-ignore */
+      start: { eq: start } = { eq: null },
+      /**@ts-ignore */
+      end: { eq: end } = { eq: null },
+    } = query.filter;
+
+    const assets = await this.db
+      .select()
+      .from(userAssets)
+      .where(and(eq(userAssets.userAccountId, userId)));
+
+    const results: WithAssetHistory<UserAsset>[] = [];
+
+    for (const asset of assets) {
+      const historyResult = await this.getUserAssetHistory(asset.id, query);
+
+      results.push({
+        ...asset,
+        history: historyResult,
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * This will obtain the history of the assets values within a date range if given
+   * plus the one asset value before the start date and one after the end date
+   * to be able to calculate the boundaries when graphing the history of the asset
+   */
+  async getUserAssetsWithAssetValueHistoryWithBoundary(
+    userId: UserAccount["id"],
+    query?: QueryParams
+  ): Promise<WithAssetHistory<UserAsset>[]> {
+    const assets = await this.db
+      .select()
+      .from(userAssets)
+      .where(and(eq(userAssets.userAccountId, userId)));
+
+    const results: WithAssetHistory<UserAsset>[] = [];
+
+    for (const asset of assets) {
+      const allData = await this.getUserAssetHistoryWithBoundary(
+        asset.id,
+        query
+      );
+
+      results.push({
+        ...asset,
+        history: allData,
+      });
+    }
+
+    return results;
+  }
+
+  async getUserAssetsWithAccountValueChange(
+    userId: UserAccount["id"],
+    query: QueryParams | undefined
+  ): Promise<UserAssetWithHistoryAndAccountChange[]> {
+    const dateRange = queryParamsFilterToDateRange(query?.filter);
+
+    const c = await this.getUserAssetsWithAssetValueHistoryWithBoundary(
+      userId,
+      query
     );
-    return resolveAssetsWithChange(assetsWithHistory);
+
+    return resolveAssetsWithChange(c, dateRange);
   }
 
   async getUserAsset(id: UserAsset["id"]): Promise<ResolvedUserAsset> {
-    const userAsset = await this.db.query.userAssets.findFirst({
-      with: {
-        platform: true,
-        securities: { with: { security: true } },
-      },
-      where: eq(userAssets.id, id),
-    });
-    if (!userAsset) {
-      throw new Error("User asset not found");
-    }
+    const userAsset = await this.db.transaction<ResolvedUserAsset>(
+      async (tx) => {
+        const userAsset = await tx.query.userAssets.findFirst({
+          with: {
+            platform: true,
+            securities: { with: { security: true } },
+          },
+          where: eq(userAssets.id, id),
+        });
 
-    return {
-      ...userAsset,
-      platform: userAsset.platform ?? undefined,
-      securities: userAsset.securities.map((security) => ({
-        ...security,
-        calculatedValue: {
-          value: 0,
-          currentChange: 0,
-          currentChangePercentage: 0,
-        },
-      })),
-    };
-  }
+        if (!userAsset) {
+          throw new Error("User asset not found");
+        }
 
-  async getUserAssetWithValueHistory(
-    id: UserAsset["id"]
-  ): Promise<WithAssetHistory<UserAsset>> {
-    const userAssetWithHistory = await this.db.transaction(async (tx) => {
-      const userAsset = await tx.query.userAssets.findFirst({
-        where: eq(userAssets.id, id),
-      });
-      if (!userAsset) {
-        throw new Error("User asset not found");
+        const latestValue = await tx.query.assetValues.findFirst({
+          where: eq(assetValues.assetId, id),
+          orderBy: (assetValues, { desc }) => [desc(assetValues.valueDate)],
+        });
+
+        const securitiesWithValue = await Promise.all(
+          userAsset.securities.map(async (security) => {
+            const lastValue = await tx.query.securityDailyHistory.findFirst({
+              where: eq(securityDailyHistory.securityId, security.securityId),
+              orderBy: (securityDailyHistory, { desc }) => [
+                desc(securityDailyHistory.date),
+              ],
+            });
+            return {
+              ...security,
+              calculatedValue: {
+                value: lastValue
+                  ? (
+                      Number(lastValue.close ?? 0) * security.shareHolding
+                    ).toFixed(2)
+                  : 0,
+                //Todo calculate this when we have a date range
+                currentChange: 0,
+                currentChangePercentage: 0,
+              },
+            };
+          })
+        );
+
+        return {
+          ...userAsset,
+          currentValue: latestValue?.value ?? 0,
+          lastValueDate: latestValue?.valueDate ?? null,
+          platform: userAsset.platform ?? undefined,
+          securities: securitiesWithValue,
+        };
       }
-      const assetValues =
-        await this.getPortfolioAssetValuesForAssetsForDateRange([userAsset.id]);
-      return { ...userAsset, history: assetValues };
-    });
-    return userAssetWithHistory;
-  }
+    );
 
-  async getUserAssetWithAccountValueChangeForUser(
-    id: UserAsset["id"]
-  ): Promise<UserAssetWithAccountChange> {
-    const userAsset = await this.db.query.userAssets.findFirst({
-      with: { provider: true },
-      where: eq(userAssets.id, id),
-    });
-    if (!userAsset) {
-      throw new Error("User asset not found");
-    }
-    const userAssetHistory = await this.db.query.assetValues.findMany({
-      where: eq(assetValues.assetId, id),
-    });
-
-    return resolveAssetWithChangeForDateRange({
-      ...userAsset,
-      history: userAssetHistory,
-    });
-    //return { ...brokerAsset, accountChange: resolveAssetWithChange(brokerAsset, { start: query.start, end: query.end }) };
+    return userAsset;
   }
 
   async getUserAssetValueHistory(
@@ -268,39 +491,34 @@ export class DatabaseAssetService {
     id: UserAsset["id"],
     query?: DataRangeQuery
   ): Promise<AssetHistoryTimePoint[]> {
-    let { start, end } = query ?? {};
-
-    end = end ? (typeof end === "string" ? new Date(end) : end) : new Date();
-
-    start = start
-      ? typeof start === "string"
-        ? new Date(start)
-        : start
-      : new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-    const dateWhere =
-      start && end ? between(assetValues.valueDate, start, end) : undefined;
-
-    const assetValuesFound = await this.db.query.assetValues.findMany({
-      where: and(eq(assetValues.assetId, id), dateWhere),
-      orderBy: (assetValues, { asc }) => [asc(assetValues.valueDate)],
-      limit: 1000,
-      offset: 0,
+    const asset = await this.db.query.userAssets.findFirst({
+      where: eq(userAssets.id, id),
     });
 
-    return assetValuesFound.map((assetValue) => ({
-      date: assetValue.valueDate,
-      value: assetValue.value,
-      changes: [
-        // {
-        //   assetId: id,
-        //   previousValue: assetValue.value,
-        //   newValue: assetValue.value,
-        //   change: assetValue.value,
-        // },
-      ],
-      metadata: assetValue.metadata as Record<string, unknown>,
-    }));
+    if (!asset) {
+      throw new Error("Asset not found");
+    }
+
+    const assetValues = await this.getUserAssetHistoryWithBoundary(id, {
+      filter: {
+        start: {
+          eq: query?.start,
+        },
+        end: {
+          eq: query?.end,
+        },
+      },
+    });
+
+    const result = await resolveDayValueHistoryForAssetForDateRange(
+      {
+        ...asset,
+        history: assetValues,
+      },
+      query
+    );
+
+    return result;
   }
 
   async getUserAssetTransactions(
@@ -434,21 +652,6 @@ export class DatabaseAssetService {
     return this.getUserAsset(id);
   }
 
-  async getUserAssetsValueHistoryForUser(
-    userId: UserAccount["id"],
-    query: QueryParams
-  ): Promise<UserAsset[]> {
-    const { where, orderBy, limit, offset } =
-      userAssetsQueryBuilder.buildQuery(query);
-    return this.db.query.userAssets.findMany({
-      with: { provider: true },
-      where: and(eq(userAssets.userAccountId, userId), where),
-      orderBy,
-      limit,
-      offset,
-    });
-  }
-
   async createUserAssetValueHistory(
     id: UserAsset["id"],
     data: UserAssetValueOrphanInsert
@@ -516,20 +719,6 @@ export class DatabaseAssetService {
     return (result?.rowCount ?? 0) > 0;
   }
 
-  // async createUserAssetContributionHistory(
-  //   id: UserAsset["id"],
-  //   data: UserAssetTransactionOrphanInsert
-  // ): Promise<AssetTransaction> {
-  //   const [insertedAssetContribution] = await this.db
-  //     .insert(assetTransactions)
-  //     .values({
-  //       ...data,
-  //       assetId: id,
-  //     })
-  //     .returning();
-  //   return insertedAssetContribution;
-  // }
-
   /* Transactions */
 
   async createUserAssetTransaction(
@@ -590,6 +779,38 @@ export class DatabaseAssetService {
     return (result?.rowCount ?? 0) > 0;
   }
 
+  async getUserAssetsSecurityTransactionHistory(
+    assetId: UserAsset["id"]
+  ): Promise<UserAssetSecurityTransactionResolved[]> {
+    const securityTransactionHistory = await this.db
+      .select()
+      .from(userAssetSecurities)
+      .where(eq(userAssetSecurities.userAssetId, assetId))
+      .innerJoin(securities, eq(userAssetSecurities.securityId, securities.id))
+      .innerJoin(
+        securityTransactions,
+        eq(userAssetSecurities.id, securityTransactions.securityId)
+      )
+      .orderBy(desc(securityTransactions.valueDate));
+
+    return securityTransactionHistory.reduce(
+      (
+        acc: UserAssetSecurityTransactionResolved[],
+        curr
+      ): UserAssetSecurityTransactionResolved[] => {
+        acc.push({
+          id: curr.security_transactions.id,
+          securityName: curr.securities.name,
+          value: curr.security_transactions.value,
+          currency: curr.security_transactions.currency,
+          valueDate: curr.security_transactions.valueDate,
+        });
+        return acc;
+      },
+      []
+    );
+  }
+
   async createUserAssetSecurityTransaction(
     securityId: string,
     data: SecurityTransactionOrphanInsert
@@ -599,6 +820,7 @@ export class DatabaseAssetService {
       .values({
         securityId,
         ...data,
+        recordedAt: data.recordedAt ?? new Date(),
       })
       .returning();
 
@@ -659,9 +881,6 @@ export class DatabaseAssetService {
   //   }
   // }
 
-  /**
-   * @deprecated This is no longer in use
-   */
   // private async getCombinedAssetsForUser(
   //   userAccountId: UserAccount["id"]
   // ): Promise<UserAsset[]> {
@@ -695,93 +914,67 @@ export class DatabaseAssetService {
   // return assets;
   //}
 
-  private async getPortfolioAssetValuesForAssetsForDateRange(
-    assetIds: UserAsset["id"][],
-    query?: DataRangeQuery
-  ): Promise<AssetValue[]> {
-    const startDate = resolveDate(query?.start);
-    const endDate = resolveDate(query?.end);
+  // private async getPortfolioAssetValuesForAssetsForDateRange(
+  //   assetIds: UserAsset["id"][],
+  //   query?: DataRangeQuery
+  // ): Promise<AssetValue[]> {
+  //   const startDate = resolveDate(query?.start);
+  //   const endDate = resolveDate(query?.end);
 
-    const dateQueries =
-      startDate && endDate
-        ? [between(assetValues.recordedAt, startDate, endDate)]
-        : startDate
-        ? [gte(assetValues.recordedAt, startDate)]
-        : endDate
-        ? [lte(assetValues.recordedAt, endDate)]
-        : [];
+  //   const dateQueries =
+  //     startDate && endDate
+  //       ? [between(assetValues.valueDate, startDate, endDate)]
+  //       : startDate
+  //       ? [gte(assetValues.valueDate, startDate)]
+  //       : endDate
+  //       ? [lte(assetValues.valueDate, endDate)]
+  //       : [];
 
-    const assetValuesQuery: QueryParts = {
-      where: and(inArray(assetValues.assetId, assetIds), ...dateQueries),
-      orderBy: [desc(assetValues.recordedAt)],
-    };
+  //   const assetValuesQuery: QueryParts = {
+  //     where: and(inArray(assetValues.assetId, assetIds), ...dateQueries),
+  //     orderBy: [desc(assetValues.valueDate)],
+  //   };
 
-    const { where, orderBy, limit, offset } = assetValuesQuery;
+  //   const { where, orderBy, limit, offset } = assetValuesQuery;
 
-    const assetValuesToCalculate = await this.db.query.assetValues.findMany({
-      where,
-      orderBy,
-      limit,
-      offset,
-    });
+  //   const assetValuesToCalculate = await this.db.query.assetValues.findMany({
+  //     where,
+  //     orderBy,
+  //     limit,
+  //     offset,
+  //   });
 
-    return assetValuesToCalculate;
-  }
+  //   return assetValuesToCalculate as AssetValue[];
+  // }
 
-  async getPortfolioOverviewForUserForDateRange(
+  async getPortfolioOverviewForUser(
     userAccountId: UserAccount["id"],
-    query?: DataRangeQuery
+    query?: QueryParams
   ): Promise<AssetsChange> {
-    const assetsToCalculate = await this.getUserAssets(userAccountId, {});
-
-    // const assetsToCalculateBefore = await this.getCombinedAssetsForUser(
-    //   userAccountId
-    // );
-
-    const assetsWithHistory = await Promise.all(
-      assetsToCalculate.map(async (asset) => {
-        const assetValues =
-          await this.getPortfolioAssetValuesForAssetsForDateRange(
-            [asset.id],
-            query
-          );
-        return { ...asset, history: assetValues };
-      })
+    const assetsWithChange = await this.getUserAssetsWithAccountValueChange(
+      userAccountId,
+      query
     );
 
     return getPortfolioOverviewForAssets(
-      assetsWithHistory /*Need to add query */
+      assetsWithChange /*Need to add query */
     );
   }
 
-  async getPortfolioValueHistoryForUserForDateRange(
+  async getPortfolioValueHistoryForUser(
     userAccountId: UserAccount["id"],
-    query?: DataRangeQuery
+    query?: QueryParams
   ): Promise<AssetHistoryTimePoint[]> {
-    const assetsToCalculate = await this.getUserAssets(userAccountId, {});
+    const assetsWithHistory =
+      await this.getUserAssetsWithAssetValueHistoryWithBoundary(
+        userAccountId,
+        query
+      );
 
-    // const assetsToCalculateBefore = await this.getCombinedAssetsForUser(
-    //   userAccountId
-    // );
-
-    const assetsWithHistory = await Promise.all(
-      assetsToCalculate.map(async (asset): Promise<AssetWithHistory> => {
-        const assetValues =
-          await this.getPortfolioAssetValuesForAssetsForDateRange(
-            [asset.id],
-            query
-          );
-        return {
-          ...asset,
-          history: assetValues.sort(
-            (a, b) => a.recordedAt.getTime() - b.recordedAt.getTime()
-          ),
-        };
-        ``;
-      })
+    return resolveDayValueHistoryForAssetsForDateRange(
+      assetsWithHistory,
+      queryParamsFilterToDateRange(query?.filter)
     );
-
-    return getPortfolioValueHistoryForAssets(assetsWithHistory, query);
   }
 
   async getBrokerPlatforms(): Promise<BrokerPlatform[]> {
@@ -1038,7 +1231,7 @@ export class DatabaseAssetService {
     return insertedValueItem;
   }
 
-  async updateBrokerProviderAssetSecurity(
+  async updateUserAssetSecurity(
     assetId: UserAsset["id"],
     securityId: UserAssetSecuritySelect["id"],
     data: UserAssetSecurityInsert
@@ -1075,7 +1268,7 @@ export class DatabaseAssetService {
     return updatedValueItem;
   }
 
-  async deleteBrokerProviderAssetSecurity(
+  async deleteUserAssetSecurity(
     assetId: UserAsset["id"],
     securityId: UserAssetSecuritySelect["id"]
   ): Promise<boolean> {
@@ -1101,6 +1294,44 @@ export class DatabaseAssetService {
 
     return (result?.rowCount ?? 0) > 0;
   }
+
+  async getUserAssetSecurityShareHoldingsForDate(
+    assetId: UserAsset["id"],
+    date: Date
+  ): Promise<AssetSecurityShareHoldingsForDate[]> {
+    const result = await this.db.transaction(async (tx) => {
+      // const securities = await this.db.query.userAssetSecurities.findMany({
+      //   with: { security: true },
+      //   where: and(eq(userAssetSecurities.userAssetId, assetId)),
+      //   orderBy: orderBy || [desc(userAssetSecurities.recordedAt)],
+      // });
+
+      const s = await this.db
+        .select({
+          securityId: userAssetSecurities.securityId,
+          shareHolding: sum(securityTransactions.value),
+        })
+        .from(userAssetSecurities)
+        .innerJoin(
+          securityTransactions,
+          eq(userAssetSecurities.id, securityTransactions.securityId)
+        )
+        .groupBy(userAssetSecurities.securityId)
+        .where(
+          and(
+            eq(userAssetSecurities.userAssetId, assetId),
+            lte(securityTransactions.valueDate, date)
+          )
+        );
+
+      return s;
+    });
+
+    return result.map((r) => ({
+      securityId: r.securityId,
+      shareHolding: Number(r.shareHolding ?? 0),
+    }));
+  }
 }
 
 /* Asset Persistence Utility */
@@ -1109,9 +1340,17 @@ export type AssetPersistence = {
   getAssetById: () => Promise<{ id: string }>;
   getLastAssetValue: () => Promise<AssetValue | null>;
   getAssetSecurities: () => Promise<AssetSecurity[]>;
+  getAssetSecurityShareHoldingsForDate: (
+    date: Date
+  ) => Promise<AssetSecurityShareHoldingsForDate[]>;
   insertAssetValues: (
     values: UserAssetValueOrphanInsert[]
   ) => Promise<AssetValue[]>;
+};
+
+export type AssetSecurityShareHoldingsForDate = {
+  securityId: string;
+  shareHolding: number;
 };
 
 export const assetPersistenceFactory = (
@@ -1145,6 +1384,12 @@ export const assetPersistenceFactory = (
         gainLoss: security.gainLoss,
         startDate: security.startDate,
       }));
+    },
+
+    getAssetSecurityShareHoldingsForDate: async (
+      date: Date
+    ): Promise<AssetSecurityShareHoldingsForDate[]> => {
+      return service.getUserAssetSecurityShareHoldingsForDate(assetId, date);
     },
 
     insertAssetValues: async (

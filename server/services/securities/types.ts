@@ -1,8 +1,8 @@
-import { SecuritySearchResult } from "@shared/schema";
+import { AssetValueMetadata, SecuritySearchResult } from "@shared/schema";
 
 export type WithSourceIdentifier<T> = T & {
   sourceIdentifier: string;
-}
+};
 
 export type SecurityHistory = WithSourceIdentifier<{
   symbol: string;
@@ -14,7 +14,7 @@ export type SecurityHistory = WithSourceIdentifier<{
   close: number;
 }>;
 
-export type IntradayInterval = '15min' | '30min' | '60min'
+export type IntradayInterval = "15min" | "30min" | "60min";
 
 export interface IntradayOptions {
   interval?: IntradayInterval;
@@ -28,37 +28,50 @@ export interface SecurityIdentifier {
 export type SecurityInfoService = {
   name: string;
   identifier: string;
-  
+
   canFindSecurities: boolean;
-  findSecurities: (securityIdentifiers: string[]) => Promise<SecuritySearchResult[]>;
+  findSecurities: (
+    securityIdentifiers: string[]
+  ) => Promise<SecuritySearchResult[]>;
 
   canGetSecurityHistoryForDateRange: boolean;
   /** Gets the price history for a given symbol and date range  */
-  getSecurityHistoryForDateRange: (identifier: SecurityIdentifier, startDate: Date, endDate: Date) => Promise<SecurityHistory[]>;
+  getSecurityHistoryForDateRange: (
+    identifier: SecurityIdentifier,
+    startDate: Date,
+    endDate: Date
+  ) => Promise<SecurityHistory[]>;
 
   canGetSecurityHistoryLiveForDateRange: boolean;
   getSecurityHistoryLiveForDateRange: (
-    identifier: SecurityIdentifier, 
-    startDate: Date, 
+    identifier: SecurityIdentifier,
+    startDate: Date,
     endDate: Date
-  ) => Promise<SecurityHistory[]>
-  
+  ) => Promise<SecurityHistory[]>;
+
   canGetSecurityHistoryForDate: boolean;
   /** Gets the price history for a given symbol and date */
-  getSecurityHistoryForDate: (identifier: SecurityIdentifier, date: Date) => Promise<SecurityHistory>;
+  getSecurityHistoryForDate: (
+    identifier: SecurityIdentifier,
+    date: Date
+  ) => Promise<SecurityHistory>;
 
   canGetIntradaySecurityHistoryForDate: boolean;
   /** Gets the intraday price history for a given symbol and date */
-  getIntradaySecurityHistoryForDate: (identifier: SecurityIdentifier, date: Date, options?: IntradayOptions) => Promise<SecurityHistory[]>;
+  getIntradaySecurityHistoryForDate: (
+    identifier: SecurityIdentifier,
+    date: Date,
+    options?: IntradayOptions
+  ) => Promise<SecurityHistory[]>;
 
   // canGetSecurityInfoBySymbol: boolean;
   // getSecurityInfoBySymbol: (symbol: string) => Promise<SecurityInfo>;
 };
 
 export type SecurityContext = {
-  securityId: string,
-  startDate: Date,
-}
+  securityId: string;
+  startDate: Date;
+};
 
 // Minimal interface for injected securities
 export interface AssetSecurity {
@@ -74,16 +87,5 @@ export interface AssetValueResult {
   value: number;
   entryMethod: "calculated";
   valueDate: Date;
-  metadata: {
-    calculatedAt: string;
-    securitiesProcessed: number;
-    securitiesTotal: number;
-    dataStatus: "complete" | "partial";
-    sourcesUsed: string[]; // Dynamic source identifiers from actual services
-    securities: {
-      securityName: string;
-      securitySymbol: string;
-      value: number;
-    }[];
-  };
+  metadata: AssetValueMetadata;
 }

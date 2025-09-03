@@ -4,7 +4,7 @@ import type {
   SecurityTransactionSelect as DBSecurityTransactionSelect,
   SecurityTransactionInsert as DBSecurityTransactionInsert,
 } from "@server/db/schema/index";
-import { IfConstructorEquals } from ".";
+import { IfConstructorEquals, UserAssetSecuritySelect } from ".";
 
 export type { SecurityDailyHistorySelect } from "@server/db/schema/index";
 
@@ -48,12 +48,14 @@ export type SecuritySearchResult = z.infer<typeof securitySearchResultSchema>;
 export type SecurityTransaction = DBSecurityTransactionSelect;
 
 export const securityTransactionOrphanInsertSchema = z.object({
-  value: z.number(),
+  value: z
+    .number()
+    .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
   currencyValue: z.number().optional().nullable(),
   fees: z.number().optional().nullable(),
   currency: z.string().optional(),
   valueDate: z.coerce.date(),
-  recordedAt: z.coerce.date(),
+  recordedAt: z.coerce.date().optional(),
 });
 
 type ZodSecurityTransactionOrphanInsert = z.infer<
@@ -62,10 +64,7 @@ type ZodSecurityTransactionOrphanInsert = z.infer<
 
 export type SecurityTransactionOrphanInsert = IfConstructorEquals<
   ZodSecurityTransactionOrphanInsert,
-  Omit<DBSecurityTransactionInsert, "securityId"> & {
-    recordedAt: Date;
-    valueDate: Date;
-  },
+  Omit<DBSecurityTransactionInsert, "securityId" | "recordedAt">,
   never
 >;
 
@@ -77,6 +76,28 @@ export const securityTransactionInsertSchema =
   securityTransactionOrphanInsertSchema.extend({
     securityId: z.string(),
   });
+
+type ZodSecurityTransactionInsert = z.infer<
+  typeof securityTransactionInsertSchema
+>;
+
+export type SecurityTransactionInsert = IfConstructorEquals<
+  ZodSecurityTransactionInsert,
+  Omit<DBSecurityTransactionInsert, "recordedAt">,
+  never
+>;
+
+export type SecurityTransactionUpsert = SecurityTransactionInsert & {
+  id?: string;
+};
+
+export type UserAssetSecurityTransactionResolved = {
+  id: string;
+  securityName: string;
+  value: number;
+  currency: string;
+  valueDate: Date;
+};
 
 // // Cache Management Types
 // export const securityCacheRequestSchema = z.object({

@@ -5,14 +5,30 @@ import { relations, InferSelectModel, sql } from "drizzle-orm";
 import { IncludeRelation } from "../types/utils";
 import { InferResultType } from "../types/utils";
 import { securities, securityDailyHistory } from "./securities";
-export const accountType = ['ISA', 'CISA', 'SIPP', 'LISA', 'GIA'] as const;
-export const accountTypeEnum = pgEnum('account_type', accountType);
-export const contributionInterval = ['weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'] as const;
-export const contributionIntervalEnum = pgEnum('contribution_interval', contributionInterval);
-export const valueEntryMethod = ['manual', 'calculated'] as const;
-export const valueEntryMethodEnum = pgEnum('value_entry_method', valueEntryMethod);
-export const valueMethod = ['manual', 'calculated'] as const;
-export const valueMethodEnum = pgEnum('value_method', valueMethod);
+import {
+  AssetValue,
+  AssetValueMetadata,
+} from "@shared/schema/portfolio-assets";
+export const accountType = ["ISA", "CISA", "SIPP", "LISA", "GIA"] as const;
+export const accountTypeEnum = pgEnum("account_type", accountType);
+export const contributionInterval = [
+  "weekly",
+  "biweekly",
+  "monthly",
+  "quarterly",
+  "yearly",
+] as const;
+export const contributionIntervalEnum = pgEnum(
+  "contribution_interval",
+  contributionInterval
+);
+export const valueEntryMethod = ["manual", "calculated"] as const;
+export const valueEntryMethodEnum = pgEnum(
+  "value_entry_method",
+  valueEntryMethod
+);
+export const valueMethod = ["manual", "calculated"] as const;
+export const valueMethodEnum = pgEnum("value_method", valueMethod);
 
 export type AccountType = (typeof accountType)[number];
 export type ContributionInterval = (typeof contributionInterval)[number];
@@ -20,14 +36,16 @@ export type ValueEntryMethod = (typeof valueEntryMethod)[number];
 export type ValueMethod = (typeof valueMethod)[number];
 
 export const assetValues = pgTable("asset_values", {
-  id: uuid('id').notNull().default(sql`gen_random_uuid()`),
+  id: uuid("id")
+    .notNull()
+    .default(sql`gen_random_uuid()`),
   value: real("value").notNull(),
   recordedAt: timestamp("recorded_at").notNull(),
   valueDate: timestamp("value_date").notNull(),
   entryMethod: valueEntryMethodEnum("entry_method").notNull().default("manual"),
   assetId: uuid("asset_id").notNull(),
-  metadata: jsonb("metadata"), // Detailed entry information and calculation breakdown
-  ...timestampColumns()
+  metadata: jsonb("metadata").$type<AssetValueMetadata>(), // Detailed entry information and calculation breakdown
+  ...timestampColumns(),
 });
 
 export type AssetValueSelect = InferSelectModel<typeof assetValues>;
