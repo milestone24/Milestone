@@ -111,8 +111,6 @@ export async function registerRoutes(
       const milestoneId = req.params.id;
       const success = await milestoneService.delete(milestoneId);
 
-      console.log("success", success);
-
       if (!success) {
         return res.status(404).json({ message: "Milestone not found" });
       }

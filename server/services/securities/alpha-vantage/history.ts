@@ -88,8 +88,10 @@ export const getSecurityHistoryForDate = async (
       datatype: "json",
     })
 
-    const data: AlphaVantageHistoryResponse = await makeApiRequest(url, "Alpha Vantage")
-    console.log("data", data)
+    const data: AlphaVantageHistoryResponse = await makeApiRequest(
+      url,
+      "Alpha Vantage"
+    );
     validateAlphaVantageResponse(data)
 
     const timeSeries = validateAlphaVantageTimeSeries(data, "Alpha Vantage API")

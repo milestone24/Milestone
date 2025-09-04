@@ -71,8 +71,6 @@ export const getSecurityHistoryLiveForDateRange = async (
     
     const data: EODHDHistoryResponse[] = await makeApiRequest(url, "EODHD")
 
-    console.log("DATA", data)
-
     const arrayData = validateArrayResponse(data, "EODHD API") as EODHDHistoryResponse[]
 
     return arrayData.map((item): SecurityHistory => mapEodhdToSecurityHistory(item, identifier.symbol))
