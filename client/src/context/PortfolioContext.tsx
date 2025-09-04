@@ -26,7 +26,7 @@ import {
   AssetContributionInsert,
   MilestoneOrphanInsert,
   FireSettingsInsert,
-  UserAssetWithAccountChange,
+  UserAssetWithHistoryAndAccountChange,
   MilestoneInsert,
   FireSettingsOrphan,
 } from "@shared/schema";
@@ -169,7 +169,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     data: assets = [],
     isLoading: isLoadingAssets,
     isError: isAssetsError,
-  } = useQuery<UserAssetWithAccountChange[]>({
+  } = useQuery<UserAssetWithHistoryAndAccountChange[]>({
     queryKey: [...assetsQueryKey, startDate, endDate],
     queryFn: apiEnabled
       ? async () =>
@@ -221,11 +221,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     });
 
   // Mutations for assets
-  const addAsset = useMutation<
-    UserAsset,
-    Error,
-    UserAssetOrphanInsert
-  >({
+  const addAsset = useMutation<UserAsset, Error, UserAssetOrphanInsert>({
     mutationFn: (newAsset) =>
       apiRequest<UserAsset>("POST", "/api/assets/", {
         ...newAsset,
@@ -253,20 +249,12 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     },
   });
 
-  const updateAsset = useMutation<
-    UserAsset,
-    Error,
-    UserAssetUpdate
-  >({
+  const updateAsset = useMutation<UserAsset, Error, UserAssetUpdate>({
     mutationFn: (data) => {
       const { id, ...rest } = data;
-      return apiRequest<UserAsset>(
-        "PUT",
-        `/api/assets/${id}`,
-        {
-          ...rest,
-        }
-      );
+      return apiRequest<UserAsset>("PUT", `/api/assets/${id}`, {
+        ...rest,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: assetsQueryKey });
@@ -285,29 +273,24 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     },
   });
 
-  const deleteAsset = useMutation<void, Error, UserAsset["id"]>(
-    {
-      mutationFn: (id) =>
-        apiRequest<void>("DELETE", `/api/assets/${id}`),
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: assetsQueryKey });
-        toast({
-          title: "Asset deleted",
-          description: "Your asset has been deleted successfully.",
-        });
-      },
-      onError: (error) => {
-        toast({
-          title: "Error deleting asset",
-          description:
-            error instanceof Error
-              ? error.message
-              : "An unknown error occurred",
-          variant: "destructive",
-        });
-      },
-    }
-  );
+  const deleteAsset = useMutation<void, Error, UserAsset["id"]>({
+    mutationFn: (id) => apiRequest<void>("DELETE", `/api/assets/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: assetsQueryKey });
+      toast({
+        title: "Asset deleted",
+        description: "Your asset has been deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error deleting asset",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Add new mutations for account history
   const addAssetValue = useMutation<
@@ -317,14 +300,10 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
   >({
     mutationFn: (data: UserAssetValueInsert) => {
       const { assetId, ...rest } = data;
-      return apiRequest<AssetValue>(
-        "POST",
-        `/api/assets/${assetId}/history`,
-        {
-          ...rest,
-          recordedAt: data.recordedAt ?? new Date(),
-        }
-      );
+      return apiRequest<AssetValue>("POST", `/api/assets/${assetId}/history`, {
+        ...rest,
+        recordedAt: data.recordedAt ?? new Date(),
+      });
     },
     onSuccess: () => {
       invalidateAccounts();
@@ -343,11 +322,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     },
   });
 
-  const updateAssetValue = useMutation<
-    AssetValue,
-    Error,
-    AssetValueUpdate
-  >({
+  const updateAssetValue = useMutation<AssetValue, Error, AssetValueUpdate>({
     mutationFn: (data) => {
       const { assetId, historyId, ...rest } = data;
       return apiRequest<AssetValue>(
@@ -362,8 +337,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
       invalidateAccounts();
       toast({
         title: "Asset value updated",
-        description:
-          "Asset value has been updated successfully.",
+        description: "Asset value has been updated successfully.",
       });
     },
     onError: (error) => {
@@ -378,16 +352,12 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
 
   const deleteAssetValue = useMutation<void, Error, AssetValueDelete>({
     mutationFn: ({ assetId, historyId }) =>
-      apiRequest<void>(
-        "DELETE",
-        `/api/assets/${assetId}/history/${historyId}`
-      ),
+      apiRequest<void>("DELETE", `/api/assets/${assetId}/history/${historyId}`),
     onSuccess: () => {
       invalidateAccounts();
       toast({
         title: "Asset value deleted",
-        description:
-          "Asset value has been deleted successfully.",
+        description: "Asset value has been deleted successfully.",
       });
     },
     onError: (error) => {
@@ -413,8 +383,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
       queryClient.invalidateQueries({ queryKey: assetsQueryKey });
       toast({
         title: "API connected",
-        description:
-          "Your asset has been connected to the API successfully.",
+        description: "Your asset has been connected to the API successfully.",
       });
     },
     onError: (error) => {

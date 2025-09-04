@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,13 @@ import AssetHistoryChart from "@/components/charts/AssetHistoryChart";
 import DateRangeBar from "@/components/layout/DateRangeBar";
 import { ContributionsPanel } from "@/components/account/ContributionsPanel";
 import { useSecuritiesUpdate } from "@/hooks/use-securities-update";
+import { DateRangeProvider, useDateRange } from "@/context/DateRangeContext";
+import {
+  DateRangeOption,
+  getDateRange,
+} from "@/components/ui/DateRangeControl";
+import { SecuritiesTransactionsPanel } from "@/components/account/SecuritiesTransactionsPanel";
+import { useAsset } from "@/hooks/use-asset";
 
 // Form schema for history entry
 const historySchema = z.object({
@@ -69,16 +76,18 @@ const historySchema = z.object({
   }),
 });
 
-export default function AssetPage() {
+function AssetPage() {
   const params = useParams();
 
   const assetId: UserAsset["id"] | undefined = params?.id;
 
-  const {
-    addAssetValue,
-    updateAssetValue,
-    deleteAssetValue,
-  } = usePortfolio();
+  const { dateRange } = useDateRange();
+
+  const { start: startDate, end: endDate } = useMemo(() => {
+    return getDateRange(dateRange as DateRangeOption);
+  }, [dateRange]);
+
+  const { addAssetValue, updateAssetValue, deleteAssetValue } = usePortfolio();
 
   const { data: providers, isLoading: isProvidersLoading } =
     useBrokerProviders();
@@ -94,19 +103,7 @@ export default function AssetPage() {
     "values"
   );
 
-  const {
-    data: asset,
-    isLoading: isAssetLoading,
-    isError: isAssetError,
-    error: assetError,
-  } = useQuery<ResolvedUserAsset>({
-    queryKey: ["broker-asset", assetId],
-    queryFn: () =>
-      apiRequest<ResolvedUserAsset>(
-        "GET",
-        `/api/assets/${assetId}`
-      ),
-  });
+  const { asset, isAssetLoading, isAssetError, assetError } = useAsset(assetId);
 
   const { data: history, isLoading: isHistoryLoading } = useQuery<AssetValue[]>(
     {
@@ -114,16 +111,14 @@ export default function AssetPage() {
       queryFn: () =>
         apiRequest<AssetValue[]>(
           "GET",
-          `/api/assets/${assetId}/history`
+          `/api/assets/${assetId}/history?sort=valueDate,desc`
         ),
     }
   );
 
-  console.log("asset", asset);
-
-  console.log("history", history);
-
-  const { mutateAsync: updateAssetHistories } = useSecuritiesUpdate(assetId ?? "");
+  const { mutateAsync: updateAssetHistories } = useSecuritiesUpdate(
+    assetId ?? ""
+  );
   const [isUpdatingHistories, setIsUpdatingHistories] = useState(false);
 
   // Form for adding/editing history
@@ -185,9 +180,9 @@ export default function AssetPage() {
     }
   };
 
-  const handleSecurityClick = (item: { id: string }) => {
-    navigate(`/asset/broker/${assetId}/item/${item.id}`);
-  };
+  // const handleSecurityClick = (item: { id: string }) => {
+  //   navigate(`/asset/broker/${assetId}/item/${item.id}`);
+  // };
 
   if (isAssetLoading || isHistoryLoading) {
     return (
@@ -229,34 +224,31 @@ export default function AssetPage() {
     );
   }
 
-  // const brokerName = asset.providerId
-  //   ? getBrokerName(asset.providerId, providers ?? [])
-  //   : null;
-
-  console.log("securities", asset.securities);
-
   const isSecuritiesAsset = (asset.securities?.length ?? 0) > 0;
-  
-  console.log("isSecuritiesAsset", isSecuritiesAsset);
 
   const handleUpdateAssetHistories = async () => {
     if (!assetId) return;
     setIsUpdatingHistories(true);
     await updateAssetHistories()
-    .then(() => {
-      setIsUpdatingHistories(false);
-    })
-    .catch(() => {
-      setIsUpdatingHistories(false);
-    });
-  }
+      .then(() => {
+        setIsUpdatingHistories(false);
+      })
+      .catch((error) => {
+        console.error("Error updating asset histories", error);
+        setIsUpdatingHistories(false);
+      });
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="flex flex-col items-start mb-6">
         <div className="flex items-center gap-2">
           <BrokerLogoBoxed
-            broker={asset.platform ? getBrokerSlugFromName(asset.platform.name) : undefined}
+            broker={
+              asset.platform
+                ? getBrokerSlugFromName(asset.platform.name)
+                : undefined
+            }
             size="md"
           />
           <div>
@@ -282,7 +274,7 @@ export default function AssetPage() {
       <AssetHistoryChart
         className="mt-4"
         showMilestones={false}
-        url={`/api/assets/${assetId}/history`}
+        url={`/api/assets/${assetId}/history/graph`}
         // nextMilestone={
         //   nextMilestone ? Number(nextMilestone.targetValue) : undefined
         // }
@@ -291,39 +283,45 @@ export default function AssetPage() {
       <DateRangeBar />
 
       <div className="flex justify-end">
-        <Button onClick={handleUpdateAssetHistories} disabled={isUpdatingHistories}>Update</Button>
+        <Button
+          onClick={handleUpdateAssetHistories}
+          disabled={isUpdatingHistories}
+        >
+          Update
+        </Button>
       </div>
 
       <div>
-          <div className="">
-            <h2 className="text-lg font-medium mb-2">Holdings</h2>
-            <SecuritiesList
-              securities={asset.securities}
-              onItemClick={handleSecurityClick}
-            />
-          </div>
-          <Tabs
-            value={activeTab}
-            onValueChange={(value) =>
-              setActiveTab(value as "values" | "contributions")
-            }
-          >
-            <TabsList className="mb-4 w-full">
-              <TabsTrigger value="values" className="flex-1">
-                Account Values
-              </TabsTrigger>
-              <TabsTrigger value="contributions" className="flex-1">
-                Contributions
-              </TabsTrigger>
-            </TabsList>
+        <div className="">
+          <h2 className="text-lg font-medium mb-2">Holdings</h2>
+          <SecuritiesList
+            className="my-4"
+            securities={asset.securities}
+            //onItemClick={handleSecurityClick}
+          />
+        </div>
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) =>
+            setActiveTab(value as "values" | "contributions")
+          }
+        >
+          <TabsList className="mb-4 w-full">
+            <TabsTrigger value="values" className="flex-1">
+              Account Values
+            </TabsTrigger>
+            <TabsTrigger value="contributions" className="flex-1">
+              Contributions
+            </TabsTrigger>
+          </TabsList>
 
-            {/* Values Tab Content */}
-            <TabsContent value="values">
-              <div>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-medium">History</h2>
-                  {!isSecuritiesAsset
-                    ? (<Dialog
+          {/* Values Tab Content */}
+          <TabsContent value="values">
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-medium">History</h2>
+                {!isSecuritiesAsset ? (
+                  <Dialog
                     open={isAddHistoryOpen}
                     onOpenChange={setIsAddHistoryOpen}
                   >
@@ -389,76 +387,79 @@ export default function AssetPage() {
                         </form>
                       </Form>
                     </DialogContent>
-                  </Dialog>)
-                  : null}
-                </div>
-
-                {/* History List */}
-                <div className="space-y-4">
-                  {history?.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      No account value history available.
-                    </div>
-                  )}
-                  {history?.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium">
-                          £{Number(entry.value).toLocaleString()}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {new Date(entry.recordedAt).toLocaleDateString(
-                            "en-GB",
-                            {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            }
-                          )}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => {
-                            setHistoryToEdit(entry);
-                            form.reset({
-                              value: entry.value.toString(),
-                              recordedAt: new Date(entry.recordedAt)
-                                .toISOString()
-                                .split("T")[0],
-                            });
-                            setIsEditHistoryOpen(true);
-                          }}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => setHistoryToDelete(entry.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                  </Dialog>
+                ) : null}
               </div>
-            </TabsContent>
 
-            {/* Contributions Tab Content */}
-            <TabsContent value="contributions">
-              <ContributionsPanel assetId={assetId ?? ""} />
-            </TabsContent>
-            {/* Recurring Contributions Tab Content */}
-          </Tabs>
+              {/* History List */}
+              <div className="space-y-4">
+                {history?.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No account value history available.
+                  </div>
+                )}
+                {history?.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium">
+                        £{Number(entry.value).toLocaleString()}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {new Date(entry.valueDate).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => {
+                          setHistoryToEdit(entry);
+                          form.reset({
+                            value: entry.value.toString(),
+                            recordedAt: new Date(entry.recordedAt)
+                              .toISOString()
+                              .split("T")[0],
+                          });
+                          setIsEditHistoryOpen(true);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => setHistoryToDelete(entry.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Contributions Tab Content */}
+          <TabsContent value="contributions">
+            {assetId ? (
+              isSecuritiesAsset ? (
+                <SecuritiesTransactionsPanel assetId={assetId} />
+              ) : (
+                <ContributionsPanel assetId={assetId} />
+              )
+            ) : null}
+          </TabsContent>
+          {/* Recurring Contributions Tab Content */}
+        </Tabs>
       </div>
 
       {/* Edit History Dialog */}
@@ -542,5 +543,13 @@ export default function AssetPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+export default function AssetWithRangeProvider() {
+  return (
+    <DateRangeProvider>
+      <AssetPage />
+    </DateRangeProvider>
   );
 }

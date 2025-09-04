@@ -21,13 +21,14 @@ import {
 import { Check } from "lucide-react";
 import { getDateUrlParams } from "@/lib/date";
 
-type ChartData = Omit<AssetHistoryTimePoint, "date"> & {
+type ChartData = Omit<AssetHistoryTimePoint, "date" | "metadata"> & {
   date: string;
   milestone?: number;
   achievedMilestone?: {
     name: string;
     targetValue: number;
   };
+  metadata?: Record<string, unknown>[];
 };
 
 // Helper to combine data points for the same date
@@ -42,6 +43,9 @@ const combineDataPoints = (data: ChartData[]): ChartData[] => {
       existing.value = item.value;
       if (item.milestone) {
         existing.milestone = item.milestone;
+      }
+      if (item.metadata) {
+        existing.metadata = [...(existing.metadata || []), ...item.metadata];
       }
     } else {
       // If this is the first data point for this date, add it
@@ -72,7 +76,7 @@ export default function AssetHistoryChart({
   const [chartVisible, setChartVisible] = useState(true);
   const [showMilestonesLocal, setShowMilestonesLocal] = useState(true);
   const [selectedPoint, setSelectedPoint] = useState<ChartData | null>(null);
-  const { brokerAssets, milestones } = usePortfolio();
+  const { assets, milestones } = usePortfolio();
 
   // Update local state when prop changes
   useEffect(() => {
@@ -102,12 +106,9 @@ export default function AssetHistoryChart({
     return getDateRange(dateRange as DateRangeOption);
   }, [dateRange]);
 
-  console.log("startDate", startDate)
-  console.log("endDate", endDate)
-
   // Fetch asset history data
-  //const { data: historyData, isLoading } = useQuery<AssetHistoryTimePoint[]>({
-  const { data: historyData, isLoading } = useQuery<AssetValue[]>({
+  const { data: historyData, isLoading } = useQuery<AssetHistoryTimePoint[]>({
+    //const { data: historyData, isLoading } = useQuery<AssetValue[]>({
     queryKey: [url, startDate, endDate],
     queryFn: async () => {
       const response = await fetch(
@@ -120,20 +121,12 @@ export default function AssetHistoryChart({
     },
   });
 
-  console.log("historyData", historyData)
-
   //Mopve to utility
   const data: ChartData[] =
     Array.isArray(historyData) && historyData.length > 0
       ? combineDataPoints(
           historyData.map((item) => {
-
-            //console.log("item", item);
-
-            //const itemDate = new Date(item.date);
-            const itemDate = new Date(item.valueDate);
-
-            //console.log("itemDate", itemDate);
+            const itemDate = new Date(item.date);
 
             // Find the highest milestone achieved at this point
             const achievedMilestone = milestones
@@ -150,30 +143,29 @@ export default function AssetHistoryChart({
                 day: "2-digit",
               }),
               value: Number(item.value),
-              //changes: item.changes,
-              changes: [],
+              changes: item.changes,
               achievedMilestone: achievedMilestone
                 ? {
                     name: achievedMilestone.name,
                     targetValue: Number(achievedMilestone.targetValue),
                   }
                 : undefined,
+              metadata: item.metadata
+                ? Array.isArray(item.metadata)
+                  ? [...item.metadata]
+                  : [item.metadata]
+                : [],
             };
           })
         )
       : [];
 
-  console.log("data", data);
-
   // Add milestone data if enabled
   const chartData = [...data];
 
-  // Helper to get account type name
-  const getAccountTypeName = (accountId: string) => {
-    const account = brokerAssets.find((acc) => acc.id === accountId);
-    return account
-      ? `${account.providerId} ${account.accountType}`
-      : `Account ${accountId}`;
+  const getAccountName = (accountId: string) => {
+    const account = assets.find((acc) => acc.id === accountId);
+    return account ? account.name : `Account ${accountId}`;
   };
 
   if (isLoading) {
@@ -422,7 +414,7 @@ export default function AssetHistoryChart({
                           className="flex justify-between items-center text-sm"
                         >
                           <span className="text-gray-600 font-medium">
-                            {getAccountTypeName(change.assetId)}
+                            {getAccountName(change.assetId)}
                           </span>
                           <div className="flex items-center space-x-2">
                             <span className="text-gray-500">
@@ -445,6 +437,16 @@ export default function AssetHistoryChart({
                     </div>
                   </div>
                 )}
+
+                {selectedPoint.metadata &&
+                  selectedPoint.metadata.length > 0 && (
+                    <div className="mt-4 p-3">
+                      <h4 className="text-sm font-medium mb-1">Metadata</h4>
+                      <pre className="text-sm text-gray-600">
+                        {JSON.stringify(selectedPoint.metadata, null, 2)}
+                      </pre>
+                    </div>
+                  )}
               </div>
             )}
           </>

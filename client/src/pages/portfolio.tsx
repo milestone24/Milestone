@@ -110,9 +110,34 @@ function Portfolio() {
     <div className="max-w-5xl mx-auto md:px-4 pb-20">
       <div className="w-full flex flex-col">
         <span>Value</span>
-        <span className="text-2xl font-bold">
-          £{portfolioOverview?.value.toLocaleString()}
-        </span>
+        {portfolioOverview ? (
+          <>
+            <span className="text-2xl font-bold">
+              £{portfolioOverview?.value.toLocaleString()}
+            </span>
+            <p
+              className={`text-sm font-medium ${
+                portfolioOverview.currentChangePercentage >= 0
+                  ? "text-green-600"
+                  : "text-red-600"
+              }`}
+            >
+              {displayInPercentage ? (
+                <>
+                  {portfolioOverview.currentChangePercentage >= 0 ? "+" : ""}
+                  {portfolioOverview.currentChangePercentage.toFixed(1)}%
+                </>
+              ) : (
+                <>
+                  {portfolioOverview.currentChange >= 0 ? "+" : ""}£
+                  {Math.abs(portfolioOverview.currentChange).toLocaleString()}
+                </>
+              )}
+            </p>
+          </>
+        ) : (
+          <p className="font-bold text-lg">Loading portfolio total...</p>
+        )}
       </div>
 
       {/* Chart Section */}
@@ -186,7 +211,7 @@ function Portfolio() {
           </AlertDialog>
 
           {/* Edit Mode Toggle Button - Only shown when accounts exist */}
-          {assets.length > 0 && (
+          {assets.length > 0 ? (
             <Button
               variant="outline"
               size="icon"
@@ -199,7 +224,7 @@ function Portfolio() {
             >
               <Pencil className="h-5 w-5" />
             </Button>
-          )}
+          ) : null}
 
           {/* Add Account Dialog */}
           <AddAccountDialogue
@@ -249,10 +274,8 @@ function Portfolio() {
         <>
           {assets.map((asset) => {
             const providerName = asset.providerId
-            ? getBrokerName(
-              asset.providerId,
-              brokerProviders ?? []
-            ) : null;
+              ? getBrokerName(asset.providerId, brokerProviders ?? [])
+              : null;
             return (
               <div
                 key={asset.id}
@@ -266,7 +289,11 @@ function Portfolio() {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <BrokerLogoBoxed
-                      broker={providerName ? getBrokerSlugFromName(providerName) : undefined}
+                      broker={
+                        providerName
+                          ? getBrokerSlugFromName(providerName)
+                          : undefined
+                      }
                       size="md"
                     />
                     <div>
@@ -277,7 +304,9 @@ function Portfolio() {
                         <h2 className="text-sm ">{asset.name}</h2>
                       </div>
                       <h3 className="font-medium">
-                        {providerName ? getBrokerSlugFromName(providerName) : undefined}
+                        {providerName
+                          ? getBrokerSlugFromName(providerName)
+                          : undefined}
                       </h3>
                       <span
                         className={`text-sm ${getAccountTypeColor(
@@ -321,7 +350,10 @@ function Portfolio() {
                               {asset.accountChange.currentChangePercentage >= 0
                                 ? "+"
                                 : ""}
-                              {asset.accountChange.currentChangePercentage.toFixed(1)}%
+                              {asset.accountChange.currentChangePercentage.toFixed(
+                                1
+                              )}
+                              %
                             </>
                           ) : (
                             <>
@@ -344,49 +376,6 @@ function Portfolio() {
               </div>
             );
           })}
-
-          {/* Portfolio Total */}
-          <div className="pt-4 border-t border-gray-200">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="font-semibold text-lg">Portfolio Total</h3>
-              </div>
-              <div className="text-right">
-                {portfolioOverview ? (
-                  <>
-                    <p className="font-bold text-lg">
-                      £{portfolioOverview.value.toLocaleString()}
-                    </p>
-                    <p
-                      className={`text-sm font-medium ${
-                        portfolioOverview.currentChangePercentage >= 0
-                          ? "text-green-600"
-                          : "text-red-600"
-                      }`}
-                    >
-                      {displayInPercentage ? (
-                        <>
-                          {portfolioOverview.currentChangePercentage >= 0 ? "+" : ""}
-                          {portfolioOverview.currentChangePercentage.toFixed(1)}%
-                        </>
-                      ) : (
-                        <>
-                          {portfolioOverview.currentChange >= 0 ? "+" : ""}£
-                          {Math.abs(
-                            portfolioOverview.currentChange
-                          ).toLocaleString()}
-                        </>
-                      )}
-                    </p>
-                  </>
-                ) : (
-                  <p className="font-bold text-lg">
-                    Loading portfolio total...
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
 
           <div className="mt-6 text-center text-sm text-gray-500">
             <p>

@@ -33,9 +33,9 @@ type ContributionsPanelProps = {
 
 export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
   const {
-    addBrokerAssetContribution,
-    updateBrokerAssetContribution,
-    deleteBrokerAssetContribution,
+    addAssetContribution,
+    updateAssetContribution,
+    deleteAssetContribution,
   } = usePortfolio();
 
   // Query for asset contributions history
@@ -136,9 +136,10 @@ export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
   ): Promise<AssetContribution> => {
     if (!assetId) throw new Error("Asset ID is required");
     try {
-      return addBrokerAssetContribution.mutateAsync({
+      return addAssetContribution.mutateAsync({
         ...data,
         assetId: assetId,
+        valueDate: data.recordedAt,
       });
     } catch (error) {
       console.error("Error creating contribution:", error);
@@ -151,10 +152,11 @@ export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
     data: SingleContributionFormData
   ): Promise<AssetContribution> => {
     try {
-      return updateBrokerAssetContribution.mutateAsync({
+      return updateAssetContribution.mutateAsync({
         ...data,
         contributionId: contributionId,
         assetId: assetId,
+        valueDate: data.recordedAt,
       });
     } catch (error) {
       console.error("Error updating contribution:", error);
@@ -164,7 +166,7 @@ export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
 
   const handleDeleteContribution = async (contributionId: string) => {
     try {
-      await deleteBrokerAssetContribution.mutateAsync({
+      await deleteAssetContribution.mutateAsync({
         assetId: assetId,
         contributionId: contributionId,
       });
@@ -299,7 +301,6 @@ export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
         <h2 className="text-lg font-medium">Contributions</h2>
         <ContributionDialogue
           onOpenChange={(open) => {
-            console.log("open", open);
             setContributionDialogData((prev) =>
               open ? { data: null } : undefined
             );
