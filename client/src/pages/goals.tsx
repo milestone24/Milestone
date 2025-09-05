@@ -62,7 +62,7 @@ const milestoneSchema = z.object({
 
 export default function Goals() {
   const {
-    brokerAssets,
+    assets,
     milestones,
     portfolioOverview,
     addMilestone,
@@ -77,14 +77,14 @@ export default function Goals() {
     const types = new Set<AccountType | "ALL">();
     types.add("ALL"); // Always include "ALL" as an option
 
-    brokerAssets.forEach((asset) => {
+    assets.forEach((asset) => {
       if (asset.accountType) {
         types.add(asset.accountType as AccountType);
       }
     });
 
     return Array.from(types);
-  }, [brokerAssets]);
+  }, [assets]);
 
   const [isAddMilestoneOpen, setIsAddMilestoneOpen] = useState(false);
   const [milestoneToDelete, setMilestoneToDelete] = useState<string | null>(
@@ -161,7 +161,7 @@ export default function Goals() {
 
     if (milestone.accountType) {
       // Sum values of accounts with matching type
-      currentValue = brokerAssets.reduce(
+      currentValue = assets.reduce(
         (sum, asset) =>
           asset.accountType === milestone.accountType
             ? sum + Number(asset.currentValue)
@@ -186,7 +186,7 @@ export default function Goals() {
 
     if (milestone.accountType) {
       // Sum values of accounts with matching type
-      currentValue = brokerAssets.reduce(
+      currentValue = assets.reduce(
         (sum, asset) =>
           asset.accountType === milestone.accountType
             ? sum + Number(asset.currentValue)
@@ -253,7 +253,7 @@ export default function Goals() {
                       )}
                     />
 
-                    {brokerAssets.length === 0 ? (
+                    {assets.length === 0 ? (
                       <Alert variant="destructive" className="mb-4">
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription>
@@ -271,7 +271,7 @@ export default function Goals() {
                             <Select
                               onValueChange={field.onChange}
                               defaultValue={field.value}
-                              disabled={brokerAssets.length === 0}
+                              disabled={assets.length === 0}
                             >
                               <FormControl>
                                 <SelectTrigger>
@@ -316,13 +316,11 @@ export default function Goals() {
                     <DialogFooter>
                       <Button
                         type="submit"
-                        disabled={
-                          brokerAssets.length === 0 || addMilestone.isPending
-                        }
+                        disabled={assets.length === 0 || addMilestone.isPending}
                       >
                         {addMilestone.isPending
                           ? "Adding..."
-                          : brokerAssets.length === 0
+                          : assets.length === 0
                           ? "Add accounts first"
                           : "Add Milestone"}
                       </Button>
