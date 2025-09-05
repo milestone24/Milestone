@@ -121,10 +121,16 @@ export class AuthService {
   }
 
   public authorizeAPIKey(attributes: AuthorizeAPIKeyAttributes) {
-    return authorizeAPIKey({
-      ...attributes,
-      apiKeySecret: this.apiKeySecret
-    }, this.tokenPersistence);
+    return authorizeAPIKey(
+      {
+        ...attributes,
+        apiKeySecret: this.apiKeySecret,
+        //TODO: Add reqDomain and reqIP
+        reqDomain: "",
+        reqIP: "",
+      },
+      this.tokenPersistence
+    );
   }
   
   public createAuthMiddleware(allowedAuthTypes: TenantType[]) {

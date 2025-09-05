@@ -23,6 +23,7 @@ export function isValidTimeValue(value: string): boolean {
   if (!match) return false;
   
   const [, number, unit] = match;
+  if (!number || !unit) return false;
   return isTimeUnit(unit) && parseInt(number) > 0;
 }
 
@@ -63,6 +64,12 @@ export function parseTimeString(timeString: string): number {
     h: 3600,
     d: 86400,
   };
+
+  if (!amount || !unit) {
+    throw new Error(
+      `Invalid time string format: ${timeString}. Expected format: <number><unit> where unit is s (seconds), m (minutes), h (hours), or d (days)`
+    );
+  }
 
   return parseInt(amount) * multipliers[unit as keyof typeof multipliers];
 }

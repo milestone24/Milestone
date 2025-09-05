@@ -178,8 +178,8 @@ describe('Alpha Vantage findSecurities', () => {
 
     expect(fetch).toHaveBeenCalledTimes(2)
     expect(result).toHaveLength(2)
-    expect(result[0].symbol).toBe('AAPL')
-    expect(result[1].symbol).toBe('GOOGL')
+    expect(result[0]?.symbol).toBe("AAPL");
+    expect(result[1]?.symbol).toBe("GOOGL");
   })
 })
 

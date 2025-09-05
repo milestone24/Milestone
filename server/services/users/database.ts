@@ -21,6 +21,9 @@ export class DatabaseUserService {
 
   async createCoreUser(data: InsertCoreUser): Promise<CoreUser> {
     const [user] = await this.db.insert(coreUsers).values(data).returning();
+    if (!user) {
+      throw new Error("Failed to create core user");
+    }
     return user;
   }
 
@@ -62,6 +65,9 @@ export class DatabaseUserService {
 
   async createUserAccount(data: UserAccountInsert): Promise<UserAccount> {
     const [account] = await this.db.insert(userAccounts).values(data).returning();
+    if (!account) {
+      throw new Error("Failed to create user account");
+    }
     return account;
   }
 
@@ -97,6 +103,9 @@ export class DatabaseUserService {
 
   async createUserProfile(data: UserProfileInsert): Promise<UserProfile> {
     const [profile] = await this.db.insert(userProfiles).values(data).returning();
+    if (!profile) {
+      throw new Error("Failed to create user profile");
+    }
     return profile;
   }
 

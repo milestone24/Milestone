@@ -26,15 +26,19 @@ export type AlphaVantageHistoryValues = {
  * @param symbol The security symbol
  * @returns SecurityHistory object
  */
-export const mapEodhdToSecurityHistory = (item: EODHDHistoryResponse, symbol: string): SecurityHistory => ({
+export const mapEodhdToSecurityHistory = (
+  item: EODHDHistoryResponse,
+  symbol: string
+): SecurityHistory => ({
   symbol,
+  exchange: EODHD_SOURCE_IDENTIFIER,
   date: new Date(item.date),
   open: item.open,
   high: item.high,
   low: item.low,
   close: item.close,
-  sourceIdentifier: EODHD_SOURCE_IDENTIFIER
-})
+  sourceIdentifier: EODHD_SOURCE_IDENTIFIER,
+});
 
 /**
  * Maps Alpha Vantage history values to SecurityHistory type
@@ -44,30 +48,31 @@ export const mapEodhdToSecurityHistory = (item: EODHDHistoryResponse, symbol: st
  * @returns SecurityHistory object
  */
 export const mapAlphaVantageToSecurityHistory = (
-  values: any, 
-  date: string, 
+  values: any,
+  date: string,
   symbol: string
 ): SecurityHistory => {
   // Handle Alpha Vantage timestamps which are in US/Eastern time
   // Format: "2024-01-15 09:30:00" or "2024-01-15"
-  let parsedDate: Date
-  
-  if (date.includes(' ')) {
+  let parsedDate: Date;
+
+  if (date.includes(" ")) {
     // Intraday timestamp: "2024-01-15 09:30:00" - treat as US/Eastern
-    const [datePart, timePart] = date.split(' ')
-    parsedDate = new Date(`${datePart}T${timePart}-05:00`) // US/Eastern timezone
+    const [datePart, timePart] = date.split(" ");
+    parsedDate = new Date(`${datePart}T${timePart}-05:00`); // US/Eastern timezone
   } else {
     // Daily timestamp: "2024-01-15" - treat as UTC
-    parsedDate = new Date(date)
+    parsedDate = new Date(date);
   }
-  
+
   return {
     symbol,
+    exchange: ALPHA_VANTAGE_SOURCE_IDENTIFIER,
     date: parsedDate,
     open: parseFloat(values["1. open"]),
     high: parseFloat(values["2. high"]),
     low: parseFloat(values["3. low"]),
     close: parseFloat(values["4. close"]),
-    sourceIdentifier: ALPHA_VANTAGE_SOURCE_IDENTIFIER
-  }
-} 
+    sourceIdentifier: ALPHA_VANTAGE_SOURCE_IDENTIFIER,
+  };
+}; 

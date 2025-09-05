@@ -148,7 +148,14 @@ export const getIntradaySecurityHistoryForDate = async (identifier: SecurityIden
     }
 
     // Map the intraday data to SecurityHistory format
-    return arrayData.map((item): SecurityHistory => mapEodhdIntradayToSecurityHistory(item, identifier.symbol))
+    return arrayData.map(
+      (item): SecurityHistory =>
+        mapEodhdIntradayToSecurityHistory(
+          item,
+          identifier.symbol,
+          identifier.exchange ?? ""
+        )
+    );
   }, `Error getting intraday history for ${identifier.symbol} on ${date instanceof Date && !isNaN(date.getTime()) ? date.toISOString().split('T')[0] : 'invalid-date'}`, [])
 }
 

@@ -19,9 +19,9 @@ export function isTimeUnit(value: string): value is TimeUnit {
 export function isValidTimeValue(value: string): boolean {
   const match = value.match(/^(\d+)([smhdwy])$/);
   if (!match) return false;
-  
+
   const [, number, unit] = match;
-  return isTimeUnit(unit) && parseInt(number) > 0;
+  return number && unit ? isTimeUnit(unit) && parseInt(number) > 0 : false;
 }
 
 /**
@@ -30,9 +30,11 @@ export function isValidTimeValue(value: string): boolean {
  */
 export function parseTimeValue(value: string): number {
   if (!isValidTimeValue(value)) {
-    throw new Error(`Invalid time value: ${value}. Expected format: "30d", "15m", "1h", "2w", "1y"`);
+    throw new Error(
+      `Invalid time value: ${value}. Expected format: "30d", "15m", "1h", "2w", "1y"`
+    );
   }
-  
+
   return ms(value as ms.StringValue);
 }
 
@@ -43,7 +45,10 @@ export function parseTimeValue(value: string): number {
  * @returns The parsed time value in milliseconds
  * @throws {Error} If the time value is invalid
  */
-export function parseTimeEnvVar(value: string | undefined, defaultValue: string): number {
+export function parseTimeEnvVar(
+  value: string | undefined,
+  defaultValue: string
+): number {
   if (!value) return parseTimeString(defaultValue);
   return parseTimeString(value);
 }
@@ -51,10 +56,19 @@ export function parseTimeEnvVar(value: string | undefined, defaultValue: string)
 export function parseTimeString(timeString: string): number {
   const match = timeString.match(/^(\d+)([smhd])$/);
   if (!match) {
-    throw new Error(`Invalid time string format: ${timeString}. Expected format: <number><unit> where unit is s (seconds), m (minutes), h (hours), or d (days)`);
+    throw new Error(
+      `Invalid time string format: ${timeString}. Expected format: <number><unit> where unit is s (seconds), m (minutes), h (hours), or d (days)`
+    );
   }
 
   const [, amount, unit] = match;
+
+  if (!amount || !unit) {
+    throw new Error(
+      `Invalid time string format: ${timeString}. Expected format: <number><unit> where unit is s (seconds), m (minutes), h (hours), or d (days)`
+    );
+  }
+
   const multipliers = {
     s: 1,
     m: 60,

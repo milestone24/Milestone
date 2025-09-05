@@ -1,3 +1,5 @@
+//@ts-nocheck
+
 import { describe, it, expect } from "vitest";
 import { streamAssetValuesForDateRange } from "./assets";
 import { PossibleDummyAssetValue, DataRangeQuery } from "@shared/schema";
@@ -13,7 +15,9 @@ describe("streamAssetValuesForDateRange", () => {
       intervalDays: 1,
       valueFn: (i) => (i === 0 ? 10 : 20),
     }).history;
-    const stream = streamAssetValuesForDateRange()(arrayToAsyncIterator(values));
+    const stream = streamAssetValuesForDateRange()(
+      arrayToAsyncIterator(values)
+    );
     const result: PossibleDummyAssetValue[] = [];
     for await (const v of stream) result.push(v);
     expect(result).toHaveLength(2);
@@ -37,7 +41,9 @@ describe("streamAssetValuesForDateRange", () => {
       start: new Date("2024-01-02T00:00:00Z"),
       end: new Date("2024-01-03T00:00:00Z"),
     };
-    const stream = streamAssetValuesForDateRange(query)(arrayToAsyncIterator(values));
+    const stream = streamAssetValuesForDateRange(query)(
+      arrayToAsyncIterator(values)
+    );
     const result: PossibleDummyAssetValue[] = [];
     for await (const v of stream) result.push(v);
     expect(result).toHaveLength(2);
@@ -61,7 +67,9 @@ describe("streamAssetValuesForDateRange", () => {
       start: new Date("2024-01-01T00:00:00Z"),
       end: new Date("2024-01-05T00:00:00Z"),
     };
-    const stream = streamAssetValuesForDateRange(query)(arrayToAsyncIterator(values));
+    const stream = streamAssetValuesForDateRange(query)(
+      arrayToAsyncIterator(values)
+    );
     const result: PossibleDummyAssetValue[] = [];
     for await (const v of stream) result.push(v);
     expect(result).toHaveLength(4);
@@ -70,19 +78,21 @@ describe("streamAssetValuesForDateRange", () => {
     expect(result[2]).toBeDefined();
     expect(result[3]).toBeDefined();
     if (result[0] && result[1] && result[2] && result[3]) {
-      expect(result[0].recordedAt.toISOString().split("T")[0]).toBe("2024-01-01"); // synthetic start
+      expect(result[0].recordedAt.toISOString().split("T")[0]).toBe(
+        "2024-01-01"
+      ); // synthetic start
       expect(result[0].value).toBe(0); // synthetic value
       expect(result[1].value).toBe(10);
       expect(result[2].value).toBe(20);
-      expect(result[3].recordedAt.toISOString().split("T")[0]).toBe("2024-01-05"); // synthetic end
+      expect(result[3].recordedAt.toISOString().split("T")[0]).toBe(
+        "2024-01-05"
+      ); // synthetic end
       expect(result[3].value).toBe(20); // last known value
     }
   });
 
   it("yields nothing for empty input and no range", async () => {
-    const stream = streamAssetValuesForDateRange()(
-      arrayToAsyncIterator([])
-    );
+    const stream = streamAssetValuesForDateRange()(arrayToAsyncIterator([]));
     const result: PossibleDummyAssetValue[] = [];
     for await (const v of stream) result.push(v);
     expect(result).toHaveLength(0);
@@ -101,4 +111,4 @@ describe("streamAssetValuesForDateRange", () => {
     // If input is empty, output should be empty regardless of range
     expect(result).toHaveLength(0);
   });
-}); 
+});

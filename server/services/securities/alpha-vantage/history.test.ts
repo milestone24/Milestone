@@ -12,14 +12,18 @@ describe('Alpha Vantage History', () => {
     delete process.env.ALPHA_VANTAGE_API_KEY
   })
 
-  describe('getSecurityHistoryForDateRange', () => {
-    it('should return empty array when API key is not provided', async () => {
-      const result = await getSecurityHistoryForDateRange('AAPL', new Date('2024-01-01'), new Date('2024-01-31'))
-      expect(result).toEqual([])
-    })
+  describe("getSecurityHistoryForDateRange", () => {
+    it("should return empty array when API key is not provided", async () => {
+      const result = await getSecurityHistoryForDateRange(
+        { symbol: "AAPL" } as SecurityIdentifier,
+        new Date("2024-01-01"),
+        new Date("2024-01-31")
+      );
+      expect(result).toEqual([]);
+    });
 
-    it('should fetch history for date range when API key is provided', async () => {
-      process.env.ALPHA_VANTAGE_API_KEY = 'test-api-key'
+    it("should fetch history for date range when API key is provided", async () => {
+      process.env.ALPHA_VANTAGE_API_KEY = "test-api-key";
 
       const mockResponse = {
         "Meta Data": {
@@ -27,7 +31,7 @@ describe('Alpha Vantage History', () => {
           "2. Symbol": "AAPL",
           "3. Last Refreshed": "2024-01-16",
           "4. Output Size": "Full size",
-          "5. Time Zone": "US/Eastern"
+          "5. Time Zone": "US/Eastern",
         },
         "Time Series (Daily)": {
           "2024-01-15": {
@@ -35,147 +39,175 @@ describe('Alpha Vantage History', () => {
             "2. high": "152.50",
             "3. low": "149.75",
             "4. close": "151.00",
-            "5. volume": "1000000"
+            "5. volume": "1000000",
           },
           "2024-01-16": {
             "1. open": "151.00",
             "2. high": "153.25",
             "3. low": "150.50",
             "4. close": "152.75",
-            "5. volume": "1100000"
-          }
-        }
-      }
+            "5. volume": "1100000",
+          },
+        },
+      };
 
-      ;(fetch as any).mockResolvedValueOnce({
+      (fetch as any).mockResolvedValueOnce({
         ok: true,
-        json: async () => mockResponse
-      })
+        json: async () => mockResponse,
+      });
 
-      const result = await getSecurityHistoryForDateRange('AAPL', new Date('2024-01-15'), new Date('2024-01-16'))
+      const result = await getSecurityHistoryForDateRange(
+        { symbol: "AAPL" } as SecurityIdentifier,
+        new Date("2024-01-15"),
+        new Date("2024-01-16")
+      );
 
       expect(fetch).toHaveBeenCalledWith(
-        'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=AAPL&outputsize=full&apikey=test-api-key',
+        "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=AAPL&outputsize=full&apikey=test-api-key",
         {
           headers: {
-            "Accept": "application/json",
+            Accept: "application/json",
           },
         }
-      )
+      );
 
       expect(result).toEqual([
         {
-          symbol: 'AAPL',
-          date: new Date('2024-01-15'),
+          symbol: "AAPL",
+          date: new Date("2024-01-15"),
           open: 150.25,
-          high: 152.50,
+          high: 152.5,
           low: 149.75,
-          close: 151.00,
+          close: 151.0,
         },
         {
-          symbol: 'AAPL',
-          date: new Date('2024-01-16'),
-          open: 151.00,
+          symbol: "AAPL",
+          date: new Date("2024-01-16"),
+          open: 151.0,
           high: 153.25,
-          low: 150.50,
+          low: 150.5,
           close: 152.75,
-        }
-      ])
-    })
+        },
+      ]);
+    });
 
-    it('should handle API errors gracefully', async () => {
-      process.env.ALPHA_VANTAGE_API_KEY = 'test-api-key'
-
-      const mockResponse = {
-        "Error Message": "Invalid API call"
-      }
-
-      ;(fetch as any).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse
-      })
-
-      const result = await getSecurityHistoryForDateRange('INVALID', new Date('2024-01-01'), new Date('2024-01-31'))
-
-      expect(result).toEqual([])
-    })
-
-    it('should handle rate limiting gracefully', async () => {
-      process.env.ALPHA_VANTAGE_API_KEY = 'test-api-key'
+    it("should handle API errors gracefully", async () => {
+      process.env.ALPHA_VANTAGE_API_KEY = "test-api-key";
 
       const mockResponse = {
-        "Note": "Thank you for using Alpha Vantage! Our standard API call frequency is 5 calls per minute and 500 calls per day."
-      }
+        "Error Message": "Invalid API call",
+      };
 
-      ;(fetch as any).mockResolvedValueOnce({
+      (fetch as any).mockResolvedValueOnce({
         ok: true,
-        json: async () => mockResponse
-      })
+        json: async () => mockResponse,
+      });
 
-      const result = await getSecurityHistoryForDateRange('AAPL', new Date('2024-01-01'), new Date('2024-01-31'))
+      const result = await getSecurityHistoryForDateRange(
+        { symbol: "INVALID" } as SecurityIdentifier,
+        new Date("2024-01-01"),
+        new Date("2024-01-31")
+      );
 
-      expect(result).toEqual([])
-    })
+      expect(result).toEqual([]);
+    });
 
-    it('should handle HTTP errors gracefully', async () => {
-      process.env.ALPHA_VANTAGE_API_KEY = 'test-api-key'
+    it("should handle rate limiting gracefully", async () => {
+      process.env.ALPHA_VANTAGE_API_KEY = "test-api-key";
 
-      ;(fetch as any).mockResolvedValueOnce({
+      const mockResponse = {
+        Note: "Thank you for using Alpha Vantage! Our standard API call frequency is 5 calls per minute and 500 calls per day.",
+      };
+
+      (fetch as any).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await getSecurityHistoryForDateRange(
+        { symbol: "AAPL" } as SecurityIdentifier,
+        new Date("2024-01-01"),
+        new Date("2024-01-31")
+      );
+
+      expect(result).toEqual([]);
+    });
+
+    it("should handle HTTP errors gracefully", async () => {
+      process.env.ALPHA_VANTAGE_API_KEY = "test-api-key";
+      (fetch as any).mockResolvedValueOnce({
         ok: false,
         status: 429,
-        statusText: 'Too Many Requests'
-      })
+        statusText: "Too Many Requests",
+      });
 
-      const result = await getSecurityHistoryForDateRange('AAPL', new Date('2024-01-01'), new Date('2024-01-31'))
+      const result = await getSecurityHistoryForDateRange(
+        { symbol: "AAPL" } as SecurityIdentifier,
+        new Date("2024-01-01"),
+        new Date("2024-01-31")
+      );
 
-      expect(result).toEqual([])
-    })
+      expect(result).toEqual([]);
+    });
 
-    it('should handle network errors gracefully', async () => {
-      process.env.ALPHA_VANTAGE_API_KEY = 'test-api-key'
+    it("should handle network errors gracefully", async () => {
+      process.env.ALPHA_VANTAGE_API_KEY = "test-api-key";
+      (fetch as any).mockRejectedValueOnce(new Error("Network error"));
 
-      ;(fetch as any).mockRejectedValueOnce(new Error('Network error'))
+      const result = await getSecurityHistoryForDateRange(
+        { symbol: "AAPL" } as SecurityIdentifier,
+        new Date("2024-01-01"),
+        new Date("2024-01-31")
+      );
 
-      const result = await getSecurityHistoryForDateRange('AAPL', new Date('2024-01-01'), new Date('2024-01-31'))
+      expect(result).toEqual([]);
+    });
 
-      expect(result).toEqual([])
-    })
-
-    it('should handle invalid dates gracefully', async () => {
-      process.env.ALPHA_VANTAGE_API_KEY = 'test-api-key'
+    it("should handle invalid dates gracefully", async () => {
+      process.env.ALPHA_VANTAGE_API_KEY = "test-api-key";
 
       // Create invalid dates that would result in undefined dateStr
-      const invalidStartDate = new Date('invalid-start-date')
-      const invalidEndDate = new Date('invalid-end-date')
+      const invalidStartDate = new Date("invalid-start-date");
+      const invalidEndDate = new Date("invalid-end-date");
 
       // Mock a successful response so we can test the date validation
-      ;(fetch as any).mockResolvedValueOnce({
+      (fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           "Meta Data": {
-            "1. Information": "Daily Prices (open, high, low, close) and Volumes",
+            "1. Information":
+              "Daily Prices (open, high, low, close) and Volumes",
             "2. Symbol": "AAPL",
             "3. Last Refreshed": "2024-01-15",
             "4. Output Size": "Full size",
-            "5. Time Zone": "US/Eastern"
+            "5. Time Zone": "US/Eastern",
           },
-          "Time Series (Daily)": {}
-        })
-      })
+          "Time Series (Daily)": {},
+        }),
+      });
 
-      const result = await getSecurityHistoryForDateRange('AAPL', invalidStartDate, invalidEndDate)
+      const result = await getSecurityHistoryForDateRange(
+        { symbol: "AAPL" } as SecurityIdentifier,
+        invalidStartDate,
+        invalidEndDate
+      );
 
-      expect(result).toEqual([])
-    })
-  })
+      expect(result).toEqual([]);
+    });
+  });
 
-  describe('getSecurityHistoryForDate', () => {
-    it('should throw error when API key is not provided', async () => {
-      await expect(getSecurityHistoryForDate('AAPL', new Date('2024-01-15'))).rejects.toThrow('Alpha Vantage API key not configured')
-    })
+  describe("getSecurityHistoryForDate", () => {
+    it("should throw error when API key is not provided", async () => {
+      await expect(
+        getSecurityHistoryForDate(
+          { symbol: "AAPL" } as SecurityIdentifier,
+          new Date("2024-01-15")
+        )
+      ).rejects.toThrow("Alpha Vantage API key not configured");
+    });
 
-    it('should fetch history for specific date when API key is provided', async () => {
-      process.env.ALPHA_VANTAGE_API_KEY = 'test-api-key'
+    it("should fetch history for specific date when API key is provided", async () => {
+      process.env.ALPHA_VANTAGE_API_KEY = "test-api-key";
 
       const mockResponse = {
         "Meta Data": {
@@ -183,7 +215,7 @@ describe('Alpha Vantage History', () => {
           "2. Symbol": "AAPL",
           "3. Last Refreshed": "2024-01-15",
           "4. Output Size": "Compact",
-          "5. Time Zone": "US/Eastern"
+          "5. Time Zone": "US/Eastern",
         },
         "Time Series (Daily)": {
           "2024-01-15": {
@@ -191,81 +223,91 @@ describe('Alpha Vantage History', () => {
             "2. high": "152.50",
             "3. low": "149.75",
             "4. close": "151.00",
-            "5. volume": "1000000"
-          }
-        }
-      }
+            "5. volume": "1000000",
+          },
+        },
+      };
 
-      ;(fetch as any).mockResolvedValueOnce({
+      (fetch as any).mockResolvedValueOnce({
         ok: true,
-        json: async () => mockResponse
-      })
+        json: async () => mockResponse,
+      });
 
-      const result = await getSecurityHistoryForDate('AAPL', new Date('2024-01-15'))
+      const result = await getSecurityHistoryForDate(
+        { symbol: "AAPL" } as SecurityIdentifier,
+        new Date("2024-01-15")
+      );
 
       expect(fetch).toHaveBeenCalledWith(
-        'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=AAPL&outputsize=compact&apikey=test-api-key',
+        "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=AAPL&outputsize=compact&apikey=test-api-key",
         {
           headers: {
-            "Accept": "application/json",
+            Accept: "application/json",
           },
         }
-      )
+      );
 
       expect(result).toEqual({
-        symbol: 'AAPL',
-        date: new Date('2024-01-15'),
+        symbol: "AAPL",
+        date: new Date("2024-01-15"),
         open: 150.25,
-        high: 152.50,
+        high: 152.5,
         low: 149.75,
-        close: 151.00,
-      })
-    })
+        close: 151.0,
+      });
+    });
 
-    it('should throw error when API error occurs', async () => {
-      process.env.ALPHA_VANTAGE_API_KEY = 'test-api-key'
-
-      const mockResponse = {
-        "Error Message": "Invalid API call"
-      }
-
-      ;(fetch as any).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse
-      })
-
-      await expect(getSecurityHistoryForDate('INVALID', new Date('2024-01-15'))).rejects.toThrow('Alpha Vantage API error: Invalid API call')
-    })
-
-    it('should throw error when rate limited', async () => {
-      process.env.ALPHA_VANTAGE_API_KEY = 'test-api-key'
+    it("should throw error when API error occurs", async () => {
+      process.env.ALPHA_VANTAGE_API_KEY = "test-api-key";
 
       const mockResponse = {
-        "Note": "Thank you for using Alpha Vantage! Our standard API call frequency is 5 calls per minute and 500 calls per day."
-      }
+        "Error Message": "Invalid API call",
+      };
 
-      ;(fetch as any).mockResolvedValueOnce({
+      (fetch as any).mockResolvedValueOnce({
         ok: true,
-        json: async () => mockResponse
-      })
+        json: async () => mockResponse,
+      });
 
-      await expect(getSecurityHistoryForDate('AAPL', new Date('2024-01-15'))).rejects.toThrow('Alpha Vantage API rate limit: Thank you for using Alpha Vantage! Our standard API call frequency is 5 calls per minute and 500 calls per day.')
-    })
+      await expect(
+        getSecurityHistoryForDate({ symbol: "INVALID" }, new Date("2024-01-15"))
+      ).rejects.toThrow("Alpha Vantage API error: Invalid API call");
+    });
 
-    it('should throw error when HTTP error occurs', async () => {
-      process.env.ALPHA_VANTAGE_API_KEY = 'test-api-key'
+    it("should throw error when rate limited", async () => {
+      process.env.ALPHA_VANTAGE_API_KEY = "test-api-key";
 
-      ;(fetch as any).mockResolvedValueOnce({
+      const mockResponse = {
+        Note: "Thank you for using Alpha Vantage! Our standard API call frequency is 5 calls per minute and 500 calls per day.",
+      };
+
+      (fetch as any).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      await expect(
+        getSecurityHistoryForDate({ symbol: "AAPL" }, new Date("2024-01-15"))
+      ).rejects.toThrow(
+        "Alpha Vantage API rate limit: Thank you for using Alpha Vantage! Our standard API call frequency is 5 calls per minute and 500 calls per day."
+      );
+    });
+
+    it("should throw error when HTTP error occurs", async () => {
+      process.env.ALPHA_VANTAGE_API_KEY = "test-api-key";
+      (fetch as any).mockResolvedValueOnce({
         ok: false,
         status: 401,
-        statusText: 'Unauthorized'
-      })
+        statusText: "Unauthorized",
+      });
 
-      await expect(getSecurityHistoryForDate('AAPL', new Date('2024-01-15'))).rejects.toThrow('Alpha Vantage API error: 401 Unauthorized')
-    })
+      await expect(
+        getSecurityHistoryForDate({ symbol: "AAPL" }, new Date("2024-01-15"))
+      ).rejects.toThrow("Alpha Vantage API error: 401 Unauthorized");
+    });
 
-    it('should throw error when no data found for date', async () => {
-      process.env.ALPHA_VANTAGE_API_KEY = 'test-api-key'
+    it("should throw error when no data found for date", async () => {
+      process.env.ALPHA_VANTAGE_API_KEY = "test-api-key";
 
       const mockResponse = {
         "Meta Data": {
@@ -273,51 +315,57 @@ describe('Alpha Vantage History', () => {
           "2. Symbol": "AAPL",
           "3. Last Refreshed": "2024-01-15",
           "4. Output Size": "Compact",
-          "5. Time Zone": "US/Eastern"
+          "5. Time Zone": "US/Eastern",
         },
-        "Time Series (Daily)": {}
-      }
+        "Time Series (Daily)": {},
+      };
 
-      ;(fetch as any).mockResolvedValueOnce({
+      (fetch as any).mockResolvedValueOnce({
         ok: true,
-        json: async () => mockResponse
-      })
+        json: async () => mockResponse,
+      });
 
-      await expect(getSecurityHistoryForDate('AAPL', new Date('2024-01-15'))).rejects.toThrow('No history data found for AAPL on 2024-01-15')
-    })
+      await expect(
+        getSecurityHistoryForDate({ symbol: "AAPL" }, new Date("2024-01-15"))
+      ).rejects.toThrow("No history data found for AAPL on 2024-01-15");
+    });
 
-    it('should throw error when network error occurs', async () => {
-      process.env.ALPHA_VANTAGE_API_KEY = 'test-api-key'
+    it("should throw error when network error occurs", async () => {
+      process.env.ALPHA_VANTAGE_API_KEY = "test-api-key";
+      (fetch as any).mockRejectedValueOnce(new Error("Network error"));
 
-      ;(fetch as any).mockRejectedValueOnce(new Error('Network error'))
+      await expect(
+        getSecurityHistoryForDate({ symbol: "AAPL" }, new Date("2024-01-15"))
+      ).rejects.toThrow("Network error");
+    });
 
-      await expect(getSecurityHistoryForDate('AAPL', new Date('2024-01-15'))).rejects.toThrow('Network error')
-    })
-
-    it('should throw error when date string is invalid', async () => {
-      process.env.ALPHA_VANTAGE_API_KEY = 'test-api-key'
+    it("should throw error when date string is invalid", async () => {
+      process.env.ALPHA_VANTAGE_API_KEY = "test-api-key";
 
       // Create an invalid date that would result in undefined dateStr
-      const invalidDate = new Date('invalid-date')
+      const invalidDate = new Date("invalid-date");
 
       // Mock a successful response so we can test the date validation
-      ;(fetch as any).mockResolvedValueOnce({
+      (fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           "Meta Data": {
-            "1. Information": "Daily Prices (open, high, low, close) and Volumes",
+            "1. Information":
+              "Daily Prices (open, high, low, close) and Volumes",
             "2. Symbol": "AAPL",
             "3. Last Refreshed": "2024-01-15",
             "4. Output Size": "Compact",
-            "5. Time Zone": "US/Eastern"
+            "5. Time Zone": "US/Eastern",
           },
-          "Time Series (Daily)": {}
-        })
-      })
+          "Time Series (Daily)": {},
+        }),
+      });
 
-      await expect(getSecurityHistoryForDate('AAPL', invalidDate)).rejects.toThrow('Invalid date format - could not extract date string')
-    })
-  })
+      await expect(
+        getSecurityHistoryForDate({ symbol: "AAPL" }, invalidDate)
+      ).rejects.toThrow("Invalid date format - could not extract date string");
+    });
+  });
 
   describe('getIntradaySecurityHistoryForDate', () => {
     it('should return empty array when API key is not provided', async () => {

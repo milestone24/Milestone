@@ -37,6 +37,9 @@ const authService = new AuthService({
 
     getRefreshToken: async (tenantAccountId, familyId) => {
       const [refreshToken] = await db.select().from(refreshTokens).where(and(eq(refreshTokens.userAccountId, tenantAccountId), eq(refreshTokens.familyId, familyId)));
+      if (!refreshToken) {
+        throw new Error("Refresh token not found");
+      }
       const { userAccountId, deviceInfo,  ...rest} = refreshToken;
       return {
         ...rest,

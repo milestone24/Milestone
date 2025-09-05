@@ -25,6 +25,9 @@ export class DatabaseMilestoneService {
 
   async create(data: MilestoneInsert): Promise<Milestone> {
     const [milestone] = await this.db.insert(milestones).values(data).returning();
+    if (!milestone) {
+      throw new Error("Milestone not found");
+    }
     return milestone;
   }
 

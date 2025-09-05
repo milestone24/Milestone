@@ -31,6 +31,7 @@ export const getSecurityHistoryForDateRange = async (
         columns: {
           name: true,
           symbol: true,
+          exchange: true,
         },
       },
     },

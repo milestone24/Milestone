@@ -161,19 +161,22 @@ export type UserAssetValueInsert = IfConstructorEquals<
 >;
 userAssetValueInsertSchema satisfies ZodType<UserAssetValueInsert>;
 
+
+export type AssetValueMetadataSecurity = {
+  securityName: string;
+  securitySymbol: string;
+  value: number;
+  shareHolding: number;
+};
+
 export type AssetValueMetadata = {
   calculatedAt: string;
   securitiesProcessed: number;
   securitiesTotal: number;
   dataStatus: "complete" | "partial";
   sourcesUsed: string[]; // Dynamic source identifiers from actual services
-  securities: {
-    securityName: string;
-    securitySymbol: string;
-    value: number;
-    shareHolding: number;
-  }[];
-} | null;
+  securities: AssetValueMetadataSecurity[];
+};
 
 export type AssetValue = DBAssetValueSelect;
 
@@ -377,7 +380,9 @@ export type WithResolvedSecurities<T extends { id: string }> = T & {
   securities: ResolvedSecurity[];
 };
 
-export type ResolvedSecurity = WithSecurity<UserAssetSecuritySelect>;
+export type ResolvedSecurity = WithSecurity<
+  WithCalculatedValue<UserAssetSecuritySelect>
+>;
 
 export type WithPlatform<T extends { id: string }> = T & {
   platform?: BrokerPlatform;

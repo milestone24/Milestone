@@ -14,7 +14,11 @@ describe('EODHD History', () => {
 
   describe('getSecurityHistoryForDateRange', () => {
     it('should return empty array when API key is not provided', async () => {
-      const result = await getSecurityHistoryForDateRange('AAPL', new Date('2024-01-01'), new Date('2024-01-31'))
+      const result = await getSecurityHistoryForDateRange(
+        { symbol: "AAPL" },
+        new Date("2024-01-01"),
+        new Date("2024-01-31")
+      );
       expect(result).toEqual([])
     })
 
@@ -47,7 +51,11 @@ describe('EODHD History', () => {
         json: async () => mockResponse
       })
 
-      const result = await getSecurityHistoryForDateRange('AAPL', new Date('2024-01-15'), new Date('2024-01-16'))
+      const result = await getSecurityHistoryForDateRange(
+        { symbol: "AAPL" },
+        new Date("2024-01-15"),
+        new Date("2024-01-16")
+      );
 
       expect(fetch).toHaveBeenCalledWith(
         'https://eodhd.com/api/eod/AAPL?api_token=test-api-key&from=2024-01-15&to=2024-01-16&fmt=json',
@@ -87,7 +95,11 @@ describe('EODHD History', () => {
         statusText: 'Unauthorized'
       })
 
-      const result = await getSecurityHistoryForDateRange('AAPL', new Date('2024-01-01'), new Date('2024-01-31'))
+      const result = await getSecurityHistoryForDateRange(
+        { symbol: "AAPL" },
+        new Date("2024-01-01"),
+        new Date("2024-01-31")
+      );
 
       expect(result).toEqual([])
     })
@@ -97,7 +109,11 @@ describe('EODHD History', () => {
 
       ;(fetch as any).mockRejectedValueOnce(new Error('Network error'))
 
-      const result = await getSecurityHistoryForDateRange('AAPL', new Date('2024-01-01'), new Date('2024-01-31'))
+      const result = await getSecurityHistoryForDateRange(
+        { symbol: "AAPL" },
+        new Date("2024-01-01"),
+        new Date("2024-01-31")
+      );
 
       expect(result).toEqual([])
     })
@@ -112,7 +128,11 @@ describe('EODHD History', () => {
         json: async () => mockResponse
       })
 
-      const result = await getSecurityHistoryForDateRange('AAPL', new Date('2024-01-01'), new Date('2024-01-31'))
+      const result = await getSecurityHistoryForDateRange(
+        { symbol: "AAPL" },
+        new Date("2024-01-01"),
+        new Date("2024-01-31")
+      );
 
       expect(result).toEqual([])
     })
@@ -120,7 +140,9 @@ describe('EODHD History', () => {
 
   describe('getSecurityHistoryForDate', () => {
     it('should throw error when API key is not provided', async () => {
-      await expect(getSecurityHistoryForDate('AAPL', new Date('2024-01-15'))).rejects.toThrow('EODHD API key not configured')
+      await expect(
+        getSecurityHistoryForDate({ symbol: "AAPL" }, new Date("2024-01-15"))
+      ).rejects.toThrow("EODHD API key not configured");
     })
 
     it('should fetch history for specific date when API key is provided', async () => {
@@ -143,7 +165,10 @@ describe('EODHD History', () => {
         json: async () => mockResponse
       })
 
-      const result = await getSecurityHistoryForDate('AAPL', new Date('2024-01-15'))
+      const result = await getSecurityHistoryForDate(
+        { symbol: "AAPL" },
+        new Date("2024-01-15")
+      );
 
       expect(fetch).toHaveBeenCalledWith(
         'https://eodhd.com/api/eod/AAPL?api_token=test-api-key&from=2024-01-15&to=2024-01-15&fmt=json',
@@ -173,7 +198,9 @@ describe('EODHD History', () => {
         statusText: 'Unauthorized'
       })
 
-      await expect(getSecurityHistoryForDate('AAPL', new Date('2024-01-15'))).rejects.toThrow('EODHD API error: 401 Unauthorized')
+      await expect(
+        getSecurityHistoryForDate({ symbol: "AAPL" }, new Date("2024-01-15"))
+      ).rejects.toThrow("EODHD API error: 401 Unauthorized");
     })
 
     it('should throw error when no data found for date', async () => {
@@ -186,7 +213,9 @@ describe('EODHD History', () => {
         json: async () => mockResponse
       })
 
-      await expect(getSecurityHistoryForDate('AAPL', new Date('2024-01-15'))).rejects.toThrow('No history data found for AAPL on 2024-01-15')
+      await expect(
+        getSecurityHistoryForDate({ symbol: "AAPL" }, new Date("2024-01-15"))
+      ).rejects.toThrow("No history data found for AAPL on 2024-01-15");
     })
 
     it('should throw error when network error occurs', async () => {
@@ -194,7 +223,9 @@ describe('EODHD History', () => {
 
       ;(fetch as any).mockRejectedValueOnce(new Error('Network error'))
 
-      await expect(getSecurityHistoryForDate('AAPL', new Date('2024-01-15'))).rejects.toThrow('Network error')
+      await expect(
+        getSecurityHistoryForDate({ symbol: "AAPL" }, new Date("2024-01-15"))
+      ).rejects.toThrow("Network error");
     })
   })
 

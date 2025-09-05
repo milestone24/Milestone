@@ -20,6 +20,9 @@ export async function registerRoutes(
   // Core User routes
   router.get("/core/:id", requireUser, async (req: AuthRequest, res) => {
     try {
+      if (!req.params.id) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
       const user = await userService.getCoreUser(req.params.id);
       if (!user) {
         return res.status(404).json({ message: "Core user not found" });
@@ -47,6 +50,9 @@ export async function registerRoutes(
 
   router.patch("/core/:id", requireUser, async (req: AuthRequest, res) => {
     try {
+      if (!req.params.id) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
       const userData = coreUserInsertSchema.partial().parse(req.body);
       const user = await userService.updateCoreUser(req.params.id, userData);
       res.json(user);
@@ -65,6 +71,9 @@ export async function registerRoutes(
 
   router.delete("/core/:id", requireUser, async (req: AuthRequest, res) => {
     try {
+      if (!req.params.id) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
       const success = await userService.deleteCoreUser(req.params.id);
       if (!success) {
         return res.status(404).json({ message: "Core user not found" });
@@ -78,6 +87,9 @@ export async function registerRoutes(
   // User Account routes
   router.get("/account/:id", requireUser, async (req: AuthRequest, res) => {
     try {
+      if (!req.params.id) {
+        return res.status(400).json({ message: "User account ID is required" });
+      }
       const account = await userService.getUserAccount(req.params.id);
       if (!account) {
         return res.status(404).json({ message: "User account not found" });
@@ -90,6 +102,9 @@ export async function registerRoutes(
 
   router.post("/account", requireUser, async (req: AuthRequest, res) => {
     try {
+      if (!req.body.userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
       const accountData = userAccountInsertSchema.parse(req.body);
       const account = await userService.createUserAccount(accountData);
       res.status(201).json(account);
@@ -105,6 +120,9 @@ export async function registerRoutes(
 
   router.patch("/account/:id", requireUser, async (req: AuthRequest, res) => {
     try {
+      if (!req.params.id) {
+        return res.status(400).json({ message: "User account ID is required" });
+      }
       const accountData = userAccountInsertSchema.partial().parse(req.body);
       const account = await userService.updateUserAccount(
         req.params.id,
@@ -129,6 +147,9 @@ export async function registerRoutes(
 
   router.delete("/account/:id", requireUser, async (req: AuthRequest, res) => {
     try {
+      if (!req.params.id) {
+        return res.status(400).json({ message: "User account ID is required" });
+      }
       const success = await userService.deleteUserAccount(req.params.id);
       if (!success) {
         return res.status(404).json({ message: "User account not found" });
@@ -142,6 +163,9 @@ export async function registerRoutes(
   // User Profile routes
   router.get("/profile/:id", requireUser, async (req: AuthRequest, res) => {
     try {
+      if (!req.params.id) {
+        return res.status(400).json({ message: "User profile ID is required" });
+      }
       const profile = await userService.getUserProfile(req.params.id);
       if (!profile) {
         return res.status(404).json({ message: "User profile not found" });
@@ -169,6 +193,9 @@ export async function registerRoutes(
 
   router.patch("/profile/:id", requireUser, async (req: AuthRequest, res) => {
     try {
+      if (!req.params.id) {
+        return res.status(400).json({ message: "User profile ID is required" });
+      }
       const profileData = userProfileInsertSchema.partial().parse(req.body);
       const profile = await userService.updateUserProfile(
         req.params.id,
@@ -193,6 +220,9 @@ export async function registerRoutes(
 
   router.delete("/profile/:id", requireUser, async (req: AuthRequest, res) => {
     try {
+      if (!req.params.id) {
+        return res.status(400).json({ message: "User profile ID is required" });
+      }
       const success = await userService.deleteUserProfile(req.params.id);
       if (!success) {
         return res.status(404).json({ message: "User profile not found" });

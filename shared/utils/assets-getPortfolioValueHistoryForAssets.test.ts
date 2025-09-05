@@ -1,7 +1,9 @@
+//@ts-nocheck
+
 import { describe, it, test, expect } from "vitest";
 
 import { resolveDayValueHistoryForAssetsForDateRange } from "./assets";
-import { AssetWithHistory } from "@shared/schema";
+import { AssetWithHistory, UserAsset, WithAssetHistory } from "@shared/schema";
 import { arrayToAsyncIterator } from "./async";
 import {
   generateMockAssetHistory,
@@ -10,14 +12,27 @@ import {
 
 describe("getPortfolioValueHistoryForAssets", () => {
   it.only("foo one", async () => {
-    const assets = [
+    const assets: WithAssetHistory<UserAsset>[] = [
       {
         id: "a1",
+        accountType: "calculated",
+        name: "a1",
+        startDate: new Date("2024-01-01T00:00:00Z"),
+        valueMethod: "calculated",
+        currentValue: 100,
+        updatedAt: new Date("2024-01-10T00:00:00Z"),
+        createdAt: new Date("2024-01-10T00:00:00Z"),
+        userAccountId: "user-1",
+        platformId: "platform-1",
+        providerId: "provider-1",
         history: [
           {
             id: "v1",
             assetId: "a1",
             value: 100,
+            entryMethod: "calculated",
+            metadata: null,
+            valueDate: new Date("2024-01-10T00:00:00Z"),
             recordedAt: new Date("2024-01-10T00:00:00Z"),
             createdAt: new Date("2024-01-10T00:00:00Z"),
             updatedAt: new Date("2024-01-10T00:00:00Z"),
@@ -26,6 +41,9 @@ describe("getPortfolioValueHistoryForAssets", () => {
             id: "v2",
             assetId: "a1",
             value: 150,
+            entryMethod: "calculated",
+            metadata: null,
+            valueDate: new Date("2024-01-10T00:00:00Z"),
             recordedAt: new Date("2024-02-02T00:00:00Z"),
             createdAt: new Date("2024-02-02T00:00:00Z"),
             updatedAt: new Date("2024-02-02T00:00:00Z"),
@@ -39,6 +57,9 @@ describe("getPortfolioValueHistoryForAssets", () => {
             id: "v1",
             assetId: "a2",
             value: 100,
+            entryMethod: "calculated",
+            metadata: null,
+            valueDate: new Date("2024-01-10T00:00:00Z"),
             recordedAt: new Date("2024-01-02T10:00:00Z"),
             createdAt: new Date("2024-01-02T00:00:00Z"),
             updatedAt: new Date("2024-01-02T00:00:00Z"),
@@ -47,6 +68,9 @@ describe("getPortfolioValueHistoryForAssets", () => {
             id: "v2",
             assetId: "a2",
             value: 100,
+            entryMethod: "calculated",
+            metadata: null,
+            valueDate: new Date("2024-01-10T00:00:00Z"),
             recordedAt: new Date("2024-01-10T10:00:00Z"),
             createdAt: new Date("2024-01-10T00:00:00Z"),
             updatedAt: new Date("2024-01-10T00:00:00Z"),

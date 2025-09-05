@@ -11,6 +11,7 @@ import { addDays } from "date-fns"
 import { AssetSecurity, AssetValueResult } from "../types"
 import type { AssetPersistence } from "@server/services/assets/database"
 import { populateSecuritiesDailyHistoryCache, populateSecurityDailyHistoryCache } from "./cache"
+import { AssetValueMetadata, AssetValueMetadataSecurity } from "@shared/schema";
 
 // ============================================================================
 // DAILY HISTORY CACHING METHODS
@@ -26,7 +27,7 @@ import { populateSecuritiesDailyHistoryCache, populateSecurityDailyHistoryCache 
 //   const existingDates = new Set(existing.map(record => record.date))
 //   const missingDates: Date[] = []
 //   const currentDate = new Date(startDate)
-  
+
 //   while (currentDate <= endDate) {
 //     if (!existingDates.has(currentDate)) {
 //       missingDates.push(new Date(currentDate))
@@ -37,7 +38,7 @@ import { populateSecuritiesDailyHistoryCache, populateSecurityDailyHistoryCache 
 // }
 
 // ============================================================================
-// ASSET VALUE CALCULATION METHODS  
+// ASSET VALUE CALCULATION METHODS
 // ============================================================================
 
 /**
@@ -91,7 +92,7 @@ const calculateAssetValue = async (
   let totalValue = 0;
   let securitiesProcessed = 0;
   const sourcesUsed = new Set<string>();
-  const values: AssetValueResult["metadata"]["securities"] = [];
+  const values: AssetValueMetadataSecurity[] = [];
 
   for (const history of securityHistory) {
     for (const security of history) {
@@ -209,14 +210,14 @@ const updateAssetValues = async (assetPersistence: AssetPersistence) => {
       };
     });
 
-    const assetValue = await calculateAssetValueForDateFromCache(
+    const assetValueResult = await calculateAssetValueForDateFromCache(
       assetSecuritiesWithShareHolding,
       currentDate
     );
 
-    if (assetValue) {
-      if (assetValue.metadata.dataStatus === "complete") {
-        values.push(assetValue);
+    if (assetValueResult) {
+      if (assetValueResult.metadata.dataStatus === "complete") {
+        values.push(assetValueResult);
       }
     } else {
       //TODO: Handle this

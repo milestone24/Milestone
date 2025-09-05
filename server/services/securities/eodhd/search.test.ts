@@ -197,7 +197,7 @@ describe('EODHD findSecurities', () => {
     const result = await findSecurities(['AAPL'])
 
     expect(result).toHaveLength(1)
-    expect(result[0].Code).toBe('AAPL')
+    expect(result[0]?.Code).toBe("AAPL");
   })
 
   it('should handle empty array response', async () => {

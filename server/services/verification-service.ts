@@ -1,8 +1,12 @@
 import { randomBytes } from "crypto";
 import { db } from "../db";
-import { emailVerifications, phoneVerifications, userAccounts } from "../../shared/schema/user-account";
 import { eq } from "drizzle-orm";
 import { timeToExpiryDate } from "../utils/time";
+import {
+  emailVerifications,
+  phoneVerifications,
+  userAccounts,
+} from "@server/db/schema";
 
 export async function generateEmailVerification(userId: string): Promise<string> {
   const token = randomBytes(32).toString("hex");

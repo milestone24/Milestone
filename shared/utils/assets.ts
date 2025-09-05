@@ -663,13 +663,15 @@ export const getCombinedDayValuesForValues = async (
       if (change) {
         existingEntry.changes.push(change);
       }
-      existingEntry.metadata.push(entry.metadata);
+      if (entry.metadata) {
+        existingEntry.metadata.push(entry.metadata);
+      }
     } else {
       // Otherwise create a new entry for this date
       portfolioValues.set(dateKey, {
         value: totalValue,
         changes: change ? [change] : [],
-        metadata: [entry.metadata],
+        metadata: entry.metadata ? [entry.metadata] : [],
       });
     }
   };
@@ -723,13 +725,15 @@ export const getCombinedDayValuesForValues = async (
       if (entry.assetId && change) {
         existingEntry.changes.push(change);
       }
-      existingEntry.metadata.push(entry.metadata);
+      if (entry.metadata) {
+        existingEntry.metadata.push(entry.metadata);
+      }
     } else {
       // Otherwise create a new entry for this date
       portfolioValues.set(dateKey, {
         value: totalValue,
         changes: change ? [change] : [],
-        metadata: [entry.metadata],
+        metadata: entry.metadata ? [entry.metadata] : [],
       });
     }
   }

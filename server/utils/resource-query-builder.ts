@@ -329,7 +329,7 @@ export class ResourceQueryBuilder<T extends Table> {
           .map(([field, operator]) => this.buildWhereCondition(field, operator))
           .filter(Boolean) as SQL<unknown>[];
         if (subConds.length === 1) {
-          orConditions.push(subConds[0]);
+          orConditions.push(subConds[0]!);
         } else if (subConds.length > 1) {
           const orCond = or(...subConds);
           if (orCond) orConditions.push(orCond);

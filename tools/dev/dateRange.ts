@@ -1,6 +1,5 @@
 import { db } from "@server/db";
 import { DatabaseAssetService } from "@server/services/assets/database";
-import { QueryParamsFilterToDateRange } from "@shared/utils/assets";
 
 const assetService = new DatabaseAssetService(db);
 

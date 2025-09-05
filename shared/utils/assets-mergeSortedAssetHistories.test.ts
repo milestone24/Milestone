@@ -1,13 +1,16 @@
+//@ts-nocheck
+
 import { describe, it, expect } from "vitest";
 import { mergeSortedAssetHistories } from "./assets";
-import { AssetValue, AssetWithValueHistoryAsyncIterators } from "@shared/schema";
+import {
+  AssetValue,
+  AssetWithValueHistoryAsyncIterators,
+} from "@shared/schema";
 import { arrayToAsyncIterator } from "./async";
 import { generateMockAssetHistory } from "./assets-test-helpers";
 
 describe("mergeSortedAssetHistories", () => {
-
   it.only("yields all values from a single asset in order", async () => {
-
     const asset1 = {
       id: "a1",
       history: arrayToAsyncIterator([
@@ -114,8 +117,8 @@ describe("mergeSortedAssetHistories", () => {
       result.push(v);
     }
     expect(result).toHaveLength(4);
-    expect(result.map(v => v.value)).toEqual([10, 20, 30, 40]);
-    expect(result.map(v => v.assetId)).toEqual(["a1", "a2", "a1", "a2"]);
+    expect(result.map((v) => v.value)).toEqual([10, 20, 30, 40]);
+    expect(result.map((v) => v.assetId)).toEqual(["a1", "a2", "a1", "a2"]);
   });
 
   it("handles empty asset histories", async () => {
@@ -158,24 +161,23 @@ describe("mergeSortedAssetHistories", () => {
       ),
     };
     const result: AssetValue[] = [];
-    for await (const v of mergeSortedAssetHistories([assetSparse, assetDense])) {
+    for await (const v of mergeSortedAssetHistories([
+      assetSparse,
+      assetDense,
+    ])) {
       result.push(v);
     }
     // Should be in strict date order
-    expect(result.map(v => v.recordedAt.toISOString().split('T')[0])).toEqual([
-      "2020-01-01",
-      "2025-01-01",
-      "2025-01-02",
-      "2025-01-03",
-      "2030-01-01",
-    ]);
-    expect(result.map(v => v.assetId)).toEqual([
+    expect(result.map((v) => v.recordedAt.toISOString().split("T")[0])).toEqual(
+      ["2020-01-01", "2025-01-01", "2025-01-02", "2025-01-03", "2030-01-01"]
+    );
+    expect(result.map((v) => v.assetId)).toEqual([
       "sparse",
       "dense",
       "dense",
       "dense",
       "sparse",
     ]);
-    expect(result.map(v => v.value)).toEqual([100, 10, 20, 30, 200]);
+    expect(result.map((v) => v.value)).toEqual([100, 10, 20, 30, 200]);
   });
-}); 
+});

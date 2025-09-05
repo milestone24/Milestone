@@ -212,61 +212,61 @@ export class DatabaseAssetService {
     return historyResult;
   }
 
-  async getResolvedUserAssetHistory(
-    assetId: UserAsset["id"],
-    query: QueryParams
-  ): Promise<
-    {
-      assetValues: AssetValue;
-      securities: UserAssetSecuritySelect[] | null;
-    }[]
-  > {
-    const {
-      /**@ts-ignore */
-      start: { eq: start } = { eq: null },
-      /**@ts-ignore */
-      end: { eq: end } = { eq: null },
-    } = query.filter;
+  //TODO implement this??
+  // async getResolvedUserAssetHistory(
+  //   assetId: UserAsset["id"],
+  //   query: QueryParams
+  // ): Promise<
+  //   {
+  //     assetValues: AssetValue;
+  //     securities: UserAssetSecuritySelect[] | null;
+  //   }[]
+  // > {
+  //   const {
+  //     /**@ts-ignore */
+  //     start: { eq: start } = { eq: null },
+  //     /**@ts-ignore */
+  //     end: { eq: end } = { eq: null },
+  //   } = query.filter;
 
-    const startDate = resolveDate(start);
-    const endDate = resolveDate(end);
+  //   const startDate = resolveDate(start);
+  //   const endDate = resolveDate(end);
 
-    const historyResult = await this.db
-      .select({
-        assetValues,
-        securities: userAssetSecurities,
-      })
-      .from(assetValues)
-      .leftJoin(
-        userAssetSecurities,
-        eq(assetValues.assetId, userAssetSecurities.userAssetId)
-      )
-      .leftJoin(
-        securityTransactions,
-        eq(userAssetSecurities.securityId, securityTransactions.securityId)
-      )
-      .where(
-        and(
-          eq(assetValues.assetId, assetId),
-          startDate != null && endDate != null
-            ? between(assetValues.valueDate, startDate, endDate)
-            : startDate != null
-            ? gte(assetValues.valueDate, startDate)
-            : endDate != null
-            ? lte(assetValues.valueDate, endDate)
-            : undefined
-        )
-      )
-      .orderBy(asc(assetValues.valueDate));
+  //   const historyResult = await this.db
+  //     .select({
+  //       assetValues,
+  //       securities: userAssetSecurities,
+  //     })
+  //     .from(assetValues)
+  //     .leftJoin(
+  //       userAssetSecurities,
+  //       eq(assetValues.assetId, userAssetSecurities.userAssetId)
+  //     )
+  //     .leftJoin(
+  //       securityTransactions,
+  //       eq(userAssetSecurities.securityId, securityTransactions.securityId)
+  //     )
+  //     .where(
+  //       and(
+  //         eq(assetValues.assetId, assetId),
+  //         startDate != null && endDate != null
+  //           ? between(assetValues.valueDate, startDate, endDate)
+  //           : startDate != null
+  //           ? gte(assetValues.valueDate, startDate)
+  //           : endDate != null
+  //           ? lte(assetValues.valueDate, endDate)
+  //           : undefined
+  //       )
+  //     )
+  //     .orderBy(asc(assetValues.valueDate));
 
-    return historyResult;
-  }
+  //   return historyResult;
+  // }
 
   async getUserAssetHistoryWithBoundary(
     assetId: UserAsset["id"],
     query?: QueryParams
   ): Promise<AssetValue[]> {
-
     const dateRange = queryParamsFilterToDateRange(query?.filter);
 
     const startDate = resolveDate(dateRange.start);
@@ -436,7 +436,8 @@ export class DatabaseAssetService {
           orderBy: (assetValues, { desc }) => [desc(assetValues.valueDate)],
         });
 
-        const securitiesWithValue = await Promise.all(
+        //TODO move to seperate method to avoid code duplication
+        const securitiesWithValue: ResolvedSecurity[] = await Promise.all(
           userAsset.securities.map(async (security) => {
             const lastValue = await tx.query.securityDailyHistory.findFirst({
               where: eq(securityDailyHistory.securityId, security.securityId),
@@ -448,9 +449,11 @@ export class DatabaseAssetService {
               ...security,
               calculatedValue: {
                 value: lastValue
-                  ? (
-                      Number(lastValue.close ?? 0) * security.shareHolding
-                    ).toFixed(2)
+                  ? Number(
+                      (
+                        Number(lastValue.close ?? 0) * security.shareHolding
+                      ).toFixed(2)
+                    )
                   : 0,
                 //Todo calculate this when we have a date range
                 currentChange: 0,
@@ -1211,24 +1214,37 @@ export class DatabaseAssetService {
     }
 
     // Make sure the security exists
-    const security = await this.getCachedSecurity(data.securityId);
+    const security = await securitiesService.getCachedSecurity(data.securityId);
+
     if (!security) {
       throw new Error(`Security with ID ${data.securityId} not found`);
     }
 
-    const [insertedValueItem] = await this.db
-      .insert(userAssetSecurities)
-      .values({
-        ...data,
-        userAssetId: assetId,
-      })
-      .returning();
+    const value = await this.db.transaction(async (tx) => {
+      const [insertedValueItem] = await tx
+        .insert(userAssetSecurities)
+        .values({
+          ...data,
+          userAssetId: assetId,
+        })
+        .returning();
 
-    if (!insertedValueItem) {
+      const value = await tx.query.userAssetSecurities.findFirst({
+        where: and(
+          eq(userAssetSecurities.userAssetId, assetId),
+          eq(userAssetSecurities.securityId, security.id)
+        ),
+        with: { security: true },
+      });
+
+      return value;
+    });
+
+    if (!value) {
       throw new Error("Failed to create user asset security");
     }
 
-    return insertedValueItem;
+    return value;
   }
 
   async updateUserAssetSecurity(
@@ -1252,20 +1268,32 @@ export class DatabaseAssetService {
       );
     }
 
-    const [updatedValueItem] = await this.db
-      .update(userAssetSecurities)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
-      .where(eq(userAssetSecurities.id, securityId))
-      .returning();
+    const value = await this.db.transaction(async (tx) => {
+      const [updatedValueItem] = await tx
+        .update(userAssetSecurities)
+        .set({
+          ...data,
+          updatedAt: new Date(),
+        })
+        .where(eq(userAssetSecurities.id, securityId))
+        .returning();
 
-    if (!updatedValueItem) {
+      const value = await tx.query.userAssetSecurities.findFirst({
+        where: and(
+          eq(userAssetSecurities.id, securityId),
+          eq(userAssetSecurities.userAssetId, assetId)
+        ),
+        with: { security: true },
+      });
+
+      return value;
+    });
+
+    if (!value) {
       throw new Error("Failed to update user asset security");
     }
 
-    return updatedValueItem;
+    return value;
   }
 
   async deleteUserAssetSecurity(

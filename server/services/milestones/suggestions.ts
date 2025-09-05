@@ -1,14 +1,14 @@
 import OpenAI from "openai";
-import { Account, Milestone } from "@shared/schema";
+import { UserAsset, Milestone } from "@shared/schema";
 
 // Initialize the xAI client only if API key is available
 let xai: OpenAI | null = null;
 
 // Only create client when API key is available
 if (process.env.XAI_API_KEY) {
-  xai = new OpenAI({ 
+  xai = new OpenAI({
     baseURL: "https://api.x.ai/v1",
-    apiKey: process.env.XAI_API_KEY 
+    apiKey: process.env.XAI_API_KEY,
   });
 }
 
@@ -16,16 +16,18 @@ if (process.env.XAI_API_KEY) {
  * Generate intelligent milestone suggestions using xAI's Grok API
  */
 export async function generateMilestoneSuggestions(
-  accounts: Account[],
+  accounts: UserAsset[],
   totalPortfolioValue: number,
   existingMilestones: Milestone[]
-): Promise<Array<{
-  name: string;
-  accountType: string | null;
-  targetValue: string;
-  description: string;
-  icon?: string;
-}>> {
+): Promise<
+  Array<{
+    name: string;
+    accountType: string | null;
+    targetValue: string;
+    description: string;
+    icon?: string;
+  }>
+> {
   try {
     // Only proceed if API key is available and client exists
     if (!process.env.XAI_API_KEY || !xai) {
@@ -34,7 +36,11 @@ export async function generateMilestoneSuggestions(
     }
 
     // Build a detailed prompt for the AI
-    const prompt = buildMilestonePrompt(accounts, totalPortfolioValue, existingMilestones);
+    const prompt = buildMilestonePrompt(
+      accounts,
+      totalPortfolioValue,
+      existingMilestones
+    );
 
     // Make the API call (we've already checked that xai is not null above)
     const response = await xai!.chat.completions.create({
@@ -42,18 +48,19 @@ export async function generateMilestoneSuggestions(
       messages: [
         {
           role: "system",
-          content: "You are a financial advisor specializing in investment goals and milestone planning. Generate thoughtful and personalized investment milestones based on the user's portfolio."
+          content:
+            "You are a financial advisor specializing in investment goals and milestone planning. Generate thoughtful and personalized investment milestones based on the user's portfolio.",
         },
         {
           role: "user",
-          content: prompt
-        }
+          content: prompt,
+        },
       ],
-      response_format: { type: "json_object" }
+      response_format: { type: "json_object" },
     });
 
     // Parse the response
-    const messageContent = response.choices[0].message.content || "{}";
+    const messageContent = response.choices[0]?.message.content ?? "{}";
     const result = JSON.parse(messageContent);
 
     // Validate and format the result
@@ -72,21 +79,29 @@ export async function generateMilestoneSuggestions(
  * Build a detailed prompt for the AI based on portfolio data
  */
 function buildMilestonePrompt(
-  accounts: Account[],
+  accounts: UserAsset[],
   totalPortfolioValue: number,
   existingMilestones: Milestone[]
 ): string {
-  let accountsSummary = accounts.map(acc => {
-    return `- ${acc.provider} ${acc.accountType} account: £${Number(acc.currentValue).toLocaleString()}`;
-  }).join("\n");
+  let accountsSummary = accounts
+    .map((acc) => {
+      return `- ${acc.providerId} ${acc.accountType} account: £${Number(
+        acc.currentValue
+      ).toLocaleString()}`;
+    })
+    .join("\n");
 
   if (accountsSummary.length === 0) {
     accountsSummary = "No investment accounts yet.";
   }
 
-  let milestonesSummary = existingMilestones.map(m => {
-    return `- ${m.name}: £${m.targetValue} ${m.accountType ? `(${m.accountType})` : '(Overall portfolio)'}`;
-  }).join("\n");
+  let milestonesSummary = existingMilestones
+    .map((m) => {
+      return `- ${m.name}: £${m.targetValue} ${
+        m.accountType ? `(${m.accountType})` : "(Overall portfolio)"
+      }`;
+    })
+    .join("\n");
 
   if (milestonesSummary.length === 0) {
     milestonesSummary = "No milestones set yet.";
