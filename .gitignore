@@ -11,3 +11,5 @@ vite.config.ts.*
 client/dev-dist
 
 data/postgres
+
+migrations_before
