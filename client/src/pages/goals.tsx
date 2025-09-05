@@ -118,7 +118,6 @@ export default function Goals() {
             ? null
             : (values.accountType as AccountType),
         targetValue: values.targetValue,
-        userAccountId: user.account.id,
       });
       setIsAddMilestoneOpen(false);
       form.reset();

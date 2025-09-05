@@ -55,21 +55,21 @@ export function EditMilestoneDialog({
   isOpen,
   onClose,
 }: EditMilestoneDialogProps) {
-  const { updateMilestone, brokerAssets } = usePortfolio();
+  const { updateMilestone, assets } = usePortfolio();
 
   // Get the unique account types that exist in the user's portfolio
   const availableAccountTypes = useMemo(() => {
     const types = new Set<AccountType | "ALL">();
     types.add("ALL"); // Always include "ALL" as an option
 
-    brokerAssets.forEach((asset) => {
+    assets.forEach((asset) => {
       if (asset.accountType) {
         types.add(asset.accountType as AccountType);
       }
     });
 
     return Array.from(types);
-  }, [brokerAssets]);
+  }, [assets]);
 
   const form = useForm<EditMilestoneFormData>({
     resolver: zodResolver(editMilestoneSchema),
@@ -118,7 +118,7 @@ export function EditMilestoneDialog({
                 </FormItem>
               )}
             />
-            {brokerAssets.length === 0 ? (
+            {assets.length === 0 ? (
               <Alert variant="destructive" className="mb-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
@@ -136,7 +136,7 @@ export function EditMilestoneDialog({
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
-                      disabled={brokerAssets.length === 0}
+                      disabled={assets.length === 0}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -185,13 +185,11 @@ export function EditMilestoneDialog({
               </Button>
               <Button
                 type="submit"
-                disabled={
-                  updateMilestone.isPending || brokerAssets.length === 0
-                }
+                disabled={updateMilestone.isPending || assets.length === 0}
               >
                 {updateMilestone.isPending
                   ? "Saving..."
-                  : brokerAssets.length === 0
+                  : assets.length === 0
                   ? "Add accounts first"
                   : "Save Changes"}
               </Button>

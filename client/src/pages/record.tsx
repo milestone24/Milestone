@@ -525,7 +525,7 @@ export default function Record() {
               </Button>
               {activeTab === "values" && (
                 <ScreenshotUpload
-                  brokerAssets={assets}
+                  assets={assets}
                   onExtractedValues={(extractedValues) => {
                     // Create a new object to hold the values
                     const newValues = { ...accountValues };

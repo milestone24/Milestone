@@ -9,7 +9,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { usePortfolio } from "@/context/PortfolioContext";
@@ -19,7 +18,6 @@ import {
   Check,
   RefreshCw,
   Lock,
-  AlertTriangle,
   Info,
   Briefcase,
 } from "lucide-react";
@@ -42,9 +40,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { UserAssetWithHistoryAndAccountChange } from "@shared/schema";
 
 export default function ApiConnections() {
-  const { accounts, connectAccountApi } = usePortfolio();
+  const { assets, connectAssetApi } = usePortfolio();
   const { toast } = useToast();
 
   // State for API dialog
@@ -94,7 +93,7 @@ export default function ApiConnections() {
     if (!selectedAccountId || !apiKey.trim()) return;
 
     try {
-      await connectAccountApi(selectedAccountId, apiKey);
+      await connectAssetApi.mutateAsync({ id: selectedAccountId, apiKey });
       setApiDialogOpen(false);
       toast({
         title: "API Connected",
@@ -165,10 +164,12 @@ export default function ApiConnections() {
   };
 
   // Split accounts into connected and disconnected
-  const connectedAccounts = accounts.filter((acc) => acc.isApiConnected);
-  const disconnectedAccounts = accounts.filter(
-    (acc) => !acc.isApiConnected && getApiStatus(acc.provider).supported
-  );
+  //const connectedAccounts: UserAssetWithHistoryAndAccountChange[] = assets.filter((acc) => acc.isPlatformAPIConencted);
+  const connectedAccounts: UserAssetWithHistoryAndAccountChange[] = [];
+  // const disconnectedAccounts: UserAssetWithHistoryAndAccountChange[] = assets.filter(
+  //   (acc) => !acc.isPlatformAPIConencted && getApiStatus(acc.providerId).supported
+  // );
+  const disconnectedAccounts: UserAssetWithHistoryAndAccountChange[] = [];
 
   return (
     <div className="api-connections-page max-w-4xl mx-auto px-4 pb-20 pt-6">
@@ -200,7 +201,7 @@ export default function ApiConnections() {
           </Card>
         ) : (
           <div className="grid gap-4">
-            {connectedAccounts.map((account) => {
+            {/* {connectedAccounts.map((account) => {
               const apiInfo = getApiStatus(account.provider);
 
               return (
@@ -262,7 +263,7 @@ export default function ApiConnections() {
                   </CardContent>
                 </Card>
               );
-            })}
+            })} */}
           </div>
         )}
       </div>
@@ -281,7 +282,7 @@ export default function ApiConnections() {
           </Card>
         ) : (
           <div className="grid gap-4">
-            {disconnectedAccounts.map((account) => {
+            {/* {disconnectedAccounts.map((account) => {
               const apiInfo = getApiStatus(account.provider);
 
               return (
@@ -338,7 +339,7 @@ export default function ApiConnections() {
                   </CardContent>
                 </Card>
               );
-            })}
+            })} */}
           </div>
         )}
       </div>

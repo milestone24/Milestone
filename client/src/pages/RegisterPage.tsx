@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useSession } from "../hooks/use-session";
-import { RegisterInput } from "server/db/schema";
+import { RegisterInput } from "@shared/schema";
 
 export function RegisterPage() {
   const [, setLocation] = useLocation();
-  const { register, isLoading, error } = useSession();
+  const { register, isRegisterPending, error } = useSession();
   const [formData, setFormData] = useState<RegisterInput>({
     email: "",
     password: "",
@@ -100,16 +100,18 @@ export function RegisterPage() {
           </div>
 
           {error && (
-            <div className="text-red-500 text-sm text-center">{error}</div>
+            <div className="text-red-500 text-sm text-center">
+              {error.message}
+            </div>
           )}
 
           <div>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isRegisterPending}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             >
-              {isLoading ? "Creating account..." : "Create account"}
+              {isRegisterPending ? "Creating account..." : "Create account"}
             </button>
           </div>
         </form>

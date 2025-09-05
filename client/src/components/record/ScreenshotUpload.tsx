@@ -18,7 +18,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { BrokerProviderAsset, BrokerProvider } from "shared/schema";
+import { UserAsset, BrokerProvider } from "shared/schema";
 import { useBrokerProviders } from "@/hooks/use-broker-providers";
 import { getBrokerName } from "@/lib/broker";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,9 +36,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
 
 interface ScreenshotUploadProps {
-  brokerAssets: BrokerProviderAsset[];
+  assets: UserAsset[];
   onExtractedValues: (data: { assetId: string; value: number }[]) => void;
 }
 
@@ -72,7 +73,7 @@ interface ExtractedValue {
 }
 
 export function ScreenshotUpload({
-  brokerAssets,
+  assets,
   onExtractedValues,
 }: ScreenshotUploadProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -86,7 +87,7 @@ export function ScreenshotUpload({
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const { data: brokerProviders } = useBrokerProviders();
+  const { data: brokerPlatforms } = useBrokerPlatforms();
 
   // Format currency with 2 decimal places
   const formatCurrency = (value: number): string => {
@@ -98,21 +99,19 @@ export function ScreenshotUpload({
 
   // Get the account types for a provider
   const getAccountTypesForProvider = (providerId: string): string[] => {
-    const provider = brokerProviders?.find((p) => p.id === providerId);
+    const provider = brokerPlatforms?.find((p) => p.id === providerId);
     return provider?.supportedAccountTypes || [];
   };
 
   // Get a clean asset name from the database name
-  const getCleanAssetName = (
-    asset: BrokerProviderAsset | undefined
-  ): string => {
+  const getCleanAssetName = (asset: UserAsset | undefined): string => {
     if (!asset) return "Unknown Account";
 
     // If asset name contains duplicated words (like "ISA ISA"), clean it up
     const name = asset.name.trim();
     const words = name.split(/\s+/);
     if (words.length > 1 && words[0] === words[1]) {
-      return words[0];
+      return words[0]!;
     }
     return name;
   };
@@ -246,16 +245,24 @@ export function ScreenshotUpload({
           for (let i = 0; i < data.length; i += 4) {
             // Apply a simple contrast enhancement
             // This can help OCR with text recognition
+
             data[i] =
+              /**@ts-ignore */
               data[i] < 120 ? data[i] * 0.8 : Math.min(255, data[i] * 1.2); // red
             data[i + 1] =
+              /**@ts-ignore */
               data[i + 1] < 120
-                ? data[i + 1] * 0.8
-                : Math.min(255, data[i + 1] * 1.2); // green
+                ? /**@ts-ignore */
+                  data[i + 1] * 0.8
+                : /**@ts-ignore */
+                  Math.min(255, data[i + 1] * 1.2); // green
             data[i + 2] =
+              /**@ts-ignore */
               data[i + 2] < 120
-                ? data[i + 2] * 0.8
-                : Math.min(255, data[i + 2] * 1.2); // blue
+                ? /**@ts-ignore */
+                  data[i + 2] * 0.8
+                : /**@ts-ignore */
+                  Math.min(255, data[i + 2] * 1.2); // blue
             // Alpha channel unchanged
           }
 
@@ -329,11 +336,11 @@ export function ScreenshotUpload({
                 j === resultIndex
                   ? {
                       ...item,
-                      ...(updates.providerId && brokerProviders
+                      ...(updates.providerId && brokerPlatforms
                         ? {
                             accountName: getBrokerName(
                               updates.providerId,
-                              brokerProviders
+                              brokerPlatforms
                             ),
                           }
                         : {}),
@@ -356,10 +363,11 @@ export function ScreenshotUpload({
   const findMatchingAsset = (providerName: string, accountType?: string) => {
     // First try to match by both provider name and account type
     if (accountType) {
-      const exactMatch = brokerAssets.find(
+      const exactMatch = assets.find(
         (asset) =>
-          brokerProviders &&
-          getBrokerName(asset.providerId, brokerProviders).toLowerCase() ===
+          brokerPlatforms &&
+          asset.platformId &&
+          getBrokerName(asset.platformId, brokerPlatforms).toLowerCase() ===
             providerName.toLowerCase() &&
           asset.accountType.toUpperCase() === accountType.toUpperCase()
       );
@@ -368,10 +376,11 @@ export function ScreenshotUpload({
     }
 
     // Then try matching just by provider
-    return brokerAssets.find(
+    return assets.find(
       (asset) =>
-        brokerProviders &&
-        getBrokerName(asset.providerId, brokerProviders).toLowerCase() ===
+        brokerPlatforms &&
+        asset.platformId &&
+        getBrokerName(asset.platformId, brokerPlatforms).toLowerCase() ===
           providerName.toLowerCase()
     );
   };
@@ -448,8 +457,8 @@ export function ScreenshotUpload({
 
     try {
       // Get all provider names for our active accounts
-      const providerNames = brokerAssets.map((asset) =>
-        getBrokerName(asset.providerId, brokerProviders ?? [])
+      const platformNames = assets.map((asset) =>
+        getBrokerName(asset.platformId ?? "", brokerPlatforms ?? [])
       );
 
       // Clear previous analysis results
@@ -478,7 +487,7 @@ export function ScreenshotUpload({
               },
               body: JSON.stringify({
                 imageData: processedImage,
-                providerNames: Array.from(new Set(providerNames)),
+                providerNames: Array.from(new Set(platformNames)),
               }),
             });
 
@@ -761,7 +770,7 @@ export function ScreenshotUpload({
                                         // Get provider ID based on name
                                         const providerId =
                                           matchingAsset?.providerId ||
-                                          brokerProviders?.find(
+                                          brokerPlatforms?.find(
                                             (p) =>
                                               p.name.toLowerCase() ===
                                               extractedItem.accountName.toLowerCase()
@@ -820,7 +829,7 @@ export function ScreenshotUpload({
                                                       <SelectValue placeholder="Select provider" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                      {brokerProviders?.map(
+                                                      {brokerPlatforms?.map(
                                                         (provider) => (
                                                           <SelectItem
                                                             key={provider.id}
@@ -998,7 +1007,7 @@ export function ScreenshotUpload({
 
                                                   {!isVerified && (
                                                     <Button
-                                                      variant="primary"
+                                                      variant="default"
                                                       size="sm"
                                                       className="h-7 text-xs bg-primary text-white hover:bg-primary/90"
                                                       onClick={() =>

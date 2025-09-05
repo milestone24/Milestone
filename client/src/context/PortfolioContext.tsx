@@ -493,10 +493,15 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
   });
 
   // Update milestone mutations to handle response data
-  const addMilestone = useMutation<Milestone, Error, MilestoneInsert>({
+  const addMilestone = useMutation<Milestone, Error, MilestoneOrphanInsert>({
     mutationFn: async (newMilestone) => {
-      const processedMilestone = {
+      if (!user?.account.id) {
+        throw new Error("User account ID is required");
+      }
+
+      const processedMilestone: MilestoneInsert = {
         ...newMilestone,
+        userAccountId: user.account.id,
         accountType:
           newMilestone.accountType === "ALL"
             ? null

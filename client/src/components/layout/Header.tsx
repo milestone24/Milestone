@@ -1,4 +1,14 @@
-import { User, Settings, Link as LinkIcon, LogOut, Bell, X, Trophy, Target, Wallet, Flag } from "lucide-react";
+import {
+  User,
+  Settings,
+  Link as LinkIcon,
+  LogOut,
+  Bell,
+  X,
+  Trophy,
+  Wallet,
+  Flag,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,55 +32,59 @@ interface Notification {
 }
 
 // Notification Item Component
-const NotificationItem = ({ 
-  notification, 
-  onMarkAsRead, 
-  onDismiss 
-}: { 
-  notification: Notification, 
-  onMarkAsRead: (id: number | string) => void, 
-  onDismiss: (id: number | string) => void 
+const NotificationItem = ({
+  notification,
+  onMarkAsRead,
+  onDismiss,
+}: {
+  notification: Notification;
+  onMarkAsRead: (id: number | string) => void;
+  onDismiss: (id: number | string) => void;
 }) => {
   const notificationRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef<number | null>(null);
   const currentXRef = useRef<number | null>(null);
-  
+
   // Setup touch handlers for swipe gesture
   const handleTouchStart = (e: React.TouchEvent) => {
-    startXRef.current = e.touches[0].clientX;
+    startXRef.current = e.touches[0]?.clientX ?? null;
   };
-  
+
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!startXRef.current) return;
-    currentXRef.current = e.touches[0].clientX;
-    
-    const diffX = currentXRef.current - startXRef.current;
-    if (Math.abs(diffX) > 10) { // Threshold to start moving
+    currentXRef.current = e.touches[0]?.clientX ?? null;
+
+    const diffX = currentXRef.current
+      ? currentXRef.current - startXRef.current
+      : 0;
+    if (Math.abs(diffX) > 10) {
+      // Threshold to start moving
       // Apply transform to move notification horizontally
       if (notificationRef.current) {
         notificationRef.current.style.transform = `translateX(${diffX}px)`;
-        
+
         // Add opacity effect as it's swiped further
-        const opacity = Math.max(0, 1 - (Math.abs(diffX) / 200));
+        const opacity = Math.max(0, 1 - Math.abs(diffX) / 200);
         notificationRef.current.style.opacity = opacity.toString();
       }
     }
   };
-  
+
   const handleTouchEnd = () => {
     if (!startXRef.current || !currentXRef.current) return;
-    
+
     const diffX = currentXRef.current - startXRef.current;
-    
+
     // If swiped far enough, dismiss the notification
-    if (Math.abs(diffX) > 100) { // Threshold to trigger dismiss
+    if (Math.abs(diffX) > 100) {
+      // Threshold to trigger dismiss
       onDismiss(notification.id);
     } else if (notificationRef.current) {
       // Reset position if not dismissed
-      notificationRef.current.style.transform = '';
-      notificationRef.current.style.opacity = '1';
+      notificationRef.current.style.transform = "";
+      notificationRef.current.style.opacity = "1";
     }
-    
+
     // Reset refs
     startXRef.current = null;
     currentXRef.current = null;
@@ -79,12 +93,18 @@ const NotificationItem = ({
   // Determine which icon to display based on notification title
   const getNotificationIcon = () => {
     const title = notification.title.toLowerCase();
-    
-    if (title.includes('milestone') && title.includes('portfolio')) {
+
+    if (title.includes("milestone") && title.includes("portfolio")) {
       return <Trophy className="w-5 h-5 text-blue-500 mr-2 flex-shrink-0" />;
-    } else if (title.includes('milestone') && (title.includes('isa') || title.includes('sipp') || title.includes('lisa') || title.includes('gia'))) {
+    } else if (
+      title.includes("milestone") &&
+      (title.includes("isa") ||
+        title.includes("sipp") ||
+        title.includes("lisa") ||
+        title.includes("gia"))
+    ) {
       return <Wallet className="w-5 h-5 text-green-500 mr-2 flex-shrink-0" />;
-    } else if (title.includes('goal') || title.includes('progress')) {
+    } else if (title.includes("goal") || title.includes("progress")) {
       return <Flag className="w-5 h-5 text-purple-500 mr-2 flex-shrink-0" />;
     } else {
       return <Bell className="w-5 h-5 text-gray-500 mr-2 flex-shrink-0" />;
@@ -92,27 +112,27 @@ const NotificationItem = ({
   };
 
   return (
-    <div 
+    <div
       ref={notificationRef}
       onClick={() => onMarkAsRead(notification.id)}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       className={`relative mb-2 p-2 rounded-md text-sm cursor-pointer transition-colors bg-gray-50 hover:bg-gray-100
-      ${notification.isNew ? 'notification-item-new' : ''}
-        ${notification.isExiting ? 'notification-item-exiting' : ''}`}
+      ${notification.isNew ? "notification-item-new" : ""}
+        ${notification.isExiting ? "notification-item-exiting" : ""}`}
     >
       <div className="flex justify-between items-center">
         <div className="flex items-center flex-grow pr-6">
           <div className="flex items-center justify-center">
             {getNotificationIcon()}
           </div>
-          <div className={notification.isRead ? 'opacity-70' : 'opacity-100'}>
+          <div className={notification.isRead ? "opacity-70" : "opacity-100"}>
             <p className="font-medium">{notification.title}</p>
             <p className="text-gray-500 text-xs">{notification.message}</p>
           </div>
         </div>
-        <button 
+        <button
           onClick={(e) => {
             e.stopPropagation();
             onDismiss(notification.id);
@@ -128,7 +148,7 @@ const NotificationItem = ({
 
 export default function Header() {
   const { logout, user, profileImage } = useSession();
-  
+
   // Track notification count and items
   const [notifications, setNotifications] = useState<Notification[]>([
     {
@@ -136,26 +156,26 @@ export default function Header() {
       title: "Total portfolio milestone!",
       message: "Your investments have reached £350,000",
       isRead: false,
-      isNew: false
+      isNew: false,
     },
     {
       id: 2,
       title: "Goal progress update",
       message: "£42,861 more to reach your £400k milestone",
       isRead: false,
-      isNew: false
+      isNew: false,
     },
     {
       id: 3,
       title: "SIPP milestone achieved!",
       message: "Your SIPP has reached £150,000",
       isRead: true,
-      isNew: false
-    }
+      isNew: false,
+    },
   ]);
-  
+
   // Compute notification count based on unread items
-  const notificationCount = notifications.filter(n => !n.isRead).length;
+  const notificationCount = notifications.filter((n) => !n.isRead).length;
 
   const handleLogout = async () => {
     try {
@@ -164,115 +184,129 @@ export default function Header() {
       console.error("Logout failed:", error);
     }
   };
-  
+
   // Mark a notification as read
   const markAsRead = (id: number | string) => {
-    setNotifications(notifications.map(n => 
-      n.id === id ? { ...n, isRead: true } : n
-    ));
+    setNotifications(
+      notifications.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    );
   };
-  
+
   // Mark all notifications as read
   const markAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+    setNotifications(notifications.map((n) => ({ ...n, isRead: true })));
   };
-  
+
   // Dismiss a notification with animation
   const dismissNotification = (id: number | string) => {
     // First set the exiting flag to trigger animation
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, isExiting: true } : n)
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isExiting: true } : n))
     );
-    
+
     // After animation completes, remove the notification
     setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== id));
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
     }, 300); // Animation duration is 0.3s
   };
-  
+
   // Clear all notifications
   const clearAllNotifications = () => {
     // Set all to exiting for animation
-    setNotifications(prev => prev.map(n => ({ ...n, isExiting: true })));
-    
+    setNotifications((prev) => prev.map((n) => ({ ...n, isExiting: true })));
+
     // After animation completes, remove all
     setTimeout(() => {
       setNotifications([]);
     }, 300);
   };
-  
+
   // Add a new notification (for testing animation)
-  const addNotification = () => {
-    // Sample notification types
-    const notificationTypes = [
-      "account-milestone", 
-      "portfolio-milestone", 
-      "goal-progress"
-    ];
-    
-    // Choose random notification type
-    const notificationType = notificationTypes[Math.floor(Math.random() * notificationTypes.length)];
-    
-    let title = "";
-    let message = "";
-    
-    // Generate content based on notification type
-    switch (notificationType) {
-      case "account-milestone":
-        // Account milestone notifications (specific accounts reaching round number values)
-        const accountTypes = ["ISA", "SIPP", "LISA", "GIA"];
-        const accountType = accountTypes[Math.floor(Math.random() * accountTypes.length)];
-        const milestoneValues = [5000, 10000, 25000, 50000, 100000];
-        const milestoneValue = milestoneValues[Math.floor(Math.random() * milestoneValues.length)];
-        
-        title = `${accountType} milestone achieved!`;
-        message = `Your ${accountType} has reached £${(milestoneValue).toLocaleString()}`;
-        break;
-        
-      case "portfolio-milestone":
-        // Portfolio total value milestones
-        const portfolioMilestones = [100000, 150000, 200000, 250000, 300000, 350000, 400000];
-        const portfolioValue = portfolioMilestones[Math.floor(Math.random() * portfolioMilestones.length)];
-        
-        title = "Total portfolio milestone!";
-        message = `Your investments have reached £${(portfolioValue).toLocaleString()}`;
-        break;
-        
-      case "goal-progress":
-        // Progress on user-defined goals
-        const goals = [
-          { name: "Retirement Fund", target: 500000, current: 357000 },
-          { name: "House Deposit", target: 50000, current: 42000 },
-          { name: "Emergency Fund", target: 15000, current: 14500 }
-        ];
-        
-        const randomGoal = goals[Math.floor(Math.random() * goals.length)];
-        const percentage = Math.round((randomGoal.current / randomGoal.target) * 100);
-        
-        title = `${randomGoal.name}: ${percentage}% complete`;
-        message = `£${randomGoal.current.toLocaleString()} of £${randomGoal.target.toLocaleString()} goal`;
-        break;
-    }
-    
-    // Create new notification with unique ID
-    const newNotification = {
-      id: Date.now(), // Use timestamp as unique ID
-      title,
-      message,
-      isRead: false,
-      isNew: true // Flag as new for animation
-    };
-    
-    // Add to notifications list
-    setNotifications([newNotification, ...notifications]);
-    
-    // After 500ms, remove the "new" flag to stop the animation
-    setTimeout(() => {
-      setNotifications(prev => 
-        prev.map(n => n.id === newNotification.id ? { ...n, isNew: false } : n)
-      );
-    }, 500);
-  };
+  //const addNotification = () => {
+
+  // Sample notification types
+  // const notificationTypes = [
+  //   "account-milestone",
+  //   "portfolio-milestone",
+  //   "goal-progress",
+  // ];
+
+  // // Choose random notification type
+  // const notificationType =
+  //   notificationTypes[Math.floor(Math.random() * notificationTypes.length)];
+
+  // let title = "";
+  // let message = "";
+
+  // // Generate content based on notification type
+  // switch (notificationType) {
+  //   case "account-milestone":
+  //     // Account milestone notifications (specific accounts reaching round number values)
+  //     //TODO account types should come from constants
+  //     const accountTypes = ["ISA", "SIPP", "LISA", "GIA"];
+  //     const accountType =
+  //       accountTypes[Math.floor(Math.random() * accountTypes.length)];
+  //     const milestoneValues = [5000, 10000, 25000, 50000, 100000];
+  //     const milestoneValue =
+  //       milestoneValues[Math.floor(Math.random() * milestoneValues.length)];
+
+  //     title = `${accountType} milestone achieved!`;
+  //     message = `Your ${accountType} has reached £${milestoneValue.toLocaleString()}`;
+  //     break;
+
+  //   case "portfolio-milestone":
+  //     // Portfolio total value milestones
+  //     const portfolioMilestones = [
+  //       100000, 150000, 200000, 250000, 300000, 350000, 400000,
+  //     ];
+  //     const portfolioValue =
+  //       portfolioMilestones[
+  //         Math.floor(Math.random() * portfolioMilestones.length)
+  //       ];
+
+  //     title = "Total portfolio milestone!";
+  //     message = `Your investments have reached £${portfolioValue.toLocaleString()}`;
+  //     break;
+
+  //   case "goal-progress":
+  //     // Progress on user-defined goals
+  //     const goals = [
+  //       { name: "Retirement Fund", target: 500000, current: 357000 },
+  //       { name: "House Deposit", target: 50000, current: 42000 },
+  //       { name: "Emergency Fund", target: 15000, current: 14500 },
+  //     ];
+
+  //     const randomGoal = goals[Math.floor(Math.random() * goals.length)];
+  //     const percentage = Math.round(
+  //       (randomGoal.current / randomGoal.target) * 100
+  //     );
+
+  //     title = `${randomGoal.name}: ${percentage}% complete`;
+  //     message = `£${randomGoal.current.toLocaleString()} of £${randomGoal.target.toLocaleString()} goal`;
+  //     break;
+  // }
+
+  // // Create new notification with unique ID
+  // const newNotification = {
+  //   id: Date.now(), // Use timestamp as unique ID
+  //   title,
+  //   message,
+  //   isRead: false,
+  //   isNew: true, // Flag as new for animation
+  // };
+
+  // // Add to notifications list
+  // setNotifications([newNotification, ...notifications]);
+
+  // // After 500ms, remove the "new" flag to stop the animation
+  // setTimeout(() => {
+  //   setNotifications((prev) =>
+  //     prev.map((n) =>
+  //       n.id === newNotification.id ? { ...n, isNew: false } : n
+  //     )
+  //   );
+  // }, 500);
+  //};
 
   return (
     <header className="bg-white shadow-sm fixed top-0 left-0 right-0 z-50">
@@ -316,11 +350,13 @@ export default function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        
+
         <Link to="/portfolio" className="flex-1 text-center">
-          <h1 className="text-xl font-semibold text-neutral-900 inline-block cursor-pointer hover:text-blue-500 transition-colors">Milestone</h1>
+          <h1 className="text-xl font-semibold text-neutral-900 inline-block cursor-pointer hover:text-blue-500 transition-colors">
+            Milestone
+          </h1>
         </Link>
-        
+
         <div className="flex-1 flex justify-end">
           <DropdownMenu>
             <DropdownMenuTrigger className="text-neutral-700 hover:text-neutral-900 rounded-full p-1 hover:bg-gray-100 relative">
@@ -335,7 +371,7 @@ export default function Header() {
               <div className="flex justify-between items-center px-4 py-2">
                 <div className="text-sm font-medium">Notifications</div>
                 {notificationCount > 0 && (
-                  <button 
+                  <button
                     onClick={markAllAsRead}
                     className="text-xs text-blue-500 hover:text-blue-700 font-medium"
                   >
@@ -344,25 +380,25 @@ export default function Header() {
                 )}
               </div>
               <DropdownMenuSeparator />
-              
+
               <div className="px-2 py-1 max-h-80 overflow-auto">
                 {notifications.length > 0 ? (
                   <>
-                    {notifications.map((notification) => 
+                    {notifications.map((notification) => (
                       <NotificationItem
                         key={notification.id}
                         notification={notification}
                         onMarkAsRead={markAsRead}
                         onDismiss={dismissNotification}
                       />
-                    )}
+                    ))}
                   </>
                 ) : (
                   <div className="text-center py-4 text-sm text-gray-500">
                     No new notifications
                   </div>
                 )}
-                
+
                 {/* Button row at the bottom */}
                 <div className="flex space-x-2 mt-2">
                   {notifications.length > 0 && (
@@ -376,12 +412,12 @@ export default function Header() {
                       Clear all
                     </button>
                   )}
-                  
+
                   {/* Test button - only visible in development */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation(); // Prevent dropdown from closing
-                      addNotification();
+                      //addNotification();
                     }}
                     className="flex-1 py-1 px-2 text-xs text-gray-500 hover:bg-gray-100 rounded-md transition-colors"
                   >

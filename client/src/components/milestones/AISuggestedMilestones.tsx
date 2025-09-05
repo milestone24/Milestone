@@ -9,13 +9,12 @@ import {
   SuggestedMilestone,
 } from "@/lib/utils/milestones";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, getQueryFn } from "@/lib/queryClient";
 
 // Define AccountType directly here as well to avoid type issues
 type AccountType = "ISA" | "SIPP" | "LISA" | "GIA";
 
 export default function AISuggestedMilestones() {
-  const { accounts, milestones, totalPortfolioValue, addMilestone, isLoading } =
+  const { assets, milestones, addMilestone, isLoading, portfolioOverview } =
     usePortfolio();
 
   const [generatingSuggestions, setGeneratingSuggestions] = useState(false);
@@ -40,8 +39,8 @@ export default function AISuggestedMilestones() {
 
         // Fallback to local generation
         const localSuggestions = generateMilestoneSuggestions(
-          accounts,
-          totalPortfolioValue,
+          assets,
+          portfolioOverview?.value ?? 0,
           milestones
         );
 
@@ -59,8 +58,8 @@ export default function AISuggestedMilestones() {
         } else {
           // Fallback if AI returned empty results
           const localSuggestions = generateMilestoneSuggestions(
-            accounts,
-            totalPortfolioValue,
+            assets,
+            portfolioOverview?.value ?? 0,
             milestones
           );
           setSuggestions(localSuggestions);
@@ -68,8 +67,8 @@ export default function AISuggestedMilestones() {
       } else {
         // Use local generation as fallback
         const localSuggestions = generateMilestoneSuggestions(
-          accounts,
-          totalPortfolioValue,
+          assets,
+          portfolioOverview?.value ?? 0,
           milestones
         );
         setSuggestions(localSuggestions);
@@ -81,8 +80,8 @@ export default function AISuggestedMilestones() {
 
       // Use local generation as fallback on error
       const localSuggestions = generateMilestoneSuggestions(
-        accounts,
-        totalPortfolioValue,
+        assets,
+        portfolioOverview?.value ?? 0,
         milestones
       );
       setSuggestions(localSuggestions);
@@ -98,12 +97,10 @@ export default function AISuggestedMilestones() {
       // Use type assertion to ensure the type matches what addMilestone expects
       const accountType = suggestion.accountType as AccountType | null;
 
-      await addMilestone({
+      await addMilestone.mutateAsync({
         name: suggestion.name,
         accountType: accountType,
         targetValue: suggestion.targetValue,
-        userId: 1, // Add userId for the demo user
-        createdAt: new Date(), // Add createdAt field
       });
 
       // Remove from suggestions
