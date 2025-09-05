@@ -7,20 +7,24 @@ import { SessionProvider } from "@/context/SessionContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import ResponsiveLayout from "@/components/layout/ResponsiveLayout";
 import NotFound from "@/pages/not-found";
-import Portfolio from "@/pages/portfolio";
-import Goals from "@/pages/goals";
-import Track from "@/pages/track";
-import Fire from "@/pages/fire";
-import Profile from "@/pages/profile";
-import Settings from "@/pages/settings";
-import ApiConnections from "@/pages/api-connections";
-import AssetPage from "@/pages/asset";
-import NestedAssetPage from "@/pages/asset-security";
-import Record from "@/pages/record";
+import { lazy, Suspense } from "react";
 import { LoginPage } from "@/pages/LoginPage";
-import { RegisterPage } from "@/pages/RegisterPage";
-import { Loader2 } from "lucide-react";
+import { RegisterPage } from "@/pages/registerPage";
+import { Loader, Loader2 } from "lucide-react";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { ErrorBoundary } from "react-error-boundary";
+
+const Portfolio = lazy(() => import("@/pages/portfolio"));  
+const AssetPage = lazy(() => import("@/pages/asset"));
+const Goals = lazy(() => import("@/pages/goals"));
+const Track = lazy(() => import("@/pages/track"));
+const Fire = lazy(() => import("@/pages/fire"));
+const Profile = lazy(() => import("@/pages/profile"));
+const Settings = lazy(() => import("@/pages/settings"));
+const ApiConnections = lazy(() => import("@/pages/api-connections"));
+const NestedAssetPage = lazy(() => import("@/pages/asset-security"));
+const Record = lazy(() => import("@/pages/record"));
+
 function RouteWithLayout({
   component: Component,
   ...rest
@@ -29,81 +33,86 @@ function RouteWithLayout({
 }) {
   return (
     <ResponsiveLayout>
-      <Component {...rest} />
+      <Suspense fallback={<Loader />}>
+        <ErrorBoundary fallback={<p>⚠️Something went wrong</p>}>
+          <Component {...rest} />
+        </ErrorBoundary>
+      </Suspense>
     </ResponsiveLayout>
   );
 }
 
 function Router() {
   return (
-    <WouterRouter>
-      <Switch>
-        {/* Auth Routes */}
-        <Route path="/login">{() => <LoginPage />}</Route>
-        <Route path="/register">{() => <RegisterPage />}</Route>
+    <ErrorBoundary fallback={<p>⚠️Something went wrong</p>}>
+      <WouterRouter>
+        <Switch>
+          {/* Auth Routes */}
+          <Route path="/login">{() => <LoginPage />}</Route>
+          <Route path="/register">{() => <RegisterPage />}</Route>
 
-        {/* Protected Routes */}
-        <Route path="/">
-          <Redirect to="/portfolio" />
-        </Route>
-        <Route path="/portfolio">
-          {() => (
-            <ProtectedRoute>
-              <RouteWithLayout component={Portfolio} />
-            </ProtectedRoute>
-          )}
-        </Route>
-        <Route path="/goals">
-          {() => (
-            <ProtectedRoute>
-              <RouteWithLayout component={Goals} />
-            </ProtectedRoute>
-          )}
-        </Route>
-        <Route path="/track">
-          {() => (
-            <ProtectedRoute>
-              <RouteWithLayout component={Track} />
-            </ProtectedRoute>
-          )}
-        </Route>
-        <Route path="/record">
-          {() => (
-            <ProtectedRoute>
-              <RouteWithLayout component={Record} />
-            </ProtectedRoute>
-          )}
-        </Route>
-        <Route path="/fire">
-          {() => (
-            <ProtectedRoute>
-              <RouteWithLayout component={Fire} />
-            </ProtectedRoute>
-          )}
-        </Route>
-        <Route path="/profile">
-          {() => (
-            <ProtectedRoute>
-              <RouteWithLayout component={Profile} />
-            </ProtectedRoute>
-          )}
-        </Route>
-        <Route path="/settings">
-          {() => (
-            <ProtectedRoute>
-              <RouteWithLayout component={Settings} />
-            </ProtectedRoute>
-          )}
-        </Route>
-        <Route path="/api-connections">
-          {() => (
-            <ProtectedRoute>
-              <RouteWithLayout component={ApiConnections} />
-            </ProtectedRoute>
-          )}
-        </Route>
+          {/* Protected Routes */}
+          <Route path="/">
+            <Redirect to="/portfolio" />
+          </Route>
+          <Route path="/portfolio">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={Portfolio} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/goals">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={Goals} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/track">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={Track} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/record">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={Record} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/fire">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={Fire} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/profile">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={Profile} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/settings">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={Settings} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/api-connections">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={ApiConnections} />
+              </ProtectedRoute>
+            )}
+          </Route>
 
-        {/* Maybe later when more abstractesd use dynamic routes
+          {/* Maybe later when more abstractesd use dynamic routes
         <Route path="/asset/broker/*">
           {() => (
             <ProtectedRoute>
@@ -112,23 +121,24 @@ function Router() {
           )}
         </Route>
         */}
-        <Route path="/asset/:id">
-          {() => (
-            <ProtectedRoute>
-              <RouteWithLayout component={AssetPage} />
-            </ProtectedRoute>
-          )}
-        </Route>
-        <Route path="/asset/broker/:id/item/:nestedId">
-          {() => (
-            <ProtectedRoute>
-              <RouteWithLayout component={NestedAssetPage} />
-            </ProtectedRoute>
-          )}
-        </Route>
-        <Route>{() => <RouteWithLayout component={NotFound} />}</Route>
-      </Switch>
-    </WouterRouter>
+          <Route path="/asset/:id">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={AssetPage} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/asset/broker/:id/item/:nestedId">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={NestedAssetPage} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route>{() => <RouteWithLayout component={NotFound} />}</Route>
+        </Switch>
+      </WouterRouter>
+    </ErrorBoundary>
   );
 }
 
