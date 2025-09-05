@@ -1,21 +1,24 @@
 import { BrokerLogo } from "@/components/logo/BrokerLogo";
-import { BrokerProvider } from "@shared/schema/portfolio-assets";
+import {
+  BrokerPlatform,
+  BrokerProvider,
+} from "@shared/schema/portfolio-assets";
 
 export const getBrokerName = (
-  providerId: string,
-  brokerProviders: BrokerProvider[]
+  platformId: string,
+  brokerPlatforms: BrokerPlatform[]
 ) => {
-  const provider = brokerProviders?.find((p) => p.id === providerId);
+  const provider = brokerPlatforms?.find((p) => p.id === platformId);
   return provider ? provider.name : "Unknown";
 };
 
 export const getBrokerSlug = (
-  providerId: string,
-  brokerProviders: BrokerProvider[]
+  platformId: string,
+  brokerPlatforms: BrokerPlatform[]
 ) => {
-  const provider = brokerProviders?.find((p) => p.id === providerId);
+  const provider = brokerPlatforms?.find((p) => p.id === platformId);
   return provider
-    ? resolveBrokerSlug(getBrokerName(providerId, brokerProviders))
+    ? resolveBrokerSlug(getBrokerName(platformId, brokerPlatforms))
     : "unknown";
 };
 

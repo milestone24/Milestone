@@ -30,14 +30,13 @@ import {
   getDateRange,
   DateRangeOption,
 } from "@/components/ui/DateRangeControl";
-import { useBrokerProviders } from "@/hooks/use-broker-providers";
+import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
 import {
   getBrokerAccountTypeFullName,
-  getBrokerName,
-  getBrokerSlug,
   getBrokerSlugFromName,
 } from "@/lib/broker";
 import BrokerLogoBoxed from "@/components/logo/BrokerLogoBoxed";
+import { getPlatformName } from "@/lib/platform";
 
 function Portfolio() {
   const { dateRange } = useDateRange();
@@ -46,8 +45,8 @@ function Portfolio() {
     return getDateRange(dateRange as DateRangeOption);
   }, [dateRange]);
 
-  const { data: brokerProviders, isLoading: isLoadingBrokerProviders } =
-    useBrokerProviders();
+  const { data: brokerPlatforms, isLoading: isLoadingBrokerPlatforms } =
+    useBrokerPlatforms();
 
   const [, setLocation] = useLocation();
   const {
@@ -83,7 +82,7 @@ function Portfolio() {
   );
 
   const onSubmit = async (values: UserAssetOrphanInsert) => {
-    console.log("submit account create values : ", values)
+    console.log("submit account create values : ", values);
     try {
       setIsAddingAccount(true);
       await addAsset.mutateAsync(values);
@@ -275,11 +274,14 @@ function Portfolio() {
         // List of accounts
         <>
           {assets.map((asset) => {
-            const providerName = asset.providerId
-              ? getBrokerName(asset.providerId, brokerProviders ?? [])
+            const platformName = asset.platformId
+              ? getPlatformName(asset.platformId, brokerPlatforms ?? [])
               : null;
+            console.log("asset.platformId", asset.platformId);
+            console.log("brokerPlatforms", brokerPlatforms);
+            console.log("platformName", platformName);
             return (
-              <div
+              <section
                 key={asset.id}
                 className="border-b border-gray-200 py-3 cursor-pointer hover:bg-gray-50 transition-colors relative"
                 onClick={(e) => {
@@ -292,24 +294,28 @@ function Portfolio() {
                   <div className="flex items-center gap-2">
                     <BrokerLogoBoxed
                       broker={
-                        providerName
-                          ? getBrokerSlugFromName(providerName)
+                        platformName
+                          ? getBrokerSlugFromName(platformName)
                           : undefined
                       }
                       size="md"
                     />
                     <div>
-                      <div className="mb-2">
+                      {/* <div className="mb-2">
                         <h2 className="text-xs text-gray-500  ">{asset.id}</h2>
-                      </div>
+                      </div> */}
                       <div className="mb-2">
-                        <h2 className="text-sm ">{asset.name}</h2>
+                        <span className="text-lg font-medium block">
+                          {asset.name}
+                        </span>
                       </div>
-                      <h3 className="font-medium">
-                        {providerName
-                          ? getBrokerSlugFromName(providerName)
-                          : undefined}
-                      </h3>
+                      {platformName ? (
+                        <div>
+                          <span className="font-medium block">
+                            {platformName}
+                          </span>
+                        </div>
+                      ) : null}
                       <span
                         className={`text-sm ${getAccountTypeColor(
                           asset.accountType
@@ -375,7 +381,7 @@ function Portfolio() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </section>
             );
           })}
 
