@@ -72,12 +72,7 @@ const assetWithValeGuard = (
 };
 
 export default function Record() {
-  const {
-    addBrokerAssetValue,
-    isLoading,
-    updateBrokerAssetValue,
-    brokerAssets,
-  } = usePortfolio();
+  const { addAsset, isLoading, updateAsset, assets } = usePortfolio();
 
   const { data: brokerProviders } = useBrokerProviders();
 
@@ -88,7 +83,7 @@ export default function Record() {
     date: Date
   ) => {
     try {
-      await apiRequest("POST", `/api/assets/broker/${assetId}/contributions`, {
+      await apiRequest("POST", `/api/assets/${assetId}/contributions`, {
         value,
         recordedAt: date,
       });
@@ -219,7 +214,7 @@ export default function Record() {
   // Initialize values with current values button
   const initializeWithCurrentValues = () => {
     const initialValues: AccountFormData = {};
-    brokerAssets.forEach((asset) => {
+    assets.forEach((asset) => {
       initialValues[asset.id] = Number(asset.currentValue);
     });
     setAccountValues(initialValues);
@@ -233,7 +228,7 @@ export default function Record() {
 
   // Find account name by ID
   const getAssetName = (assetId: string) => {
-    const asset = brokerAssets.find((acc) => acc.id === assetId);
+    const asset = assets.find((acc) => acc.id === assetId);
 
     return asset?.providerId
       ? `${getBrokerName(asset.providerId, brokerProviders ?? [])} (${
@@ -254,33 +249,33 @@ export default function Record() {
     setEditValue("");
   };
 
-  console.log("brokerAssets", brokerAssets);
+  console.log("brokerAssets", assets);
 
-  // Save edited record
-  const handleSaveEdit = async () => {
-    if (!editHistoryRecord) return;
+  // // Save edited record
+  // const handleSaveEdit = async () => {
+  //   if (!editHistoryRecord) return;
 
-    try {
-      // Use the updateAccountHistory function to update the record
-      await updateBrokerAssetValue.mutateAsync({
-        assetId: editHistoryRecord.assetId,
-        value: Number(editValue),
-        valueDate: new Date(editHistoryRecord.recordedAt),
-        recordedAt: new Date(),
-        historyId: editHistoryRecord.id,
-      });
+  //   try {
+  //     // Use the updateAccountHistory function to update the record
+  //     await updateAsset.mutateAsync({
+  //       assetId: editHistoryRecord.assetId,
+  //       value: Number(editValue),
+  //       valueDate: new Date(editHistoryRecord.recordedAt),
+  //       recordedAt: new Date(),
+  //       historyId: editHistoryRecord.id,
+  //     });
 
-      setEditHistoryRecord(null);
-      setEditValue("");
-    } catch (error) {
-      console.error("Error updating history record:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update history record. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
+  //     setEditHistoryRecord(null);
+  //     setEditValue("");
+  //   } catch (error) {
+  //     console.error("Error updating history record:", error);
+  //     toast({
+  //       title: "Error",
+  //       description: "Failed to update history record. Please try again.",
+  //       variant: "destructive",
+  //     });
+  //   }
+  // };
 
   // Handle input change for account values
   const handleAccountValueChange = (assetId: string, value: string) => {
@@ -299,85 +294,85 @@ export default function Record() {
   };
 
   // Handle form submission for a single account
-  const handleSubmitAccount = async (assetId: string) => {
-    const value = accountValues[assetId];
+  // const handleSubmitAccount = async (assetId: string) => {
+  //   const value = accountValues[assetId];
 
-    if (!value || !date) {
-      toast({
-        title: "Missing information",
-        description: "Please enter a value for this account",
-        variant: "destructive",
-      });
-      return;
-    }
+  //   if (!value || !date) {
+  //     toast({
+  //       title: "Missing information",
+  //       description: "Please enter a value for this account",
+  //       variant: "destructive",
+  //     });
+  //     return;
+  //   }
 
-    setUpdatingAccounts((prev) => [...prev, assetId]);
+  //   setUpdatingAccounts((prev) => [...prev, assetId]);
 
-    try {
-      await addBrokerAssetValue.mutateAsync({
-        assetId,
-        value,
-        valueDate: new Date(date),
-        recordedAt: new Date(),
-      });
+  //   try {
+  //     await addAsset.mutateAsync({
+  //       assetId,
+  //       value,
+  //       valueDate: new Date(date),
+  //       recordedAt: new Date(),
+  //     });
 
-      toast({
-        title: "Value recorded",
-        description: "Account value has been updated successfully",
-      });
+  //     toast({
+  //       title: "Value recorded",
+  //       description: "Account value has been updated successfully",
+  //     });
 
-      // Clear the value for this account
-      setAccountValues((prev) => {
-        const newValues = { ...prev };
-        delete newValues[assetId];
-        return newValues;
-      });
-    } catch (error) {
-      console.error("Error recording value:", error);
-      toast({
-        title: "Error",
-        description: "Failed to record value. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setUpdatingAccounts((prev) => prev.filter((id) => id !== assetId));
-    }
-  };
+  //     // Clear the value for this account
+  //     setAccountValues((prev) => {
+  //       const newValues = { ...prev };
+  //       delete newValues[assetId];
+  //       return newValues;
+  //     });
+  //   } catch (error) {
+  //     console.error("Error recording value:", error);
+  //     toast({
+  //       title: "Error",
+  //       description: "Failed to record value. Please try again.",
+  //       variant: "destructive",
+  //     });
+  //   } finally {
+  //     setUpdatingAccounts((prev) => prev.filter((id) => id !== assetId));
+  //   }
+  // };
 
   // Handle form submission for a single account contribution
-  const handleSubmitContribution = async (assetId: string) => {
-    const value = contributionValues[assetId];
+  // const handleSubmitContribution = async (assetId: string) => {
+  //   const value = contributionValues[assetId];
 
-    if (!value || !date) {
-      toast({
-        title: "Missing information",
-        description: "Please enter a contribution amount for this account",
-        variant: "destructive",
-      });
-      return;
-    }
+  //   if (!value || !date) {
+  //     toast({
+  //       title: "Missing information",
+  //       description: "Please enter a contribution amount for this account",
+  //       variant: "destructive",
+  //     });
+  //     return;
+  //   }
 
-    setUpdatingContributions((prev) => [...prev, assetId]);
+  //   setUpdatingContributions((prev) => [...prev, assetId]);
 
-    try {
-      const success = await addContributionToAsset(
-        assetId,
-        value,
-        new Date(date)
-      );
+  //   try {
+  //     const success = await addContributionToAsset(
+  //       assetId,
+  //       value,
+  //       new Date(date)
+  //     );
 
-      if (success) {
-        // Clear the value for this account
-        setContributionValues((prev) => {
-          const newValues = { ...prev };
-          delete newValues[assetId];
-          return newValues;
-        });
-      }
-    } finally {
-      setUpdatingContributions((prev) => prev.filter((id) => id !== assetId));
-    }
-  };
+  //     if (success) {
+  //       // Clear the value for this account
+  //       setContributionValues((prev) => {
+  //         const newValues = { ...prev };
+  //         delete newValues[assetId];
+  //         return newValues;
+  //       });
+  //     }
+  //   } finally {
+  //     setUpdatingContributions((prev) => prev.filter((id) => id !== assetId));
+  //   }
+  // };
 
   // Handle submission of all accounts at once
   const handleSubmitAll = async () => {
@@ -405,7 +400,8 @@ export default function Record() {
     try {
       await Promise.all(
         accountsToUpdate.map(async (accountData) => {
-          await addBrokerAssetValue.mutateAsync(accountData);
+          throw new Error("Not implemented");
+          //await addAsset.mutateAsync(accountData);
         })
       );
 
@@ -529,7 +525,7 @@ export default function Record() {
               </Button>
               {activeTab === "values" && (
                 <ScreenshotUpload
-                  brokerAssets={brokerAssets}
+                  brokerAssets={assets}
                   onExtractedValues={(extractedValues) => {
                     // Create a new object to hold the values
                     const newValues = { ...accountValues };
@@ -548,7 +544,7 @@ export default function Record() {
           </div>
         </CardHeader>
         <CardContent>
-          {brokerAssets.length === 0 ? (
+          {assets.length === 0 ? (
             <div className="text-center py-6">
               <p className="text-muted-foreground">
                 You don't have any accounts yet. Add accounts in the Portfolio
@@ -585,7 +581,7 @@ export default function Record() {
                 {/* Account Values Tab */}
                 <TabsContent value="values">
                   <div className="space-y-4">
-                    {[...brokerAssets]
+                    {[...assets]
                       .sort(
                         (a, b) =>
                           Number(b.currentValue) - Number(a.currentValue)
@@ -758,7 +754,7 @@ export default function Record() {
                   )}
 
                   <div className="space-y-4">
-                    {[...brokerAssets]
+                    {[...assets]
                       .sort(
                         (a, b) =>
                           Number(b.currentValue) - Number(a.currentValue)
