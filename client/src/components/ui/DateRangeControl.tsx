@@ -29,7 +29,9 @@ export default function DateRangeControl({ className }: DateRangeControlProps) {
   const { dateRange, setDateRange } = useDateRange();
 
   return (
-    <div className={cn("flex justify-center items-center space-x-2 mb-5", className)}>
+    <div
+      className={cn("flex justify-center items-center space-x-2", className)}
+    >
       {DATE_RANGES.map((range) => (
         <button
           key={range.value}

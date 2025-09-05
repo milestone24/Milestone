@@ -134,11 +134,7 @@ export const SecuritiesTransactionsPanel = ({
                 <BsPiggyBank className="h-5 w-5 mr-2 text-green-600" />
                 Contribution Summary
               </h3>
-              <div className="grid grid-cols-2 gap-4 mt-3">
-                {/* <div>
-              <p className="text-sm text-gray-600">Total Contributed</p>
-              <p className="text-xl font-semibold">{totalTransactionsValue}</p>
-            </div> */}
+              <div className="grid grid-cols-3 gap-4 mt-3">
                 <div>
                   <p className="text-sm text-gray-600">
                     Number of Contributions

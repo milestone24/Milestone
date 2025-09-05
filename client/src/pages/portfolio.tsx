@@ -107,7 +107,7 @@ function Portfolio() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto md:px-4 pb-20">
+    <div className="max-w-5xl mx-auto px-2 md:px-4 pb-20">
       <div className="w-full flex flex-col">
         <span>Value</span>
         {portfolioOverview ? (
@@ -140,6 +140,11 @@ function Portfolio() {
         )}
       </div>
 
+      {/* Date Range Control */}
+      <div className="my-4">
+        <DateRangeBar />
+      </div>
+
       {/* Chart Section */}
       <AssetHistoryChart
         className="mt-4"
@@ -149,11 +154,8 @@ function Portfolio() {
         //   nextMilestone ? Number(nextMilestone.targetValue) : undefined
         // }
       />
-      {/* Date Range Control */}
-      <DateRangeBar />
-
       {/* Portfolio Accounts List */}
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center my-4">
         <h2 className="text-lg font-semibold">Accounts</h2>
         <div className="flex items-center space-x-4">
           <div className="flex bg-gray-200 rounded-lg shadow-md">

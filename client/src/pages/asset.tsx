@@ -3,7 +3,7 @@ import { useParams } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, RefreshCcw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -214,7 +214,7 @@ function AssetPage() {
 
   if (!asset) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-2 md:px-4 py-8">
         <Card>
           <CardContent className="p-4">
             <p className="text-center text-gray-500">Account not found</p>
@@ -263,11 +263,27 @@ function AssetPage() {
         </div>
       </div>
 
-      <div className="w-full flex flex-col">
-        <span>Value</span>
-        <span className="text-2xl font-bold">
-          £{Number(asset.currentValue).toLocaleString()}
-        </span>
+      <div className="w-full flex flex-row justify-between items-center">
+        <div className="flex flex-col">
+          <span>Value</span>
+          <span className="text-2xl font-bold">
+            £{Number(asset.currentValue).toLocaleString()}
+          </span>
+        </div>
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            onClick={handleUpdateAssetHistories}
+            disabled={isUpdatingHistories}
+          >
+            <RefreshCcw className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Date Range Control */}
+      <div className="my-4">
+        <DateRangeBar />
       </div>
 
       {/* Chart Section */}
@@ -279,21 +295,10 @@ function AssetPage() {
         //   nextMilestone ? Number(nextMilestone.targetValue) : undefined
         // }
       />
-      {/* Date Range Control */}
-      <DateRangeBar />
-
-      <div className="flex justify-end">
-        <Button
-          onClick={handleUpdateAssetHistories}
-          disabled={isUpdatingHistories}
-        >
-          Update
-        </Button>
-      </div>
 
       <div>
         <div className="">
-          <h2 className="text-lg font-medium mb-2">Holdings</h2>
+          <h2 className="text-lg font-medium my-2 md:my-4">Holdings</h2>
           <SecuritiesList
             className="my-4"
             securities={asset.securities}

@@ -11,7 +11,11 @@ import {
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
-import { AssetHistoryTimePoint, AssetValue } from "shared/schema";
+import {
+  AssetHistoryTimePoint,
+  AssetValue,
+  AssetValueMetadata,
+} from "shared/schema";
 import { usePortfolio } from "@/context/PortfolioContext";
 import { useDateRange } from "@/context/DateRangeContext";
 import {
@@ -20,6 +24,7 @@ import {
 } from "@/components/ui/DateRangeControl";
 import { Check } from "lucide-react";
 import { getDateUrlParams } from "@/lib/date";
+import numabbr from "numabbr";
 
 type ChartData = Omit<AssetHistoryTimePoint, "date" | "metadata"> & {
   date: string;
@@ -28,7 +33,7 @@ type ChartData = Omit<AssetHistoryTimePoint, "date" | "metadata"> & {
     name: string;
     targetValue: number;
   };
-  metadata?: Record<string, unknown>[];
+  metadata?: AssetValueMetadata[];
 };
 
 // Helper to combine data points for the same date
@@ -171,10 +176,7 @@ export default function AssetHistoryChart({
   if (isLoading) {
     return (
       <div
-        className={cn(
-          "w-full md:bg-white md:border md:rounded-lg md:shadow-sm",
-          className
-        )}
+        className={cn("w-full md:bg-white md:border md:rounded-lg", className)}
       >
         <div className="p-2 md:p-4 h-[300px] flex items-center justify-center">
           <p className="text-muted-foreground">Loading chart data...</p>
@@ -185,10 +187,7 @@ export default function AssetHistoryChart({
 
   return (
     <div
-      className={cn(
-        "w-full md:bg-white md:border md:rounded-lg md:shadow-sm",
-        className
-      )}
+      className={cn("w-full md:bg-white md:border md:rounded-lg", className)}
     >
       <div className="">
         <div className="flex justify-between items-center mb-4">
@@ -250,7 +249,7 @@ export default function AssetHistoryChart({
 
         {chartVisible && (
           <>
-            <div className="chart-container h-[240px] w-full mb-5">
+            <div className="chart-container h-[240px] w-full mb-5 px-2">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                   data={chartData}
@@ -271,13 +270,14 @@ export default function AssetHistoryChart({
                     dataKey="date"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 12 }}
+                    tick={{ fontSize: 10 }}
                   />
                   <YAxis
-                    tickFormatter={(value) => `£${value.toLocaleString()}`}
+                    tickFormatter={(value) => `£${numabbr(value)}`}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 12 }}
+                    accentHeight={0.5}
+                    tick={{ fontSize: 10 }}
                     domain={[0, getMaxYValue()]}
                   />
                   <Tooltip
@@ -442,7 +442,7 @@ export default function AssetHistoryChart({
                   selectedPoint.metadata.length > 0 && (
                     <div className="mt-4 p-3">
                       <h4 className="text-sm font-medium mb-1">Metadata</h4>
-                      <pre className="text-sm text-gray-600">
+                      <pre className="text-sm text-gray-600 overflow-x-scroll">
                         {JSON.stringify(selectedPoint.metadata, null, 2)}
                       </pre>
                     </div>
