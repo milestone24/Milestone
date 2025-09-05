@@ -78,7 +78,7 @@ export interface AssetSecurity {
   securityId: string;
   symbol: string;
   exchange?: string;
-  shareHolding: number;
+  //shareHolding: number;
   startDate: Date;
 }
 

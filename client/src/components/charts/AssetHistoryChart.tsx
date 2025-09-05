@@ -68,12 +68,14 @@ const combineDataPoints = (data: ChartData[]): ChartData[] => {
 
 type AssetHistoryChartProps = {
   url: string;
+  queryKey: string[];
   showMilestones?: boolean;
   className?: string;
 };
 
 export default function AssetHistoryChart({
   url,
+  queryKey,
   showMilestones = true,
   className,
 }: AssetHistoryChartProps) {
@@ -114,7 +116,7 @@ export default function AssetHistoryChart({
   // Fetch asset history data
   const { data: historyData, isLoading } = useQuery<AssetHistoryTimePoint[]>({
     //const { data: historyData, isLoading } = useQuery<AssetValue[]>({
-    queryKey: [url, startDate, endDate],
+    queryKey: [...queryKey, startDate, endDate],
     queryFn: async () => {
       const response = await fetch(
         `${url}?${getDateUrlParams(startDate, endDate)}&sort=valueDate,asc`

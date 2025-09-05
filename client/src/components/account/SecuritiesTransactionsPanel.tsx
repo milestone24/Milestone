@@ -193,6 +193,9 @@ export const SecuritiesTransactionsPanel = ({
                     {/* Replace this with icon for security shares */}
                     <Layers2 className="h-4 w-4 mr-1 text-green-600" />
                     {/* <Coins className="h-4 w-4 mr-1 text-green-600" /> */}
+                    <span className="text-sm text-gray-600 pl-1">
+                      {transaction.securityName}&nbsp;-&nbsp;
+                    </span>
                     <span
                       className={cn(
                         "font-medium",
@@ -202,21 +205,22 @@ export const SecuritiesTransactionsPanel = ({
                       )}
                     >
                       {transaction.value > 0 ? "+" : "-"}
-                      {Number(transaction.value).toLocaleString()}
-                    </span>
-                    <span className="text-sm text-gray-600 pl-1">
-                      {" - " + transaction.securityName}
+                      {Number(transaction.value)} shares
                     </span>
                   </div>
                   <p className="text-sm text-gray-600">
-                    {new Date(transaction.valueDate).toLocaleDateString(
-                      "en-GB",
-                      {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      }
-                    )}
+                    <span>
+                      {new Date(transaction.valueDate).toLocaleDateString(
+                        "en-GB",
+                        {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        }
+                      )}
+                    </span>
+                    <span>&nbsp;-&nbsp;</span>
+                    <span>£{transaction.currencyValue.toLocaleString()}</span>
                   </p>
                 </div>
               </div>

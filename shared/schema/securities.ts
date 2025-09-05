@@ -96,6 +96,7 @@ export type UserAssetSecurityTransactionResolved = {
   securityName: string;
   value: number;
   currency: string;
+  currencyValue: number;
   valueDate: Date;
 };
 

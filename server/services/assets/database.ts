@@ -445,13 +445,22 @@ export class DatabaseAssetService {
                 desc(securityDailyHistory.date),
               ],
             });
+
+            const shareHoldings = await tx
+              .select({
+                sum: sum(securityTransactions.value),
+              })
+              .from(securityTransactions)
+              .where(eq(securityTransactions.securityId, security.id));
+
             return {
               ...security,
               calculatedValue: {
                 value: lastValue
                   ? Number(
                       (
-                        Number(lastValue.close ?? 0) * security.shareHolding
+                        Number(lastValue.close ?? 0) *
+                        Number(shareHoldings?.[0]?.sum ?? 0)
                       ).toFixed(2)
                     )
                   : 0,
@@ -563,8 +572,9 @@ export class DatabaseAssetService {
             userAssetId: insertedUserAsset.id,
             recordedAt: security.recordedAt ?? new Date(),
             shareHolding: security.shareHolding,
-            gainLoss: security.gainLoss,
+            currencyValue: security.currencyValue,
             startDate: security.startDate,
+            priorGainLoss: security.priorGainLoss,
             currency: persistedSecurity.currency ?? "GBP",
           };
 
@@ -579,8 +589,9 @@ export class DatabaseAssetService {
 
           const transaction = await tx.insert(securityTransactions).values({
             securityId: assetSecurity.id,
-            value: assetSecurity.shareHolding,
-            currency: assetSecurityData.currency ?? "GBP",
+            value: assetSecurityData.shareHolding,
+            currency: persistedSecurity.currency ?? "GBP",
+            currencyValue: assetSecurityData.currencyValue,
             recordedAt: new Date(),
             valueDate: insertedUserAsset.startDate,
           });
@@ -806,6 +817,7 @@ export class DatabaseAssetService {
           securityName: curr.securities.name,
           value: curr.security_transactions.value,
           currency: curr.security_transactions.currency,
+          currencyValue: curr.security_transactions.currencyValue ?? 0,
           valueDate: curr.security_transactions.valueDate,
         });
         return acc;
@@ -831,7 +843,34 @@ export class DatabaseAssetService {
       throw new Error("Failed to create security transaction");
     }
 
+    const assetSecurity = await this.db.query.userAssetSecurities.findFirst({
+      where: eq(userAssetSecurities.id, securityId),
+    });
+
+    if (!assetSecurity) {
+      throw new Error("Asset security not found, can not update asset values");
+    }
+
+    //TODO this should be a background process??
+    await this.clearAndUpdateAssetValuesFromDate(
+      assetSecurity.userAssetId,
+      data.valueDate
+    );
+
     return securityTransaction;
+  }
+
+  async clearAndUpdateAssetValuesFromDate(
+    assetId: UserAsset["id"],
+    date: Date
+  ): Promise<void> {
+    await this.db
+      .delete(assetValues)
+      .where(
+        and(eq(assetValues.assetId, assetId), gte(assetValues.valueDate, date))
+      );
+    const assetPersistence = assetPersistenceFactory(this, assetId);
+    await securitiesService.updateAssetValues(assetPersistence);
   }
 
   // async setBrokerProviderAPIKey(
@@ -1323,17 +1362,17 @@ export class DatabaseAssetService {
     return (result?.rowCount ?? 0) > 0;
   }
 
+  /**
+   * Get the share holdings for all securities in the asset for a given date
+   * @param assetId
+   * @param date
+   * @returns
+   */
   async getUserAssetSecurityShareHoldingsForDate(
     assetId: UserAsset["id"],
     date: Date
   ): Promise<AssetSecurityShareHoldingsForDate[]> {
     const result = await this.db.transaction(async (tx) => {
-      // const securities = await this.db.query.userAssetSecurities.findMany({
-      //   with: { security: true },
-      //   where: and(eq(userAssetSecurities.userAssetId, assetId)),
-      //   orderBy: orderBy || [desc(userAssetSecurities.recordedAt)],
-      // });
-
       const s = await this.db
         .select({
           securityId: userAssetSecurities.securityId,
@@ -1408,8 +1447,8 @@ export const assetPersistenceFactory = (
         securityId: security.securityId,
         symbol: security.security.symbol,
         exchange: security.security.exchange ?? undefined,
-        shareHolding: security.shareHolding,
-        gainLoss: security.gainLoss,
+        // shareHolding: security.shareHolding,
+        // gainLoss: security.gainLoss,
         startDate: security.startDate,
       }));
     },

@@ -1,12 +1,16 @@
 import {
   userAssetOrphanInsertSchema,
   UserAssetOrphanInsert,
-  UserAssetSecurityInsert,
   SecuritySearchResult,
-  userAssetSecurityInsertSchema,
   UserAssetInsertSecurityItem,
+  accountType,
 } from "@shared/schema";
-import { useForm, useFormContext, useFieldArray, Controller } from "react-hook-form";
+import {
+  useForm,
+  useFormContext,
+  useFieldArray,
+  Controller,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Form,
@@ -27,7 +31,6 @@ import {
   SelectValue,
 } from "../ui/select";
 import RSelect from "react-select";
-import { useBrokerProviders } from "@/hooks/use-broker-providers";
 import { Button } from "../ui/button";
 import { useFindSecurities } from "@/hooks/use-find-securities";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -76,10 +79,15 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
                 ? parseFloat(security.shareHolding)
                 : security.shareHolding
               : 0,
-            gainLoss: security.gainLoss
-              ? typeof security.gainLoss === "string"
-                ? parseFloat(security.gainLoss)
-                : security.gainLoss
+            currencyValue: security.currencyValue
+              ? typeof security.currencyValue === "string"
+                ? parseFloat(security.currencyValue)
+                : security.currencyValue
+              : 0,
+            priorGainLoss: security.priorGainLoss
+              ? typeof security.priorGainLoss === "string"
+                ? parseFloat(security.priorGainLoss)
+                : security.priorGainLoss
               : 0,
           })) ?? [],
         contributions: {
@@ -106,7 +114,7 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
         },
       })
     ),
-    mode: "onBlur",
+    mode: "onChange",
     // defaultValues: {
     //   securities: [],
     //   contributions: {
@@ -133,7 +141,7 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
     },
   });
 
-  const [formStage, setFormStage] = useState<number>(2);
+  const [formStage, setFormStage] = useState<number>(1);
 
   const submitForm = (data: UserAssetOrphanInsert) => {
     onSubmit(data);
@@ -144,6 +152,8 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
     handleSubmit,
     formState: { errors },
   } = form;
+
+  console.log("errors", errors);
 
   return (
     <>
@@ -175,6 +185,7 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
             />
           )}
         </form>
+        <FormMessage />
       </Form>
     </>
   );
@@ -242,12 +253,13 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
   const form = useFormContext<UserAssetOrphanInsert>();
 
   const {
-    formState: { isSubmitting },
+    formState: { isSubmitting, errors },
   } = form;
+
+  console.log("errors", errors);
 
   // const { data: brokerProviders, isLoading: isLoadingBrokerProviders } =
   //   useBrokerProviders();
-
 
   const { data: brokerPlatforms, isLoading: isLoadingBrokerPlatforms } =
     useBrokerPlatforms();
@@ -344,23 +356,24 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
         render={({ field }) => (
           <FormItem>
             <FormLabel>Select Account Type</FormLabel>
-            <Select
-              onValueChange={field.onChange}
-              defaultValue={field.value}
-              disabled={!selectedPlatform}
-            >
+            <Select onValueChange={field.onChange} defaultValue={field.value}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {selectedPlatform &&
-                  selectedPlatform.supportedAccountTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
+                {selectedPlatform
+                  ? selectedPlatform.supportedAccountTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))
+                  : accountType.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
               </SelectContent>
             </Select>
             <FormMessage />
@@ -374,23 +387,25 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
         render={() => (
           <FormItem>
             <FormLabel>Select Start Date</FormLabel>
-            <FormDescription>
-              When did you start this account?
-            </FormDescription>
+            <FormDescription>When did you start this account? </FormDescription>
             <Controller
               control={form.control}
               name="startDate"
+              rules={{ required: true }}
               render={({ field }) => (
                 <Input
                   type="date"
                   onChange={(e) => field.onChange(new Date(e.target.value))}
-                  value={field.value ? field.value.toISOString().split("T")[0] : ""} />
+                  value={
+                    field.value ? field.value.toISOString().split("T")[0] : ""
+                  }
+                />
               )}
             />
             <FormMessage />
           </FormItem>
         )}
-      />  
+      />
 
       <section>
         <ActionsBar {...actionsBarProps} isProcessing={isSubmitting} />
@@ -415,7 +430,7 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
 
   const securities = watch("securities");
 
-  console.log("Two securities : ", securities)
+  console.log("Two securities : ", securities);
 
   const startDate = watch("startDate");
 
@@ -436,27 +451,38 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
               How do you want to control this account?
             </FormDescription>
             <FormControl>
-              <RadioGroup
-                value={field.value}
-                onValueChange={field.onChange}
-              >
+              <RadioGroup value={field.value} onValueChange={field.onChange}>
                 <div className="flex flex-row gap-2 items-start">
                   <div className="flex flex-col gap-2 pt-2">
-                    <RadioGroupItem value="calculated" id="calculated" className="flex-shrink-0" />
+                    <RadioGroupItem
+                      value="calculated"
+                      id="calculated"
+                      className="flex-shrink-0"
+                    />
                   </div>
                   <div className="flex flex-col pt-1">
                     <label htmlFor="calculated">Calculated</label>
-                    <span className="text-xs block">We will calculate the value of your account based on the securities you tell us are held in the account</span>
+                    <span className="text-xs block">
+                      We will calculate the value of your account based on the
+                      securities you tell us are held in the account
+                    </span>
                   </div>
                 </div>
                 <div className="flex flex-row gap-2 items-start">
                   <div className="flex flex-col gap-2 pt-2">
-                    <RadioGroupItem value="manual" id="manual" className="flex-shrink-0" />
+                    <RadioGroupItem
+                      value="manual"
+                      id="manual"
+                      className="flex-shrink-0"
+                    />
                   </div>
                   <div className="flex flex-col pt-1">
                     <label htmlFor="manual">Manual</label>
-                    <span className="text-xs block">You will need to manually enter the value of your account each time</span>
-                    </div>
+                    <span className="text-xs block">
+                      You will need to manually enter the value of your account
+                      each time
+                    </span>
+                  </div>
                 </div>
               </RadioGroup>
             </FormControl>
@@ -468,7 +494,10 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
         <>
           <div>
             <FormLabel>Add Securities</FormLabel>
-            <FormDescription>In order to calculate the value of your account, we need to know which securities are held in the account</FormDescription>
+            <FormDescription>
+              In order to calculate the value of your account, we need to know
+              which securities are held in the account
+            </FormDescription>
           </div>
           <div className="space-y-2 flex flex-col gap-2">
             {fields.map((field, index) => (
@@ -493,7 +522,9 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
                 }}
               />
             ) : (
-              <Button onClick={() => setAddingSecurity(true)}>Add Security</Button>
+              <Button onClick={() => setAddingSecurity(true)}>
+                Add Security
+              </Button>
             )}
             <ActionsBar {...props} isProcessing={isSubmitting} />
           </div>
@@ -502,7 +533,6 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
     </>
   );
 };
-
 
 // Debounce utility
 function useDebouncedCallback<T extends (...args: any[]) => void>(
@@ -538,8 +568,10 @@ const SecurityOptions = ({
   return <div {...innerProps}>{data.label}</div>;
 };
 
-
-type UserAssetInsertSecurityItemWithoutStartDate = Omit<UserAssetInsertSecurityItem, "startDate">;
+type UserAssetInsertSecurityItemWithoutStartDate = Omit<
+  UserAssetInsertSecurityItem,
+  "startDate"
+>;
 
 const SecurityAddForm = ({
   onAdd,
@@ -548,14 +580,16 @@ const SecurityAddForm = ({
   onAdd: (value: UserAssetInsertSecurityItemWithoutStartDate) => void;
   onCancel: () => void;
 }) => {
-  const form = useForm<Partial<Omit<UserAssetInsertSecurityItemWithoutStartDate, "startDate">>>({
+  const form = useForm<
+    Partial<Omit<UserAssetInsertSecurityItemWithoutStartDate, "startDate">>
+  >({
     //We need this as the form library does not use react-hook form effectively to allow valueAsNumber to work
     //And we really need a float anyway
 
     defaultValues: {
       security: undefined,
       shareHolding: 0,
-      gainLoss: 0,
+      currencyValue: 0,
     },
   });
 
@@ -615,19 +649,40 @@ const SecurityAddForm = ({
       />
       <FormField
         control={control}
-        name="gainLoss"
+        name="currencyValue"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Gain/Loss</FormLabel>
+            <FormLabel>Currency Value</FormLabel>
+            <FormDescription>
+              The currency paid for the security to date.
+            </FormDescription>
             <FormControl>
-              <Input type="number" placeholder="Gain/Loss" {...field} />
+              <Input type="number" placeholder="Currency Value" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={control}
+        name="priorGainLoss"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Prior Gain/Loss</FormLabel>
+            <FormDescription>
+              The prior gain/loss for the security.
+            </FormDescription>
+            <FormControl>
+              <Input type="number" placeholder="Prior Gain/Loss" {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
         )}
       />
       <div className="flex flex-row gap-2">
-        <Button variant="outline" onClick={() => onCancel()}>Cancel</Button>
+        <Button variant="outline" onClick={() => onCancel()}>
+          Cancel
+        </Button>
         <Button
           onClick={() => {
             if (selectedSecurity) {
@@ -635,7 +690,8 @@ const SecurityAddForm = ({
                 tempId: crypto.randomUUID(),
                 security: selectedSecurity,
                 shareHolding: form.getValues("shareHolding") || 0,
-                gainLoss: form.getValues("gainLoss") || 0,
+                currencyValue: form.getValues("currencyValue") || 0,
+                priorGainLoss: form.getValues("priorGainLoss") || 0,
               } as UserAssetInsertSecurityItemWithoutStartDate);
               setSelectedSecurity(null);
               setSearchInput("");
@@ -647,7 +703,6 @@ const SecurityAddForm = ({
           Add
         </Button>
       </div>
-      
     </>
   );
 };
@@ -657,6 +712,8 @@ type SecurityCardProps = {
 };
 
 const SecurityCard = ({ security }: SecurityCardProps) => {
+  console.log("Security card security : ", security);
+
   return (
     <div className="flex flex-col gap-1 p-2 border rounded-md">
       <div className="flex flex-row gap-2 text-ellipsis text-sm">
@@ -668,8 +725,8 @@ const SecurityCard = ({ security }: SecurityCardProps) => {
         <span>{security.shareHolding}</span>
       </div>
       <div className="flex flex-row gap-2 text-sm">
-        <span>Gain/Loss:</span>
-        <span>{security.gainLoss}</span>
+        <span>Currency Value:</span>
+        <span>{security.currencyValue}</span>
       </div>
       <div className="flex flex-row gap-2 text-sm">
         <span>Start Date:</span>

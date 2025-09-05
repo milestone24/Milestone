@@ -48,6 +48,9 @@ export const useSecurityTransactions = (assetId: string) => {
       queryClient.invalidateQueries({
         queryKey: ["assets", assetId, "securities", "transactions"],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["assets", assetId, "history", "graph"],
+      });
     },
   });
 

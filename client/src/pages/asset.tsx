@@ -287,14 +287,17 @@ function AssetPage() {
       </div>
 
       {/* Chart Section */}
-      <AssetHistoryChart
-        className="mt-4"
-        showMilestones={false}
-        url={`/api/assets/${assetId}/history/graph`}
-        // nextMilestone={
-        //   nextMilestone ? Number(nextMilestone.targetValue) : undefined
-        // }
-      />
+      {assetId ? (
+        <AssetHistoryChart
+          className="mt-4"
+          showMilestones={false}
+          url={`/api/assets/${assetId}/history/graph`}
+          queryKey={["asset", assetId, "history", "graph"]}
+          // nextMilestone={
+          //   nextMilestone ? Number(nextMilestone.targetValue) : undefined
+          // }
+        />
+      ) : null}
 
       <div>
         <div className="">

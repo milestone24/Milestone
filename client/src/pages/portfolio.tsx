@@ -149,6 +149,7 @@ function Portfolio() {
         className="mt-4"
         showMilestones={showMilestones}
         url="/api/assets/portfolio-value/history"
+        queryKey={["portfolio", "history", "graph"]}
         // nextMilestone={
         //   nextMilestone ? Number(nextMilestone.targetValue) : undefined
         // }

@@ -5,10 +5,6 @@ import { relations, InferSelectModel, sql } from "drizzle-orm";
 import { IncludeRelation } from "../types/utils";
 import { InferResultType } from "../types/utils";
 import { securities, securityDailyHistory } from "./securities";
-import {
-  AssetValue,
-  AssetValueMetadata,
-} from "@shared/schema/portfolio-assets";
 export const accountType = ["ISA", "CISA", "SIPP", "LISA", "GIA"] as const;
 export const accountTypeEnum = pgEnum("account_type", accountType);
 export const contributionInterval = [
@@ -35,6 +31,22 @@ export type ContributionInterval = (typeof contributionInterval)[number];
 export type ValueEntryMethod = (typeof valueEntryMethod)[number];
 export type ValueMethod = (typeof valueMethod)[number];
 
+export type AssetValueMetadataSecurity = {
+  securityName: string;
+  securitySymbol: string;
+  value: number;
+  shareHolding: number;
+};
+
+export type AssetValueMetadata = {
+  calculatedAt: string;
+  securitiesProcessed: number;
+  securitiesTotal: number;
+  dataStatus: "complete" | "partial";
+  sourcesUsed: string[]; // Dynamic source identifiers from actual services
+  securities: AssetValueMetadataSecurity[];
+};
+
 export const assetValues = pgTable("asset_values", {
   id: uuid("id")
     .notNull()
@@ -50,7 +62,6 @@ export const assetValues = pgTable("asset_values", {
 
 export type AssetValueSelect = InferSelectModel<typeof assetValues>;
 export type AssetValueInsert = InferInsertModelBasic<typeof assetValues>;
-
 
 // export const assetContributions = pgTable("asset_contributions", {
 //   id: uuid('id').notNull().default(sql`gen_random_uuid()`),
@@ -75,18 +86,24 @@ export type AssetValueInsert = InferInsertModelBasic<typeof assetValues>;
 // export type AssetDebitInsert = InferInsertModelBasic<typeof assetDebits>;
 
 export const recurringContributions = pgTable("recurring_contributions", {
-  id: uuid('id').notNull().default(sql`gen_random_uuid()`),
+  id: uuid("id")
+    .notNull()
+    .default(sql`gen_random_uuid()`),
   assetId: uuid("asset_id").notNull(),
   amount: real("amount").notNull(),
   startDate: timestamp("start_date").notNull(),
   interval: contributionIntervalEnum("interval").notNull(),
   lastProcessedDate: timestamp("last_processed_date"),
   isActive: boolean("is_active").notNull().default(true),
-  ...timestampColumns()
+  ...timestampColumns(),
 });
 
-export type RecurringContributionSelect = InferSelectModel<typeof recurringContributions>;
-export type RecurringContributionInsert = InferInsertModelBasic<typeof recurringContributions>;
+export type RecurringContributionSelect = InferSelectModel<
+  typeof recurringContributions
+>;
+export type RecurringContributionInsert = InferInsertModelBasic<
+  typeof recurringContributions
+>;
 
 // export const generalAssets = pgTable("general_assets", {
 //   id: uuid('id').notNull().default(sql`gen_random_uuid()`),
@@ -103,29 +120,40 @@ export type RecurringContributionInsert = InferInsertModelBasic<typeof recurring
 // export type GeneralAssetSelect = InferSelectModel<typeof generalAssets>;
 // export type GeneralAssetInsert = InferInsertModelBasic<typeof generalAssets>;
 
-
 export const brokerPlatforms = pgTable("broker_platforms", {
-  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   name: text("name").notNull().unique(),
   supportsAPIKey: boolean("supports_api_key").notNull().default(false),
-  supportedAccountTypes: accountTypeEnum("supported_account_types").array().notNull(),
-  ...timestampColumns()
+  supportedAccountTypes: accountTypeEnum("supported_account_types")
+    .array()
+    .notNull(),
+  ...timestampColumns(),
 });
 
 export type BrokerPlatformSelect = InferSelectModel<typeof brokerPlatforms>;
-export type BrokerPlatformInsert = InferInsertModelBasic<typeof brokerPlatforms>;
+export type BrokerPlatformInsert = InferInsertModelBasic<
+  typeof brokerPlatforms
+>;
 
 export const brokerProviders = pgTable("broker_providers", {
-  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   name: text("name").notNull().unique(),
   //slug: text("slug").notNull().unique().default(slugify("name")),
   supportsAPIKey: boolean("supports_api_key").notNull().default(false),
-  supportedAccountTypes: accountTypeEnum("supported_account_types").array().notNull(),
-  ...timestampColumns()
+  supportedAccountTypes: accountTypeEnum("supported_account_types")
+    .array()
+    .notNull(),
+  ...timestampColumns(),
 });
 
 export type BrokerProviderSelect = InferSelectModel<typeof brokerProviders>;
-export type BrokerProviderInsert = InferInsertModelBasic<typeof brokerProviders>;
+export type BrokerProviderInsert = InferInsertModelBasic<
+  typeof brokerProviders
+>;
 
 export const userAssets = pgTable(
   "user_assets",
@@ -192,8 +220,9 @@ export const userAssetSecurities = pgTable("user_asset_securities", {
   securityId: uuid("security_id")
     .notNull()
     .references(() => securities.id),
-  shareHolding: real("share_holding").notNull(),
-  gainLoss: real("gain_loss").notNull(),
+  //shareHolding: real("share_holding").notNull(),
+  archived: boolean("archived").notNull().default(false),
+  priorGainLoss: real("prior_gain_loss").notNull(),
   startDate: timestamp("start_date").notNull(),
   recordedAt: timestamp("recorded_at").notNull(),
   ...timestampColumns(),

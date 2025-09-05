@@ -136,6 +136,7 @@ export const SecurityTransactionSingleForm = ({
                     <Input
                       type="date"
                       {...field}
+                      max={new Date().toISOString().split("T")[0]}
                       value={dateToDateInputValue(field.value)}
                       onChange={(e) => {
                         field.onChange(new Date(e.target.value));
@@ -160,6 +161,28 @@ export const SecurityTransactionSingleForm = ({
                     placeholder="Number of Shares"
                     {...field}
                     value={field.value.toString()}
+                    onChange={(e) => {
+                      field.onChange(+e.target.value);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={control}
+            name="currencyValue"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Currency Payment</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="Currency Payment"
+                    {...field}
+                    value={field.value?.toString() ?? 0}
                     onChange={(e) => {
                       field.onChange(+e.target.value);
                     }}

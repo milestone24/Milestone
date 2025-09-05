@@ -41,13 +41,17 @@ import { AssetValueMetadata, AssetValueMetadataSecurity } from "@shared/schema";
 // ASSET VALUE CALCULATION METHODS
 // ============================================================================
 
+type CalculatedAssetSecurity = AssetSecurity & {
+  shareHolding: number;
+};
+
 /**
  * Calculate asset value for a specific date using injected securities
  * This will always use the cache and so would always expect the cache to be populated
  * This is in appropriate as in doing large number of calls to the db for cached history for one day.
  */
 const calculateAssetValueForDateFromCache = async (
-  assetSecurities: AssetSecurity[],
+  assetSecurities: CalculatedAssetSecurity[],
   date: Date
 ): Promise<AssetValueResult | null> => {
   if (assetSecurities.length === 0) {
@@ -200,15 +204,16 @@ const updateAssetValues = async (assetPersistence: AssetPersistence) => {
     const assetSecurityShareHoldings =
       await assetPersistence.getAssetSecurityShareHoldingsForDate(currentDate);
 
-    const assetSecuritiesWithShareHolding = assetSecurities.map((security) => {
-      const shareholding = assetSecurityShareHoldings.find(
-        (shareholding) => shareholding.securityId === security.securityId
-      );
-      return {
-        ...security,
-        shareHolding: shareholding?.shareHolding ?? 0,
-      };
-    });
+    const assetSecuritiesWithShareHolding: CalculatedAssetSecurity[] =
+      assetSecurities.map((security) => {
+        const shareholding = assetSecurityShareHoldings.find(
+          (shareholding) => shareholding.securityId === security.securityId
+        );
+        return {
+          ...security,
+          shareHolding: shareholding?.shareHolding ?? 0,
+        };
+      });
 
     const assetValueResult = await calculateAssetValueForDateFromCache(
       assetSecuritiesWithShareHolding,

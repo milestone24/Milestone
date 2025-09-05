@@ -1,4 +1,3 @@
-import { brokerProviders } from "@server/db/schema";
 import { BrokerPlatform } from "@shared/schema";
 
 export const getPlatformName = (

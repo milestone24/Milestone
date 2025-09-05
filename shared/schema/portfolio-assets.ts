@@ -1,5 +1,5 @@
 import { optional, z, ZodObject, ZodType } from "zod";
-import {
+import type {
   UserAssetInsert as DBUserAssetInsert,
   UserAssetSelect as DBUserAsset,
   AssetValueInsert as DBAssetValueInsert,
@@ -9,20 +9,24 @@ import {
   UserAssetSecurityInsert as DBUserAssetSecurityInsert,
   UserAssetSecuritySelect as DBUserAssetSecurity,
   UserAssetAPIKeyConnectionSelect as DBUserAssetAPIKeyConnection,
-  UserAssetAPIKeyConnectionInsert as DBUserAssetAPIKeyConnectionInsert,
   BrokerProviderSelect as DBBrokerProvider,
   BrokerPlatformSelect as DBBrokerPlatform,
   RecurringContributionInsert as DBRecurringContributionInsert,
   RecurringContributionSelect as DBRecurringContributionSelect,
   ContributionInterval as DBContributionInterval,
   AccountType as DBAccountType,
+  AssetValueMetadata as DBAssetValueMetadata,
+  AssetValueMetadataSecurity as DBAssetValueMetadataSecurity,
 } from "@server/db/schema/index";
+import { accountType } from "@server/db/schema/index";
 import { ExtractCommonFields, IfConstructorEquals, Orphan } from "./utils";
 import {
   securityInsertSchema,
   SecuritySearchResult,
   SecuritySelect,
 } from "./securities";
+
+export { accountType } from "@server/db/schema/index";
 
 // export const generalAssetOrphanInsertSchema = z.object({
 //   name: z.string(),
@@ -45,6 +49,7 @@ import {
 // export type GeneralAssetWithAccountChange = WithAccountChange<GeneralAsset>
 
 export type AccountType = DBAccountType;
+//export { accountType } from "@server/db/schema";
 
 export const userAssetSecurityInsertSchema = z.object({
   tempId: z.string(),
@@ -52,10 +57,16 @@ export const userAssetSecurityInsertSchema = z.object({
   shareHolding: z
     .number()
     .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
-  gainLoss: z
+  // gainLoss: z
+  //   .number()
+  //   .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
+  currencyValue: z
     .number()
     .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
   startDate: z.coerce.date(),
+  priorGainLoss: z
+    .number()
+    .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
   recordedAt: z.coerce.date().optional(),
 });
 
@@ -64,16 +75,26 @@ export type UserAssetInsertSecurityItem = z.infer<
 >;
 
 export const userAssetOrphanInsertSchema = z.object({
-  name: z.string(),
+  name: z
+    .string()
+    .min(4, { message: "Name must be at least 4 characters long" }),
   platformId: z.string().optional(),
   providerId: z.string().optional(),
 
   //TODO Account type to become a wrapper type
   //wrapperType: z.string().optional(),
-  accountType: z.string(),
+  accountType: z
+    .string()
+    .refine((val) => Object.values(accountType).includes(val as AccountType)),
 
-  startDate: z.coerce.date(),
-
+  startDate: z.coerce
+    .date()
+    .refine((val) => val <= new Date(), {
+      message: "Start date must be in the past",
+    })
+    .refine((val) => val >= new Date("2000-01-01"), {
+      message: "Start date must be after 2000-01-01",
+    }),
   valueMethod: z.enum(["manual", "calculated"]),
 
   //Only to be specified by user if the asset is to be manually updated
@@ -160,23 +181,6 @@ export type UserAssetValueInsert = IfConstructorEquals<
   never
 >;
 userAssetValueInsertSchema satisfies ZodType<UserAssetValueInsert>;
-
-
-export type AssetValueMetadataSecurity = {
-  securityName: string;
-  securitySymbol: string;
-  value: number;
-  shareHolding: number;
-};
-
-export type AssetValueMetadata = {
-  calculatedAt: string;
-  securitiesProcessed: number;
-  securitiesTotal: number;
-  dataStatus: "complete" | "partial";
-  sourcesUsed: string[]; // Dynamic source identifiers from actual services
-  securities: AssetValueMetadataSecurity[];
-};
 
 export type AssetValue = DBAssetValueSelect;
 
@@ -306,6 +310,9 @@ export type RecurringContributionInsert = IfConstructorEquals<
 recurringContributionInsertSchema satisfies ZodType<RecurringContributionInsert>;
 
 export type RecurringContribution = DBRecurringContributionSelect;
+
+export type AssetValueMetadata = DBAssetValueMetadata;
+export type AssetValueMetadataSecurity = DBAssetValueMetadataSecurity;
 
 export type AssetHistoryTimePoint = {
   date: Date;

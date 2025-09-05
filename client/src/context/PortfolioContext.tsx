@@ -32,7 +32,7 @@ import {
 } from "@shared/schema";
 import { getEndpointPathWithUserId } from "@/lib/user";
 import { useSession } from "@/hooks/use-session";
-import { AccountType } from "@server/db/schema/portfolio-assets";
+import { AccountType } from "@shared/schema";
 import { getDateUrlParams } from "@/lib/date";
 
 export type PortfolioContextType = {
