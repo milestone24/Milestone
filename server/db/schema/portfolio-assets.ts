@@ -190,7 +190,7 @@ export const assetTransactions = pgTable("asset_transactions", {
     .default(sql`gen_random_uuid()`),
   assetId: uuid("asset_id")
     .notNull()
-    .references(() => userAssets.id),
+    .references(() => userAssets.id, { onDelete: "cascade" }),
   value: real("value").notNull(),
   currencyValue: real("currency_value").notNull().default(0),
   fees: real("fees").notNull().default(0),
