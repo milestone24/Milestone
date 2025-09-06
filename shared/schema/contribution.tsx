@@ -21,16 +21,12 @@ export const recurringContributionOrphanSchema = z.object({
 
 export type SingleContributionFormData = Pick<
   AssetContribution,
-  "value" | "recordedAt"
+  "value" | "valueDate"
 >;
 
 export const singleContributionOrphanSchema = z.object({
-  value: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
-    message: "Value must be a positive number",
-  }),
-  recordedAt: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid date",
-  }),
+  value: z.coerce.number(),
+  valueDate: z.coerce.date(),
 });
 
 export const isSingleContributionFormData = (

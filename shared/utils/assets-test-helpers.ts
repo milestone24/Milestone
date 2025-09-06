@@ -35,6 +35,7 @@ export function generateMockAssetHistory({
   }
   return {
     id,
+    valueMethod: "manual",
     history,
   };
 }

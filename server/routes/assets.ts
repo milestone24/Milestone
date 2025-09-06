@@ -221,18 +221,11 @@ export async function registerRoutes(
       }
       const queryParams = parseQueryParamsExpress(req.query);
 
-      const securityTransactionHistory =
-        await assetService.getUserAssetsSecurityTransactionHistory(
-          req.params.assetId
-        );
-
-      res.json(securityTransactionHistory);
-
-      // const contributions = await assetService.getUserAssetTransactions(
-      //   req.params.assetId,
-      //   queryParams
-      // );
-      // res.json(contributions);
+      const contributions = await assetService.getUserAssetTransactions(
+        req.params.assetId,
+        queryParams
+      );
+      res.json(contributions);
     }
   );
 

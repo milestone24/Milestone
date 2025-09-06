@@ -71,6 +71,11 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
       zodResolver(userAssetOrphanInsertSchema),
       (values) => ({
         ...values,
+        currentValue: values.currentValue
+          ? typeof values.currentValue === "string"
+            ? parseFloat(values.currentValue)
+            : values.currentValue
+          : 0,
         securities:
           values.securities?.map((security) => ({
             ...security,
@@ -123,8 +128,8 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
     //   },
     // },
     defaultValues: {
-      name: "Mine 5",
-      platformId: "3d723d74-ecf5-49fa-a4d9-4c52c1842de7",
+      name: "Mine Manual One",
+      //platformId: "3d723d74-ecf5-49fa-a4d9-4c52c1842de7",
       accountType: "ISA",
       startDate: new Date("2025-01-01"),
       valueMethod: "calculated",
@@ -198,6 +203,8 @@ const ActionsBar = ({
   isProcessing,
   canSubmit,
 }: ActionsBarProps) => {
+  console.log("ActionsBar onNext", onNext);
+
   return (
     <section className="mt-4 flex justify-end flex-row gap-2">
       {onCancel ? (
@@ -272,10 +279,6 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
   const nameFieldState = form.getFieldState("name");
   const platformFieldState = form.getFieldState("platformId");
   const accountTypeFieldState = form.getFieldState("accountType");
-
-  console.log("nameFieldState", nameFieldState);
-  console.log("platformFieldState", platformFieldState);
-  console.log("accountTypeFieldState", accountTypeFieldState);
 
   const canNext =
     !nameFieldState.invalid &&
@@ -428,10 +431,6 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
 
   const valueMethod = watch("valueMethod");
 
-  const securities = watch("securities");
-
-  console.log("Two securities : ", securities);
-
   const startDate = watch("startDate");
 
   const {
@@ -526,10 +525,25 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
                 Add Security
               </Button>
             )}
-            <ActionsBar {...props} isProcessing={isSubmitting} />
           </div>
         </>
       ) : null}
+      {valueMethod === "manual" ? (
+        <FormField
+          control={form.control}
+          name="currentValue"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Initial Value</FormLabel>
+              <FormControl>
+                <Input type="number" placeholder="Initial Value" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      ) : null}
+      <ActionsBar {...props} isProcessing={isSubmitting} />
     </>
   );
 };

@@ -16,6 +16,7 @@ import { Button } from "../ui/button";
 import { dateToDateInputValue } from "@/lib/form";
 import { Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
+import { withTransform } from "@/lib/utils/mappers";
 
 type ContributionSingleFormProps = {
   onSubmit: (data: SingleContributionFormData) => Promise<void>;
@@ -27,19 +28,34 @@ export const ContributionSingleForm = ({
   data,
 }: ContributionSingleFormProps) => {
   const form = useForm<SingleContributionFormData>({
-    resolver: zodResolver(singleContributionOrphanSchema),
+    resolver: withTransform(
+      zodResolver(singleContributionOrphanSchema),
+      (values) => ({
+        ...values,
+        value: values.value
+          ? typeof values.value === "string"
+            ? parseFloat(values.value)
+            : values.value
+          : 0,
+        valueDate: values.valueDate
+          ? typeof values.valueDate === "string"
+            ? new Date(values.valueDate)
+            : values.valueDate
+          : new Date(),
+      })
+    ),
     values: data
       ? {
           value: data.value,
-          recordedAt: new Date(data.recordedAt),
+          valueDate: new Date(data.valueDate),
         }
       : {
           value: 0,
-          recordedAt: new Date(),
+          valueDate: new Date(),
         },
     defaultValues: {
       value: 0,
-      recordedAt: new Date(),
+      valueDate: new Date(),
     },
   });
 
@@ -49,13 +65,15 @@ export const ContributionSingleForm = ({
     formState: { isSubmitting },
   } = form;
 
+  console.log("form", form.getValues());
+
   return (
     <Form {...form}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-10">
         <div className="flex flex-col gap-4">
           <FormField
             control={control}
-            name="recordedAt"
+            name="valueDate"
             render={({ field }) => {
               return (
                 <FormItem>
@@ -64,10 +82,12 @@ export const ContributionSingleForm = ({
                     <Input
                       type="date"
                       {...field}
-                      value={dateToDateInputValue(field.value)}
-                      onChange={(e) => {
-                        field.onChange(new Date(e.target.value));
-                      }}
+                      onChange={(e) => field.onChange(new Date(e.target.value))}
+                      value={
+                        field.value
+                          ? field.value.toISOString().split("T")[0]
+                          : ""
+                      }
                     />
                   </FormControl>
                   <FormMessage />
@@ -83,14 +103,7 @@ export const ContributionSingleForm = ({
               <FormItem>
                 <FormLabel>Amount (£)</FormLabel>
                 <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    value={field.value.toString()}
-                    onChange={(e) => {
-                      field.onChange(+e.target.value);
-                    }}
-                  />
+                  <Input {...field} type="number" />
                 </FormControl>
                 <FormMessage />
               </FormItem>

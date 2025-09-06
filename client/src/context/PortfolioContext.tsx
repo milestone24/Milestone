@@ -413,8 +413,11 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
         }
       );
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       invalidateAccounts();
+      queryClient.invalidateQueries({
+        queryKey: ["asset", data.assetId, "contributions"],
+      });
       toast({
         title: "Contribution recorded",
         description: "Your contribution has been recorded successfully.",

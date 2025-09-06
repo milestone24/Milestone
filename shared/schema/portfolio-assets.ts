@@ -357,8 +357,8 @@ export type CalculatedValue = {
 };
 
 export type AssetsChange = CalculatedValue & {
-  startDate: Date | null;
-  endDate: Date | null;
+  startDate: Date;
+  endDate: Date;
   startValue: number;
   value: number;
 };
@@ -430,8 +430,7 @@ export type DataRangeQuery = {
   end: Date | string | null;
 };
 
-export type AssetWithHistory = {
-  id: string;
+export type AssetWithHistory = Pick<UserAsset, "id" | "valueMethod"> & {
   history: AssetValue[];
 };
 

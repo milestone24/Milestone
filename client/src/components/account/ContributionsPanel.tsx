@@ -42,11 +42,11 @@ export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
   const { data: contributions, isLoading: isContributionsLoading } = useQuery<
     AssetContribution[]
   >({
-    queryKey: ["broker-asset-contributions", assetId],
+    queryKey: ["asset", assetId, "contributions"],
     queryFn: () =>
       apiRequest<AssetContribution[]>(
         "GET",
-        `/api/assets/broker/${assetId}/contributions`
+        `/api/assets/${assetId}/contributions`
       ),
   });
 
@@ -72,7 +72,7 @@ export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
     mutationFn: (data: RecurringContributionInsert) =>
       apiRequest<RecurringContribution>(
         "POST",
-        `/api/assets/broker/${data.assetId}/recurring-contributions`,
+        `/api/assets/${data.assetId}/recurring-contributions`,
         data
       ),
     onSuccess: () => {
@@ -139,7 +139,7 @@ export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
       return addAssetContribution.mutateAsync({
         ...data,
         assetId: assetId,
-        valueDate: data.recordedAt,
+        valueDate: data.valueDate,
       });
     } catch (error) {
       console.error("Error creating contribution:", error);
@@ -156,7 +156,7 @@ export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
         ...data,
         contributionId: contributionId,
         assetId: assetId,
-        valueDate: data.recordedAt,
+        valueDate: data.valueDate,
       });
     } catch (error) {
       console.error("Error updating contribution:", error);

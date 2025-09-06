@@ -408,12 +408,12 @@ export class DatabaseAssetService {
   ): Promise<UserAssetWithHistoryAndAccountChange[]> {
     const dateRange = queryParamsFilterToDateRange(query?.filter);
 
-    const c = await this.getUserAssetsWithAssetValueHistoryWithBoundary(
+    const assets = await this.getUserAssetsWithAssetValueHistoryWithBoundary(
       userId,
       query
     );
 
-    return resolveAssetsWithChange(c, dateRange);
+    return resolveAssetsWithChange(assets, dateRange);
   }
 
   async getUserAsset(id: UserAsset["id"]): Promise<ResolvedUserAsset> {
@@ -561,48 +561,59 @@ export class DatabaseAssetService {
         throw new Error("Failed to create user asset");
       }
 
-      await Promise.all(
-        data.securities.map(async (security) => {
-          const persistedSecurity =
-            await securitiesService.createOrFindCachedSecurity(
-              security.security
-            );
-          const assetSecurityData = {
-            securityId: persistedSecurity.id,
-            userAssetId: insertedUserAsset.id,
-            recordedAt: security.recordedAt ?? new Date(),
-            shareHolding: security.shareHolding,
-            currencyValue: security.currencyValue,
-            startDate: security.startDate,
-            priorGainLoss: security.priorGainLoss,
-            currency: persistedSecurity.currency ?? "GBP",
-          };
+      if (data.valueMethod === "calculated") {
+        await Promise.all(
+          data.securities.map(async (security) => {
+            const persistedSecurity =
+              await securitiesService.createOrFindCachedSecurity(
+                security.security
+              );
+            const assetSecurityData = {
+              securityId: persistedSecurity.id,
+              userAssetId: insertedUserAsset.id,
+              recordedAt: security.recordedAt ?? new Date(),
+              shareHolding: security.shareHolding,
+              currencyValue: security.currencyValue,
+              startDate: security.startDate,
+              priorGainLoss: security.priorGainLoss,
+              currency: persistedSecurity.currency ?? "GBP",
+            };
 
-          const [assetSecurity] = await tx
-            .insert(userAssetSecurities)
-            .values(assetSecurityData)
-            .returning();
+            const [assetSecurity] = await tx
+              .insert(userAssetSecurities)
+              .values(assetSecurityData)
+              .returning();
 
-          if (!assetSecurity) {
-            throw new Error("Failed to create user asset security");
-          }
+            if (!assetSecurity) {
+              throw new Error("Failed to create user asset security");
+            }
 
-          const transaction = await tx.insert(securityTransactions).values({
-            securityId: assetSecurity.id,
-            value: assetSecurityData.shareHolding,
-            currency: persistedSecurity.currency ?? "GBP",
-            currencyValue: assetSecurityData.currencyValue,
-            recordedAt: new Date(),
-            valueDate: insertedUserAsset.startDate,
-          });
+            const transaction = await tx.insert(securityTransactions).values({
+              securityId: assetSecurity.id,
+              value: assetSecurityData.shareHolding,
+              currency: persistedSecurity.currency ?? "GBP",
+              currencyValue: assetSecurityData.currencyValue,
+              recordedAt: new Date(),
+              valueDate: insertedUserAsset.startDate,
+            });
 
-          if (!transaction) {
-            throw new Error("Failed to create security transaction");
-          }
-        })
-      );
+            if (!transaction) {
+              throw new Error("Failed to create security transaction");
+            }
+          })
+        );
+      }
 
       if (data.valueMethod === "manual") {
+        await tx.insert(assetTransactions).values({
+          assetId: insertedUserAsset.id,
+          value: data.currentValue ?? 0,
+          valueDate: data.startDate,
+          recordedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
         await tx.insert(assetValues).values({
           assetId: insertedUserAsset.id,
           value: data.currentValue ?? 0,
@@ -625,6 +636,12 @@ export class DatabaseAssetService {
 
     return insertedUserAsset;
   }
+
+  // async updateManualAssetValues(assetId: UserAsset["id"]): Promise<void> {
+
+  //   const
+
+  // }
 
   async updateUserAsset(
     id: UserAsset["id"],
@@ -998,9 +1015,9 @@ export class DatabaseAssetService {
       query
     );
 
-    return getPortfolioOverviewForAssets(
-      assetsWithChange /*Need to add query */
-    );
+    const change = await getPortfolioOverviewForAssets(assetsWithChange);
+
+    return change;
   }
 
   async getPortfolioValueHistoryForUser(

@@ -24,7 +24,10 @@ type ContributionDialogueProps<
   T extends SingleContributionFormData | RecurringContributionFormData =
     | SingleContributionFormData
     | RecurringContributionFormData,
-  S extends (data: T) => Promise<T> = (data: T) => Promise<T & { id: string }>,
+  S extends (data: T, contributionId?: string) => Promise<T> = (
+    data: T,
+    contributionId?: string
+  ) => Promise<T & { id: string }>,
   D extends AssetContribution | RecurringContribution | null =
     | AssetContribution
     | RecurringContribution
@@ -73,18 +76,15 @@ export const ContributionDialogue = ({
     values: RecurringContributionFormData
   ) => {
     if (!onSubmit) return;
-    await onSubmit(values);
+    await onSubmit(values, data?.id);
   };
 
   const handleSingleContributionSubmit = async (
     values: SingleContributionFormData
   ) => {
     if (!onSubmit) return;
-    await onSubmit(values);
+    await onSubmit(values, data?.id);
   };
-
-  console.log("isOpen", isOpen);
-  console.log("data", data);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
