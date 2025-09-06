@@ -568,10 +568,6 @@ export const resolveAssetWithChangeForDateRange = <T extends AssetWithHistory>(
     end: endDate,
   });
 
-  if (asset.valueMethod === "manual") {
-    console.log("assetValuesForRange", assetValuesForRange);
-  }
-
   return {
     ...asset,
     accountChange: calculateAssetsChange(assetValuesForRange),
