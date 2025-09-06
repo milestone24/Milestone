@@ -8,7 +8,6 @@ import {
   PossibleDummyAssetValue,
   WithAccountChange,
   AssetHistoryTimePoint,
-  AssetValueMetadata,
   WithAssetHistory,
   UserAssetWithHistoryAndAccountChange,
   CombinedDayValues,
@@ -66,12 +65,15 @@ const resolveAssetValuesForIndexes = (
   return indexes.map((index) => sorted.at(index) ?? null);
 };
 
-const normalisePercentage = (valueOne: number, valueTwo: number): number => {
+export const normalisePercentage = (
+  valueOne: number,
+  valueTwo: number
+): number => {
   return valueOne === 0
     ? valueTwo > 0
       ? 100
       : 0
-    : ((valueTwo - valueOne) / valueOne) * 100;
+    : ((valueTwo - valueOne) / valueTwo) * 100;
 };
 
 export const calculateAssetsChange = (
@@ -84,7 +86,6 @@ export const calculateAssetsChange = (
   );
 
   let percentageChange = 0;
-  let currencyChange = 0;
 
   return firstAssetValue
     ? lastAssetValue
@@ -109,8 +110,8 @@ export const calculateAssetsChange = (
           currentChangePercentage: percentageChange,
         }
     : {
-        startDate: null,
-        endDate: null,
+        startDate: new Date(),
+        endDate: new Date(),
         startValue: 0,
         value: 0,
         currentChange: 0,
@@ -206,7 +207,7 @@ const defineAssetValuesForDateRange = (
             : lastValueBeforeQueryStartDate
             ? addStartPoint(
                 { ...lastValueBeforeQueryStartDate, valueType: "synthetic" },
-                lastValueIndexBeforeQueryStartDate
+                lastValueIndexBeforeQueryStartDate + 1
               )
             : addStartPoint(
                 {
@@ -220,7 +221,7 @@ const defineAssetValuesForDateRange = (
                   metadata: null,
                   valueType: "synthetic",
                 },
-                lastValueIndexBeforeQueryStartDate
+                lastValueIndexBeforeQueryStartDate + 1
               );
         }
       : (values) => {
@@ -251,11 +252,12 @@ const defineAssetValuesForDateRange = (
             assetValue.valueDate.getUTCDate() === queryEndDate.getUTCDate()
         );
 
-        const lastValueIndexBeforeQueryEndDate = values.findLastIndex(
-          (assetValue) => assetValue.valueDate < queryEndDate
+        const lastValueIndexBeforeOrEqualToQueryEndDate = values.findLastIndex(
+          (assetValue) => assetValue.valueDate <= queryEndDate
         );
-        const lastValueBeforeQueryEndDate =
-          values[lastValueIndexBeforeQueryEndDate];
+
+        const lastValueBeforeOrEqualToQueryEndDate =
+          values[lastValueIndexBeforeOrEqualToQueryEndDate];
 
         const addEndPoint = (
           assetValue: PossibleDummyAssetValue,
@@ -269,9 +271,12 @@ const defineAssetValuesForDateRange = (
         ];
 
         return valueIndexForQueryEndDate > 1
-          ? values.slice(0, valueIndexForQueryEndDate)
-          : lastValueBeforeQueryEndDate
-          ? addEndPoint(lastValueBeforeQueryEndDate, valueIndexForQueryEndDate)
+          ? values.slice(0, valueIndexForQueryEndDate + 1)
+          : lastValueBeforeOrEqualToQueryEndDate
+          ? addEndPoint(
+              lastValueBeforeOrEqualToQueryEndDate,
+              lastValueIndexBeforeOrEqualToQueryEndDate + 1
+            )
           : addEndPoint(
               {
                 id: null,
@@ -563,6 +568,10 @@ export const resolveAssetWithChangeForDateRange = <T extends AssetWithHistory>(
     end: endDate,
   });
 
+  if (asset.valueMethod === "manual") {
+    console.log("assetValuesForRange", assetValuesForRange);
+  }
+
   return {
     ...asset,
     accountChange: calculateAssetsChange(assetValuesForRange),
@@ -680,15 +689,7 @@ export const getCombinedDayValuesForValues = async (
     // Format the date to YYYY-MM-DD for consistent daily grouping
     const dateKey = entry.valueDate.toISOString().split("T")[0]!;
 
-    // console.log("getCombinedDayValuesForValues dateKey", dateKey);
-    // console.log("getCombinedDayValuesForValues entry", entry);
-
     if (!dateKey) continue;
-
-    // if (entry.valueType === "synthetic") {
-    //   addPortfolioValue(dateKey, entry, entry.value);
-    //   continue;
-    // }
 
     const value = entry.value ?? 0;
 
@@ -749,59 +750,40 @@ export const getCombinedDayValuesForValues = async (
 };
 
 export const getPortfolioOverviewForAssets = async (
-  assets: UserAssetWithHistoryAndAccountChange[],
-  query?: DataRangeQuery
+  assets: UserAssetWithHistoryAndAccountChange[]
 ): Promise<AssetsChange> => {
   const assetsValueChanges: AssetsChange = assets
     .map((asset) => asset.accountChange)
-    .reduce(
-      (acc: AssetsChange, asset) => {
-        const startDate: Date | null =
-          asset.startDate && acc.startDate
-            ? asset.startDate < acc.startDate
-              ? asset.startDate
-              : acc.startDate
-            : null;
-        const endDate: Date | null =
-          asset.endDate && acc.endDate
-            ? asset.endDate > acc.endDate
-              ? asset.endDate
-              : acc.endDate
-            : null;
-        const startValue =
-          asset.startDate && acc.startDate
-            ? asset.startDate < acc.startDate
-              ? asset.startValue
-              : asset.startDate > acc.startDate
-              ? acc.startValue
-              : asset.startDate === acc.startDate
-              ? acc.startValue + asset.startValue
-              : acc.startValue
-            : 0;
+    .reduce((acc: AssetsChange, asset) => {
+      const startDate: Date =
+        asset.startDate < acc.startDate ? asset.startDate : acc.startDate;
 
-        const value = acc.value + asset.value;
-        const currencyChange = value - startValue;
+      const endDate: Date =
+        asset.endDate > acc.endDate ? asset.endDate : acc.endDate;
 
-        const percentageChange = normalisePercentage(startValue, value);
+      const startValue =
+        asset.startDate === acc.startDate
+          ? acc.startValue + asset.startValue
+          : asset.startDate < acc.startDate
+          ? asset.startValue
+          : asset.startDate > acc.startDate
+          ? acc.startValue
+          : acc.startValue;
 
-        return {
-          startDate,
-          endDate,
-          startValue,
-          value,
-          currentChange: currencyChange,
-          currentChangePercentage: percentageChange,
-        };
-      },
-      {
-        startDate: resolveDate(query?.start) ?? new Date(),
-        endDate: resolveDate(query?.end) ?? new Date(),
-        startValue: 0,
-        value: 0,
-        currentChange: 0,
-        currentChangePercentage: 0,
-      }
-    );
+      const value = acc.value + asset.value;
+      const currentChange = acc.currentChange + asset.currentChange;
+
+      const percentageChange = normalisePercentage(startValue, value);
+
+      return {
+        startDate,
+        endDate,
+        startValue,
+        value,
+        currentChange,
+        currentChangePercentage: percentageChange,
+      };
+    });
 
   return assetsValueChanges;
 };
