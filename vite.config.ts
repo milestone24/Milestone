@@ -15,62 +15,66 @@ export default defineConfig({
     runtimeErrorOverlay(),
     themePlugin(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: "autoUpdate",
       devOptions: {
         enabled: true,
-        type: 'module',
+        type: "module",
       },
-      includeAssets: ['icons/favicon.ico', 'icons/apple-touch-icon.png', 'icons/masked-icon.svg'],
+      includeAssets: [
+        "icons/favicon.ico",
+        "icons/apple-touch-icon.png",
+        "icons/masked-icon.svg",
+      ],
       workbox: {
         // Don't cache API routes
         runtimeCaching: [
           {
             urlPattern: /^\/api\/.*/i,
-            handler: 'NetworkFirst',
+            handler: "NetworkFirst",
             options: {
-              cacheName: 'api-cache',
+              cacheName: "api-cache",
               networkTimeoutSeconds: 10,
               cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          }
+                statuses: [0, 200],
+              },
+            },
+          },
         ],
         // Skip waiting for service worker updates
         skipWaiting: true,
         // Clean up old caches
-        cleanupOutdatedCaches: true
+        cleanupOutdatedCaches: true,
       },
       manifest: {
-        name: 'Milestone',
-        short_name: 'Milestone',
-        description: 'Milestone Application',
-        theme_color: '#ffffff',
+        name: "Milestone",
+        short_name: "Milestone",
+        description: "Milestone Application",
+        theme_color: "#ffffff",
         icons: [
           {
-            src: 'icons/pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png'
+            src: "icons/pwa-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
           },
           {
-            src: 'icons/pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
+            src: "icons/pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
           },
           {
-            src: 'icons/pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
-          }
-        ]
-      }
+            src: "icons/pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable",
+          },
+        ],
+      },
     }),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
           await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer(),
+            m.cartographer()
           ),
         ]
       : []),
@@ -79,6 +83,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "client", "src"),
       "@shared": path.resolve(__dirname, "shared"),
+      "@server": path.resolve(__dirname, "server"),
     },
   },
   root: path.resolve(__dirname, "client"),
@@ -87,16 +92,16 @@ export default defineConfig({
     middlewareMode: false,
     fs: {
       strict: true,
-      allow: ['..'],
+      allow: [".."],
     },
     headers: {
-      'Cache-Control': 'public, max-age=31536000',
-      'Access-Control-Allow-Origin': '*',
-      'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'DENY',
-      'Referrer-Policy': 'no-referrer-when-downgrade'
+      "Cache-Control": "public, max-age=31536000",
+      "Access-Control-Allow-Origin": "*",
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY",
+      "Referrer-Policy": "no-referrer-when-downgrade",
     },
-    allowedHosts: true
+    allowedHosts: true,
   },
   build: {
     outDir: path.resolve(__dirname, "dist/public"),
@@ -104,8 +109,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         assetFileNames: (assetInfo) => {
-          const name = assetInfo.name || '';
-          const extType = name.split('.')[1] || 'asset';
+          const name = assetInfo.name || "";
+          const extType = name.split(".")[1] || "asset";
           if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(extType)) {
             return `assets/img/[name][extname]`;
           }
@@ -114,6 +119,6 @@ export default defineConfig({
       },
     },
   },
-  publicDir: 'public',
-  assetsInclude: ['**/*.png', '**/*.svg', '**/*.ico', '**/*.webp']
+  publicDir: "public",
+  assetsInclude: ["**/*.png", "**/*.svg", "**/*.ico", "**/*.webp"],
 });
