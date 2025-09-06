@@ -27,7 +27,7 @@ export const useSecurityTransactions = (assetId: string) => {
       apiRequest<UserAssetSecurityTransactionResolved[]>(
         "GET",
         // TODO: Change this to transactions when api is updated
-        `/api/assets/${assetId}/contributions`
+        `/api/assets/${assetId}/securities/transactions`
       ),
   });
 

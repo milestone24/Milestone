@@ -810,7 +810,7 @@ export class DatabaseAssetService {
     return (result?.rowCount ?? 0) > 0;
   }
 
-  async getUserAssetsSecurityTransactionHistory(
+  async getUserAssetSecurityTransactionHistory(
     assetId: UserAsset["id"]
   ): Promise<UserAssetSecurityTransactionResolved[]> {
     const securityTransactionHistory = await this.db
