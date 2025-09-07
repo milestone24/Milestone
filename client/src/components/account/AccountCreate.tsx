@@ -131,25 +131,25 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
     //   },
     // },
     defaultValues: {
-      name: "Mine Manual One",
-      //platformId: "3d723d74-ecf5-49fa-a4d9-4c52c1842de7",
-      accountType: "ISA",
-      startDate: new Date("2025-01-01"),
-      valueMethod: "calculated",
-      contributions: {
-        process: "manual",
-        securityDistribution: [],
-      },
-      securities: [
-        // {
-        //   security: {
-        //     symbol: "AAPL",
-        //     name: "Apple Inc.",
-        //   },
-        //   shareHolding: 100,
-        //   gainLoss: 100,
-        // },
-      ],
+      // name: "Mine Manual One",
+      // //platformId: "3d723d74-ecf5-49fa-a4d9-4c52c1842de7",
+      // accountType: "ISA",
+      // startDate: new Date("2025-01-01"),
+      // valueMethod: "calculated",
+      // contributions: {
+      //   process: "manual",
+      //   securityDistribution: [],
+      // },
+      // securities: [
+      // {
+      //   security: {
+      //     symbol: "AAPL",
+      //     name: "Apple Inc.",
+      //   },
+      //   shareHolding: 100,
+      //   gainLoss: 100,
+      // },
+      // ],
     },
   });
 
@@ -784,27 +784,29 @@ const useContributionSecurities = (
   });
 
   useEffect(() => {
-    securities
-      .map((security) => ({
-        securityTempId: security.tempId,
-        securityName: security.security.name,
-        commitment: 0,
-      }))
-      .forEach((security) => {
-        if (
-          securitiesFields.find(
-            (field) => field.securityTempId === security.securityTempId
-          )
-        ) {
-          return;
-        }
+    if (securities && securities.length > 0) {
+      securities
+        .map((security) => ({
+          securityTempId: security.tempId,
+          securityName: security.security.name,
+          commitment: 0,
+        }))
+        .forEach((security) => {
+          if (
+            securitiesFields.find(
+              (field) => field.securityTempId === security.securityTempId
+            )
+          ) {
+            return;
+          }
 
-        append({
-          securityTempId: security.securityTempId,
-          securityName: security.securityName,
-          commitment: security.commitment,
+          append({
+            securityTempId: security.securityTempId,
+            securityName: security.securityName,
+            commitment: security.commitment,
+          });
         });
-      });
+    }
   }, [securities, append]);
 
   return { securitiesFields };
