@@ -2,10 +2,17 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   coreUserInsertSchema,
+  updateProfileOrphanSchema,
   userAccountInsertSchema,
   userProfileInsertSchema,
 } from "@shared/schema";
-import { AuthRequest, AuthService, requireTenant, Tenant } from "../auth";
+import {
+  AuthRequest,
+  AuthService,
+  requireTenant,
+  requireTenantWithUserAccountId,
+  Tenant,
+} from "../auth";
 import { db } from "@server/db";
 import { DatabaseUserService } from "@server/services/users/database";
 
@@ -15,8 +22,7 @@ export async function registerRoutes(
   router: Router,
   authService: AuthService
 ): Promise<Router> {
-
-  const { requireUser } = authService.getAuthMiddlewares()
+  const { requireUser } = authService.getAuthMiddlewares();
   // Core User routes
   router.get("/core/:id", requireUser, async (req: AuthRequest, res) => {
     try {
@@ -191,6 +197,24 @@ export async function registerRoutes(
     }
   });
 
+  /**
+   * Update user profile for the current user identified by the tenant
+   */
+  router.patch("/profile", requireUser, async (req: AuthRequest, res) => {
+    const response = await requireTenantWithUserAccountId(
+      req.tenant,
+      async (tenant) => {
+        const profileData = updateProfileOrphanSchema.partial().parse(req.body);
+        const profile = await userService.updateUserProfileForUserAccount(
+          tenant.userAccountId,
+          profileData
+        );
+        return profile;
+      }
+    );
+    res.json(response);
+  });
+
   router.patch("/profile/:id", requireUser, async (req: AuthRequest, res) => {
     try {
       if (!req.params.id) {
@@ -316,11 +340,9 @@ export async function registerRoutes(
           newPassword
         );
         if (!success) {
-          return res
-            .status(400)
-            .json({
-              message: "Invalid current password or user account not found",
-            });
+          return res.status(400).json({
+            message: "Invalid current password or user account not found",
+          });
         }
 
         res.json({ message: "Password changed successfully" });
@@ -330,5 +352,5 @@ export async function registerRoutes(
     }
   );
 
-  return router
+  return router;
 }

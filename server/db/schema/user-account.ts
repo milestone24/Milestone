@@ -7,6 +7,7 @@ import {
   pgEnum,
   real,
   date,
+  varchar,
 } from "drizzle-orm/pg-core";
 import { InferSelectModel, relations, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -167,7 +168,7 @@ export const userProfiles = pgTable("user_profiles", {
     .notNull()
     .references(() => userAccounts.id),
   avatarUrl: text("avatar_url"),
-  dob: date("dob"),
+  dob: date("dob", { mode: "date" }),
   countryOrigin: text("country_origin"),
   countryResidence: text("country_residence"),
   gender: genderEnum("gender"),

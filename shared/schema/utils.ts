@@ -38,12 +38,11 @@ export type IfTypeEquals<T, U, N = never> =
     (<G>() => G extends T ? 1 : 2) extends
     (<G>() => G extends U ? 1 : 2) ? T : N;
 
-export type IfConstructorEquals<T, U, N = never> = 
-    [T] extends [U] ? 
-      [U] extends [T] ? 
-        T 
-      : N
-    : N;
+export type IfConstructorEquals<T, U extends T, N = never> = [T] extends [U]
+  ? [U] extends [T]
+    ? T
+    : N
+  : N;
 
 export type Orphan<T> = T extends { userAccountId: string } ? Omit<T, "userAccountId"> : T;
 

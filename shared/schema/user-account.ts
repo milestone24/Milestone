@@ -1,5 +1,5 @@
-import { z, ZodType } from "zod";
-import {
+import { coerce, z, ZodType } from "zod";
+import type {
   SelectCoreUser as DBCoreUser,
   SelectUserAccount as DBUserAccount,
   SelectUserProfile as DBUserProfile,
@@ -20,6 +20,19 @@ import {
   InsertPhoneVerification as DBInsertPhoneVerification,
   InsertUserAccount,
 } from "@server/db/schema/user-account";
+
+import {
+  maritalStatus,
+  gender,
+  employmentStatus,
+} from "@server/db/schema/index";
+
+export {
+  maritalStatus,
+  gender,
+  employmentStatus,
+} from "@server/db/schema/index";
+
 import { IfConstructorEquals } from "./utils";
 
 // Core schemas
@@ -28,7 +41,11 @@ export const coreUserInsertSchema = z.object({
 });
 
 type ZodCoreUser = z.infer<typeof coreUserInsertSchema>;
-export type InsertCoreUser = IfConstructorEquals<ZodCoreUser, DBInsertCoreUser, never>;
+export type InsertCoreUser = IfConstructorEquals<
+  ZodCoreUser,
+  DBInsertCoreUser,
+  never
+>;
 coreUserInsertSchema satisfies ZodType<InsertCoreUser>;
 export type CoreUser = DBCoreUser;
 
@@ -39,11 +56,15 @@ export const userAccountInsertSchema = z.object({
   passwordHash: z.string(),
   fullName: z.string(),
   isEmailVerified: z.boolean().optional(),
-  isPhoneVerified: z.boolean().optional()
+  isPhoneVerified: z.boolean().optional(),
 });
 
 type ZodUserAccount = z.infer<typeof userAccountInsertSchema>;
-export type UserAccountInsert = IfConstructorEquals<ZodUserAccount, DBInsertUserAccount, never>;
+export type UserAccountInsert = IfConstructorEquals<
+  ZodUserAccount,
+  DBInsertUserAccount,
+  never
+>;
 userAccountInsertSchema satisfies ZodType<InsertUserAccount>;
 export type UserAccount = DBUserAccount;
 
@@ -53,7 +74,11 @@ export const userProfileInsertSchema = z.object({
 });
 
 type ZodUserProfile = z.infer<typeof userProfileInsertSchema>;
-export type UserProfileInsert = IfConstructorEquals<ZodUserProfile, DBInsertUserProfile, never>;
+export type UserProfileInsert = IfConstructorEquals<
+  ZodUserProfile,
+  DBInsertUserProfile,
+  never
+>;
 userProfileInsertSchema satisfies ZodType<UserProfileInsert>;
 export type UserProfile = DBUserProfile;
 export const passwordResetInsertSchema = z.object({
@@ -63,7 +88,11 @@ export const passwordResetInsertSchema = z.object({
 });
 
 type ZodPasswordReset = z.infer<typeof passwordResetInsertSchema>;
-export type PasswordResetInsert = IfConstructorEquals<ZodPasswordReset, DBInsertPasswordReset, never>;
+export type PasswordResetInsert = IfConstructorEquals<
+  ZodPasswordReset,
+  DBInsertPasswordReset,
+  never
+>;
 passwordResetInsertSchema satisfies ZodType<PasswordResetInsert>;
 export type PasswordReset = DBPasswordReset;
 
@@ -73,8 +102,14 @@ export const passwordChangeHistoryInsertSchema = z.object({
   changedAt: z.date(),
 });
 
-type ZodPasswordChangeHistory = z.infer<typeof passwordChangeHistoryInsertSchema>;
-export type PasswordChangeHistoryInsert = IfConstructorEquals<ZodPasswordChangeHistory, DBInsertPasswordChangeHistory, never>;
+type ZodPasswordChangeHistory = z.infer<
+  typeof passwordChangeHistoryInsertSchema
+>;
+export type PasswordChangeHistoryInsert = IfConstructorEquals<
+  ZodPasswordChangeHistory,
+  DBInsertPasswordChangeHistory,
+  never
+>;
 passwordChangeHistoryInsertSchema satisfies ZodType<PasswordChangeHistoryInsert>;
 export type PasswordChangeHistory = DBPasswordChangeHistory;
 
@@ -87,7 +122,11 @@ export const userSubscriptionInsertSchema = z.object({
 });
 
 type ZodUserSubscription = z.infer<typeof userSubscriptionInsertSchema>;
-export type UserSubscriptionInsert = IfConstructorEquals<ZodUserSubscription, DBInsertUserSubscription, never>;
+export type UserSubscriptionInsert = IfConstructorEquals<
+  ZodUserSubscription,
+  DBInsertUserSubscription,
+  never
+>;
 userSubscriptionInsertSchema satisfies ZodType<UserSubscriptionInsert>;
 export type UserSubscription = DBUserSubscription;
 export const refreshTokenInsertSchema = z.object({
@@ -102,7 +141,11 @@ export const refreshTokenInsertSchema = z.object({
 });
 
 type ZodRefreshToken = z.infer<typeof refreshTokenInsertSchema>;
-export type RefreshTokenInsert = IfConstructorEquals<ZodRefreshToken, DBInsertRefreshToken, never>;
+export type RefreshTokenInsert = IfConstructorEquals<
+  ZodRefreshToken,
+  DBInsertRefreshToken,
+  never
+>;
 refreshTokenInsertSchema satisfies ZodType<RefreshTokenInsert>;
 export type RefreshToken = DBRefreshToken;
 export const emailVerificationInsertSchema = z.object({
@@ -112,7 +155,11 @@ export const emailVerificationInsertSchema = z.object({
 });
 
 type ZodEmailVerification = z.infer<typeof emailVerificationInsertSchema>;
-export type EmailVerificationInsert = IfConstructorEquals<ZodEmailVerification, DBInsertEmailVerification, never>;
+export type EmailVerificationInsert = IfConstructorEquals<
+  ZodEmailVerification,
+  DBInsertEmailVerification,
+  never
+>;
 emailVerificationInsertSchema satisfies ZodType<EmailVerificationInsert>;
 export type EmailVerification = DBEmailVerification;
 
@@ -123,7 +170,11 @@ export const phoneVerificationInsertSchema = z.object({
 });
 
 type ZodPhoneVerification = z.infer<typeof phoneVerificationInsertSchema>;
-export type PhoneVerificationInsert = IfConstructorEquals<ZodPhoneVerification, DBInsertPhoneVerification, never>;
+export type PhoneVerificationInsert = IfConstructorEquals<
+  ZodPhoneVerification,
+  DBInsertPhoneVerification,
+  never
+>;
 phoneVerificationInsertSchema satisfies ZodType<PhoneVerificationInsert>;
 export type PhoneVerification = DBPhoneVerification;
 // Auth schemas
@@ -134,15 +185,17 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
-export const registerSchema = z.object({
-  email: z.string().email(),
-  fullName: z.string(),
-  phoneNumber: z.string().optional(),
-  password: z.string().min(8),
-}).transform(data => ({
-  ...data,
-  phoneNumber: data.phoneNumber === "" ? null : data.phoneNumber
-}));
+export const registerSchema = z
+  .object({
+    email: z.string().email(),
+    fullName: z.string(),
+    phoneNumber: z.string().optional(),
+    password: z.string().min(8),
+  })
+  .transform((data) => ({
+    ...data,
+    phoneNumber: data.phoneNumber === "" ? null : data.phoneNumber,
+  }));
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 
@@ -152,6 +205,39 @@ export const revokeFamilySchema = z.object({
 
 export type ZodRevokeFamily = z.infer<typeof revokeFamilySchema>;
 
+export const updateProfileOrphanSchema = z.object({
+  //avatarUrl: z.string().nullable().optional(),
+  //.transform((val) => val ?? null),
+  dob: z.coerce.date().nullable().optional(),
+  countryOrigin: z.string().nullable().optional(),
+  countryResidence: z.string().nullable().optional(),
+  gender: z.enum(gender).nullable().optional(),
+  maritalStatus: z.enum(maritalStatus).nullable().optional(),
+  employmentStatus: z.enum(employmentStatus).nullable().optional(),
+  incomeLevel: z.enum(["low", "medium", "high", "other"]).nullable().optional(),
+  netWorth: z.number().nullable().optional(),
+});
+
+export type ZodUpdateProfileOrphanInput = z.infer<
+  typeof updateProfileOrphanSchema
+>;
+
+//type A<T> = T;
+
+type B<C, T extends C = C> = T extends C ? T : never;
+
+type D = B<
+  Omit<DBInsertUserProfile, "userAccountId">,
+  ZodUpdateProfileOrphanInput
+>;
+
+export type UpdateProfileOrphanInput = IfConstructorEquals<
+  ZodUpdateProfileOrphanInput,
+  Omit<DBInsertUserProfile, "userAccountId">,
+  never
+>;
+
+updateProfileOrphanSchema satisfies ZodType<UpdateProfileOrphanInput>;
 
 export type SessionUser = {
   id: string;

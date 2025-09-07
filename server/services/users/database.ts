@@ -1,6 +1,16 @@
 import { eq, and } from "drizzle-orm";
 import { coreUsers, userAccounts, userProfiles, passwordResets, passwordChangeHistory, InsertUserAccount, InsertUserProfile } from "@server/db/schema/user-account";
-import { CoreUser, UserAccount, UserProfile, InsertCoreUser, UserAccountInsert, UserProfileInsert, RegisterInput, SessionUser } from "@shared/schema/user-account";
+import {
+  CoreUser,
+  UserAccount,
+  UserProfile,
+  InsertCoreUser,
+  UserAccountInsert,
+  UserProfileInsert,
+  RegisterInput,
+  SessionUser,
+  updateProfileOrphanSchema,
+} from "@shared/schema/user-account";
 import { db, type Database } from "../../db/index";
 import { createId } from "@paralleldrive/cuid2";
 import { hash, compare } from "bcryptjs";
@@ -27,7 +37,10 @@ export class DatabaseUserService {
     return user;
   }
 
-  async updateCoreUser(id: CoreUser["id"], data: Partial<InsertCoreUser>): Promise<CoreUser> {
+  async updateCoreUser(
+    id: CoreUser["id"],
+    data: Partial<InsertCoreUser>
+  ): Promise<CoreUser> {
     const [user] = await this.db
       .update(coreUsers)
       .set(data)
@@ -51,7 +64,9 @@ export class DatabaseUserService {
   }
 
   // User Account operations
-  async getUserAccount(id: UserAccount["id"]): Promise<UserAccount | undefined> {
+  async getUserAccount(
+    id: UserAccount["id"]
+  ): Promise<UserAccount | undefined> {
     return this.db.query.userAccounts.findFirst({
       where: eq(userAccounts.id, id),
     });
@@ -64,14 +79,20 @@ export class DatabaseUserService {
   }
 
   async createUserAccount(data: UserAccountInsert): Promise<UserAccount> {
-    const [account] = await this.db.insert(userAccounts).values(data).returning();
+    const [account] = await this.db
+      .insert(userAccounts)
+      .values(data)
+      .returning();
     if (!account) {
       throw new Error("Failed to create user account");
     }
     return account;
   }
 
-  async updateUserAccount(id: UserAccount["id"], data: Partial<InsertUserAccount>): Promise<UserAccount> {
+  async updateUserAccount(
+    id: UserAccount["id"],
+    data: Partial<InsertUserAccount>
+  ): Promise<UserAccount> {
     const [account] = await this.db
       .update(userAccounts)
       .set(data)
@@ -95,25 +116,50 @@ export class DatabaseUserService {
   }
 
   // User Profile operations
-  async getUserProfile(id: UserProfile["id"]): Promise<UserProfile | undefined> {
+  async getUserProfile(
+    id: UserProfile["id"]
+  ): Promise<UserProfile | undefined> {
     return this.db.query.userProfiles.findFirst({
       where: eq(userProfiles.id, id),
     });
   }
 
   async createUserProfile(data: UserProfileInsert): Promise<UserProfile> {
-    const [profile] = await this.db.insert(userProfiles).values(data).returning();
+    const [profile] = await this.db
+      .insert(userProfiles)
+      .values(data)
+      .returning();
     if (!profile) {
       throw new Error("Failed to create user profile");
     }
     return profile;
   }
 
-  async updateUserProfile(id: UserProfile["id"], data: Partial<InsertUserProfile>): Promise<UserProfile> {
+  async updateUserProfile(
+    id: UserProfile["id"],
+    data: Partial<InsertUserProfile>
+  ): Promise<UserProfile> {
     const [profile] = await this.db
       .update(userProfiles)
       .set(data)
       .where(eq(userProfiles.id, id))
+      .returning();
+
+    if (!profile) {
+      throw new Error("User profile not found");
+    }
+
+    return profile;
+  }
+
+  async updateUserProfileForUserAccount(
+    userAccountId: UserAccount["id"],
+    data: Partial<InsertUserProfile>
+  ): Promise<UserProfile> {
+    const [profile] = await this.db
+      .update(userProfiles)
+      .set(data)
+      .where(eq(userProfiles.userAccountId, userAccountId))
       .returning();
 
     if (!profile) {
@@ -133,60 +179,65 @@ export class DatabaseUserService {
   }
 
   async createUserComplete(user: RegisterInput): Promise<SessionUser> {
-
     const passwordHash = await hash(user.password, 10);
-  
+
     return await db.transaction(async (tx) => {
       // Create the core user record
-      const [coreUser] = await tx.insert(coreUsers).values({
-      }).returning();
-  
+      const [coreUser] = await tx.insert(coreUsers).values({}).returning();
+
       if (!coreUser) {
-        throw new Error('Failed to create core user');
+        throw new Error("Failed to create core user");
       }
-  
+
       // Create the user account linked to the core user
-      const [userAccount] = await tx.insert(userAccounts).values({
-        coreUserId: coreUser.id,
-        email: user.email,
-        fullName: user.fullName,
-        phoneNumber: user.phoneNumber || null,
-        passwordHash,
-        isEmailVerified: false,
-        isPhoneVerified: false,
-      }).returning();
-  
+      const [userAccount] = await tx
+        .insert(userAccounts)
+        .values({
+          coreUserId: coreUser.id,
+          email: user.email,
+          fullName: user.fullName,
+          phoneNumber: user.phoneNumber || null,
+          passwordHash,
+          isEmailVerified: false,
+          isPhoneVerified: false,
+        })
+        .returning();
+
       if (!userAccount) {
-        throw new Error('Failed to create user account');
+        throw new Error("Failed to create user account");
       }
-  
+
       // Create the user profile linked to the core user
-      const [userProfile] = await tx.insert(userProfiles).values({
-        userAccountId: userAccount.id,
-      }).returning();
-  
+      const [userProfile] = await tx
+        .insert(userProfiles)
+        .values({
+          userAccountId: userAccount.id,
+        })
+        .returning();
+
       if (!userProfile) {
-        throw new Error('Failed to create user profile');
+        throw new Error("Failed to create user profile");
       }
-  
+
       return {
         id: coreUser.id,
         account: userAccount,
-        profile: userProfile
+        profile: userProfile,
       };
     });
   }
 
-  async getCompleteUserForAccount(userAccountId: string): Promise<SessionUser | null> {
-
+  async getCompleteUserForAccount(
+    userAccountId: string
+  ): Promise<SessionUser | null> {
     const userAccount = await db.query.userAccounts.findFirst({
       where: eq(userAccounts.id, userAccountId),
       with: {
         coreUser: true,
-        userProfile: true
+        userProfile: true,
       },
     });
-  
+
     if (!userAccount) {
       return null;
     }
@@ -202,8 +253,6 @@ export class DatabaseUserService {
 
   // Authentication operations
   async verifyEmail(token: string): Promise<boolean> {
-
-
     throw new Error("Not implemented");
 
     return true;
@@ -269,7 +318,11 @@ export class DatabaseUserService {
     return true;
   }
 
-  async changePassword(userAccountId: UserAccount["id"], currentPassword: string, newPassword: string): Promise<boolean> {
+  async changePassword(
+    userAccountId: UserAccount["id"],
+    currentPassword: string,
+    newPassword: string
+  ): Promise<boolean> {
     const account = await this.getUserAccount(userAccountId);
     if (!account) {
       return false;
