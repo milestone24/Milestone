@@ -25,6 +25,12 @@ import {
 import { Check } from "lucide-react";
 import { getDateUrlParams } from "@/lib/date";
 import numabbr from "numabbr";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../ui/accordion";
 
 type ChartData = Omit<AssetHistoryTimePoint, "date" | "metadata"> & {
   date: string;
@@ -442,12 +448,24 @@ export default function AssetHistoryChart({
 
                 {selectedPoint.metadata &&
                   selectedPoint.metadata.length > 0 && (
-                    <div className="mt-4 p-3">
-                      <h4 className="text-sm font-medium mb-1">Metadata</h4>
-                      <pre className="text-sm text-gray-600 overflow-x-scroll">
-                        {JSON.stringify(selectedPoint.metadata, null, 2)}
-                      </pre>
-                    </div>
+                    <>
+                      <Accordion type="single" collapsible className="mt-4">
+                        <AccordionItem value="metadata">
+                          <AccordionTrigger>Metadata</AccordionTrigger>
+                          <AccordionContent>
+                            <div className="mt-4 p-3">
+                              <pre className="text-sm text-gray-600 overflow-x-scroll">
+                                {JSON.stringify(
+                                  selectedPoint.metadata,
+                                  null,
+                                  2
+                                )}
+                              </pre>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
+                    </>
                   )}
               </div>
             )}
