@@ -14,6 +14,25 @@ import {
 import FireChart from "@/components/charts/FireChart";
 import { useToast } from "@/hooks/use-toast";
 import { FireSettingsInsert } from "shared/schema";
+import { useSession } from "@/hooks/use-session";
+
+function calculateAge(dateOfBirth: Date) {
+  const today = new Date();
+  const dob = new Date(dateOfBirth);
+
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDifference = today.getMonth() - dob.getMonth();
+
+  // Adjust age if birthday hasn't occurred yet this year
+  if (
+    monthDifference < 0 ||
+    (monthDifference === 0 && today.getDate() < dob.getDate())
+  ) {
+    age--;
+  }
+
+  return age;
+}
 
 export default function Fire() {
   const {
@@ -25,6 +44,10 @@ export default function Fire() {
   } = usePortfolio();
   const { toast } = useToast();
 
+  const { user } = useSession();
+
+  const currentAge = user?.profile.dob ? calculateAge(user.profile.dob) : NaN;
+
   // Default values if fireSettings is not loaded yet
   const defaultSettings: Omit<FireSettingsInsert, "id" | "userAccountId"> & {
     statePensionAge: number;
@@ -34,7 +57,7 @@ export default function Fire() {
     expectedAnnualReturn: "7",
     safeWithdrawalRate: "4",
     monthlyInvestment: "300",
-    currentAge: 35,
+    currentAge,
     adjustInflation: true,
     statePensionAge: 66,
   };
@@ -108,6 +131,8 @@ export default function Fire() {
     fireNumber
   );
 
+  console.log("yearsToFire", yearsToFire);
+
   // Calculate the impact of changing monthly investment
   const increaseImpact = calculateContributionImpact({
     currentAmount: portfolioOverview?.value ?? 0,
@@ -115,7 +140,7 @@ export default function Fire() {
     newMonthlyInvestment: formState.monthlyInvestment + 100,
     expectedReturn: formState.expectedReturn,
     targetAmount: fireNumber,
-    currentAge: fireSettings?.currentAge || defaultSettings.currentAge,
+    currentAge,
   });
 
   const decreaseImpact = calculateContributionImpact({
@@ -124,13 +149,11 @@ export default function Fire() {
     newMonthlyInvestment: formState.monthlyInvestment - 100,
     expectedReturn: formState.expectedReturn,
     targetAmount: fireNumber,
-    currentAge: fireSettings?.currentAge || defaultSettings.currentAge,
+    currentAge,
   });
 
   // Projected retirement age
-  const projectedRetirementAge = Math.round(
-    (fireSettings?.currentAge || defaultSettings.currentAge) + yearsToFire
-  );
+  const projectedRetirementAge = Math.round(currentAge + yearsToFire);
 
   // Handle adjusting the monthly investment
   const handleAdjustInvestment = async (adjustment: number) => {
@@ -146,7 +169,7 @@ export default function Fire() {
         annualIncomeGoal: fireSettings.annualIncomeGoal,
         expectedAnnualReturn: fireSettings.expectedAnnualReturn,
         safeWithdrawalRate: fireSettings.safeWithdrawalRate,
-        currentAge: fireSettings.currentAge,
+        currentAge,
         adjustInflation: fireSettings.adjustInflation,
         statePensionAge: fireSettings.statePensionAge,
       });
@@ -168,7 +191,7 @@ export default function Fire() {
       expectedAnnualReturn: formState.expectedReturn.toString(),
       safeWithdrawalRate: formState.withdrawalRate.toString(),
       monthlyInvestment: formState.monthlyInvestment.toString(),
-      currentAge: defaultSettings.currentAge,
+      currentAge,
       adjustInflation: formState.adjustInflation,
       statePensionAge: formState.statePensionAge,
     };
@@ -372,7 +395,7 @@ export default function Fire() {
 
           {/* Chart */}
           <FireChart
-            currentAge={fireSettings.currentAge}
+            currentAge={currentAge}
             currentAmount={portfolioOverview?.value ?? 0}
             monthlyInvestment={formState.monthlyInvestment}
             targetAmount={fireNumber}
