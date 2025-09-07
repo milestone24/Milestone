@@ -748,38 +748,49 @@ export const getCombinedDayValuesForValues = async (
 export const getPortfolioOverviewForAssets = async (
   assets: UserAssetWithHistoryAndAccountChange[]
 ): Promise<AssetsChange> => {
-  const assetsValueChanges: AssetsChange = assets
-    .map((asset) => asset.accountChange)
-    .reduce((acc: AssetsChange, asset) => {
-      const startDate: Date =
-        asset.startDate < acc.startDate ? asset.startDate : acc.startDate;
 
-      const endDate: Date =
-        asset.endDate > acc.endDate ? asset.endDate : acc.endDate;
+  const assetsValueChanges: AssetsChange =
+    assets.length > 0
+      ? assets
+          .map((asset) => asset.accountChange)
+          .reduce((acc: AssetsChange, asset) => {
+            const startDate: Date =
+              asset.startDate < acc.startDate ? asset.startDate : acc.startDate;
 
-      const startValue =
-        asset.startDate === acc.startDate
-          ? acc.startValue + asset.startValue
-          : asset.startDate < acc.startDate
-          ? asset.startValue
-          : asset.startDate > acc.startDate
-          ? acc.startValue
-          : acc.startValue;
+            const endDate: Date =
+              asset.endDate > acc.endDate ? asset.endDate : acc.endDate;
 
-      const value = acc.value + asset.value;
-      const currentChange = acc.currentChange + asset.currentChange;
+            const startValue =
+              asset.startDate === acc.startDate
+                ? acc.startValue + asset.startValue
+                : asset.startDate < acc.startDate
+                ? asset.startValue
+                : asset.startDate > acc.startDate
+                ? acc.startValue
+                : acc.startValue;
 
-      const percentageChange = normalisePercentage(startValue, value);
+            const value = acc.value + asset.value;
+            const currentChange = acc.currentChange + asset.currentChange;
 
-      return {
-        startDate,
-        endDate,
-        startValue,
-        value,
-        currentChange,
-        currentChangePercentage: percentageChange,
-      };
-    });
+            const percentageChange = normalisePercentage(startValue, value);
+
+            return {
+              startDate,
+              endDate,
+              startValue,
+              value,
+              currentChange,
+              currentChangePercentage: percentageChange,
+            };
+          })
+      : {
+          startDate: new Date(),
+          endDate: new Date(),
+          startValue: 0,
+          value: 0,
+          currentChange: 0,
+          currentChangePercentage: 0,
+        };
 
   return assetsValueChanges;
 };
