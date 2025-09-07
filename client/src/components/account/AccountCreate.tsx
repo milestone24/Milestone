@@ -96,7 +96,10 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
               : 0,
           })) ?? [],
         contributions: {
-          process: "automatic",
+          process:
+            values.valueMethod === "calculated"
+              ? "manual"
+              : values.contributions?.process,
           amount: values.contributions?.amount
             ? parseFloat(values.contributions.amount as unknown as string)
             : 0,
@@ -133,6 +136,10 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
       accountType: "ISA",
       startDate: new Date("2025-01-01"),
       valueMethod: "calculated",
+      contributions: {
+        process: "manual",
+        securityDistribution: [],
+      },
       securities: [
         // {
         //   security: {
@@ -815,39 +822,40 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
   } = form;
 
   const securities = watch("securities");
+  const valueMethod = watch("valueMethod");
 
   const { securitiesFields } = useContributionSecurities(securities);
 
   const process = watch("contributions.process");
-  
-  console.log("Three securities : ", securities)
 
   return (
     <>
       <div className="flex flex-row justify-between items-center">
         <h2 className="text-lg font-bold">Contributions</h2>
       </div>
-      <FormField
-        control={form.control}
-        name="contributions.process"
-        render={({ field }) => (
-          <FormItem>
-            <FormControl>
-              <ToggleGroup
-                type="single"
-                value={field.value}
-                onValueChange={field.onChange}
-                className="mb-4"
-              >
-                <ToggleGroupItem value="automatic">Auto</ToggleGroupItem>
-                <ToggleGroupItem value="manual">Manual</ToggleGroupItem>
-              </ToggleGroup>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      {process === "automatic" ? (
+      {valueMethod === "manual" ? (
+        <FormField
+          control={form.control}
+          name="contributions.process"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <ToggleGroup
+                  type="single"
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  className="mb-4"
+                >
+                  <ToggleGroupItem value="automatic">Auto</ToggleGroupItem>
+                  <ToggleGroupItem value="manual">Manual</ToggleGroupItem>
+                </ToggleGroup>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      ) : null}
+      {valueMethod === "manual" && process === "automatic" ? (
         <>
           <FormField
             control={form.control}
@@ -875,6 +883,11 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Contribution Date</FormLabel>
+                <FormDescription>
+                  The date of the contribution. (This should not be a date. This
+                  should allow the user to select, for example 1st of the month,
+                  every 3 months, etc.)
+                </FormDescription>
                 <FormControl>
                   <Input
                     type="date"
