@@ -13,8 +13,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "../ui/input";
-import { ToggleGroupItem } from "../ui/toggle-group";
-import { ToggleGroup } from "../ui/toggle-group";
 import { Checkbox } from "../ui/checkbox";
 import { Button } from "../ui/button";
 import { RecurringContribution } from "@shared/schema/portfolio-assets";
@@ -29,7 +27,10 @@ type ContributionRecurringFormProps = {
 const defaultValues: RecurringContributionFormData = {
   amount: 0,
   startDate: new Date(),
-  interval: "monthly",
+  pattern: {
+    type: "rrule",
+    expression: "FREQ=MONTHLY;BYDAY=2TU",
+  },
   isActive: true,
 };
 
@@ -110,7 +111,7 @@ export const ContributionRecurringForm = ({
               )}
             />
           </div>
-          <div className="flex flex-row flex-wrap">
+          {/* <div className="flex flex-row flex-wrap">
             <FormField
               control={control}
               name="interval"
@@ -139,7 +140,7 @@ export const ContributionRecurringForm = ({
                 </FormItem>
               )}
             />
-          </div>
+          </div> */}
           <div className="flex flex-row flex-wrap">
             <FormField
               control={control}

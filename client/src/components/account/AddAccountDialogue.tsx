@@ -17,7 +17,7 @@ const AddAccountDialogue: React.FC<AddAccountDialogueProps> = ({
   onSubmit,
 }) => {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={true}>
       <DialogTrigger asChild>
         <Button
           variant="outline"
@@ -27,7 +27,7 @@ const AddAccountDialogue: React.FC<AddAccountDialogueProps> = ({
           <Plus className="h-5 w-5" />
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="overflow-y-scroll max-h-[90vh]">
         <AccountCreate
           onSubmit={onSubmit}
           onCancel={() => onOpenChange(false)}
