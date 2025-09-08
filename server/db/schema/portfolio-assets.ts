@@ -26,6 +26,28 @@ export const valueEntryMethodEnum = pgEnum(
 export const valueMethod = ["manual", "calculated"] as const;
 export const valueMethodEnum = pgEnum("value_method", valueMethod);
 
+export const schedulePatternType = ["cron", "rrule"] as const;
+export const schedulePatternTypeEnum = pgEnum(
+  "schedule_pattern_type",
+  schedulePatternType
+);
+
+export type SchedulePatternType = (typeof schedulePatternType)[number];
+
+export type CronPattern = {
+  type: Extract<SchedulePatternType, "cron">;
+  expression: string; // e.g., "0 0 1 * *" for 1st of month
+  timezone?: string;
+};
+
+export type RRulePattern = {
+  type: Extract<SchedulePatternType, "rrule">;
+  expression: string; // e.g., "FREQ=MONTHLY;BYDAY=2TU" for 2nd Tuesday
+  timezone?: string;
+};
+
+export type SchedulePattern = CronPattern | RRulePattern;
+
 export type AccountType = (typeof accountType)[number];
 export type ContributionInterval = (typeof contributionInterval)[number];
 export type ValueEntryMethod = (typeof valueEntryMethod)[number];
@@ -92,7 +114,9 @@ export const recurringContributions = pgTable("recurring_contributions", {
   assetId: uuid("asset_id").notNull(),
   amount: real("amount").notNull(),
   startDate: timestamp("start_date").notNull(),
-  interval: contributionIntervalEnum("interval").notNull(),
+  //interval: contributionIntervalEnum("interval").notNull(),
+  pattern: jsonb("pattern").$type<SchedulePattern>().notNull(),
+  //pattern: jsonb("pattern").$type<SchedulePattern>(),
   lastProcessedDate: timestamp("last_processed_date"),
   isActive: boolean("is_active").notNull().default(true),
   ...timestampColumns(),
@@ -267,6 +291,28 @@ export const securityTransactionRelations = relations(
     }),
   })
 );
+
+/**
+ * TODO we need to have a intermediate state where the user confirms
+ * that the contrbution has been applied, the quanity of shares and currency value is correct.
+ */
+// export const securityRecurringContributions = pgTable(
+//   "security_recurring_contributions",
+//   {
+//     id: uuid("id")
+//       .primaryKey()
+//       .default(sql`gen_random_uuid()`),
+//     securityId: uuid("security_id")
+//       .notNull()
+//       .references(() => userAssetSecurities.id, { onDelete: "cascade" }),
+//     amount: real("amount").notNull(),
+//     startDate: timestamp("start_date").notNull(),
+//     pattern: jsonb("pattern").$type<SchedulePattern>(),
+//     lastProcessedDate: timestamp("last_processed_date"),
+//     isActive: boolean("is_active").notNull().default(true),
+//     ...timestampColumns(),
+//   }
+// );
 
 export const userAssetAPIKeyConnections = pgTable(
   "user_asset_api_key_connections",

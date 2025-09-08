@@ -1,10 +1,18 @@
-import { z } from "zod";
+import { z, ZodType } from "zod";
 import { AssetContribution, RecurringContribution } from "./portfolio-assets";
+import type { SchedulePattern } from "@shared/utils/scheduling";
 
 export type RecurringContributionFormData = Pick<
   RecurringContribution,
-  "amount" | "startDate" | "interval" | "isActive"
+  "amount" | "startDate" | "isActive" | "pattern"
 >;
+
+export const patternSchema = z.object({
+  type: z.enum(["cron", "rrule"]),
+  expression: z.string(),
+});
+
+export type SchedulePatternInsert = z.infer<typeof patternSchema>;
 
 export const recurringContributionOrphanSchema = z.object({
   amount: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
@@ -13,11 +21,16 @@ export const recurringContributionOrphanSchema = z.object({
   startDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date",
   }),
-  interval: z.enum(["weekly", "biweekly", "monthly"], {
-    required_error: "Interval is required",
-  }),
+  pattern: patternSchema.required(),
+  // interval: z.enum(["weekly", "biweekly", "monthly"], {
+  //   required_error: "Interval is required",
+  // }),
   isActive: z.boolean().default(true),
 });
+
+export type RecurringContributionOrphanInsert = z.infer<
+  typeof recurringContributionOrphanSchema
+>;
 
 export type SingleContributionFormData = Pick<
   AssetContribution,

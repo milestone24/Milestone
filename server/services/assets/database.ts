@@ -8,6 +8,7 @@ import {
   userAssetSecurities,
   securityTransactions,
   securityDailyHistory,
+  SchedulePattern,
 } from "server/db/schema";
 import { Database } from "../../db";
 import {
@@ -70,6 +71,7 @@ import {
 import { factory as securitiesFactory } from "@server/services/securities";
 import { AssetSecurity } from "../securities/types";
 import { union, unionAll } from "drizzle-orm/pg-core";
+import { getNextExecutionDate } from "@shared/utils/scheduling";
 
 const securitiesService = securitiesFactory();
 
@@ -121,10 +123,9 @@ const recurringContributionsQueryBuilder = new ResourceQueryBuilder({
     "amount",
     "startDate",
     "lastProcessedDate",
-    "interval",
     "isActive",
   ],
-  allowedFilterFields: ["interval", "isActive"],
+  allowedFilterFields: ["isActive"],
   defaultSort: { field: "createdAt", direction: "desc" },
   maxLimit: 50,
 });
@@ -1160,7 +1161,8 @@ export class DatabaseAssetService {
           eq(recurringContributions.isActive, true),
           lte(
             recurringContributions.lastProcessedDate,
-            this.getNextProcessingDate(now, "weekly")
+            now
+            //this.getNextProcessingDate(now, contribution.pattern)
           ) // Most aggressive interval
         ),
       });
@@ -1169,7 +1171,7 @@ export class DatabaseAssetService {
     for (const contribution of dueContributions) {
       const nextDate = this.getNextProcessingDate(
         contribution.lastProcessedDate,
-        contribution.interval as ContributionInterval
+        contribution.pattern
       );
 
       // Check if the next processing date is due
@@ -1202,22 +1204,12 @@ export class DatabaseAssetService {
 
   private getNextProcessingDate(
     lastDate: Date | null,
-    interval: ContributionInterval
+    pattern: SchedulePattern
   ): Date {
     const nextDate = lastDate ? new Date(lastDate) : new Date();
 
-    switch (interval) {
-      case "weekly":
-        nextDate.setDate(nextDate.getDate() + 7);
-        break;
-      case "biweekly":
-        nextDate.setDate(nextDate.getDate() + 14);
-        break;
-      case "monthly":
-        nextDate.setMonth(nextDate.getMonth() + 1);
-        break;
-      default:
-        throw new Error(`Invalid interval: ${interval}`);
+    if (pattern.type === "rrule") {
+      return getNextExecutionDate(pattern, nextDate, new Date()) ?? nextDate;
     }
 
     return nextDate;

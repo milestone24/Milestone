@@ -26,6 +26,8 @@ import {
   SecuritySelect,
 } from "./securities";
 
+import { patternSchema } from "./contribution";
+
 export { accountType } from "@server/db/schema/index";
 
 // export const generalAssetOrphanInsertSchema = z.object({
@@ -100,27 +102,30 @@ export const userAssetOrphanInsertSchema = z.object({
   //Only to be specified by user if the asset is to be manually updated
   currentValue: z.number().optional(),
   securities: z.array(userAssetSecurityInsertSchema),
-  contributions: z.object({
-    process: z.enum(["automatic", "manual"]),
-    amount: z.number(),
-    date: z.coerce.date(),
-    securityDistribution: z.array(
-      z.object({
-        securityTempId: z.string(),
-        securityName: z.string(),
-        commitment: z.number(),
-      })
-    ),
-    notificationPeriod: z.enum([
-      "daily",
-      "weekly",
-      "monthly",
-      "quarterly",
-      "yearly",
-    ]),
-    notificationEmail: z.boolean(),
-    notificationPush: z.boolean(),
-  }),
+  contributions: z
+    .object({
+      process: z.enum(["automatic", "manual"]),
+      amount: z.number(),
+      date: z.coerce.date(),
+      securityDistribution: z.array(
+        z.object({
+          securityTempId: z.string(),
+          securityName: z.string(),
+          commitment: z.number(),
+        })
+      ),
+      schedulePattern: patternSchema,
+      // notificationPeriod: z.enum([
+      //   "daily",
+      //   "weekly",
+      //   "monthly",
+      //   "quarterly",
+      //   "yearly",
+      // ]),
+      notificationEmail: z.boolean(),
+      notificationPush: z.boolean(),
+    })
+    .optional(),
 });
 
 type ZodUserAssetOrphan = z.infer<typeof userAssetOrphanInsertSchema>;
@@ -278,7 +283,8 @@ export type ContributionInterval = DBContributionInterval;
 export const recurringContributionOrphanInsertSchema = z.object({
   amount: z.number().positive(),
   startDate: z.coerce.date(),
-  interval: z.enum(["weekly", "biweekly", "monthly", "quarterly", "yearly"]),
+  //interval: z.enum(["weekly", "biweekly", "monthly", "quarterly", "yearly"]),
+  pattern: patternSchema.required(),
 });
 
 type ZodRecurringContributionOrphanInsert = z.infer<
