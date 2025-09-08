@@ -104,6 +104,7 @@ export const userAssetOrphanInsertSchema = z.object({
   securities: z.array(userAssetSecurityInsertSchema),
   contributions: z
     .object({
+      isScheduled: z.boolean(),
       process: z.enum(["automatic", "manual"]),
       amount: z.number(),
       date: z.coerce.date(),

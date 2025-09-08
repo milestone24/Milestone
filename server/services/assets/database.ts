@@ -625,6 +625,22 @@ export class DatabaseAssetService {
         });
       }
 
+      console.log("data.contributions", data.contributions);
+
+      // if (data.contributions) {
+      //   if (data.valueMethod === "manual") {
+      //     await tx.insert(recurringContributions).values({
+      //       assetId: insertedUserAsset.id,
+      //       amount: data.contributions.amount,
+      //       startDate: data.startDate,
+      //       pattern: data.contributions.schedulePattern,
+      //       isActive: true,
+      //     });
+      //   }
+      //   if (data.valueMethod === "calculated") {
+      //   }
+      // }
+
       return insertedUserAsset;
     });
 
