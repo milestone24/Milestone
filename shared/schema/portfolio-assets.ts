@@ -489,3 +489,23 @@ export type AssetWithValueHistoryGenerators = {
   id: string;
   history: Generator<AssetValue>;
 };
+
+
+export type TransactionAbstract = {
+  id: string;
+  type: "asset" | "security";
+  value: number;
+  valueDate: Date;
+  recordedAt: Date;
+};
+
+export type TransactionTimePoint = {
+  valueDate: Date;
+  valueForDate: number;
+  transactions: TransactionAbstract[];
+};
+
+export type CombinedValueHistory = {
+  transactions: TransactionTimePoint[];
+  valueHistory: AssetHistoryTimePoint[];
+};

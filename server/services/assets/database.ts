@@ -50,6 +50,9 @@ import {
   SecurityTransactionOrphanInsert,
   SecurityTransaction,
   UserAssetSecurityTransactionResolved,
+  TransactionAbstract,
+  CombinedValueHistory,
+  TransactionTimePoint,
 } from "@shared/schema";
 import { NodePgTransaction } from "drizzle-orm/node-postgres";
 import { Schema, TSchema } from "server/db/types/utils";
@@ -894,6 +897,76 @@ export class DatabaseAssetService {
     return securityTransaction;
   }
 
+  async getCombinedAssetTransactions(
+    assetId: UserAsset["id"],
+    query?: QueryParams
+  ): Promise<TransactionAbstract[]> {
+    const { start, end } = queryParamsFilterToDateRange(query?.filter);
+    const startDate = resolveDate(start);
+    const endDate = resolveDate(end);
+
+    const asset = await this.db.query.userAssets.findFirst({
+      where: eq(userAssets.id, assetId),
+      with: {
+        securities: true,
+      },
+    });
+
+    if (!asset) {
+      throw new Error("Asset not found");
+    }
+
+    const transactions: TransactionAbstract[] = [];
+
+    const assetTransactionHistory = await this.db
+      .select()
+      .from(assetTransactions)
+      .where(
+        and(
+          eq(assetTransactions.assetId, assetId),
+          startDate != null && endDate != null
+            ? between(assetTransactions.valueDate, startDate, endDate)
+            : startDate != null
+            ? gte(assetTransactions.valueDate, startDate)
+            : endDate != null
+            ? lte(assetTransactions.valueDate, endDate)
+            : undefined
+        )
+      );
+
+    transactions.push(
+      ...assetTransactionHistory.map((transaction) => ({
+        ...transaction,
+        type: "asset" as TransactionAbstract["type"],
+      }))
+    );
+
+    for await (const security of asset.securities) {
+      const securityTransactionHistory = await this.db
+        .select()
+        .from(securityTransactions)
+        .where(
+          and(
+            eq(securityTransactions.securityId, security.id),
+            startDate != null && endDate != null
+              ? between(securityTransactions.valueDate, startDate, endDate)
+              : startDate != null
+              ? gte(securityTransactions.valueDate, startDate)
+              : endDate != null
+              ? lte(securityTransactions.valueDate, endDate)
+              : undefined
+          )
+        );
+      transactions.push(
+        ...securityTransactionHistory.map((transaction) => ({
+          ...transaction,
+          type: "security" as TransactionAbstract["type"],
+        }))
+      );
+    }
+    return transactions;
+  }
+
   async clearAndUpdateAssetValuesFromDate(
     assetId: UserAsset["id"],
     date: Date
@@ -924,17 +997,72 @@ export class DatabaseAssetService {
   async getPortfolioValueHistoryForUser(
     userAccountId: UserAccount["id"],
     query?: QueryParams
-  ): Promise<AssetHistoryTimePoint[]> {
+  ): Promise<CombinedValueHistory> {
     const assetsWithHistory =
       await this.getUserAssetsWithAssetValueHistoryWithBoundary(
         userAccountId,
         query
       );
 
-    return resolveDayValueHistoryForAssetsForDateRange(
+    const valueHistory = await resolveDayValueHistoryForAssetsForDateRange(
       assetsWithHistory,
       queryParamsFilterToDateRange(query?.filter)
     );
+
+    const assetsTransactions = await Promise.all(
+      assetsWithHistory.map((asset) =>
+        this.getCombinedAssetTransactions(asset.id, query)
+      )
+    );
+
+    //We need to flatten the tranactions calculating the combined value at each value date point
+    const flattenedTransactions = assetsTransactions.flatMap((transactions) =>
+      transactions.map((transaction) => ({
+        ...transaction,
+        valueDate: transaction.valueDate,
+      }))
+    );
+
+    const transactions = flattenedTransactions.sort(
+      (a, b) => a.valueDate.getTime() - b.valueDate.getTime()
+    );
+
+    const transactionHistoryWithSum = transactions.reduce(
+      (
+        acc: TransactionTimePoint[],
+        transaction,
+        index,
+        array
+      ): TransactionTimePoint[] => {
+        //The day of the transaction
+        const transactionDay = transaction.valueDate
+          .toISOString()
+          .split("T")[0]!;
+
+        const existingTransactionDay = acc.find(
+          (t) => t.valueDate.toISOString().split("T")[0]! === transactionDay
+        );
+
+        if (existingTransactionDay) {
+          existingTransactionDay.valueForDate += transaction.value;
+          existingTransactionDay.transactions.push(transaction);
+        } else {
+          acc.push({
+            valueDate: transaction.valueDate,
+            valueForDate: transaction.value,
+            transactions: [transaction],
+          });
+        }
+
+        return acc;
+      },
+      []
+    );
+
+    return {
+      transactions: transactionHistoryWithSum,
+      valueHistory,
+    };
   }
 
   async getBrokerPlatforms(): Promise<BrokerPlatform[]> {
