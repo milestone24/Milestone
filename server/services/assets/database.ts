@@ -907,122 +907,6 @@ export class DatabaseAssetService {
     await securitiesService.updateAssetValues(assetPersistence);
   }
 
-  // async setBrokerProviderAPIKey(
-  //   id: BrokerProviderAsset["id"],
-  //   apiKey: string
-  // ): Promise<BrokerProviderAssetAPIKeyConnection> {
-  //   const existingBrokerProviderAsset = await this.getBrokerProviderAsset(id);
-  //   if (!existingBrokerProviderAsset) {
-  //     throw new Error("Broker provider asset not found");
-  //   }
-
-  //   const provider = await this.db.query.brokerProviders.findFirst({
-  //     where: eq(brokerProviders.id, existingBrokerProviderAsset.providerId),
-  //   });
-
-  //   if (!provider) {
-  //     throw new Error("Broker provider not found");
-  //   }
-
-  //   if (!provider.supportsAPIKey) {
-  //     throw new Error("Broker provider does not support API keys");
-  //   }
-
-  //   const existingAPIKeyConnection =
-  //     await this.db.query.brokerProviderAssetAPIKeyConnections.findFirst({
-  //       where: eq(
-  //         brokerProviderAssetAPIKeyConnections.brokerProviderAssetId,
-  //         id
-  //       ),
-  //     });
-
-  //   if (existingAPIKeyConnection) {
-  //     const [updatedAPIKeyConnection] = await this.db
-  //       .update(brokerProviderAssetAPIKeyConnections)
-  //       .set({ apiKey })
-  //       .where(
-  //         eq(
-  //           brokerProviderAssetAPIKeyConnections.id,
-  //           existingAPIKeyConnection.id
-  //         )
-  //       )
-  //       .returning();
-  //     return updatedAPIKeyConnection;
-  //   } else {
-  //     const [insertedAPIKeyConnection] = await this.db
-  //       .insert(brokerProviderAssetAPIKeyConnections)
-  //       .values({ brokerProviderAssetId: id, apiKey })
-  //       .returning();
-  //     return insertedAPIKeyConnection;
-  //   }
-  // }
-
-  // private async getCombinedAssetsForUser(
-  //   userAccountId: UserAccount["id"]
-  // ): Promise<UserAsset[]> {
-  //   throw new Error("This is no longer in use");
-  // const brokerProviderQuery: QueryParts = {
-  //   where: and(eq(brokerProviderAssets.userAccountId, userAccountId)),
-  //   orderBy: [desc(brokerProviderAssets.createdAt)],
-  // };
-
-  // const brokerProviderAssetsSelected =
-  //   await this.getBrokerProviderAssetsForUser(
-  //     userAccountId,
-  //     brokerProviderQuery
-  //   );
-
-  // const generalQuery: QueryParts = {
-  //   where: eq(generalAssets.userAccountId, userAccountId),
-  //   orderBy: [desc(generalAssets.createdAt)],
-  // };
-
-  // const generalAssetsSelected = await this.getGeneralAssetsForUser(
-  //   userAccountId,
-  //   generalQuery
-  // );
-
-  // const assets: Asset[] = [
-  //   ...brokerProviderAssetsSelected,
-  //   ...generalAssetsSelected,
-  // ];
-
-  // return assets;
-  //}
-
-  // private async getPortfolioAssetValuesForAssetsForDateRange(
-  //   assetIds: UserAsset["id"][],
-  //   query?: DataRangeQuery
-  // ): Promise<AssetValue[]> {
-  //   const startDate = resolveDate(query?.start);
-  //   const endDate = resolveDate(query?.end);
-
-  //   const dateQueries =
-  //     startDate && endDate
-  //       ? [between(assetValues.valueDate, startDate, endDate)]
-  //       : startDate
-  //       ? [gte(assetValues.valueDate, startDate)]
-  //       : endDate
-  //       ? [lte(assetValues.valueDate, endDate)]
-  //       : [];
-
-  //   const assetValuesQuery: QueryParts = {
-  //     where: and(inArray(assetValues.assetId, assetIds), ...dateQueries),
-  //     orderBy: [desc(assetValues.valueDate)],
-  //   };
-
-  //   const { where, orderBy, limit, offset } = assetValuesQuery;
-
-  //   const assetValuesToCalculate = await this.db.query.assetValues.findMany({
-  //     where,
-  //     orderBy,
-  //     limit,
-  //     offset,
-  //   });
-
-  //   return assetValuesToCalculate as AssetValue[];
-  // }
-
   async getPortfolioOverviewForUser(
     userAccountId: UserAccount["id"],
     query?: QueryParams
@@ -1491,3 +1375,122 @@ export const assetPersistenceFactory = (
     },
   };
 };
+
+
+/// Legacy kept for reference
+
+// async setBrokerProviderAPIKey(
+  //   id: BrokerProviderAsset["id"],
+  //   apiKey: string
+  // ): Promise<BrokerProviderAssetAPIKeyConnection> {
+  //   const existingBrokerProviderAsset = await this.getBrokerProviderAsset(id);
+  //   if (!existingBrokerProviderAsset) {
+  //     throw new Error("Broker provider asset not found");
+  //   }
+
+  //   const provider = await this.db.query.brokerProviders.findFirst({
+  //     where: eq(brokerProviders.id, existingBrokerProviderAsset.providerId),
+  //   });
+
+  //   if (!provider) {
+  //     throw new Error("Broker provider not found");
+  //   }
+
+  //   if (!provider.supportsAPIKey) {
+  //     throw new Error("Broker provider does not support API keys");
+  //   }
+
+  //   const existingAPIKeyConnection =
+  //     await this.db.query.brokerProviderAssetAPIKeyConnections.findFirst({
+  //       where: eq(
+  //         brokerProviderAssetAPIKeyConnections.brokerProviderAssetId,
+  //         id
+  //       ),
+  //     });
+
+  //   if (existingAPIKeyConnection) {
+  //     const [updatedAPIKeyConnection] = await this.db
+  //       .update(brokerProviderAssetAPIKeyConnections)
+  //       .set({ apiKey })
+  //       .where(
+  //         eq(
+  //           brokerProviderAssetAPIKeyConnections.id,
+  //           existingAPIKeyConnection.id
+  //         )
+  //       )
+  //       .returning();
+  //     return updatedAPIKeyConnection;
+  //   } else {
+  //     const [insertedAPIKeyConnection] = await this.db
+  //       .insert(brokerProviderAssetAPIKeyConnections)
+  //       .values({ brokerProviderAssetId: id, apiKey })
+  //       .returning();
+  //     return insertedAPIKeyConnection;
+  //   }
+  // }
+
+  // private async getCombinedAssetsForUser(
+  //   userAccountId: UserAccount["id"]
+  // ): Promise<UserAsset[]> {
+  //   throw new Error("This is no longer in use");
+  // const brokerProviderQuery: QueryParts = {
+  //   where: and(eq(brokerProviderAssets.userAccountId, userAccountId)),
+  //   orderBy: [desc(brokerProviderAssets.createdAt)],
+  // };
+
+  // const brokerProviderAssetsSelected =
+  //   await this.getBrokerProviderAssetsForUser(
+  //     userAccountId,
+  //     brokerProviderQuery
+  //   );
+
+  // const generalQuery: QueryParts = {
+  //   where: eq(generalAssets.userAccountId, userAccountId),
+  //   orderBy: [desc(generalAssets.createdAt)],
+  // };
+
+  // const generalAssetsSelected = await this.getGeneralAssetsForUser(
+  //   userAccountId,
+  //   generalQuery
+  // );
+
+  // const assets: Asset[] = [
+  //   ...brokerProviderAssetsSelected,
+  //   ...generalAssetsSelected,
+  // ];
+
+  // return assets;
+  //}
+
+  // private async getPortfolioAssetValuesForAssetsForDateRange(
+  //   assetIds: UserAsset["id"][],
+  //   query?: DataRangeQuery
+  // ): Promise<AssetValue[]> {
+  //   const startDate = resolveDate(query?.start);
+  //   const endDate = resolveDate(query?.end);
+
+  //   const dateQueries =
+  //     startDate && endDate
+  //       ? [between(assetValues.valueDate, startDate, endDate)]
+  //       : startDate
+  //       ? [gte(assetValues.valueDate, startDate)]
+  //       : endDate
+  //       ? [lte(assetValues.valueDate, endDate)]
+  //       : [];
+
+  //   const assetValuesQuery: QueryParts = {
+  //     where: and(inArray(assetValues.assetId, assetIds), ...dateQueries),
+  //     orderBy: [desc(assetValues.valueDate)],
+  //   };
+
+  //   const { where, orderBy, limit, offset } = assetValuesQuery;
+
+  //   const assetValuesToCalculate = await this.db.query.assetValues.findMany({
+  //     where,
+  //     orderBy,
+  //     limit,
+  //     offset,
+  //   });
+
+  //   return assetValuesToCalculate as AssetValue[];
+  // }
