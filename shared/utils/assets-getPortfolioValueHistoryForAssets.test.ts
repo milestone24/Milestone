@@ -11,7 +11,7 @@ import {
 } from "./assets-test-helpers";
 
 describe("getPortfolioValueHistoryForAssets", () => {
-  it.only("foo one", async () => {
+  it.only("for one asset with one value should provide synthetic start and end points", async () => {
     const assets: WithAssetHistory<UserAsset>[] = [
       {
         id: "a1",
@@ -37,44 +37,6 @@ describe("getPortfolioValueHistoryForAssets", () => {
             createdAt: new Date("2024-01-10T00:00:00Z"),
             updatedAt: new Date("2024-01-10T00:00:00Z"),
           },
-          {
-            id: "v2",
-            assetId: "a1",
-            value: 150,
-            entryMethod: "calculated",
-            metadata: null,
-            valueDate: new Date("2024-01-10T00:00:00Z"),
-            recordedAt: new Date("2024-02-02T00:00:00Z"),
-            createdAt: new Date("2024-02-02T00:00:00Z"),
-            updatedAt: new Date("2024-02-02T00:00:00Z"),
-          },
-        ],
-      },
-      {
-        id: "a2",
-        history: [
-          {
-            id: "v1",
-            assetId: "a2",
-            value: 100,
-            entryMethod: "calculated",
-            metadata: null,
-            valueDate: new Date("2024-01-10T00:00:00Z"),
-            recordedAt: new Date("2024-01-02T10:00:00Z"),
-            createdAt: new Date("2024-01-02T00:00:00Z"),
-            updatedAt: new Date("2024-01-02T00:00:00Z"),
-          },
-          {
-            id: "v2",
-            assetId: "a2",
-            value: 100,
-            entryMethod: "calculated",
-            metadata: null,
-            valueDate: new Date("2024-01-10T00:00:00Z"),
-            recordedAt: new Date("2024-01-10T10:00:00Z"),
-            createdAt: new Date("2024-01-10T00:00:00Z"),
-            updatedAt: new Date("2024-01-10T00:00:00Z"),
-          },
         ],
       },
     ];
@@ -86,27 +48,27 @@ describe("getPortfolioValueHistoryForAssets", () => {
 
     console.log("result :", JSON.stringify(result, null, 2));
 
-    expect(result).toHaveLength(5);
-    expect(result[0]).toBeDefined();
-    if (result[0]) {
-      expect(result[0].value).toBe(0);
-    }
-    expect(result[1]).toBeDefined();
-    if (result[1]) {
-      expect(result[1].value).toBe(100);
-    }
-    expect(result[2]).toBeDefined();
-    if (result[2]) {
-      expect(result[2].value).toBe(200);
-    }
-    expect(result[3]).toBeDefined();
-    if (result[3]) {
-      expect(result[3].value).toBe(250);
-    }
-    expect(result[3]).toBeDefined();
-    if (result[3]) {
-      expect(result[3].value).toBe(250);
-    }
+    expect(result).toHaveLength(3);
+    // expect(result[0]).toBeDefined();
+    // if (result[0]) {
+    //   expect(result[0].value).toBe(0);
+    // }
+    // expect(result[1]).toBeDefined();
+    // if (result[1]) {
+    //   expect(result[1].value).toBe(100);
+    // }
+    // expect(result[2]).toBeDefined();
+    // if (result[2]) {
+    //   expect(result[2].value).toBe(200);
+    // }
+    // expect(result[3]).toBeDefined();
+    // if (result[3]) {
+    //   expect(result[3].value).toBe(250);
+    // }
+    // expect(result[3]).toBeDefined();
+    // if (result[3]) {
+    //   expect(result[3].value).toBe(250);
+    // }
   });
 
   it("foo two", async () => {

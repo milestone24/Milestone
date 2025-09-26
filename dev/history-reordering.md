@@ -1,0 +1,4 @@
+We do not ask users to enter a time value when entering values for asset value history or transaction history, therefore this poses a ordering issues when sorting data by its ‘valueDate’ as when this value is precisely the same there is no gaurantees of the ordering from the DB. Therefore we will apply a ‘sortkey’ algorythm to the DB which will assist in this issue.
+Yet when considering the possibility of negative and positive transactions do the values for teh same day have to be in the correct order.
+Do we care?
+If two transactions, positive or negative are carried out on the same day, the accumaltive value for the same day will always be the same.

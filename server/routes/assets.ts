@@ -464,6 +464,31 @@ export async function registerRoutes(
           return history;
         }
       );
+
+      console.log("response :", JSON.stringify(response.length, null, 2));
+
+      res.json(response);
+    }
+  );
+
+  router.get(
+    "/portfolio-value/transactions",
+    requireUser,
+    async (req: AuthRequest, res) => {
+      const response = await requireTenantWithUserAccountId(
+        req.tenant,
+        async (tenant) => {
+          const query = parseQueryParamsExpress(req.query);
+
+          const history =
+            await assetService.getPortfolioTransactionHistoryForUser(
+              tenant.userAccountId,
+              query
+            );
+          return history;
+        }
+      );
+
       res.json(response);
     }
   );

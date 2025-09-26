@@ -1,4 +1,15 @@
-import { pgTable, text, timestamp, boolean, real, pgEnum, check, uuid, jsonb } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  boolean,
+  real,
+  pgEnum,
+  check,
+  uuid,
+  jsonb,
+  index,
+} from "drizzle-orm/pg-core";
 import { userAccounts } from "./user-account";
 import { InferInsertModelBasic, timestampColumns, slugify } from "./utils";
 import { relations, InferSelectModel, sql } from "drizzle-orm";
@@ -208,23 +219,27 @@ export const userAssets = pgTable(
 /**
  * This should only ever be used for manual transactions, not for calculated transactions.
  */
-export const assetTransactions = pgTable("asset_transactions", {
-  id: uuid("id")
-    .notNull()
-    .default(sql`gen_random_uuid()`),
-  assetId: uuid("asset_id")
-    .notNull()
-    .references(() => userAssets.id, { onDelete: "cascade" }),
-  value: real("value").notNull(),
-  currencyValue: real("currency_value").notNull().default(0),
-  fees: real("fees").notNull().default(0),
-  //TODO
-  //The currency information will need to be added and not optional with default value eventually
-  currency: text("currency").notNull().default("GBP"),
-  valueDate: timestamp("value_date").notNull(),
-  recordedAt: timestamp("recorded_at").notNull(),
-  ...timestampColumns(),
-});
+export const assetTransactions = pgTable(
+  "asset_transactions",
+  {
+    id: uuid("id")
+      .notNull()
+      .default(sql`gen_random_uuid()`),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => userAssets.id, { onDelete: "cascade" }),
+    value: real("value").notNull(),
+    currencyValue: real("currency_value").notNull().default(0),
+    fees: real("fees").notNull().default(0),
+    //TODO
+    //The currency information will need to be added and not optional with default value eventually
+    currency: text("currency").notNull().default("GBP"),
+    valueDate: timestamp("value_date").notNull(),
+    recordedAt: timestamp("recorded_at").notNull(),
+    ...timestampColumns(),
+  },
+  (table) => [index("asset_transactions_value_date_idx").on(table.valueDate)]
+);
 
 export type AssetTransactionSelect = InferSelectModel<typeof assetTransactions>;
 export type AssetTransactionInsert = InferInsertModelBasic<
@@ -252,28 +267,38 @@ export const userAssetSecurities = pgTable("user_asset_securities", {
   ...timestampColumns(),
 });
 
-export const securityTransactions = pgTable("security_transactions", {
-  id: uuid("id")
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  securityId: uuid("security_id")
-    .notNull()
-    .references(() => userAssetSecurities.id, { onDelete: "cascade" }),
-  value: real("value").notNull(), //The number of shares held
-  //TODO
-  //We should have this but when user is adding there account they might not know the currency value.
-  //Do we force the user to add the currency value? or do we obtain the currency value from the
-  //cache or api?
-  //currencyValue: real("currency_value").notNull().default(0),
-  currencyValue: real("currency_value"),
-  fees: real("fees").default(0),
-  //TODO
-  //The currency information will need to be added and not optional with default value eventually
-  currency: text("currency").notNull().default("GBP"),
-  valueDate: timestamp("value_date").notNull(),
-  recordedAt: timestamp("recorded_at").notNull(),
-  ...timestampColumns(),
-});
+export const securityTransactions = pgTable(
+  "security_transactions",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    assetSecurityId: uuid("asset_security_id")
+      .notNull()
+      .references(() => userAssetSecurities.id, { onDelete: "cascade" }),
+    value: real("value").notNull(), //The number of shares held
+    //TODO
+    //We should have this but when user is adding there account they might not know the currency value.
+    //Do we force the user to add the currency value? or do we obtain the currency value from the
+    //cache or api?
+    //currencyValue: real("currency_value").notNull().default(0),
+    currencyValue: real("currency_value").notNull(),
+    fees: real("fees").default(0),
+    //TODO
+    //The currency information will need to be added and not optional with default value eventually
+    currency: text("currency").notNull().default("GBP"),
+    valueDate: timestamp("value_date").notNull(),
+    recordedAt: timestamp("recorded_at").notNull(),
+    ...timestampColumns(),
+  },
+  (table) => [
+    index("security_transactions_asset_security_id_idx").on(
+      table.assetSecurityId
+    ),
+    index("security_transactions_value_date_idx").on(table.valueDate),
+    index("security_transactions_recorded_at_idx").on(table.valueDate),
+  ]
+);
 
 export type SecurityTransactionSelect = InferSelectModel<
   typeof securityTransactions
@@ -286,7 +311,7 @@ export const securityTransactionRelations = relations(
   securityTransactions,
   ({ one }) => ({
     assetSecurity: one(userAssetSecurities, {
-      fields: [securityTransactions.securityId],
+      fields: [securityTransactions.assetSecurityId],
       references: [userAssetSecurities.id],
     }),
   })

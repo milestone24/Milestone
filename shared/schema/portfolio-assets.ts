@@ -148,7 +148,7 @@ export type UserAssetInsert = ZodUserAssetInsert;
 
 export type UserAsset = DBUserAsset;
 export type UserAssetWithHistoryAndAccountChange = WithAccountChange<
-  WithAssetHistory<UserAsset>
+  WithAssetHistory<UserAsset, AssetValue>
 >;
 
 export type ResolvedUserAsset = WithPlatform<
@@ -277,8 +277,6 @@ export type AssetContributionInsert = IfConstructorEquals<
 >;
 assetContributionInsertSchema satisfies ZodType<AssetContributionInsert>;
 
-export type AssetContribution = DBAssetTransactionSelect;
-
 export type ContributionInterval = DBContributionInterval;
 
 export const recurringContributionOrphanInsertSchema = z.object({
@@ -321,31 +319,6 @@ export type RecurringContribution = DBRecurringContributionSelect;
 export type AssetValueMetadata = DBAssetValueMetadata;
 export type AssetValueMetadataSecurity = DBAssetValueMetadataSecurity;
 
-export type AssetHistoryTimePoint = {
-  date: Date;
-  value: number;
-  changes: {
-    assetId: UserAsset["id"];
-    previousValue: number;
-    newValue: number;
-    change: number;
-  }[];
-  metadata?: AssetValueMetadata[];
-};
-
-export type CombinedDayValuesChange = {
-  assetId: UserAsset["id"];
-  previousValue: number;
-  newValue: number;
-  change: number;
-};
-
-export type CombinedDayValues = {
-  value: number;
-  changes: CombinedDayValuesChange[];
-  metadata: AssetValueMetadata[];
-};
-
 export type UserAssetAPIKeyConnection = DBUserAssetAPIKeyConnection;
 
 export type BrokerPlatform = DBBrokerPlatform;
@@ -378,9 +351,27 @@ export type WithAccountChange<T extends { id: string }> = T & {
   accountChange: AssetsChange;
 };
 
-export type WithAssetHistory<T extends { id: string }> = T & {
-  history: AssetValue[];
+export type WithAssetHistory<
+  T extends { id: string },
+  H extends ValueAbstract
+> = T & {
+  //Change to ValueAbstract
+  history: H[];
+  //history: AssetValue[];
 };
+
+export type WithValueHistory<T extends { id: string }> = T & {
+  history: AssetHistoryValue[];
+};
+
+export type AssetWithAssetValueHistory = WithAssetHistory<
+  Pick<UserAsset, "id" | "valueMethod">,
+  BrandedAssetValue
+>;
+
+export type AssetWithValueHistory = WithValueHistory<
+  Pick<UserAsset, "id" | "valueMethod">
+>;
 
 export type WithSecurity<T extends { id: string }> = T & {
   security: SecuritySelect;
@@ -407,26 +398,106 @@ export type WithPlatform<T extends { id: string }> = T & {
  * or after the last asset value.
  * This is the case when the start point or endpoint of a date range does not have any values to calculate
  * and the value would normally be zero
+ * - synthetic-asset is used for transactions that are synthetic but are based on real asset history items
+ * - asset is used for asset history that are real asset items
+ * - synthetic is used for purely synthetic time values (normally with a value of 0)
  */
 
-export type PossibleDummyAssetValue = Omit<
-  AssetValue,
-  "id" | "assetId" | "recordedAt"
-> &
-  (
-    | {
-        valueType: "synthetic";
-        id: null;
-        //It could be that the synthetic value is from a real asset
-        //but the value date is synthetic to match a start or end date
-        assetId: string | null;
-      }
-    | (AssetValue & {
-        valueType: "asset";
-        id: string;
-        assetId: string;
-      })
-  );
+export type AseetHistoryEntryType = "synthetic" | "synthetic-asset" | "asset";
+
+//export type PossibleDummyMod =
+
+export type AssetHistoryValueBase = {
+  valueDate: Date;
+  value: number;
+  assetId: string;
+  id: string;
+};
+
+export type PossibleDummyHistoryValue<T extends AssetHistoryValueBase> =
+  | ({
+      valueType: Extract<AseetHistoryEntryType, "synthetic">;
+      valueDate: Date;
+      value: number;
+      id: null;
+      assetId: null;
+    } & Partial<Omit<T, "assetId" | "id" | "valueDate" | "value">>)
+  | ({
+      valueType: Extract<AseetHistoryEntryType, "synthetic-asset">;
+      valueDate: Date;
+      value: number;
+      id: null;
+      assetId: string;
+    } & Omit<T, "assetId" | "id" | "valueDate" | "value">)
+  | ({
+      valueType: Extract<AseetHistoryEntryType, "asset">;
+    } & T);
+
+type B = PossibleDummyHistoryValue<{
+  valueDate: Date;
+  value: number;
+  assetId: string;
+  id: string;
+  foo: string;
+}>;
+
+// export type PossibleDummyAssetValue = Omit<
+//   AssetValue,
+//   "id" | "assetId" | "recordedAt"
+// > &
+//   (
+//     | {
+//         valueType: Extract<AseetHistoryEntryType, "synthetic">;
+//         id: null;
+//         //It could be that the synthetic value is from a real asset
+//         //but the value date is synthetic to match a start or end date
+//         assetId: string | null;
+//       }
+//     | (AssetValue & {
+//         valueType: Extract<AseetHistoryEntryType, "asset">;
+//         id: string;
+//         assetId: string;
+//       })
+//   );
+
+export type PossibleDummyAssetValue = PossibleDummyHistoryValue<
+  Omit<AssetValue, "recordedAt">
+>;
+
+// export type PossibleDummyAssetTransactionValue = Omit<
+//   TransactionAbstract,
+//   "id" | "assetId" | "recordedAt"
+// > &
+//   (
+//     | {
+//         valueType: Extract<AseetHistoryEntryType, "synthetic">;
+//         id: null;
+//         assetId: string | null;
+//       }
+//     | (TransactionAbstract & {
+//         valueType: Extract<AseetHistoryEntryType, "asset">;
+//         id: string;
+//         assetId: string;
+//       })
+//   );
+
+export type PossibleDummyAssetTransactionValue =
+  PossibleDummyHistoryValue<TransactionAbstract>;
+
+// export type PossibleDummyAssetHistoryValue =
+//   | (Omit<AssetHistoryValue, "id" | "assetId" | "recordedAt"> & {
+//       valueType: Extract<AseetHistoryEntryType, "synthetic">;
+//       id: null;
+//       assetId: string | null;
+//     })
+//   | (AssetHistoryValue & {
+//       valueType: Extract<AseetHistoryEntryType, "asset">;
+//       id: string;
+//       assetId: string;
+//     });
+
+// export type PossibleDummyAssetHistoryValue =
+//   PossibleDummyHistoryValue<AssetHistoryValue>;
 
 export type ResolvedAssetValue = AssetValue & {
   securities: UserAssetSecuritySelect[];
@@ -435,10 +506,6 @@ export type ResolvedAssetValue = AssetValue & {
 export type DataRangeQuery = {
   start: Date | string | null;
   end: Date | string | null;
-};
-
-export type AssetWithHistory = Pick<UserAsset, "id" | "valueMethod"> & {
-  history: AssetValue[];
 };
 
 export type AssetHistoryPoint = {
@@ -477,35 +544,105 @@ export type AssetWithHistoryGenerators = {
 //may contain more than one field that requires iteration for streaming
 export type AssetWithValueHistoryIterators = {
   id: string;
-  history: Iterator<AssetValue>;
+  history: Iterator<BrandedAssetValue>;
 };
 
 export type AssetWithValueHistoryAsyncIterators = {
   id: string;
-  history: AsyncIterator<AssetValue>;
+  history: AsyncIterator<BrandedAssetValue>;
 };
 
 export type AssetWithValueHistoryGenerators = {
   id: string;
-  history: Generator<AssetValue>;
+  history: Generator<BrandedAssetValue>;
 };
 
+export type TransactionType = "asset" | "security" | "synthetic";
 
-export type TransactionAbstract = {
-  id: string;
-  type: "asset" | "security";
+export type ValueAbstract = {
   value: number;
   valueDate: Date;
-  recordedAt: Date;
+  //recordedAt: Date;
+  //currentValue: number;
+  //or
+  //valueSum: number
 };
 
-export type TransactionTimePoint = {
+export type TransactionAbstract = ValueAbstract & {
+  assetId: string;
+  id: string;
+  transactionType: TransactionType;
+  recordedAt: Date;
+  value: number;
+  //accValue: number;
   valueDate: Date;
-  valueForDate: number;
-  transactions: TransactionAbstract[];
+  currencyValue: number;
+  //accumalted security level, not asset level
+  accumulativeAssetCurrencyValue: number;
+  accumulativeAssetCurrencyValueRow: number;
+  //assetAccumalitiveCurrencyValue: number;
+  currency: string;
 };
+
+export type CombinedDayValuesChange = {
+  previousValue: number;
+  newValue: number;
+  change: number;
+} & (
+  | {
+      assetId: string;
+      valueType: Extract<AseetHistoryEntryType, "asset" | "synthetic-asset">;
+    }
+  | {
+      assetId: null;
+      valueType: Extract<AseetHistoryEntryType, "synthetic">;
+    }
+);
+
+export type CombinedDayTimePointBase = ValueAbstract & {
+  changes: CombinedDayValuesChange[];
+};
+
+export type CombinedDayTimePoint<T extends Record<string, unknown>> =
+  CombinedDayTimePointBase & T;
+
+export type TransactionTimePoint = CombinedDayTimePoint<{
+  transactions: PossibleDummyAssetTransactionValue[];
+}>;
+
+export type AssetValueTimePoint = CombinedDayTimePoint<{
+  metadata: AssetValueMetadata[];
+}>;
 
 export type CombinedValueHistory = {
   transactions: TransactionTimePoint[];
-  valueHistory: AssetHistoryTimePoint[];
+  valueHistory: AssetValueTimePoint[];
 };
+
+export type ValueAbstractType = "asset_value" | "transaction";
+
+export type BrandedValue<
+  T extends ValueAbstract,
+  B extends ValueAbstractType
+> = T & {
+  recordType: B;
+};
+
+export type BrandedAssetValue = BrandedValue<
+  AssetValue,
+  Extract<ValueAbstractType, "asset_value">
+>;
+
+export type BrandedAssetTransactionValue = BrandedValue<
+  AssetTransaction,
+  Extract<ValueAbstractType, "transaction">
+>;
+
+export type BrandedAbstractTransactionValue = BrandedValue<
+  TransactionAbstract,
+  Extract<ValueAbstractType, "transaction">
+>;
+
+export type AssetHistoryValue =
+  | BrandedAbstractTransactionValue
+  | BrandedAssetValue;

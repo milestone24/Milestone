@@ -1,5 +1,5 @@
 import { z, ZodType } from "zod";
-import { AssetContribution, RecurringContribution } from "./portfolio-assets";
+import { AssetTransaction, RecurringContribution } from "./portfolio-assets";
 import type { SchedulePattern } from "@shared/utils/scheduling";
 
 export type RecurringContributionFormData = Pick<
@@ -32,10 +32,7 @@ export type RecurringContributionOrphanInsert = z.infer<
   typeof recurringContributionOrphanSchema
 >;
 
-export type SingleContributionFormData = Pick<
-  AssetContribution,
-  "value" | "valueDate"
->;
+export type SingleContributionFormData = Pick<AssetTransaction, "value" | "valueDate">;
 
 export const singleContributionOrphanSchema = z.object({
   value: z.coerce.number(),
@@ -55,13 +52,13 @@ export const isRecurringContributionFormData = (
 };
 
 export const isAssetContribution = (
-  data: AssetContribution | RecurringContribution
-): data is AssetContribution => {
+  data: AssetTransaction | RecurringContribution
+): data is AssetTransaction => {
   return "value" in data && "recordedAt" in data;
 };
 
 export const isRecurringContribution = (
-  data: AssetContribution | RecurringContribution
+  data: AssetTransaction | RecurringContribution
 ): data is RecurringContribution => {
   return "amount" in data && "startDate" in data && "interval" in data;
 };

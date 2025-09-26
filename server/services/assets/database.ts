@@ -17,16 +17,18 @@ import {
   between,
   desc,
   eq,
+  getTableColumns,
   gt,
   gte,
   inArray,
   lt,
   lte,
+  sql,
   sum,
 } from "drizzle-orm";
 import {
   UserAsset,
-  AssetContribution,
+  AssetTransaction,
   AssetValue,
   BrokerProvider,
   UserAccount,
@@ -34,7 +36,6 @@ import {
   UserAssetValueOrphanInsert,
   RecurringContribution,
   RecurringContributionOrphanInsert,
-  ContributionInterval,
   WithAssetHistory,
   DataRangeQuery,
   UserAssetSecuritySelect,
@@ -44,15 +45,23 @@ import {
   UserAssetWithHistoryAndAccountChange,
   UserAssetInsert,
   UserAssetTransactionOrphanInsert,
-  AssetTransaction,
   ResolvedUserAsset,
-  AssetHistoryTimePoint,
+  AssetValueTimePoint,
   SecurityTransactionOrphanInsert,
   SecurityTransaction,
   UserAssetSecurityTransactionResolved,
   TransactionAbstract,
   CombinedValueHistory,
   TransactionTimePoint,
+  ValueAbstractType,
+  BrandedAssetValue,
+  BrandedAssetTransactionValue,
+  BrandedValue,
+  BrandedUserAssetSecurityTransactionResolved,
+  BrandedAbstractTransactionValue,
+  TransactionType,
+  AssetWithValueHistory,
+  WithValueHistory,
 } from "@shared/schema";
 import { NodePgTransaction } from "drizzle-orm/node-postgres";
 import { Schema, TSchema } from "server/db/types/utils";
@@ -69,6 +78,7 @@ import {
   resolveDayValueHistoryForAssetForDateRange,
   dateRangeToQueryFilter,
   queryParamsFilterToDateRange,
+  resolveDayTransactionHistoryForAssetsForDateRange,
 } from "@shared/utils/assets";
 
 import { factory as securitiesFactory } from "@server/services/securities";
@@ -270,14 +280,22 @@ export class DatabaseAssetService {
   async getUserAssetHistoryWithBoundary(
     assetId: UserAsset["id"],
     query?: QueryParams
-  ): Promise<AssetValue[]> {
+  ): Promise<BrandedAssetValue[]> {
     const dateRange = queryParamsFilterToDateRange(query?.filter);
 
     const startDate = resolveDate(dateRange.start);
     const endDate = resolveDate(dateRange.end);
 
+    const select = {
+      ...getTableColumns(assetValues),
+      recordType: sql<Extract<ValueAbstractType, "asset_value">>`'asset_value'`,
+    };
+
+    console.log("getUserAssetHistoryWithBoundary startDate :", startDate);
+    console.log("getUserAssetHistoryWithBoundary endDate :", endDate);
+
     const mainQuery = this.db
-      .select()
+      .select(select)
       .from(assetValues)
       .where(
         and(
@@ -293,7 +311,7 @@ export class DatabaseAssetService {
       );
 
     const beforeQuery = this.db
-      .select()
+      .select(select)
       .from(assetValues)
       .where(
         startDate
@@ -307,7 +325,7 @@ export class DatabaseAssetService {
       .limit(1);
 
     const afterQuery = this.db
-      .select()
+      .select(select)
       .from(assetValues)
       .where(
         endDate
@@ -348,7 +366,7 @@ export class DatabaseAssetService {
   async getUserAssetsWithAssetValueHistory(
     userId: UserAccount["id"],
     query: QueryParams
-  ): Promise<WithAssetHistory<UserAsset>[]> {
+  ): Promise<WithAssetHistory<UserAsset, AssetValue>[]> {
     const {
       /**@ts-ignore */
       start: { eq: start } = { eq: null },
@@ -361,7 +379,7 @@ export class DatabaseAssetService {
       .from(userAssets)
       .where(and(eq(userAssets.userAccountId, userId)));
 
-    const results: WithAssetHistory<UserAsset>[] = [];
+    const results: WithAssetHistory<UserAsset, AssetValue>[] = [];
 
     for (const asset of assets) {
       const historyResult = await this.getUserAssetHistory(asset.id, query);
@@ -383,13 +401,13 @@ export class DatabaseAssetService {
   async getUserAssetsWithAssetValueHistoryWithBoundary(
     userId: UserAccount["id"],
     query?: QueryParams
-  ): Promise<WithAssetHistory<UserAsset>[]> {
+  ): Promise<WithAssetHistory<UserAsset, BrandedAssetValue>[]> {
     const assets = await this.db
       .select()
       .from(userAssets)
       .where(and(eq(userAssets.userAccountId, userId)));
 
-    const results: WithAssetHistory<UserAsset>[] = [];
+    const results: WithAssetHistory<UserAsset, BrandedAssetValue>[] = [];
 
     for (const asset of assets) {
       const allData = await this.getUserAssetHistoryWithBoundary(
@@ -455,7 +473,7 @@ export class DatabaseAssetService {
                 sum: sum(securityTransactions.value),
               })
               .from(securityTransactions)
-              .where(eq(securityTransactions.securityId, security.id));
+              .where(eq(securityTransactions.assetSecurityId, security.id));
 
             return {
               ...security,
@@ -506,7 +524,7 @@ export class DatabaseAssetService {
   async getUserAssetValueHistoryGraph(
     id: UserAsset["id"],
     query?: DataRangeQuery
-  ): Promise<AssetHistoryTimePoint[]> {
+  ): Promise<AssetValueTimePoint[]> {
     const asset = await this.db.query.userAssets.findFirst({
       where: eq(userAssets.id, id),
     });
@@ -540,15 +558,29 @@ export class DatabaseAssetService {
   async getUserAssetTransactions(
     id: UserAsset["id"],
     query: QueryParams
-  ): Promise<AssetContribution[]> {
+  ): Promise<BrandedAssetTransactionValue[]> {
     const { where, orderBy, limit, offset } =
       assetTransactionsQueryBuilder.buildQuery(query);
-    return this.db.query.assetTransactions.findMany({
-      where: and(eq(assetTransactions.assetId, id), where),
-      orderBy,
-      limit,
-      offset,
-    });
+
+    const select = {
+      ...getTableColumns(assetTransactions),
+      recordType: sql<Extract<ValueAbstractType, "transaction">>`'transaction'`,
+    };
+
+    return this.db
+      .select(select)
+      .from(assetTransactions)
+      .where(and(eq(assetTransactions.assetId, id), where))
+      .orderBy(...orderBy)
+      .limit(limit ?? 0)
+      .offset(offset ?? 0);
+
+    // return this.db.query.assetTransactions.findMany({
+    //   where: and(eq(assetTransactions.assetId, id), where),
+    //   orderBy,
+    //   limit,
+    //   offset,
+    // });
   }
 
   async createUserAsset(data: UserAssetInsert): Promise<UserAsset> {
@@ -593,7 +625,7 @@ export class DatabaseAssetService {
             }
 
             const transaction = await tx.insert(securityTransactions).values({
-              securityId: assetSecurity.id,
+              assetSecurityId: assetSecurity.id,
               value: assetSecurityData.shareHolding,
               currency: persistedSecurity.currency ?? "GBP",
               currencyValue: assetSecurityData.currencyValue,
@@ -832,30 +864,42 @@ export class DatabaseAssetService {
 
   async getUserAssetSecurityTransactionHistory(
     assetId: UserAsset["id"]
-  ): Promise<UserAssetSecurityTransactionResolved[]> {
+  ): Promise<BrandedUserAssetSecurityTransactionResolved[]> {
     const securityTransactionHistory = await this.db
-      .select()
+      .select({
+        security_transactions: {
+          ...getTableColumns(securityTransactions),
+          type: sql<Extract<ValueAbstractType, "transaction">>`'transaction'`,
+          transactionType: sql<TransactionType>`'security'`,
+          transactionId: securityTransactions.id,
+          currentValue: sql<number>`sum(${securityTransactions.value}) over (partition by ${securityTransactions.assetSecurityId} order by ${securityTransactions.valueDate} rows unbounded preceding)`,
+          currentCurrencyValue: sql<number>`sum(${securityTransactions.currencyValue}) over (partition by ${securityTransactions.assetSecurityId} order by ${securityTransactions.valueDate} rows unbounded preceding)`,
+        },
+        securities: securities,
+      })
       .from(userAssetSecurities)
       .where(eq(userAssetSecurities.userAssetId, assetId))
       .innerJoin(securities, eq(userAssetSecurities.securityId, securities.id))
       .innerJoin(
         securityTransactions,
-        eq(userAssetSecurities.id, securityTransactions.securityId)
+        eq(userAssetSecurities.id, securityTransactions.assetSecurityId)
       )
       .orderBy(desc(securityTransactions.valueDate));
 
     return securityTransactionHistory.reduce(
       (
-        acc: UserAssetSecurityTransactionResolved[],
+        acc: BrandedUserAssetSecurityTransactionResolved[],
         curr
-      ): UserAssetSecurityTransactionResolved[] => {
+      ): BrandedUserAssetSecurityTransactionResolved[] => {
         acc.push({
           id: curr.security_transactions.id,
+          recordType: "transaction",
           securityName: curr.securities.name,
           value: curr.security_transactions.value,
           currency: curr.security_transactions.currency,
           currencyValue: curr.security_transactions.currencyValue ?? 0,
           valueDate: curr.security_transactions.valueDate,
+          recordedAt: curr.security_transactions.recordedAt,
         });
         return acc;
       },
@@ -864,13 +908,13 @@ export class DatabaseAssetService {
   }
 
   async createUserAssetSecurityTransaction(
-    securityId: string,
+    assetSecurityId: string,
     data: SecurityTransactionOrphanInsert
   ): Promise<SecurityTransaction> {
     const [securityTransaction] = await this.db
       .insert(securityTransactions)
       .values({
-        securityId,
+        assetSecurityId,
         ...data,
         recordedAt: data.recordedAt ?? new Date(),
       })
@@ -881,7 +925,7 @@ export class DatabaseAssetService {
     }
 
     const assetSecurity = await this.db.query.userAssetSecurities.findFirst({
-      where: eq(userAssetSecurities.id, securityId),
+      where: eq(userAssetSecurities.id, assetSecurityId),
     });
 
     if (!assetSecurity) {
@@ -897,13 +941,38 @@ export class DatabaseAssetService {
     return securityTransaction;
   }
 
-  async getCombinedAssetTransactions(
+  async getCombinedAssetTransactionsWithBoundariesForUserAccount(
+    userAccountId: UserAccount["id"],
+    query?: QueryParams
+  ): Promise<WithAssetHistory<UserAsset, BrandedAbstractTransactionValue>[]> {
+    const assets = await this.getUserAssets(userAccountId, query ?? {});
+
+    //TODO This could be a direct DB query rather than a loop
+
+    return Promise.all(
+      assets.map(async (asset) => ({
+        ...asset,
+        history: await this.getCombinedAssetTransactionsWithBoundariesForAsset(
+          asset.id,
+          query
+        ),
+      }))
+    );
+  }
+
+  async getCombinedAssetTransactionsWithBoundariesForAsset(
     assetId: UserAsset["id"],
     query?: QueryParams
-  ): Promise<TransactionAbstract[]> {
+  ): Promise<BrandedAbstractTransactionValue[]> {
     const { start, end } = queryParamsFilterToDateRange(query?.filter);
     const startDate = resolveDate(start);
     const endDate = resolveDate(end);
+
+    if (startDate && endDate) {
+      if (startDate > endDate) {
+        throw new Error("Start date must be before end date");
+      }
+    }
 
     const asset = await this.db.query.userAssets.findFirst({
       where: eq(userAssets.id, assetId),
@@ -916,10 +985,24 @@ export class DatabaseAssetService {
       throw new Error("Asset not found");
     }
 
-    const transactions: TransactionAbstract[] = [];
+    const transactions: BrandedAbstractTransactionValue[] = [];
 
-    const assetTransactionHistory = await this.db
-      .select()
+    const select = {
+      ...getTableColumns(assetTransactions),
+      assetId: assetTransactions.assetId,
+      recordType: sql<Extract<ValueAbstractType, "transaction">>`'transaction'`,
+      transactionType: sql<TransactionType>`'asset'`,
+      id: assetTransactions.id,
+      value: assetTransactions.value,
+      currencyValue: assetTransactions.currencyValue,
+      //accumalitiveCurrencyValue: assetTransactions.currencyValue,
+      accumulativeAssetValue: sql<number>`sum(${assetTransactions.value}) over (partition by ${assetTransactions.assetId} order by ${assetTransactions.valueDate} rows unbounded preceding)`,
+      accumulativeAssetCurrencyValue: sql<number>`sum(${securityTransactions.currencyValue}) over (partition by ${assetTransactions.assetId} order by ${securityTransactions.valueDate} rows unbounded preceding)`,
+      accumulativeAssetCurrencyValueRow: sql<number>`ROW_NUMBER() OVER (PARTITION BY ${assetTransactions.assetId} ORDER BY at.value_date)`,
+    };
+
+    const assetTransactionHistoryMainQuery = this.db
+      .select(select)
       .from(assetTransactions)
       .where(
         and(
@@ -934,36 +1017,225 @@ export class DatabaseAssetService {
         )
       );
 
-    transactions.push(
-      ...assetTransactionHistory.map((transaction) => ({
-        ...transaction,
-        type: "asset" as TransactionAbstract["type"],
-      }))
+    const assetTransactionHistoryBeforeQuery = this.db
+      .select(select)
+      .from(assetTransactions)
+      .where(
+        startDate
+          ? and(
+              eq(assetTransactions.assetId, assetId),
+              lt(assetTransactions.valueDate, startDate)
+            )
+          : and(eq(assetTransactions.assetId, assetId))
+      )
+      .orderBy(desc(assetTransactions.valueDate))
+      .limit(1);
+
+    const assetTransactionHistoryAfterQuery = this.db
+      .select(select)
+      .from(assetTransactions)
+      .where(
+        endDate
+          ? and(
+              eq(assetTransactions.assetId, assetId),
+              gt(assetTransactions.valueDate, endDate)
+            )
+          : and(eq(assetTransactions.assetId, assetId))
+      )
+      .orderBy(asc(assetTransactions.valueDate))
+      .limit(1);
+
+    // const allAssetTransactionsData =
+    //   startDate && endDate
+    //     ? await unionAll(
+    //         assetTransactionHistoryMainQuery,
+    //         assetTransactionHistoryBeforeQuery,
+    //         assetTransactionHistoryAfterQuery
+    //       ).orderBy(asc(assetValues.valueDate))
+    //     : startDate
+    //     ? await unionAll(
+    //         assetTransactionHistoryMainQuery,
+    //         assetTransactionHistoryBeforeQuery
+    //       ).orderBy(asc(assetValues.valueDate))
+    //     : endDate
+    //     ? await unionAll(
+    //         assetTransactionHistoryMainQuery,
+    //         assetTransactionHistoryAfterQuery
+    //       ).orderBy(asc(assetValues.valueDate))
+    //     : await assetTransactionHistoryMainQuery.orderBy(
+    //         asc(assetValues.valueDate)
+    //       );
+
+    // transactions.push(...allAssetTransactionsData);
+
+    const sums = this.db
+      .select({
+        assetId: userAssetSecurities.userAssetId,
+        assetSecurityId: userAssetSecurities.id,
+        accumulativeSecurityCurrencyValue:
+          sql<number>`sum(${securityTransactions.currencyValue}) over (partition by ${userAssetSecurities.id} order by ${securityTransactions.valueDate} rows unbounded preceding)`.as(
+            "accumulativeSecurityCurrencyValue"
+          ),
+        accumulativeSecurityCurrencyValueRow:
+          sql<number>`ROW_NUMBER() OVER (PARTITION BY ${userAssetSecurities.id} ORDER BY ${securityTransactions.valueDate})`.as(
+            "accumulativeSecurityCurrencyValueRow"
+          ),
+        accumulativeAssetCurrencyValue:
+          sql<number>`sum(${securityTransactions.currencyValue}) over (partition by ${userAssetSecurities.userAssetId} order by ${securityTransactions.valueDate} rows unbounded preceding)`.as(
+            "accumulativeAssetCurrencyValue"
+          ),
+        accumulativeAssetCurrencyValueRow:
+          sql<number>`ROW_NUMBER() OVER (PARTITION BY ${userAssetSecurities.userAssetId} ORDER BY ${securityTransactions.valueDate})`.as(
+            "accumulativeAssetCurrencyValueRow"
+          ),
+      })
+      .from(userAssetSecurities)
+      .innerJoin(
+        securityTransactions,
+        eq(securityTransactions.assetSecurityId, userAssetSecurities.id)
+      );
+
+    const transactionsAccumulated = this.db.$with("transactionsAccumulated").as(
+      this.db
+        .select({
+          ...getTableColumns(securityTransactions),
+          //We can not use this it must be the asset id
+          //not the asset function parameter because we are obtaining
+          //all the securities for in this CTE for the sums.
+          //and then the use of this CTE is filtered with WHERE clauses.
+          //assetId: sql<string>`${assetId}`.as("assetId"),
+          assetId: userAssetSecurities.userAssetId,
+          assetSecurityId: securityTransactions.assetSecurityId,
+
+          recordType: sql<
+            Extract<ValueAbstractType, "transaction">
+          >`'transaction'`.as("recordType"),
+          transactionType: sql<TransactionType>`'security'`.as(
+            "transactionType"
+          ),
+          value: securityTransactions.value,
+          currencyValue: securityTransactions.currencyValue,
+          accumalitiveSecurityValue:
+            sql<number>`sum(${securityTransactions.value}) over (partition by ${userAssetSecurities.id} order by ${securityTransactions.valueDate} rows unbounded preceding)`.as(
+              "accumalitiveSecurityValue"
+            ),
+          accumulativeSecurityCurrencyValue:
+            sql<number>`sum(${securityTransactions.currencyValue}) over (partition by ${userAssetSecurities.id} order by ${securityTransactions.valueDate} rows unbounded preceding)`.as(
+              "accumulativeSecurityCurrencyValue"
+            ),
+          accumulativeSecurityCurrencyValueRow:
+            sql<number>`ROW_NUMBER() OVER (PARTITION BY ${userAssetSecurities.id} ORDER BY ${securityTransactions.valueDate})`.as(
+              "accumulativeSecurityCurrencyValueRow"
+            ),
+          // accumalitiveAssetValue:
+          //   sql<number>`sum(${securityTransactions.value}) over (partition by ${userAssetSecurities.userAssetId} order by ${securityTransactions.valueDate} rows unbounded preceding)`.as(
+          //     "accumalitiveAseeValue"
+          //   ),
+          accumulativeAssetCurrencyValue:
+            sql<number>`sum(${securityTransactions.currencyValue}) over (partition by ${userAssetSecurities.userAssetId} order by ${securityTransactions.valueDate} rows unbounded preceding)`.as(
+              "accumulativeAssetCurrencyValue"
+            ),
+          accumulativeAssetCurrencyValueRow:
+            sql<number>`ROW_NUMBER() OVER (PARTITION BY ${userAssetSecurities.userAssetId} ORDER BY ${securityTransactions.valueDate})`.as(
+              "accumulativeAssetCurrencyValueRow"
+            ),
+          beforeRange:
+            sql<boolean>`${securityTransactions.valueDate} < ${startDate}`.as(
+              "inRange"
+            ),
+          afterRange:
+            sql<boolean>`${securityTransactions.valueDate} > ${endDate}`.as(
+              "afterRange"
+            ),
+        })
+        .from(userAssetSecurities)
+        .innerJoin(
+          securityTransactions,
+          eq(securityTransactions.assetSecurityId, userAssetSecurities.id)
+        )
+        //.where(eq(userAssetSecurities.userAssetId, assetId))
+        //This should help performance of the sums because teh
+        .orderBy(
+          asc(userAssetSecurities.userAssetId),
+          asc(userAssetSecurities.id)
+        )
     );
 
-    for await (const security of asset.securities) {
-      const securityTransactionHistory = await this.db
-        .select()
-        .from(securityTransactions)
-        .where(
-          and(
-            eq(securityTransactions.securityId, security.id),
-            startDate != null && endDate != null
-              ? between(securityTransactions.valueDate, startDate, endDate)
-              : startDate != null
-              ? gte(securityTransactions.valueDate, startDate)
-              : endDate != null
-              ? lte(securityTransactions.valueDate, endDate)
-              : undefined
-          )
-        );
-      transactions.push(
-        ...securityTransactionHistory.map((transaction) => ({
-          ...transaction,
-          type: "security" as TransactionAbstract["type"],
-        }))
+    const securityTransactionHistoryMainQuery = this.db
+      .with(transactionsAccumulated)
+      .select()
+      .from(transactionsAccumulated)
+      .where(
+        and(
+          eq(transactionsAccumulated.assetId, assetId),
+          //between(securityTransactions.valueDate, startDate!, endDate!)
+          startDate != null && endDate != null
+            ? between(transactionsAccumulated.valueDate, startDate, endDate)
+            : startDate != null
+            ? gte(transactionsAccumulated.valueDate, startDate)
+            : endDate != null
+            ? lte(transactionsAccumulated.valueDate, endDate)
+            : undefined
+        )
       );
-    }
+    //.innerJoin(sums, eq(transactionsAccumulated.assetSecurityId, sums.assetSecurityId));
+
+    const securityTransactionHistoryBeforeQuery = this.db
+      .with(transactionsAccumulated)
+      .select()
+      .from(transactionsAccumulated)
+      .where(
+        startDate
+          ? and(
+              eq(transactionsAccumulated.assetId, assetId),
+              lt(transactionsAccumulated.valueDate, startDate)
+            )
+          : and(eq(transactionsAccumulated.assetId, assetId))
+      )
+      .limit(1);
+
+    const securityTransactionHistoryAfterQuery = this.db
+      .with(transactionsAccumulated)
+      .select()
+      .from(transactionsAccumulated)
+      .where(
+        endDate
+          ? and(
+              eq(transactionsAccumulated.assetId, assetId),
+              gt(transactionsAccumulated.valueDate, endDate)
+            )
+          : and(eq(transactionsAccumulated.assetId, assetId))
+      )
+      .limit(1);
+
+    // const allSecurityTransactionsData =
+    //   await securityTransactionHistoryMainQuery.orderBy(
+    //     asc(transactionsAccumulated.valueDate)
+    //   );
+
+    const allSecurityTransactionsData =
+      startDate && endDate
+        ? await unionAll(
+            securityTransactionHistoryMainQuery,
+            securityTransactionHistoryBeforeQuery,
+            securityTransactionHistoryAfterQuery
+          ).orderBy(asc(securityTransactions.valueDate))
+        : startDate
+        ? await unionAll(
+            securityTransactionHistoryMainQuery,
+            securityTransactionHistoryBeforeQuery
+          ).orderBy(asc(securityTransactions.valueDate))
+        : endDate
+        ? await unionAll(
+            securityTransactionHistoryMainQuery,
+            securityTransactionHistoryAfterQuery
+          ).orderBy(asc(securityTransactions.valueDate))
+        : await securityTransactionHistoryMainQuery.orderBy(
+            asc(securityTransactions.valueDate)
+          );
+
+    transactions.push(...allSecurityTransactionsData);
+
     return transactions;
   }
 
@@ -997,72 +1269,62 @@ export class DatabaseAssetService {
   async getPortfolioValueHistoryForUser(
     userAccountId: UserAccount["id"],
     query?: QueryParams
-  ): Promise<CombinedValueHistory> {
+  ): Promise<AssetValueTimePoint[]> {
     const assetsWithHistory =
       await this.getUserAssetsWithAssetValueHistoryWithBoundary(
         userAccountId,
         query
       );
 
+    // const completeAssetsWithHistory: AssetWithValueHistory[] =
+    //   await Promise.all(
+    //     assetsWithHistory.map(async (asset) => ({
+    //       ...asset,
+    //       history: [
+    //         ...asset.history,
+    //         ...(await this.getCombinedAssetTransactions(asset.id, query)),
+    //       ].sort((a, b) => a.valueDate.getTime() - b.valueDate.getTime()),
+    //     }))
+    //   );
+
+    console.log(
+      "assetsWithHistory : ",
+      assetsWithHistory.map((a) => a.history.length)
+    );
+
     const valueHistory = await resolveDayValueHistoryForAssetsForDateRange(
       assetsWithHistory,
       queryParamsFilterToDateRange(query?.filter)
     );
 
-    const assetsTransactions = await Promise.all(
-      assetsWithHistory.map((asset) =>
-        this.getCombinedAssetTransactions(asset.id, query)
-      )
-    );
+    console.log("valueHistory : ", valueHistory.length);
 
-    //We need to flatten the tranactions calculating the combined value at each value date point
-    const flattenedTransactions = assetsTransactions.flatMap((transactions) =>
-      transactions.map((transaction) => ({
-        ...transaction,
-        valueDate: transaction.valueDate,
+    return valueHistory;
+  }
+
+  async getPortfolioTransactionHistoryForUser(
+    userAccountId: UserAccount["id"],
+    query?: QueryParams
+  ): Promise<TransactionTimePoint[]> {
+    const assets = await this.getUserAssets(userAccountId, query ?? {});
+
+    const withHistory = await Promise.all(
+      assets.map(async (asset) => ({
+        ...asset,
+        history: await this.getCombinedAssetTransactionsWithBoundariesForAsset(
+          asset.id,
+          query
+        ),
       }))
     );
 
-    const transactions = flattenedTransactions.sort(
-      (a, b) => a.valueDate.getTime() - b.valueDate.getTime()
-    );
+    const transactionHistory =
+      await resolveDayTransactionHistoryForAssetsForDateRange(
+        withHistory,
+        queryParamsFilterToDateRange(query?.filter)
+      );
 
-    const transactionHistoryWithSum = transactions.reduce(
-      (
-        acc: TransactionTimePoint[],
-        transaction,
-        index,
-        array
-      ): TransactionTimePoint[] => {
-        //The day of the transaction
-        const transactionDay = transaction.valueDate
-          .toISOString()
-          .split("T")[0]!;
-
-        const existingTransactionDay = acc.find(
-          (t) => t.valueDate.toISOString().split("T")[0]! === transactionDay
-        );
-
-        if (existingTransactionDay) {
-          existingTransactionDay.valueForDate += transaction.value;
-          existingTransactionDay.transactions.push(transaction);
-        } else {
-          acc.push({
-            valueDate: transaction.valueDate,
-            valueForDate: transaction.value,
-            transactions: [transaction],
-          });
-        }
-
-        return acc;
-      },
-      []
-    );
-
-    return {
-      transactions: transactionHistoryWithSum,
-      valueHistory,
-    };
+    return transactionHistory;
   }
 
   async getBrokerPlatforms(): Promise<BrokerPlatform[]> {
@@ -1414,11 +1676,12 @@ export class DatabaseAssetService {
         .select({
           securityId: userAssetSecurities.securityId,
           shareHolding: sum(securityTransactions.value),
+          currencyValue: sum(securityTransactions.currencyValue),
         })
         .from(userAssetSecurities)
         .innerJoin(
           securityTransactions,
-          eq(userAssetSecurities.id, securityTransactions.securityId)
+          eq(userAssetSecurities.id, securityTransactions.assetSecurityId)
         )
         .groupBy(userAssetSecurities.securityId)
         .where(
@@ -1434,6 +1697,7 @@ export class DatabaseAssetService {
     return result.map((r) => ({
       securityId: r.securityId,
       shareHolding: Number(r.shareHolding ?? 0),
+      currencyValue: Number(r.currencyValue ?? 0),
     }));
   }
 }
@@ -1455,6 +1719,7 @@ export type AssetPersistence = {
 export type AssetSecurityShareHoldingsForDate = {
   securityId: string;
   shareHolding: number;
+  currencyValue: number;
 };
 
 export const assetPersistenceFactory = (
