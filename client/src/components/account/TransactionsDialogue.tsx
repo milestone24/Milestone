@@ -9,18 +9,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ContributionRecurringForm } from "./ContributionRecurringForm";
+import { TransactionRecurringForm } from "./TransactionRecurringForm";
 import {
   RecurringContributionFormData,
   SingleContributionFormData,
   isAssetContribution,
   isRecurringContribution,
 } from "@shared/schema/contribution";
-import { ContributionSingleForm } from "./ContributionSingleForm";
-import { AssetContribution } from "@shared/schema/portfolio-assets";
+import { TransactionSingleForm } from "./TransactionSingleForm";
+import { AssetTransaction } from "@shared/schema/portfolio-assets";
 import { RecurringContribution } from "@shared/schema/portfolio-assets";
 
-type ContributionDialogueProps<
+type TransactionsDialogueProps<
   T extends SingleContributionFormData | RecurringContributionFormData =
     | SingleContributionFormData
     | RecurringContributionFormData,
@@ -28,8 +28,8 @@ type ContributionDialogueProps<
     data: T,
     contributionId?: string
   ) => Promise<T & { id: string }>,
-  D extends AssetContribution | RecurringContribution | null =
-    | AssetContribution
+  D extends AssetTransaction | RecurringContribution | null =
+    | AssetTransaction
     | RecurringContribution
     | null
 > =
@@ -46,12 +46,12 @@ type ContributionDialogueProps<
       data?: D;
     };
 
-export const ContributionDialogue = ({
+export const TransactionsDialogue = ({
   isOpen,
   onOpenChange,
   onSubmit,
   data,
-}: ContributionDialogueProps) => {
+}: TransactionsDialogueProps) => {
   // Form for adding/editing contributions
 
   // Handlers for contributions
@@ -112,24 +112,24 @@ export const ContributionDialogue = ({
             </TabsList>
 
             <TabsContent value="single">
-              <ContributionSingleForm
+              <TransactionSingleForm
                 onSubmit={handleSingleContributionSubmit}
               />
             </TabsContent>
 
             <TabsContent value="recurring">
-              <ContributionRecurringForm
+              <TransactionRecurringForm
                 onSubmit={handleRecurringContributionSubmit}
               />
             </TabsContent>
           </Tabs>
         ) : isAssetContribution(data) ? (
-          <ContributionSingleForm
+          <TransactionSingleForm
             onSubmit={handleSingleContributionSubmit}
             data={data}
           />
         ) : isRecurringContribution(data) ? (
-          <ContributionRecurringForm
+          <TransactionRecurringForm
             onSubmit={handleRecurringContributionSubmit}
             data={data}
           />

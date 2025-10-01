@@ -47,7 +47,7 @@ import { getBrokerName } from "@/lib/broker";
 import {
   UserAsset,
   AssetValue,
-  AssetContribution,
+  AssetTransaction,
   AssetContributionInsert,
 } from "shared/schema";
 import { useMutation } from "@tanstack/react-query";

@@ -19,7 +19,7 @@ import { RecurringContribution } from "@shared/schema/portfolio-assets";
 import { dateToDateInputValue } from "@/lib/form";
 import { Loader2 } from "lucide-react";
 
-type ContributionRecurringFormProps = {
+type TransactionRecurringFormProps = {
   onSubmit: (data: RecurringContributionFormData) => void;
   data?: RecurringContribution;
 };
@@ -34,10 +34,10 @@ const defaultValues: RecurringContributionFormData = {
   isActive: true,
 };
 
-export const ContributionRecurringForm = ({
+export const TransactionRecurringForm = ({
   onSubmit,
   data,
-}: ContributionRecurringFormProps) => {
+}: TransactionRecurringFormProps) => {
   const form = useForm<RecurringContributionFormData>({
     resolver: zodResolver(recurringContributionOrphanSchema),
     values: data ?? defaultValues,

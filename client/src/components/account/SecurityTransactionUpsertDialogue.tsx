@@ -9,16 +9,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ContributionRecurringForm } from "./ContributionRecurringForm";
+import { TransactionRecurringForm } from "./TransactionRecurringForm";
 import {
   RecurringContributionFormData,
   SingleContributionFormData,
   isAssetContribution,
   isRecurringContribution,
 } from "@shared/schema/contribution";
-import { ContributionSingleForm } from "./ContributionSingleForm";
+import { TransactionSingleForm } from "./TransactionSingleForm";
 import {
-  AssetContribution,
+  AssetTransaction,
   UserAssetSecuritySelect,
 } from "@shared/schema/portfolio-assets";
 import { RecurringContribution } from "@shared/schema/portfolio-assets";

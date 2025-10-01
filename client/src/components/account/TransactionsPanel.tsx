@@ -5,11 +5,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
 import {
-  AssetContribution,
+  AssetTransaction,
   RecurringContribution,
   RecurringContributionInsert,
 } from "@shared/schema";
-import { ContributionDialogue } from "./ContributionDialogue";
+import { TransactionsDialogue } from "./TransactionsDialogue";
 import { usePortfolio } from "@/context/PortfolioContext";
 import {
   RecurringContributionFormData,
@@ -27,11 +27,11 @@ import {
   AlertDialogTitle,
 } from "../ui/alert-dialog";
 
-type ContributionsPanelProps = {
+type TransactionsPanelProps = {
   assetId: string;
 };
 
-export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
+export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
   const {
     addAssetContribution,
     updateAssetContribution,
@@ -40,11 +40,11 @@ export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
 
   // Query for asset contributions history
   const { data: contributions, isLoading: isContributionsLoading } = useQuery<
-    AssetContribution[]
+    AssetTransaction[]
   >({
     queryKey: ["asset", assetId, "contributions"],
     queryFn: () =>
-      apiRequest<AssetContribution[]>(
+      apiRequest<AssetTransaction[]>(
         "GET",
         `/api/assets/${assetId}/contributions`
       ),
@@ -125,7 +125,7 @@ export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
 
   const [contributionDialogData, setContributionDialogData] = useState<
     | {
-        data: AssetContribution | RecurringContribution | null;
+        data: AssetTransaction | RecurringContribution | null;
       }
     | undefined
   >(undefined);
@@ -133,7 +133,7 @@ export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
   // Handlers for contributions
   const handleCreateContribution = async (
     data: SingleContributionFormData
-  ): Promise<AssetContribution> => {
+  ): Promise<AssetTransaction> => {
     if (!assetId) throw new Error("Asset ID is required");
     try {
       return addAssetContribution.mutateAsync({
@@ -150,7 +150,7 @@ export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
   const handleEditContribution = async (
     contributionId: string,
     data: SingleContributionFormData
-  ): Promise<AssetContribution> => {
+  ): Promise<AssetTransaction> => {
     try {
       return updateAssetContribution.mutateAsync({
         ...data,
@@ -212,7 +212,7 @@ export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
       | SingleContributionFormData
       | RecurringContributionFormData,
     R = T extends SingleContributionFormData
-      ? AssetContribution
+      ? AssetTransaction
       : T extends RecurringContributionFormData
       ? RecurringContribution
       : never
@@ -299,7 +299,7 @@ export const ContributionsPanel = ({ assetId }: ContributionsPanelProps) => {
 
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-medium">Contributions</h2>
-        <ContributionDialogue
+        <TransactionsDialogue
           onOpenChange={(open) => {
             setContributionDialogData((prev) =>
               open ? { data: null } : undefined

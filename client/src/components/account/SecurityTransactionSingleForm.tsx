@@ -57,7 +57,7 @@ export const SecurityTransactionSingleForm = ({
     defaultValues: {
       value: 0,
       valueDate: new Date(),
-      securityId: undefined,
+      assetSecurityId: undefined,
     },
   });
 
@@ -75,7 +75,7 @@ export const SecurityTransactionSingleForm = ({
 
   console.log("values", values);
 
-  const securityId = watch("securityId");
+  const securityId = watch("assetSecurityId");
 
   console.log("securityId", securityId);
 
@@ -85,7 +85,7 @@ export const SecurityTransactionSingleForm = ({
         <div className="flex flex-col gap-4">
           <FormField
             control={form.control}
-            name="securityId"
+            name="assetSecurityId"
             rules={{
               required: true,
               validate: (value) => {

@@ -41,7 +41,7 @@ import { usePortfolio } from "@/context/PortfolioContext";
 import { AssetValue, ResolvedSecurity } from "shared/schema";
 import { useBrokerProviders } from "@/hooks/use-broker-providers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ContributionsPanel } from "@/components/account/ContributionsPanel";
+import { TransactionsPanel } from "@/components/account/TransactionsPanel";
 
 // Form schema for history entry
 const historySchema = z.object({
@@ -60,11 +60,7 @@ export default function AssetSecurityPage() {
   const assetId: string | undefined = params?.id;
   const nestedId: string | undefined = params?.nestedId;
 
-  const {
-    addAssetValue,
-    updateAssetValue,
-    deleteAssetValue,
-  } = usePortfolio();
+  const { addAssetValue, updateAssetValue, deleteAssetValue } = usePortfolio();
 
   const { data: providers, isLoading: isProvidersLoading } =
     useBrokerProviders();
@@ -98,10 +94,7 @@ export default function AssetSecurityPage() {
     {
       queryKey: ["asset", assetId, "security", nestedId, "history"],
       queryFn: () =>
-        apiRequest<AssetValue[]>(
-          "GET",
-          `/api/assets/${assetId}/history`
-        ),
+        apiRequest<AssetValue[]>("GET", `/api/assets/${assetId}/history`),
     }
   );
 
@@ -165,7 +158,7 @@ export default function AssetSecurityPage() {
       </div>
 
       {/* Tabs for Values/Contributions */}
-      <ContributionsPanel assetId={assetId ?? ""} />
+      <TransactionsPanel assetId={assetId ?? ""} />
     </div>
   );
 }

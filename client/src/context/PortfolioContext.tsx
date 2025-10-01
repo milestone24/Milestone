@@ -22,7 +22,7 @@ import {
   AssetsChange,
   AssetValue,
   UserAssetValueInsert,
-  AssetContribution,
+  AssetTransaction,
   AssetContributionInsert,
   MilestoneOrphanInsert,
   FireSettingsInsert,
@@ -52,7 +52,7 @@ type AssetValueUpdate = UserAssetValueInsert & {
 };
 
 type AssetContributionUpdate = AssetContributionInsert & {
-  contributionId: AssetContribution["id"];
+  contributionId: AssetTransaction["id"];
 };
 
 type AssetValueDelete = {
@@ -398,13 +398,13 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
 
   // Asset contribution mutations
   const addAssetContribution = useMutation<
-    AssetContribution,
+    AssetTransaction,
     Error,
     AssetContributionInsert
   >({
     mutationFn: (data: AssetContributionInsert) => {
       const { assetId, ...rest } = data;
-      return apiRequest<AssetContribution>(
+      return apiRequest<AssetTransaction>(
         "POST",
         `/api/assets/${assetId}/contributions`,
         {
@@ -434,13 +434,13 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
   });
 
   const updateAssetContribution = useMutation<
-    AssetContribution,
+    AssetTransaction,
     Error,
     AssetContributionUpdate
   >({
     mutationFn: (data) => {
       const { assetId, contributionId, ...rest } = data;
-      return apiRequest<AssetContribution>(
+      return apiRequest<AssetTransaction>(
         "PUT",
         `/api/assets/${assetId}/contributions/${contributionId}`,
         {
@@ -470,7 +470,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     Error,
     {
       assetId: UserAsset["id"];
-      contributionId: AssetContribution["id"];
+      contributionId: AssetTransaction["id"];
     }
   >({
     mutationFn: ({ assetId, contributionId }) =>

@@ -13,20 +13,19 @@ import {
 } from "../ui/form";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
-import { dateToDateInputValue } from "@/lib/form";
 import { Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { withTransform } from "@/lib/utils/mappers";
 
-type ContributionSingleFormProps = {
+type TransactionSingleFormProps = {
   onSubmit: (data: SingleContributionFormData) => Promise<void>;
   data?: SingleContributionFormData;
 };
 
-export const ContributionSingleForm = ({
+export const TransactionSingleForm = ({
   onSubmit,
   data,
-}: ContributionSingleFormProps) => {
+}: TransactionSingleFormProps) => {
   const form = useForm<SingleContributionFormData>({
     resolver: withTransform(
       zodResolver(singleContributionOrphanSchema),

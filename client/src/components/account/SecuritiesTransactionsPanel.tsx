@@ -82,11 +82,11 @@ export const SecuritiesTransactionsPanel = ({
   const handleTransactionSubmit = async (
     data: SecurityTransactionUpsert
   ): Promise<SecurityTransactionSelect> => {
-    const { securityId, id, ...rest } = data;
+    const { assetSecurityId, id, ...rest } = data;
 
     return id
-      ? handleEditTransaction(id, securityId, rest)
-      : handleCreateTransaction(securityId, rest);
+      ? handleEditTransaction(id, assetSecurityId, rest)
+      : handleCreateTransaction(assetSecurityId, rest);
   };
 
   const firstTransactionDate = useMemo(

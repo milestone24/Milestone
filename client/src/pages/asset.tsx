@@ -56,7 +56,7 @@ import { SecuritiesList } from "@/components/account/SecuritiesList";
 import { navigate } from "wouter/use-browser-location";
 import AssetHistoryChart from "@/components/charts/AssetHistoryChart";
 import DateRangeBar from "@/components/layout/DateRangeBar";
-import { ContributionsPanel } from "@/components/account/ContributionsPanel";
+import { TransactionsPanel } from "@/components/account/TransactionsPanel";
 import { useSecuritiesUpdate } from "@/hooks/use-securities-update";
 import { DateRangeProvider, useDateRange } from "@/context/DateRangeContext";
 import {
@@ -462,7 +462,7 @@ function AssetPage() {
               isSecuritiesAsset ? (
                 <SecuritiesTransactionsPanel assetId={assetId} />
               ) : (
-                <ContributionsPanel assetId={assetId} />
+                <TransactionsPanel assetId={assetId} />
               )
             ) : null}
           </TabsContent>

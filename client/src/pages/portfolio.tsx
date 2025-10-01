@@ -82,7 +82,6 @@ function Portfolio() {
   );
 
   const onSubmit = async (values: UserAssetOrphanInsert) => {
-    console.log("submit account create values : ", values);
     try {
       setIsAddingAccount(true);
       await addAsset.mutateAsync(values);
@@ -278,9 +277,6 @@ function Portfolio() {
             const platformName = asset.platformId
               ? getPlatformName(asset.platformId, brokerPlatforms ?? [])
               : null;
-            console.log("asset.platformId", asset.platformId);
-            console.log("brokerPlatforms", brokerPlatforms);
-            console.log("platformName", platformName);
             return (
               <section
                 key={asset.id}
