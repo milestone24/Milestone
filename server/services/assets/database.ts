@@ -544,15 +544,12 @@ export class DatabaseAssetService {
       },
     });
 
-    const result = await resolveDayValueHistoryForAssetForDateRange(
-      {
-        ...asset,
-        history: assetValues,
-      },
+    const valueHistory = await resolveDayValueHistoryForAssetsForDateRange(
+      [{ ...asset, history: assetValues }],
       query
     );
 
-    return result;
+    return valueHistory;
   }
 
   async getUserAssetTransactions(
@@ -581,6 +578,35 @@ export class DatabaseAssetService {
     //   limit,
     //   offset,
     // });
+  }
+
+  async getUserAssetTransactionHistoryGraph(
+    id: UserAsset["id"],
+    query?: QueryParams
+  ): Promise<TransactionTimePoint[]> {
+    const asset = await this.db.query.userAssets.findFirst({
+      where: eq(userAssets.id, id),
+    });
+
+    if (!asset) {
+      throw new Error("Asset not found");
+    }
+
+    const withHistory = {
+      ...asset,
+      history: await this.getCombinedAssetTransactionsWithBoundariesForAsset(
+        asset.id,
+        query
+      ),
+    };
+
+    const transactionHistory =
+      await resolveDayTransactionHistoryForAssetsForDateRange(
+        [withHistory],
+        queryParamsFilterToDateRange(query?.filter)
+      );
+
+    return transactionHistory;
   }
 
   async createUserAsset(data: UserAssetInsert): Promise<UserAsset> {

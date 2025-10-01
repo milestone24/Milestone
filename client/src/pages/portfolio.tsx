@@ -14,13 +14,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pencil, Trash2 } from "lucide-react";
-import AssetHistoryChart from "@/components/charts/AssetHistoryChart";
+import AssetHistoryChart, { ChartData } from "@/components/charts/ValuesChart";
 import DateRangeBar from "@/components/layout/DateRangeBar";
 import { usePortfolio } from "@/context/PortfolioContext";
 import { useToast } from "@/hooks/use-toast";
 import { getNextMilestone } from "@/lib/utils/milestones";
 import AddAccountDialogue from "@/components/account/AddAccountDialogue";
 import {
+  AssetValueTimePoint,
   UserAssetInsert,
   UserAssetOrphanInsert,
 } from "shared/schema";
@@ -37,6 +38,10 @@ import {
 } from "@/lib/broker";
 import BrokerLogoBoxed from "@/components/logo/BrokerLogoBoxed";
 import { getPlatformName } from "@/lib/platform";
+import { usePortfolio as usePortfolioNew } from "@/hooks/use-portfolio";
+import { CombinedDayTimePointBase } from "shared/schema";
+import { useQuery } from "@tanstack/react-query";
+import { getDateUrlParams } from "@/lib/date";
 
 function Portfolio() {
   const { dateRange } = useDateRange();
@@ -59,6 +64,93 @@ function Portfolio() {
   } = usePortfolio(startDate, endDate);
 
   const { toast } = useToast();
+
+  //const { data: historyData, isLoading } = useQuery<AssetHistoryTimePoint[]>({
+  const { data: assetValueHistoryData, isLoading: isLoadingAssetValueHistory } =
+    useQuery<AssetValueTimePoint[]>({
+      //const { data: historyData, isLoading } = useQuery<AssetValue[]>({
+      queryKey: ["portfolio", "history", "graph", startDate, endDate],
+      queryFn: async () => {
+        const response = await fetch(
+          `/api/assets/portfolio-value/history?${getDateUrlParams(
+            startDate,
+            endDate
+          )}&sort=valueDate,asc`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch portfolio history");
+        }
+        return response.json();
+      },
+    });
+
+  const valuesChartData: CombinedDayTimePointBase[] =
+    Array.isArray(assetValueHistoryData) && assetValueHistoryData.length > 0
+      ? assetValueHistoryData.map((item) => {
+          const itemDate = new Date(item.valueDate);
+
+          // Find the highest milestone achieved at this point
+          const achievedMilestone = milestones
+            ?.filter((m) => {
+              const portfolioValue = Number(item.value);
+              const milestoneValue = Number(m.targetValue);
+              return portfolioValue >= milestoneValue;
+            })
+            .sort((a, b) => Number(b.targetValue) - Number(a.targetValue))[0];
+          return {
+            ...item,
+            timestamp: itemDate.getTime(),
+            date: itemDate.toLocaleDateString("en-GB", {
+              year: "numeric",
+              month: "short",
+              day: "2-digit",
+            }),
+            value: Number(item.value),
+            changes: item.changes,
+            // achievedMilestone: achievedMilestone
+            //   ? {
+            //       name: achievedMilestone.name,
+            //       targetValue: Number(achievedMilestone.targetValue),
+            //     }
+            //   : undefined,
+            metadata: item.metadata
+              ? Array.isArray(item.metadata)
+                ? [...item.metadata]
+                : [item.metadata]
+              : [],
+          };
+        })
+      : [];
+
+  const { portfolioTransactions } = usePortfolioNew(startDate, endDate);
+  const { data: transactionHistoryData = [] } = portfolioTransactions;
+
+  const transactionChartData: CombinedDayTimePointBase[] =
+    transactionHistoryData && transactionHistoryData.length > 0
+      ? transactionHistoryData.map((item) => {
+          const itemDate = new Date(item.valueDate);
+          return {
+            ...item,
+            timestamp: itemDate.getTime(),
+            date: itemDate.toLocaleDateString("en-GB", {
+              year: "numeric",
+              month: "short",
+              day: "2-digit",
+            }),
+            value: item.value,
+            changes: item.changes,
+          };
+        })
+      : [];
+
+  const chartData: ChartData = [
+    { name: "Total Portfolio Value", data: valuesChartData, color: "#3B82F6" },
+    {
+      name: "Transactions Input Value",
+      data: transactionChartData,
+      color: "#F59E0B",
+    },
+  ];
 
   // Get start and end dates based on the selected date range
 
@@ -146,9 +238,11 @@ function Portfolio() {
       {/* Chart Section */}
       <AssetHistoryChart
         className="mt-4"
-        showMilestones={showMilestones}
-        url="/api/assets/portfolio-value/history"
-        queryKey={["portfolio", "history", "graph"]}
+        data={chartData}
+        // milestones={milestones ?? []}
+        // showMilestones={showMilestones}
+        // url="/api/assets/portfolio-value/history"
+        // queryKey={["portfolio", "history", "graph"]}
         // nextMilestone={
         //   nextMilestone ? Number(nextMilestone.targetValue) : undefined
         // }

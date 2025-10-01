@@ -40,6 +40,8 @@ import { z } from "zod";
 import { usePortfolio } from "@/context/PortfolioContext";
 import {
   AssetValue,
+  AssetValueTimePoint,
+  CombinedDayTimePointBase,
   ResolvedUserAsset,
   UserAsset,
   WithResolvedSecurities,
@@ -54,7 +56,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BrokerLogoBoxed from "@/components/logo/BrokerLogoBoxed";
 import { SecuritiesList } from "@/components/account/SecuritiesList";
 import { navigate } from "wouter/use-browser-location";
-import AssetHistoryChart from "@/components/charts/AssetHistoryChart";
+import AssetHistoryChart, { ChartData } from "@/components/charts/ValuesChart";
 import DateRangeBar from "@/components/layout/DateRangeBar";
 import { TransactionsPanel } from "@/components/account/TransactionsPanel";
 import { useSecuritiesUpdate } from "@/hooks/use-securities-update";
@@ -65,6 +67,9 @@ import {
 } from "@/components/ui/DateRangeControl";
 import { SecuritiesTransactionsPanel } from "@/components/account/SecuritiesTransactionsPanel";
 import { useAsset } from "@/hooks/use-asset";
+import { usePortfolio as usePortfolioNew } from "@/hooks/use-portfolio";
+import { getDateUrlParams } from "@/lib/date";
+import { useAssetTransactions } from "@/hooks/use-asset-transactions";
 
 // Form schema for history entry
 const historySchema = z.object({
@@ -120,6 +125,96 @@ function AssetPage() {
     assetId ?? ""
   );
   const [isUpdatingHistories, setIsUpdatingHistories] = useState(false);
+
+  const { data: assetValueHistoryData, isLoading: isLoadingAssetValueHistory } =
+    useQuery<AssetValueTimePoint[]>({
+      //const { data: historyData, isLoading } = useQuery<AssetValue[]>({
+      queryKey: ["portfolio", "history", "graph", startDate, endDate],
+      queryFn: async () => {
+        const response = await fetch(
+          `/api/assets/${assetId}/history/graph?${getDateUrlParams(
+            startDate,
+            endDate
+          )}&sort=valueDate,asc`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch portfolio history");
+        }
+        return response.json();
+      },
+    });
+
+  const valuesChartData: CombinedDayTimePointBase[] =
+    Array.isArray(assetValueHistoryData) && assetValueHistoryData.length > 0
+      ? assetValueHistoryData.map((item) => {
+          const itemDate = new Date(item.valueDate);
+
+          // Find the highest milestone achieved at this point
+          // const achievedMilestone = milestones
+          //   ?.filter((m) => {
+          //     const portfolioValue = Number(item.value);
+          //     const milestoneValue = Number(m.targetValue);
+          //     return portfolioValue >= milestoneValue;
+          //   })
+          //   .sort((a, b) => Number(b.targetValue) - Number(a.targetValue))[0];
+          return {
+            ...item,
+            timestamp: itemDate.getTime(),
+            date: itemDate.toLocaleDateString("en-GB", {
+              year: "numeric",
+              month: "short",
+              day: "2-digit",
+            }),
+            value: Number(item.value),
+            changes: item.changes,
+            // achievedMilestone: achievedMilestone
+            //   ? {
+            //       name: achievedMilestone.name,
+            //       targetValue: Number(achievedMilestone.targetValue),
+            //     }
+            //   : undefined,
+            metadata: item.metadata
+              ? Array.isArray(item.metadata)
+                ? [...item.metadata]
+                : [item.metadata]
+              : [],
+          };
+        })
+      : [];
+
+  const { assetTransactions } = useAssetTransactions(
+    assetId,
+    startDate,
+    endDate
+  );
+  const { data: transactionHistoryData = [] } = assetTransactions;
+
+  const transactionChartData: CombinedDayTimePointBase[] =
+    transactionHistoryData && transactionHistoryData.length > 0
+      ? transactionHistoryData.map((item) => {
+          const itemDate = new Date(item.valueDate);
+          return {
+            ...item,
+            timestamp: itemDate.getTime(),
+            date: itemDate.toLocaleDateString("en-GB", {
+              year: "numeric",
+              month: "short",
+              day: "2-digit",
+            }),
+            value: item.value,
+            changes: item.changes,
+          };
+        })
+      : [];
+
+  const chartData: ChartData = [
+    { name: "Total Portfolio Value", data: valuesChartData, color: "#3B82F6" },
+    {
+      name: "Transactions Input Value",
+      data: transactionChartData,
+      color: "#F59E0B",
+    },
+  ];
 
   // Form for adding/editing history
   const form = useForm<z.infer<typeof historySchema>>({
@@ -290,9 +385,10 @@ function AssetPage() {
       {assetId ? (
         <AssetHistoryChart
           className="mt-4"
-          showMilestones={false}
-          url={`/api/assets/${assetId}/history/graph`}
-          queryKey={["asset", assetId, "history", "graph"]}
+          data={chartData}
+          // showMilestones={false}
+          // url={`/api/assets/${assetId}/history/graph`}
+          // queryKey={["asset", assetId, "history", "graph"]}
           // nextMilestone={
           //   nextMilestone ? Number(nextMilestone.targetValue) : undefined
           // }

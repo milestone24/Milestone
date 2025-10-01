@@ -131,14 +131,30 @@ export async function registerRoutes(
       if (!req.params.assetId) {
         return res.status(400).json({ error: "Asset ID is required" });
       }
-
-      const queryParams = parseQueryParamsExpress(req.query);
       const history = await assetService.getUserAssetValueHistoryGraph(
         req.params.assetId,
         {
           start: req.query?.start ? new Date(req.query.start as string) : null,
           end: req.query?.end ? new Date(req.query.end as string) : null,
         }
+      );
+      res.json(history);
+    }
+  );
+
+  router.get(
+    `/${uuidRouteParam("assetId")}/transactions/graph`,
+    requireUser,
+    async (req: AuthRequest, res) => {
+      if (!req.params.assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+
+      const query = parseQueryParamsExpress(req.query);
+
+      const history = await assetService.getUserAssetTransactionHistoryGraph(
+        req.params.assetId,
+        query
       );
       res.json(history);
     }
