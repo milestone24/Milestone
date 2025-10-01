@@ -68,7 +68,6 @@ export default function BottomNav() {
         <ul className="flex justify-between">
           {navItems.map((item) => {
             const [isActive] = useRoute(item.path);
-            console.log(isActive);
             const isActiveHome = location === "/" && item.id === "portfolio";
 
             return (
