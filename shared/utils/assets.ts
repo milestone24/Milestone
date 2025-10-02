@@ -372,8 +372,6 @@ export function streamAssetValuesForDateRange<
     while (!next.done) {
       const value = next.value;
 
-      console.log("streamAssetValuesForDateRange value :", value);
-
       // Track last value before start
       // Keep continuing to the next value until we find a value that is after the query start date
       if (queryStartDate && value.valueDate < queryStartDate) {
@@ -383,13 +381,6 @@ export function streamAssetValuesForDateRange<
         next = await assetValues.next();
         continue;
       }
-
-      console.log(
-        "streamAssetValuesForDateRangevaluesBeforeStart :",
-        valuesBeforeStart.size
-      );
-
-      //console.log("valuesBeforeStart :", valuesBeforeStart.size);
 
       //Now we are in the realm of values that are after the query start date
 
@@ -842,13 +833,6 @@ export const resolveDayTransactionHistoryForAssetsForDateRange = async (
   >,
   query?: DataRangeQuery
 ): Promise<TransactionTimePoint[]> => {
-  // console.log(
-  //   "assets :",
-  //   Array.from(assets).map((a) => a.history.length)
-  // );
-
-  console.log("asset transactions :", JSON.stringify(assets, null, 2));
-
   const assetsWithHistoryAsyncIterators = Array.from(assets, (asset) => ({
     ...asset,
     history: arrayToAsyncIterator(asset.history),
@@ -872,8 +856,6 @@ export const resolveDayTransactionHistoryForAssetsForDateRange = async (
       transactions: [...(day.transactions ?? []), entry],
     };
   });
-
-  console.log("combined :", JSON.stringify(combined, null, 2));
 
   return combined;
 };

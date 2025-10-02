@@ -1192,6 +1192,10 @@ export class DatabaseAssetService {
             )
           : and(eq(transactionsAccumulated.assetId, assetId))
       )
+      .orderBy(
+        desc(transactionsAccumulated.valueDate),
+        desc(transactionsAccumulated.accumulativeAssetCurrencyValueRow)
+      )
       .limit(1);
 
     const securityTransactionHistoryAfterQuery = this.db
@@ -1206,12 +1210,19 @@ export class DatabaseAssetService {
             )
           : and(eq(transactionsAccumulated.assetId, assetId))
       )
+      .orderBy(
+        asc(transactionsAccumulated.valueDate),
+        asc(transactionsAccumulated.accumulativeAssetCurrencyValueRow)
+      )
       .limit(1);
 
     // const allSecurityTransactionsData =
     //   await securityTransactionHistoryMainQuery.orderBy(
     //     asc(transactionsAccumulated.valueDate)
     //   );
+
+    // const allSecurityTransactionsData =
+    //   await securityTransactionHistoryBeforeQuery;
 
     const allSecurityTransactionsData =
       startDate && endDate

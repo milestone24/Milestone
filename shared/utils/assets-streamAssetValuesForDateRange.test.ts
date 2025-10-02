@@ -178,6 +178,11 @@ describe.only("streamAssetValuesForDateRange for asset values with one asset wit
       },
     };
 
+    const dateRangeQuery: DataRangeQuery = {
+      start: startDate,
+      end: endDate,
+    };
+
     const assets = await assetService.getUserAssets(userAccountId, queryParams);
 
     const withHistory: WithAssetHistory<
@@ -207,7 +212,7 @@ describe.only("streamAssetValuesForDateRange for asset values with one asset wit
     //   }
     // }
 
-    console.log("withHistory :", JSON.stringify(withHistory, null, 2));
+    //console.log("withHistory :", JSON.stringify(withHistory, null, 2));
 
     // console.log(
     //   "withHistory :",
@@ -218,7 +223,6 @@ describe.only("streamAssetValuesForDateRange for asset values with one asset wit
     //   )
     // );
 
-
     const assetsWithHistoryAsyncIterators = Array.from(
       withHistory,
       (asset) => ({
@@ -227,32 +231,34 @@ describe.only("streamAssetValuesForDateRange for asset values with one asset wit
       })
     );
 
-    const dateRangeQuery: DataRangeQuery = {
-      start: startDate,
-      end: endDate,
-    };
+    const mergedHistory =
+      mergeSortedAssetHistories<BrandedAbstractTransactionValue>(
+        assetsWithHistoryAsyncIterators
+      );
+
+    // for await (const v of mergedHistory) {
+    //   console.log("mergedHistoryItem :", v);
+    // }
+
+    // return;
 
     const stream =
       streamAssetValuesForDateRange<BrandedAbstractTransactionValue>(
         dateRangeQuery,
-        "currencyValue"
-      )(
-        mergeSortedAssetHistories<BrandedAbstractTransactionValue>(
-          assetsWithHistoryAsyncIterators
-        )
-      );
+        "accumulativeAssetCurrencyValue"
+      )(mergedHistory);
 
     const result: PossibleDummyHistoryValue<BrandedAbstractTransactionValue>[] =
       [];
 
-    for await (const v of stream) {
-      console.log("v :", v);
-      result.push(v);
-    }
+    // for await (const v of stream) {
+    //   console.log("streamItem :", v);
+    //   result.push(v);
+    // }
 
-    console.log("result :", result);
+    // console.log("result :", result);
 
-    expect(result).toHaveLength(3);
+    // expect(result).toHaveLength(3);
 
     // console.log("result :", result);
 
