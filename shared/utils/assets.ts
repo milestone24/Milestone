@@ -371,6 +371,7 @@ export function streamAssetValuesForDateRange<
 
     while (!next.done) {
       const value = next.value;
+      console.log("value :", value);
 
       // Track last value before start
       // Keep continuing to the next value until we find a value that is after the query start date
@@ -486,6 +487,30 @@ export function streamAssetValuesForDateRange<
       next = await assetValues.next();
     }
 
+    //If a start date was defined we always need to yield a start value
+    if (queryStartDate && !yieldedStart) {
+      if (valuesBeforeStart.size > 0) {
+        for (const value of valuesBeforeStart.values()) {
+          yield {
+            ...value,
+            id: null,
+            assetId: value.assetId,
+            value: getValue(value),
+            valueType: "synthetic-asset",
+            valueDate: queryStartDate,
+          };
+        }
+      } else {
+        yield {
+          valueType: "synthetic",
+          id: null,
+          assetId: null,
+          value: 0,
+          valueDate: queryStartDate,
+        };
+      }
+    }
+
     // If we never yielded an end value and queryEndDate is set, yield synthetic end
     if (queryEndDate && !yieldedEnd && lastValue) {
       yield {
@@ -598,6 +623,9 @@ export const resolveAssetWithChangeForDateRange = <
   };
 };
 
+/**
+ * @deprecated Use resolveDayValueHistoryForAssetsForDateRange instead
+ */
 export const resolveAssetsWithChange = <
   T extends WithAssetHistory<UserAsset, AssetValue>
 >(
@@ -704,7 +732,10 @@ export const getCombinedDayValuesForValues = async <
     //   accountLatestValues.set(entry.assetId, value);
     // }
 
-    accountLatestValues.set(entry.assetId ?? "synthetic", value);
+    accountLatestValues.set(
+      entry.valueType === "synthetic" ? "synthetic" : entry.assetId,
+      value
+    );
 
     // Calculate total portfolio value at this point in time
     const totalValue = Array.from(accountLatestValues.values()).reduce(

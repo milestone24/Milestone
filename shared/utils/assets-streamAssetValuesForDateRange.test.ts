@@ -183,7 +183,13 @@ describe.only("streamAssetValuesForDateRange for asset values with one asset wit
       end: endDate,
     };
 
-    const assets = await assetService.getUserAssets(userAccountId, queryParams);
+    const assets = await assetService
+      .getUserAssets(userAccountId, queryParams)
+      .then((assets) =>
+        assets.filter(
+          (asset) => asset.id === "ce95f3e8-5473-40d1-8077-625e4829bcd6"
+        )
+      );
 
     const withHistory: WithAssetHistory<
       UserAsset,
@@ -240,7 +246,7 @@ describe.only("streamAssetValuesForDateRange for asset values with one asset wit
     //   console.log("mergedHistoryItem :", v);
     // }
 
-    // return;
+    //return;
 
     const stream =
       streamAssetValuesForDateRange<BrandedAbstractTransactionValue>(
@@ -252,7 +258,7 @@ describe.only("streamAssetValuesForDateRange for asset values with one asset wit
       [];
 
     // for await (const v of stream) {
-    //   console.log("streamItem :", v);
+    //   //console.log("streamItem :", v);
     //   result.push(v);
     // }
 
@@ -292,6 +298,9 @@ describe.only("streamAssetValuesForDateRange for asset values with one asset wit
     //   expect(result[2].valueType).toBe("synthetic");
     // }
   });
+
+  //TODO test with one asset with one value where value is before start date
+  //TODO test with one asset with one value where value is after end date
 });
 
 // describe("streamAssetValuesForDateRange", () => {
