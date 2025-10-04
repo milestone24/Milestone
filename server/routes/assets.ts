@@ -191,6 +191,22 @@ export async function registerRoutes(
   );
 
   router.get(
+    `/${uuidRouteParam("assetId")}/securities`,
+    requireUser,
+    async (req: AuthRequest, res) => {
+      if (!req.params.assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+      const queryParams = parseQueryParamsExpress(req.query);
+      const securities = await assetService.getResolvedUserAssetSecurities(
+        req.params.assetId,
+        queryParams
+      );
+      res.json(securities);
+    }
+  );
+
+  router.get(
     `/${uuidRouteParam("assetId")}/securities/transactions`,
     requireUser,
     async (req: AuthRequest, res) => {
