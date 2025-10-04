@@ -371,7 +371,6 @@ export function streamAssetValuesForDateRange<
 
     while (!next.done) {
       const value = next.value;
-      console.log("value :", value);
 
       // Track last value before start
       // Keep continuing to the next value until we find a value that is after the query start date
@@ -487,6 +486,9 @@ export function streamAssetValuesForDateRange<
       next = await assetValues.next();
     }
 
+
+    console.log("done yieldedStart", yieldedStart);
+
     //If a start date was defined we always need to yield a start value
     if (queryStartDate && !yieldedStart) {
       if (valuesBeforeStart.size > 0) {
@@ -512,15 +514,25 @@ export function streamAssetValuesForDateRange<
     }
 
     // If we never yielded an end value and queryEndDate is set, yield synthetic end
-    if (queryEndDate && !yieldedEnd && lastValue) {
-      yield {
-        ...lastValue,
-        value: getValue(lastValue),
-        valueType: "synthetic-asset",
-        id: null,
-        assetId: null,
-        valueDate: queryEndDate,
-      };
+    if (queryEndDate && !yieldedEnd ) {
+      if(lastValue) {
+        yield {
+          ...lastValue,
+          value: getValue(lastValue),
+          valueType: "synthetic-asset",
+          id: null,
+          assetId: null,
+          valueDate: queryEndDate,
+        };
+      } else {
+        yield {
+          valueType: "synthetic",
+          id: null,
+          assetId: null,
+          value: 0,
+          valueDate: queryEndDate,
+        };
+      }
     }
   };
 }
