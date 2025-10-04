@@ -12,6 +12,7 @@ import {
   userAssetInsertSchema,
   recurringContributionOrphanInsertSchema,
   securityTransactionOrphanInsertSchema,
+  userAssetSecurityInsertSchema,
 } from "@shared/schema";
 import { uuidRouteParam } from "@server/utils/uuid";
 import asyncCatch from "./utils";
@@ -206,6 +207,22 @@ export async function registerRoutes(
     }
   );
 
+  router.post(
+    `/${uuidRouteParam("assetId")}/securities`,
+    requireUser,
+    async (req: AuthRequest, res) => {
+      if (!req.params.assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+      const data = userAssetSecurityInsertSchema.parse(req.body);
+      const valueItem = await assetService.createUserAssetSecurity(
+        req.params.assetId,
+        data
+      );
+      res.json(valueItem);
+    }
+  );
+
   router.get(
     `/${uuidRouteParam("assetId")}/securities/transactions`,
     requireUser,
@@ -240,6 +257,62 @@ export async function registerRoutes(
         data
       );
       res.json(transaction);
+    }
+  );
+
+  router.get(
+    `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam("securityId")}`,
+    requireUser,
+    asyncCatch(async (req: AuthRequest, res) => {
+      if (!req.params.assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+      if (!req.params.securityId) {
+        return res.status(400).json({ error: "Security ID is required" });
+      }
+      const valueItems = await assetService.getUserAssetSecurity(
+        req.params.assetId,
+        req.params.securityId
+      );
+      res.json(valueItems);
+    })
+  );
+
+  // router.put(
+  //   `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam("securityId")}`,
+  //   requireUser,
+  //   async (req: AuthRequest, res) => {
+  //     if(!req.params.assetId) {
+  //       return res.status(400).json({ error: "Asset ID is required" });
+  //     }
+  //     if(!req.params.securityId) {
+  //       return res.status(400).json({ error: "Security ID is required" });
+  //     }
+  //     const data = brokerProviderAssetSecurityInsertSchema.parse(req.body);
+  //     const valueItem = await assetService.updateBrokerProviderAssetSecurity(
+  //       req.params.assetId,
+  //       req.params.securityId,
+  //       data
+  //     );
+  //     res.json(valueItem);
+  //   }
+  // );
+
+  router.delete(
+    `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam("securityId")}`,
+    requireUser,
+    async (req: AuthRequest, res) => {
+      if (!req.params.assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+      if (!req.params.securityId) {
+        return res.status(400).json({ error: "Security ID is required" });
+      }
+      const result = await assetService.deleteUserAssetSecurity(
+        req.params.assetId,
+        req.params.securityId
+      );
+      res.json({ success: result });
     }
   );
 
@@ -357,94 +430,22 @@ export async function registerRoutes(
     }
   );
 
-  // Broker Provider Asset Value Items (Individual Holdings) Routes
-  router.get(
-    `/${uuidRouteParam("assetId")}/securities`,
-    requireUser,
-    async (req: AuthRequest, res) => {
-      if (!req.params.assetId) {
-        return res.status(400).json({ error: "Asset ID is required" });
-      }
-      const queryParams = parseQueryParamsExpress(req.query);
-      const valueItems = await assetService.getUserAssetSecurities(
-        req.params.assetId,
-        queryParams
-      );
-      res.json(valueItems);
-    }
-  );
-
-  router.get(
-    `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam("securityId")}`,
-    requireUser,
-    asyncCatch(async (req: AuthRequest, res) => {
-      if (!req.params.assetId) {
-        return res.status(400).json({ error: "Asset ID is required" });
-      }
-      if (!req.params.securityId) {
-        return res.status(400).json({ error: "Security ID is required" });
-      }
-      const valueItems = await assetService.getUserAssetSecurity(
-        req.params.assetId,
-        req.params.securityId
-      );
-      res.json(valueItems);
-    })
-  );
-
-  // router.post(
+  // // Broker Provider Asset Value Items (Individual Holdings) Routes
+  // router.get(
   //   `/${uuidRouteParam("assetId")}/securities`,
   //   requireUser,
   //   async (req: AuthRequest, res) => {
-  //     if(!req.params.assetId) {
+  //     if (!req.params.assetId) {
   //       return res.status(400).json({ error: "Asset ID is required" });
   //     }
-  //     const data = brokerProviderAssetSecurityInsertSchema.parse(req.body);
-  //     const valueItem = await assetService.createBrokerProviderAssetSecurity(
+  //     const queryParams = parseQueryParamsExpress(req.query);
+  //     const valueItems = await assetService.getUserAssetSecurities(
   //       req.params.assetId,
-  //       data
+  //       queryParams
   //     );
-  //     res.json(valueItem);
+  //     res.json(valueItems);
   //   }
   // );
-
-  // router.put(
-  //   `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam("securityId")}`,
-  //   requireUser,
-  //   async (req: AuthRequest, res) => {
-  //     if(!req.params.assetId) {
-  //       return res.status(400).json({ error: "Asset ID is required" });
-  //     }
-  //     if(!req.params.securityId) {
-  //       return res.status(400).json({ error: "Security ID is required" });
-  //     }
-  //     const data = brokerProviderAssetSecurityInsertSchema.parse(req.body);
-  //     const valueItem = await assetService.updateBrokerProviderAssetSecurity(
-  //       req.params.assetId,
-  //       req.params.securityId,
-  //       data
-  //     );
-  //     res.json(valueItem);
-  //   }
-  // );
-
-  router.delete(
-    `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam("securityId")}`,
-    requireUser,
-    async (req: AuthRequest, res) => {
-      if (!req.params.assetId) {
-        return res.status(400).json({ error: "Asset ID is required" });
-      }
-      if (!req.params.securityId) {
-        return res.status(400).json({ error: "Security ID is required" });
-      }
-      const result = await assetService.deleteUserAssetSecurity(
-        req.params.assetId,
-        req.params.securityId
-      );
-      res.json({ success: result });
-    }
-  );
 
   router.get(
     "/broker-platforms",
