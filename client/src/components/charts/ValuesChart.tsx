@@ -253,8 +253,6 @@ export default function ValuesChart({
                     formatter={(value: number, name: string, props: any) => {
                       const data = props.payload as ChartDataBase;
 
-                      console.log("data : ", data);
-
                       const items = [
                         [`£${value.toLocaleString()}`, "Portfolio Value"],
                       ];
@@ -285,7 +283,6 @@ export default function ValuesChart({
                       fontWeight: 500,
                     }}
                     content={({ active, payload }) => {
-                      console.log("payload : ", payload?.length);
                       return active && payload && payload.length ? (
                         <>
                           {payload.map((p) => {
