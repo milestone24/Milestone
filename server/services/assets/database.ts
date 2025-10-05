@@ -291,9 +291,6 @@ export class DatabaseAssetService {
       recordType: sql<Extract<ValueAbstractType, "asset_value">>`'asset_value'`,
     };
 
-    console.log("getUserAssetHistoryWithBoundary startDate :", startDate);
-    console.log("getUserAssetHistoryWithBoundary endDate :", endDate);
-
     const mainQuery = this.db
       .select(select)
       .from(assetValues)
@@ -352,13 +349,6 @@ export class DatabaseAssetService {
             asc(assetValues.valueDate)
           )
         : await mainQuery.orderBy(asc(assetValues.valueDate));
-
-    // console.log(
-    //   "allData",
-    //   [...allData.slice(0, 3), ...allData.slice(-3)].map(
-    //     (item) => item.valueDate
-    //   )
-    // );
 
     return allData;
   }
@@ -712,22 +702,6 @@ export class DatabaseAssetService {
         });
       }
 
-      console.log("data.contributions", data.contributions);
-
-      // if (data.contributions) {
-      //   if (data.valueMethod === "manual") {
-      //     await tx.insert(recurringContributions).values({
-      //       assetId: insertedUserAsset.id,
-      //       amount: data.contributions.amount,
-      //       startDate: data.startDate,
-      //       pattern: data.contributions.schedulePattern,
-      //       isActive: true,
-      //     });
-      //   }
-      //   if (data.valueMethod === "calculated") {
-      //   }
-      // }
-
       return insertedUserAsset;
     });
 
@@ -951,11 +925,6 @@ export class DatabaseAssetService {
         eq(userAssetSecurities.id, securityTransactions.assetSecurityId)
       )
       .orderBy(desc(securityTransactions.valueDate));
-
-    console.log(
-      "securityTransactionHistory",
-      JSON.stringify(securityTransactionHistory, null, 2)
-    );
 
     return securityTransactionHistory;
   }
@@ -1368,28 +1337,10 @@ export class DatabaseAssetService {
         query
       );
 
-    // const completeAssetsWithHistory: AssetWithValueHistory[] =
-    //   await Promise.all(
-    //     assetsWithHistory.map(async (asset) => ({
-    //       ...asset,
-    //       history: [
-    //         ...asset.history,
-    //         ...(await this.getCombinedAssetTransactions(asset.id, query)),
-    //       ].sort((a, b) => a.valueDate.getTime() - b.valueDate.getTime()),
-    //     }))
-    //   );
-
-    console.log(
-      "assetsWithHistory : ",
-      assetsWithHistory.map((a) => a.history.length)
-    );
-
     const valueHistory = await resolveDayValueHistoryForAssetsForDateRange(
       assetsWithHistory,
       queryParamsFilterToDateRange(query?.filter)
     );
-
-    console.log("valueHistory : ", valueHistory.length);
 
     return valueHistory;
   }
