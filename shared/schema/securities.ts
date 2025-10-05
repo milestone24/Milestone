@@ -93,6 +93,7 @@ export type SecurityTransactionUpsert = SecurityTransactionInsert & {
 
 export type UserAssetSecurityTransactionResolved = {
   id: string;
+  assetSecurityId: string;
   securityName: string;
   value: number;
   currency: string;
