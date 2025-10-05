@@ -916,8 +916,22 @@ export class DatabaseAssetService {
   ): Promise<BrandedUserAssetSecurityTransactionResolved[]> {
     const securityTransactionHistory = await this.db
       .select({
+        ...getTableColumns(securityTransactions),
+        recordType: sql<
+          Extract<ValueAbstractType, "transaction">
+        >`'transaction'`,
+        //type: sql<Extract<ValueAbstractType, "transaction">>`'transaction'`,
+        transactionType: sql<TransactionType>`'security'`,
+
+        securityName: securities.name,
+        currentValue: sql<number>`sum(${securityTransactions.value}) over (partition by ${securityTransactions.assetSecurityId} order by ${securityTransactions.valueDate} rows unbounded preceding)`,
+        currentCurrencyValue: sql<number>`sum(${securityTransactions.currencyValue}) over (partition by ${securityTransactions.assetSecurityId} order by ${securityTransactions.valueDate} rows unbounded preceding)`,
+
         security_transactions: {
           ...getTableColumns(securityTransactions),
+          recordType: sql<
+            Extract<ValueAbstractType, "transaction">
+          >`'transaction'`,
           type: sql<Extract<ValueAbstractType, "transaction">>`'transaction'`,
           transactionType: sql<TransactionType>`'security'`,
           transactionId: securityTransactions.id,
@@ -935,25 +949,12 @@ export class DatabaseAssetService {
       )
       .orderBy(desc(securityTransactions.valueDate));
 
-    return securityTransactionHistory.reduce(
-      (
-        acc: BrandedUserAssetSecurityTransactionResolved[],
-        curr
-      ): BrandedUserAssetSecurityTransactionResolved[] => {
-        acc.push({
-          id: curr.security_transactions.id,
-          recordType: "transaction",
-          securityName: curr.securities.name,
-          value: curr.security_transactions.value,
-          currency: curr.security_transactions.currency,
-          currencyValue: curr.security_transactions.currencyValue ?? 0,
-          valueDate: curr.security_transactions.valueDate,
-          recordedAt: curr.security_transactions.recordedAt,
-        });
-        return acc;
-      },
-      []
+    console.log(
+      "securityTransactionHistory",
+      JSON.stringify(securityTransactionHistory, null, 2)
     );
+
+    return securityTransactionHistory;
   }
 
   async createUserAssetSecurityTransaction(
