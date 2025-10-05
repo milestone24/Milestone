@@ -1,6 +1,6 @@
 import { BsPiggyBank } from "react-icons/bs";
-import { Coins, Layers2, Plus, Share } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Coins, Layers2, Loader2, Plus, Share, Trash2 } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import {
   SecurityTransactionInsert,
   SecurityTransactionOrphanInsert,
@@ -13,6 +13,18 @@ import { useAsset } from "@/hooks/use-asset";
 import { SecurityTransactionUpsertDialogue } from "./SecurityTransactionUpsertDialogue";
 import { Skeleton } from "../ui/skeleton";
 import { Button } from "../ui/button";
+import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../ui/dialog";
+import { AssetSecurityTransactionItem } from "./AssetSecurityTransactionItem";
 
 type SecuritiesTransactionsPanelProps = {
   assetId: string;
@@ -21,14 +33,13 @@ type SecuritiesTransactionsPanelProps = {
 export const SecuritiesTransactionsPanel = ({
   assetId,
 }: SecuritiesTransactionsPanelProps) => {
-  const { asset, isAssetLoading, isAssetError, assetError } = useAsset(assetId);
+  const { securities, addSecurity, isSecuritiesLoading } = useAssetSecurities();
 
   const {
     transactions,
     isTransactionsLoading,
     addSecurityTransaction,
     updateSecurityTransaction,
-    deleteSecurityTransaction,
   } = useSecurityTransactions(assetId);
 
   const [dialogueOpen, setDialogueOpen] = useState(false);
@@ -71,13 +82,9 @@ export const SecuritiesTransactionsPanel = ({
     }
   };
 
-  const handleDeleteTransaction = async (transactionId: string) => {
-    try {
-      await deleteSecurityTransaction.mutateAsync(transactionId);
-    } catch (error) {
-      console.error("Error deleting transaction:", error);
-    }
-  };
+  const [transactionsInProcess, setTransactionsInProcess] = useState<string[]>(
+    []
+  );
 
   const handleTransactionSubmit = async (
     data: SecurityTransactionUpsert
@@ -119,7 +126,7 @@ export const SecuritiesTransactionsPanel = ({
     [transactions]
   );
 
-  const isLoading = isAssetLoading || isTransactionsLoading;
+  const isLoading = isTransactionsLoading;
 
   return (
     <>
@@ -179,52 +186,18 @@ export const SecuritiesTransactionsPanel = ({
                 isOpen={dialogueOpen}
                 onOpenChange={setDialogueOpen}
                 onSubmit={handleTransactionSubmit}
-                securities={asset?.securities ?? []}
+                securities={securities}
                 data={undefined}
               />
             </div>
-            {transactions?.map((transaction) => (
-              <div
-                key={transaction.id}
-                className="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
-              >
-                <div>
-                  <div className="flex items-center">
-                    {/* Replace this with icon for security shares */}
-                    <Layers2 className="h-4 w-4 mr-1 text-green-600" />
-                    {/* <Coins className="h-4 w-4 mr-1 text-green-600" /> */}
-                    <span className="text-sm text-gray-600 pl-1">
-                      {transaction.securityName}&nbsp;-&nbsp;
-                    </span>
-                    <span
-                      className={cn(
-                        "font-medium",
-                        transaction.value > 0
-                          ? "text-green-600"
-                          : "text-red-600"
-                      )}
-                    >
-                      {transaction.value > 0 ? "+" : "-"}
-                      {Number(transaction.value)} shares
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    <span>
-                      {new Date(transaction.valueDate).toLocaleDateString(
-                        "en-GB",
-                        {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        }
-                      )}
-                    </span>
-                    <span>&nbsp;-&nbsp;</span>
-                    <span>£{transaction.currencyValue.toLocaleString()}</span>
-                  </p>
-                </div>
-              </div>
-            ))}
+            {transactions?.map((transaction) => {
+              return (
+                <AssetSecurityTransactionItem
+                  key={transaction.id}
+                  transaction={transaction}
+                />
+              );
+            })}
           </div>
         </div>
       )}

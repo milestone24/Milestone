@@ -1,3 +1,8 @@
+import {
+  assetGraphTransactions,
+  assetGraphValues,
+  assetSecuritiesTransactions,
+} from "@/api/queryKeys";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   SecurityTransactionInsert,
@@ -6,6 +11,7 @@ import {
   UserAssetSecurityTransactionResolved,
 } from "@shared/schema/securities";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { toast } from "./use-toast";
 
 export type SecurityTransactionCreateRequest<> = {
   securityId: string;
@@ -22,7 +28,7 @@ export const useSecurityTransactions = (assetId: string) => {
   const { data: transactions, isLoading: isTransactionsLoading } = useQuery<
     UserAssetSecurityTransactionResolved[]
   >({
-    queryKey: ["assets", assetId, "securities", "transactions"],
+    queryKey: [...assetSecuritiesTransactions, assetId],
     queryFn: () =>
       apiRequest<UserAssetSecurityTransactionResolved[]>(
         "GET",
@@ -46,10 +52,13 @@ export const useSecurityTransactions = (assetId: string) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["assets", assetId, "securities", "transactions"],
+        queryKey: [...assetSecuritiesTransactions, assetId],
       });
       queryClient.invalidateQueries({
-        queryKey: ["assets", assetId, "history", "graph"],
+        queryKey: [...assetGraphValues, assetId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...assetGraphTransactions, assetId],
       });
     },
   });
@@ -68,13 +77,39 @@ export const useSecurityTransactions = (assetId: string) => {
     },
   });
 
-  const deleteSecurityTransaction = useMutation<void, Error, string>({
-    mutationFn: (id: string) => {
+  const deleteSecurityTransaction = useMutation<
+    void,
+    Error,
+    {
+      assetSecurityId: string;
+      transactionId: string;
+    }
+  >({
+    mutationFn: ({
+      assetSecurityId,
+      transactionId,
+    }: {
+      assetSecurityId: string;
+      transactionId: string;
+    }) => {
       return apiRequest(
         "DELETE",
-        `/api/assets/${assetId}/securities/${id}/transactions`,
-        { id }
+        `/api/assets/${assetId}/securities/${assetSecurityId}/transactions/${transactionId}`
       );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [...assetSecuritiesTransactions, assetId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...assetGraphValues, assetId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...assetGraphTransactions, assetId],
+      });
+      toast({
+        title: "Transaction deleted successfully",
+      });
     },
   });
 

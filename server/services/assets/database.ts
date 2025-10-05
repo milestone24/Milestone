@@ -991,6 +991,34 @@ export class DatabaseAssetService {
     return securityTransaction;
   }
 
+  async deleteUserAssetSecurityTransaction(
+    assetSecurityId: string,
+    transactionId: string
+  ): Promise<{
+    success: boolean;
+    id: string;
+  }> {
+
+    const [result] = await this.db
+      .delete(securityTransactions)
+      .where(
+        and(
+          eq(securityTransactions.assetSecurityId, assetSecurityId),
+          eq(securityTransactions.id, transactionId)
+        )
+      )
+      .returning();
+
+    if (result == null) {
+      throw new Error("Failed to delete user asset security transaction");
+    }
+
+    return {
+      success: result != null,
+      id: result?.id,
+    };
+  }
+
   async getCombinedAssetTransactionsWithBoundariesForUserAccount(
     userAccountId: UserAccount["id"],
     query?: QueryParams
