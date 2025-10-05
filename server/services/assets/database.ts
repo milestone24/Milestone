@@ -1641,10 +1641,12 @@ export class DatabaseAssetService {
     }
 
     // Make sure the security exists
-    const security = await securitiesService.getCachedSecurity(data.securityId);
+    const security = await securitiesService.createOrFindCachedSecurity(
+      data.security
+    );
 
     if (!security) {
-      throw new Error(`Security with ID ${data.securityId} not found`);
+      throw new Error(`Security with ID ${data.security.name} not found`);
     }
 
     const value = await this.db.transaction(async (tx) => {
