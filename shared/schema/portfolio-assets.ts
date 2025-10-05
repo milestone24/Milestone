@@ -56,23 +56,23 @@ export type AccountType = DBAccountType;
 export const userAssetSecurityInsertSchema = z.object({
   tempId: z.string(),
   security: securityInsertSchema,
-  shareHolding: z
+  shareHolding: z.coerce
     .number()
     .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
   // gainLoss: z
   //   .number()
   //   .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
-  currencyValue: z
+  currencyValue: z.coerce
     .number()
     .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
   startDate: z.coerce.date(),
-  priorGainLoss: z
+  priorGainLoss: z.coerce
     .number()
     .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
   recordedAt: z.coerce.date().optional(),
 });
 
-export type UserAssetInsertSecurityItem = z.infer<
+export type UserAssetSecurityInsert = z.infer<
   typeof userAssetSecurityInsertSchema
 >;
 
@@ -328,7 +328,7 @@ export type BrokerProvider = DBBrokerProvider;
 export type UserAssetSecuritySelect = DBUserAssetSecurity & {
   security: SecuritySelect;
 };
-export type UserAssetSecurityInsert = DBUserAssetSecurityInsert;
+//export type UserAssetSecurityInsert = DBUserAssetSecurityInsert;
 
 export type CalculatedValue = {
   value: number;
