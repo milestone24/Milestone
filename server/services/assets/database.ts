@@ -673,14 +673,17 @@ export class DatabaseAssetService {
               throw new Error("Failed to create user asset security");
             }
 
-            const transaction = await tx.insert(securityTransactions).values({
-              assetSecurityId: assetSecurity.id,
-              value: assetSecurityData.shareHolding,
-              currency: persistedSecurity.currency ?? "GBP",
-              currencyValue: assetSecurityData.currencyValue,
-              recordedAt: new Date(),
-              valueDate: insertedUserAsset.startDate,
-            });
+            const [transaction] = await tx
+              .insert(securityTransactions)
+              .values({
+                assetSecurityId: assetSecurity.id,
+                value: assetSecurityData.shareHolding,
+                currency: persistedSecurity.currency ?? "GBP",
+                currencyValue: assetSecurityData.currencyValue,
+                recordedAt: new Date(),
+                valueDate: insertedUserAsset.startDate,
+              })
+              .returning();
 
             if (!transaction) {
               throw new Error("Failed to create security transaction");
