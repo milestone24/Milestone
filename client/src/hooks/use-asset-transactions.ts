@@ -1,3 +1,4 @@
+import { assetGraphTransactions } from "@/api/queryKeys";
 import { getDateUrlParams } from "@/lib/date";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -12,7 +13,7 @@ export const useAssetTransactions = (
   endDate?: Date
 ) => {
   const assetTransactions = useQuery({
-    queryKey: ["asset-transactions", assetId, startDate, endDate],
+    queryKey: [...assetGraphTransactions, assetId, startDate, endDate],
     queryFn: () => {
       return apiRequest<TransactionTimePoint[]>(
         "GET",

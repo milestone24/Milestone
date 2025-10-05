@@ -34,6 +34,11 @@ import { getEndpointPathWithUserId } from "@/lib/user";
 import { useSession } from "@/hooks/use-session";
 import { AccountType } from "@shared/schema";
 import { getDateUrlParams } from "@/lib/date";
+import {
+  portfolioAssets,
+  portfolioGraphTransactions,
+  portfolioGraphValues,
+} from "@/api/queryKeys";
 
 export type PortfolioContextType = {
   assets: UserAsset[];
@@ -127,12 +132,6 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
   const fireSettingsQueryKey = getAuthQueryKey([
     "/api/fire-settings/user/{userId}",
   ]);
-  const portfolioValueQueryKey = getAuthQueryKey([
-    "/api/assets/portfolio-value",
-  ]);
-  const portfolioHistoryPath = "/api/assets/portfolio-value/history";
-  const portfolioHistoryQueryKey = getAuthQueryKey([portfolioHistoryPath]);
-  const assetsQueryKey = ["/api/assets", user?.account.id];
 
   const invalidateAccounts = useCallback(() => {
     queryClient.invalidateQueries({
@@ -170,7 +169,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     isLoading: isLoadingAssets,
     isError: isAssetsError,
   } = useQuery<UserAssetWithHistoryAndAccountChange[]>({
-    queryKey: [...assetsQueryKey, startDate, endDate],
+    queryKey: [...portfolioAssets, startDate, endDate],
     queryFn: apiEnabled
       ? async () =>
           apiRequest(
@@ -232,7 +231,9 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
         })),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: assetsQueryKey });
+      queryClient.invalidateQueries({ queryKey: portfolioAssets });
+      queryClient.invalidateQueries({ queryKey: portfolioGraphValues });
+      queryClient.invalidateQueries({ queryKey: portfolioGraphTransactions });
       toast({
         title: "Asset added",
         description: "Your asset has been added successfully.",
@@ -257,7 +258,9 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: assetsQueryKey });
+      queryClient.invalidateQueries({ queryKey: portfolioAssets });
+      queryClient.invalidateQueries({ queryKey: portfolioGraphValues });
+      queryClient.invalidateQueries({ queryKey: portfolioGraphTransactions });
       toast({
         title: "Asset updated",
         description: "Your asset has been updated successfully.",
@@ -276,7 +279,9 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
   const deleteAsset = useMutation<void, Error, UserAsset["id"]>({
     mutationFn: (id) => apiRequest<void>("DELETE", `/api/assets/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: assetsQueryKey });
+      queryClient.invalidateQueries({ queryKey: portfolioAssets });
+      queryClient.invalidateQueries({ queryKey: portfolioGraphValues });
+      queryClient.invalidateQueries({ queryKey: portfolioGraphTransactions });
       toast({
         title: "Asset deleted",
         description: "Your asset has been deleted successfully.",
@@ -306,7 +311,9 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
       });
     },
     onSuccess: () => {
-      invalidateAccounts();
+      queryClient.invalidateQueries({ queryKey: portfolioAssets });
+      queryClient.invalidateQueries({ queryKey: portfolioGraphValues });
+      queryClient.invalidateQueries({ queryKey: portfolioGraphTransactions });
       toast({
         title: "Asset value added",
         description: "Asset value has been added successfully.",
@@ -334,7 +341,9 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
       );
     },
     onSuccess: () => {
-      invalidateAccounts();
+      queryClient.invalidateQueries({ queryKey: portfolioAssets });
+      queryClient.invalidateQueries({ queryKey: portfolioGraphValues });
+      queryClient.invalidateQueries({ queryKey: portfolioGraphTransactions });
       toast({
         title: "Asset value updated",
         description: "Asset value has been updated successfully.",
@@ -380,7 +389,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
         apiKey,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: assetsQueryKey });
+      queryClient.invalidateQueries({ queryKey: portfolioAssets });
       toast({
         title: "API connected",
         description: "Your asset has been connected to the API successfully.",
