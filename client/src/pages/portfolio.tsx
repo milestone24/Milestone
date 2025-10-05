@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -42,6 +42,7 @@ import { usePortfolio as usePortfolioNew } from "@/hooks/use-portfolio";
 import { CombinedDayTimePointBase } from "shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { getDateUrlParams } from "@/lib/date";
+import { portfolioGraphValues } from "@/api/queryKeys";
 
 function Portfolio() {
   const { dateRange } = useDateRange();
@@ -69,7 +70,7 @@ function Portfolio() {
   const { data: assetValueHistoryData, isLoading: isLoadingAssetValueHistory } =
     useQuery<AssetValueTimePoint[]>({
       //const { data: historyData, isLoading } = useQuery<AssetValue[]>({
-      queryKey: ["portfolio", "history", "graph", startDate, endDate],
+      queryKey: [...portfolioGraphValues, startDate, endDate],
       queryFn: async () => {
         const response = await fetch(
           `/api/assets/portfolio-value/history?${getDateUrlParams(
@@ -196,6 +197,17 @@ function Portfolio() {
     }
   };
 
+  const handleDeleteAccount = useCallback(
+    async (accountId: string) => {
+      if (accountToDelete) {
+        await deleteAsset.mutateAsync(accountId);
+        setAccountToDelete(null);
+        setIsEditMode(false);
+      }
+    },
+    [deleteAsset, accountToDelete, setAccountToDelete, setIsEditMode]
+  );
+
   return (
     <div className="max-w-5xl mx-auto px-2 md:px-4 pb-20">
       <div className="w-full flex flex-col">
@@ -291,13 +303,9 @@ function Portfolio() {
                 <AlertDialogCancel>No</AlertDialogCancel>
                 <AlertDialogAction
                   className="bg-red-600 hover:bg-red-700"
-                  onClick={async () => {
-                    if (accountToDelete) {
-                      await deleteAsset.mutateAsync(accountToDelete);
-                      setAccountToDelete(null);
-                      setIsEditMode(false);
-                    }
-                  }}
+                  onClick={() =>
+                    accountToDelete && handleDeleteAccount(accountToDelete)
+                  }
                 >
                   Yes
                 </AlertDialogAction>

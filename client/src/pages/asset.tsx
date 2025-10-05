@@ -70,6 +70,8 @@ import { useAsset } from "@/hooks/use-asset";
 import { usePortfolio as usePortfolioNew } from "@/hooks/use-portfolio";
 import { getDateUrlParams } from "@/lib/date";
 import { useAssetTransactions } from "@/hooks/use-asset-transactions";
+import { AssetSecuritiesProvider } from "@/context/AssetSecuritiesContext";
+import { assetGraphValues } from "@/api/queryKeys";
 
 // Form schema for history entry
 const historySchema = z.object({
@@ -105,7 +107,7 @@ function AssetPage() {
 
   // Active tab state
   const [activeTab, setActiveTab] = useState<"values" | "contributions">(
-    "values"
+    "contributions"
   );
 
   const { asset, isAssetLoading, isAssetError, assetError } = useAsset(assetId);
@@ -129,7 +131,7 @@ function AssetPage() {
   const { data: assetValueHistoryData, isLoading: isLoadingAssetValueHistory } =
     useQuery<AssetValueTimePoint[]>({
       //const { data: historyData, isLoading } = useQuery<AssetValue[]>({
-      queryKey: ["portfolio", "history", "graph", startDate, endDate],
+      queryKey: [...assetGraphValues, startDate, endDate],
       queryFn: async () => {
         const response = await fetch(
           `/api/assets/${assetId}/history/graph?${getDateUrlParams(
@@ -319,7 +321,7 @@ function AssetPage() {
     );
   }
 
-  const isSecuritiesAsset = (asset.securities?.length ?? 0) > 0;
+  const isSecuritiesAsset = asset.valueMethod === "calculated";
 
   const handleUpdateAssetHistories = async () => {
     if (!assetId) return;
@@ -395,176 +397,180 @@ function AssetPage() {
         />
       ) : null}
 
-      <div>
-        <div className="">
-          <h2 className="text-lg font-medium my-2 md:my-4">Holdings</h2>
-          <SecuritiesList
-            className="my-4"
-            securities={asset.securities}
-            //onItemClick={handleSecurityClick}
-          />
-        </div>
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) =>
-            setActiveTab(value as "values" | "contributions")
-          }
-        >
-          <TabsList className="mb-4 w-full">
-            <TabsTrigger value="values" className="flex-1">
-              Account Values
-            </TabsTrigger>
-            <TabsTrigger value="contributions" className="flex-1">
-              Contributions
-            </TabsTrigger>
-          </TabsList>
+      <AssetSecuritiesProvider assetId={assetId}>
+        <div>
+          <div className="">
+            <h2 className="text-lg font-medium my-2 md:my-4">Holdings</h2>
+            <SecuritiesList
+              className="my-4"
+              //onItemClick={handleSecurityClick}
+            />
+          </div>
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) =>
+              setActiveTab(value as "values" | "contributions")
+            }
+          >
+            <TabsList className="mb-4 w-full">
+              <TabsTrigger value="values" className="flex-1">
+                Account Values
+              </TabsTrigger>
+              <TabsTrigger value="contributions" className="flex-1">
+                Contributions
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Values Tab Content */}
-          <TabsContent value="values">
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-medium">History</h2>
-                {!isSecuritiesAsset ? (
-                  <Dialog
-                    open={isAddHistoryOpen}
-                    onOpenChange={setIsAddHistoryOpen}
-                  >
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Value
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add History Entry</DialogTitle>
-                        <DialogDescription>
-                          Add a new value record for this account.
-                        </DialogDescription>
-                      </DialogHeader>
-
-                      <Form {...form}>
-                        <form
-                          onSubmit={form.handleSubmit(handleCreateHistory)}
-                          className="space-y-4"
+            {/* Values Tab Content */}
+            <TabsContent value="values">
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-medium">History</h2>
+                  {!isSecuritiesAsset ? (
+                    <Dialog
+                      open={isAddHistoryOpen}
+                      onOpenChange={setIsAddHistoryOpen}
+                    >
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center"
                         >
-                          <FormField
-                            control={form.control}
-                            name="value"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Value</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    placeholder="Enter value"
-                                    {...field}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Value
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add History Entry</DialogTitle>
+                          <DialogDescription>
+                            Add a new value record for this account.
+                          </DialogDescription>
+                        </DialogHeader>
 
-                          <FormField
-                            control={form.control}
-                            name="recordedAt"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Date</FormLabel>
-                                <FormControl>
-                                  <Input type="date" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                        <Form {...form}>
+                          <form
+                            onSubmit={form.handleSubmit(handleCreateHistory)}
+                            className="space-y-4"
+                          >
+                            <FormField
+                              control={form.control}
+                              name="value"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Value</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      placeholder="Enter value"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
 
-                          <DialogFooter>
-                            <Button type="submit">Add Entry</Button>
-                          </DialogFooter>
-                        </form>
-                      </Form>
-                    </DialogContent>
-                  </Dialog>
-                ) : null}
-              </div>
+                            <FormField
+                              control={form.control}
+                              name="recordedAt"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Date</FormLabel>
+                                  <FormControl>
+                                    <Input type="date" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
 
-              {/* History List */}
-              <div className="space-y-4">
-                {history?.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    No account value history available.
-                  </div>
-                )}
-                {history?.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
-                  >
-                    <div>
-                      <p className="font-medium">
-                        £{Number(entry.value).toLocaleString()}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {new Date(entry.valueDate).toLocaleDateString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </p>
+                            <DialogFooter>
+                              <Button type="submit">Add Entry</Button>
+                            </DialogFooter>
+                          </form>
+                        </Form>
+                      </DialogContent>
+                    </Dialog>
+                  ) : null}
+                </div>
+
+                {/* History List */}
+                <div className="space-y-4">
+                  {history?.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      No account value history available.
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => {
-                          setHistoryToEdit(entry);
-                          form.reset({
-                            value: entry.value.toString(),
-                            recordedAt: new Date(entry.recordedAt)
-                              .toISOString()
-                              .split("T")[0],
-                          });
-                          setIsEditHistoryOpen(true);
-                        }}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => setHistoryToDelete(entry.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                  )}
+                  {history?.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          £{Number(entry.value).toLocaleString()}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {new Date(entry.valueDate).toLocaleDateString(
+                            "en-GB",
+                            {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            }
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => {
+                            setHistoryToEdit(entry);
+                            form.reset({
+                              value: entry.value.toString(),
+                              recordedAt: new Date(entry.recordedAt)
+                                .toISOString()
+                                .split("T")[0],
+                            });
+                            setIsEditHistoryOpen(true);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => setHistoryToDelete(entry.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          </TabsContent>
+            </TabsContent>
 
-          {/* Contributions Tab Content */}
-          <TabsContent value="contributions">
-            {assetId ? (
-              isSecuritiesAsset ? (
-                <SecuritiesTransactionsPanel assetId={assetId} />
-              ) : (
-                <TransactionsPanel assetId={assetId} />
-              )
-            ) : null}
-          </TabsContent>
-          {/* Recurring Contributions Tab Content */}
-        </Tabs>
-      </div>
+            {/* Contributions Tab Content */}
+            <TabsContent value="contributions">
+              {assetId ? (
+                isSecuritiesAsset ? (
+                  <SecuritiesTransactionsPanel assetId={assetId} />
+                ) : (
+                  <TransactionsPanel assetId={assetId} />
+                )
+              ) : null}
+            </TabsContent>
+            {/* Recurring Contributions Tab Content */}
+          </Tabs>
+        </div>
+      </AssetSecuritiesProvider>
 
       {/* Edit History Dialog */}
       <Dialog open={isEditHistoryOpen} onOpenChange={setIsEditHistoryOpen}>
