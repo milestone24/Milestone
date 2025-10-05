@@ -1655,6 +1655,8 @@ export class DatabaseAssetService {
         .values({
           ...data,
           userAssetId: assetId,
+          securityId: security.id,
+          recordedAt: new Date(),
         })
         .returning();
 
