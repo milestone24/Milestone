@@ -2,7 +2,7 @@ import {
   userAssetOrphanInsertSchema,
   UserAssetOrphanInsert,
   SecuritySearchResult,
-  UserAssetInsertSecurityItem,
+  UserAssetSecurityInsert,
   accountType,
 } from "@shared/schema";
 import {
@@ -30,10 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import RSelect from "react-select";
 import { Button } from "../ui/button";
-import { useFindSecurities } from "@/hooks/use-find-securities";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { withTransform } from "@/lib/utils/mappers";
 import { Switch } from "../ui/switch";
@@ -41,6 +39,7 @@ import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import { RRuleScheduler } from "../schedule/RRuleScheduler";
+import { AssetSecurityForm } from "./AssetSecurityForm";
 
 type AccountCreateProps = {
   onSubmit: (data: UserAssetOrphanInsert) => void;
@@ -175,12 +174,6 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
     formState: { errors, isSubmitting },
   } = form;
 
-  console.log("isSubmitting", isSubmitting);
-
-  // console.log("errors", errors);
-
-  // console.log("form.getValues()", form.getValues());
-
   return (
     <>
       <div className="flex flex-row justify-between items-center">
@@ -224,10 +217,6 @@ const ActionsBar = ({
   isProcessing,
   canSubmit,
 }: ActionsBarProps) => {
-  console.log("ActionsBar onNext", onNext);
-
-  console.log("ActionsBar isProcessing", isProcessing);
-
   return (
     <section className="mt-4 flex justify-end flex-row gap-2">
       {onCancel ? (
@@ -285,8 +274,6 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
   const {
     formState: { isSubmitting, errors },
   } = form;
-
-  //console.log("errors", errors);
 
   // const { data: brokerProviders, isLoading: isLoadingBrokerProviders } =
   //   useBrokerProviders();
@@ -533,15 +520,13 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
               </div>
             ))}
             {addingSecurity ? (
-              <SecurityAddForm
+              <AssetSecurityForm
                 onCancel={() => setAddingSecurity(false)}
-                onAdd={(security) => {
+                onSubmit={(security) => {
                   setAddingSecurity(false);
-                  append({
-                    ...security,
-                    startDate,
-                  });
+                  append(security);
                 }}
+                startDate={startDate}
               />
             ) : (
               <Button onClick={() => setAddingSecurity(true)}>
@@ -571,186 +556,11 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
   );
 };
 
-// Debounce utility
-function useDebouncedCallback<T extends (...args: any[]) => void>(
-  cb: T,
-  delay: number,
-  minLength: number
-) {
-  const timeout = useRef<NodeJS.Timeout | null>(null);
-  return useCallback(
-    (...args: Parameters<T>) => {
-      if (args[0].length < minLength) cb(...args);
-      if (timeout.current) clearTimeout(timeout.current);
-      timeout.current = setTimeout(() => cb(...args), delay);
-    },
-    [cb, delay]
-  );
-}
-
-/*
- * See https://react-select.com/components
- */
-const SecurityOptions = ({
-  innerProps,
-  isFocused,
-  isSelected,
-  data,
-}: {
-  innerProps: any;
-  isFocused: boolean;
-  isSelected: boolean;
-  data: any;
-}) => {
-  return <div {...innerProps}>{data.label}</div>;
-};
-
-type UserAssetInsertSecurityItemWithoutStartDate = Omit<
-  UserAssetInsertSecurityItem,
-  "startDate"
->;
-
-const SecurityAddForm = ({
-  onAdd,
-  onCancel,
-}: {
-  onAdd: (value: UserAssetInsertSecurityItemWithoutStartDate) => void;
-  onCancel: () => void;
-}) => {
-  const form = useForm<
-    Partial<Omit<UserAssetInsertSecurityItemWithoutStartDate, "startDate">>
-  >({
-    //We need this as the form library does not use react-hook form effectively to allow valueAsNumber to work
-    //And we really need a float anyway
-
-    defaultValues: {
-      security: undefined,
-      shareHolding: 0,
-      currencyValue: 0,
-    },
-  });
-
-  const {
-    control,
-    watch,
-    formState: { errors },
-  } = form;
-
-  const [searchInput, setSearchInput] = useState("");
-  const [selectedSecurity, setSelectedSecurity] =
-    useState<SecuritySearchResult | null>(null);
-
-  const debouncedSearch = useDebouncedCallback(
-    (input: string) => {
-      setSearchInput(input);
-    },
-    100,
-    3
-  );
-
-  const { data: securities, isLoading: isLoadingSecurities } =
-    useFindSecurities(searchInput);
-
-  return (
-    <>
-      <FormDescription>Seacrh by Name / Ticker / ISIN</FormDescription>
-      <RSelect
-        options={securities ?? []}
-        getOptionLabel={(security) => `${security.symbol} - ${security.name}`}
-        value={selectedSecurity}
-        onChange={(security) => {
-          setSelectedSecurity(security);
-        }}
-        onInputChange={(input) => {
-          debouncedSearch(input);
-        }}
-        inputValue={searchInput}
-        isLoading={isLoadingSecurities}
-        placeholder="Search securities..."
-        // components={{
-        //   Option: SecurityOptions,
-        // }}
-      />
-      <FormField
-        control={control}
-        name="shareHolding"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Share Holdings</FormLabel>
-            <FormControl>
-              <Input type="number" placeholder="Share Holdings" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={control}
-        name="currencyValue"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Currency Value</FormLabel>
-            <FormDescription>
-              The currency paid for the security to date.
-            </FormDescription>
-            <FormControl>
-              <Input type="number" placeholder="Currency Value" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={control}
-        name="priorGainLoss"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Prior Gain/Loss</FormLabel>
-            <FormDescription>
-              The prior gain/loss for the security.
-            </FormDescription>
-            <FormControl>
-              <Input type="number" placeholder="Prior Gain/Loss" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <div className="flex flex-row gap-2">
-        <Button variant="outline" onClick={() => onCancel()}>
-          Cancel
-        </Button>
-        <Button
-          onClick={() => {
-            if (selectedSecurity) {
-              onAdd({
-                tempId: crypto.randomUUID(),
-                security: selectedSecurity,
-                shareHolding: form.getValues("shareHolding") || 0,
-                currencyValue: form.getValues("currencyValue") || 0,
-                priorGainLoss: form.getValues("priorGainLoss") || 0,
-              } as UserAssetInsertSecurityItemWithoutStartDate);
-              setSelectedSecurity(null);
-              setSearchInput("");
-              form.reset();
-            }
-          }}
-          disabled={!selectedSecurity}
-        >
-          Add
-        </Button>
-      </div>
-    </>
-  );
-};
-
 type SecurityCardProps = {
-  security: UserAssetInsertSecurityItem & { id: string };
+  security: UserAssetSecurityInsert & { id: string };
 };
 
 const SecurityCard = ({ security }: SecurityCardProps) => {
-  console.log("Security card security : ", security);
-
   return (
     <div className="flex flex-col gap-1 p-2 border rounded-md">
       <div className="flex flex-row gap-2 text-ellipsis text-sm">
@@ -785,9 +595,7 @@ const SecurityCard = ({ security }: SecurityCardProps) => {
   );
 };
 
-const useContributionSecurities = (
-  securities: UserAssetInsertSecurityItem[]
-) => {
+const useContributionSecurities = (securities: UserAssetSecurityInsert[]) => {
   const form = useFormContext<UserAssetOrphanInsert>();
 
   const { fields: securitiesFields, append } = useFieldArray<
@@ -831,8 +639,6 @@ const useContributionSecurities = (
 };
 
 const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
-  console.log("AccountCreateThree props", props);
-
   const form = useFormContext<UserAssetOrphanInsert>();
 
   const {
