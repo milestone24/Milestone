@@ -438,6 +438,12 @@ export class DatabaseAssetService {
     return resolveAssetsWithChange(assets, dateRange);
   }
 
+  /**
+   * TODO
+   * Maybe we do not include the resolved securities in the user asset
+   * In the asset page in the UI securities are loaded in a separate request.
+   * Maybe teh query params here could accept an "includeSecurities" flag
+   */
   async getUserAsset(id: UserAsset["id"]): Promise<ResolvedUserAsset> {
     const userAsset = await this.db.transaction<ResolvedUserAsset>(
       async (tx) => {
@@ -458,48 +464,17 @@ export class DatabaseAssetService {
           orderBy: (assetValues, { desc }) => [desc(assetValues.valueDate)],
         });
 
-        //TODO move to seperate method to avoid code duplication
-        const securitiesWithValue: ResolvedSecurity[] = await Promise.all(
-          userAsset.securities.map(async (security) => {
-            const lastValue = await tx.query.securityDailyHistory.findFirst({
-              where: eq(securityDailyHistory.securityId, security.securityId),
-              orderBy: (securityDailyHistory, { desc }) => [
-                desc(securityDailyHistory.date),
-              ],
-            });
-
-            const shareHoldings = await tx
-              .select({
-                sum: sum(securityTransactions.value),
-              })
-              .from(securityTransactions)
-              .where(eq(securityTransactions.assetSecurityId, security.id));
-
-            return {
-              ...security,
-              calculatedValue: {
-                value: lastValue
-                  ? Number(
-                      (
-                        Number(lastValue.close ?? 0) *
-                        Number(shareHoldings?.[0]?.sum ?? 0)
-                      ).toFixed(2)
-                    )
-                  : 0,
-                //Todo calculate this when we have a date range
-                currentChange: 0,
-                currentChangePercentage: 0,
-              },
-            };
-          })
-        );
+        // const securitiesWithValue = await this.getResolvedUserAssetSecurities(
+        //   id,
+        //   {}
+        // );
 
         return {
           ...userAsset,
           currentValue: latestValue?.value ?? 0,
           lastValueDate: latestValue?.valueDate ?? null,
           platform: userAsset.platform ?? undefined,
-          securities: securitiesWithValue,
+          securities: [],
         };
       }
     );
