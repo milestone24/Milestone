@@ -88,6 +88,8 @@ export async function setupVite(app: Express) {
       next(e);
     }
   });
+
+  return vite;
 }
 
 export function serveStatic(app: Express) {

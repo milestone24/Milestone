@@ -13,8 +13,9 @@ import { RegisterPage } from "@/pages/registerPage";
 import { Loader, Loader2 } from "lucide-react";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ErrorBoundary } from "react-error-boundary";
+import { useSocket } from "./hooks/use-socket";
 
-const Portfolio = lazy(() => import("@/pages/portfolio"));  
+const Portfolio = lazy(() => import("@/pages/portfolio"));
 const AssetPage = lazy(() => import("@/pages/asset"));
 const Goals = lazy(() => import("@/pages/goals"));
 const Track = lazy(() => import("@/pages/track"));
@@ -152,6 +153,7 @@ function Loading() {
 }
 
 function App() {
+  useSocket();
   return (
     <QueryClientProvider client={queryClient}>
       <SessionProvider>

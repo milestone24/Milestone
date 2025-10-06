@@ -157,6 +157,16 @@ export interface AuthRequest extends Request {
   tenant?: Tenant;
 }
 
+//Added for tha sakes of the use of web socket and auth middleware
+declare module "http" {
+  interface IncomingMessage {
+    tenant?: Tenant;
+    cookies?: {
+      [key: string]: string;
+    };
+  }
+}
+
 export type AuthMiddlewareExpress = {
   requireUser: RequestHandler;
   requireApiKey: RequestHandler;

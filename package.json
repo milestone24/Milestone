@@ -68,6 +68,7 @@
     "cmdk": "^1.0.0",
     "concurrently": "^9.1.2",
     "connect-pg-simple": "^10.0.0",
+    "cookie": "^1.0.2",
     "cookie-parser": "^1.4.7",
     "countries-list": "^3.1.1",
     "croner": "^9.1.0",
@@ -105,7 +106,7 @@
     "vite-plugin-pwa": "^0.21.2",
     "workbox-window": "^7.3.0",
     "wouter": "^3.3.5",
-    "ws": "^8.18.0",
+    "ws": "^8.18.3",
     "zod": "^3.23.8",
     "zod-validation-error": "^3.4.0"
   },
