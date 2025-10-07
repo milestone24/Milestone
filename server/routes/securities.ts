@@ -7,7 +7,7 @@ import { parseQueryParamsExpress } from "@server/utils/resource-query-builder";
 import { 
   securityInsertSchema,
 } from "@shared/schema";
-import { uuidRouteParam } from "@server/utils/uuid";
+import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
 import { factory as securityServiceFactory } from "@server/services/securities";
 
 const securityService = securityServiceFactory();
@@ -26,13 +26,15 @@ export async function registerRoutes(
   });
 
   router.get(
-    `/${uuidRouteParam("securityId")}`,
+    regExpPath(`/${uuidRouteParam("securityId")}`),
     requireUser,
     async (req: AuthRequest, res) => {
-      if(!req.params.securityId) {
+      if (!req.params.securityId) {
         return res.status(400).json({ error: "Security ID is required" });
       }
-      const security = await securityService.getCachedSecurity(req.params.securityId);
+      const security = await securityService.getCachedSecurity(
+        req.params.securityId
+      );
       res.json(security);
     }
   );
@@ -44,10 +46,10 @@ export async function registerRoutes(
   });
 
   router.put(
-    `/${uuidRouteParam("securityId")}`,
+    regExpPath(`/${uuidRouteParam("securityId")}`),
     requireUser,
     async (req: AuthRequest, res) => {
-      if(!req.params.securityId) {
+      if (!req.params.securityId) {
         return res.status(400).json({ error: "Security ID is required" });
       }
       const data = securityInsertSchema.parse(req.body);
@@ -60,13 +62,15 @@ export async function registerRoutes(
   );
 
   router.delete(
-    `/${uuidRouteParam("securityId")}`,
+    regExpPath(`/${uuidRouteParam("securityId")}`),
     requireUser,
     async (req: AuthRequest, res) => {
-      if(!req.params.securityId) {
+      if (!req.params.securityId) {
         return res.status(400).json({ error: "Security ID is required" });
       }
-      const result = await securityService.deleteCachedSecurity(req.params.securityId);
+      const result = await securityService.deleteCachedSecurity(
+        req.params.securityId
+      );
       res.json({ success: result });
     }
   );

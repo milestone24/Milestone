@@ -94,12 +94,17 @@ app.use(express.static(path.join(process.cwd(), "public")));
   try {
     await ping();
     const server = app.listen(
-      {
-        port,
-        host: "0.0.0.0",
-        reusePort: true,
-      },
-      () => {
+      Number(port),
+      "0.0.0.0",
+      /**
+       * The express docs for version 5 say this this error is given now but not in type decalration
+       * To test
+       */
+      /**@ts-ignore**/
+      (error: any) => {
+        if (error) {
+          console.error("Error starting server:", error);
+        }
         log(`serving on port ${port}`);
       }
     );

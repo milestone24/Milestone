@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import {
   AuthRequest,
   AuthService,
@@ -6,7 +6,6 @@ import {
 } from "server/auth";
 import { parseQueryParamsExpress } from "@server/utils/resource-query-builder";
 import {
-  userAssetValueInsertSchema,
   userAssetValueOrphanInsertSchema,
   assetContributionOrphanInsertSchema,
   userAssetInsertSchema,
@@ -14,13 +13,9 @@ import {
   securityTransactionOrphanInsertSchema,
   userAssetSecurityInsertSchema,
 } from "@shared/schema";
-import { uuidRouteParam } from "@server/utils/uuid";
-import asyncCatch from "./utils";
+import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
 import { db } from "@server/db";
-import {
-  assetPersistenceFactory,
-  DatabaseAssetService,
-} from "@server/services/assets/database";
+import { DatabaseAssetService } from "@server/services/assets/database";
 
 const assetService = new DatabaseAssetService(db);
 
@@ -30,7 +25,7 @@ export async function registerRoutes(
 ): Promise<Router> {
   const { requireUser, requireApiKey } = authService.getAuthMiddlewares();
 
-  router.get("/", requireUser, async (req: AuthRequest, res) => {
+  router.get("/", requireUser, async (req: Request, res) => {
     const response = await requireTenantWithUserAccountId(
       req.tenant,
       async (tenant) => {
@@ -56,7 +51,9 @@ export async function registerRoutes(
     res.json(response);
   });
 
-  router.post("/", requireUser, async (req: AuthRequest, res) => {
+  router.post("/", requireUser, async (req: Request, res) => {
+    req.tenant;
+
     try {
       const data = userAssetInsertSchema.parse(req.body);
       const asset = await assetService.createUserAsset(data);
@@ -70,7 +67,7 @@ export async function registerRoutes(
   });
 
   router.get(
-    `/${uuidRouteParam("assetId")}`,
+    regExpPath(`/${uuidRouteParam("assetId")}`),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -82,7 +79,7 @@ export async function registerRoutes(
   );
 
   router.put(
-    `/${uuidRouteParam("assetId")}`,
+    regExpPath(`/${uuidRouteParam("assetId")}`),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -98,7 +95,7 @@ export async function registerRoutes(
   );
 
   router.delete(
-    `/${uuidRouteParam("assetId")}`,
+    regExpPath(`/${uuidRouteParam("assetId")}`),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -110,7 +107,7 @@ export async function registerRoutes(
   );
 
   router.get(
-    `/${uuidRouteParam("assetId")}/history`,
+    regExpPath(`/${uuidRouteParam("assetId")}/history`),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -126,7 +123,7 @@ export async function registerRoutes(
   );
 
   router.get(
-    `/${uuidRouteParam("assetId")}/history/graph`,
+    regExpPath(`/${uuidRouteParam("assetId")}/history/graph`),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -144,7 +141,7 @@ export async function registerRoutes(
   );
 
   router.get(
-    `/${uuidRouteParam("assetId")}/transactions/graph`,
+    regExpPath(`/${uuidRouteParam("assetId")}/transactions/graph`),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -162,7 +159,7 @@ export async function registerRoutes(
   );
 
   router.post(
-    `/${uuidRouteParam("assetId")}/history`,
+    regExpPath(`/${uuidRouteParam("assetId")}/history`),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -178,7 +175,7 @@ export async function registerRoutes(
   );
 
   router.put(
-    `/${uuidRouteParam("assetId")}/history/update`,
+    regExpPath(`/${uuidRouteParam("assetId")}/history/update`),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -192,7 +189,7 @@ export async function registerRoutes(
   );
 
   router.get(
-    `/${uuidRouteParam("assetId")}/securities`,
+    regExpPath(`/${uuidRouteParam("assetId")}/securities`),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -208,7 +205,7 @@ export async function registerRoutes(
   );
 
   router.post(
-    `/${uuidRouteParam("assetId")}/securities`,
+    regExpPath(`/${uuidRouteParam("assetId")}/securities`),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -224,9 +221,11 @@ export async function registerRoutes(
   );
 
   router.get(
-    `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam("securityId")}`,
+    regExpPath(
+      `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam("securityId")}`
+    ),
     requireUser,
-    asyncCatch(async (req: AuthRequest, res) => {
+    async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
         return res.status(400).json({ error: "Asset ID is required" });
       }
@@ -238,11 +237,13 @@ export async function registerRoutes(
         req.params.securityId
       );
       res.json(valueItems);
-    })
+    }
   );
 
   router.delete(
-    `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam("securityId")}`,
+    regExpPath(
+      `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam("securityId")}`
+    ),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -260,7 +261,7 @@ export async function registerRoutes(
   );
 
   router.get(
-    `/${uuidRouteParam("assetId")}/securities/transactions`,
+    regExpPath(`/${uuidRouteParam("assetId")}/securities/transactions`),
     requireUser,
     async (req: AuthRequest, res) => {
       console.log("GET req.params", JSON.stringify(req.params, null, 2));
@@ -278,9 +279,11 @@ export async function registerRoutes(
   );
 
   router.post(
-    `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam(
-      "securityId"
-    )}/transactions`,
+    regExpPath(
+      `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam(
+        "securityId"
+      )}/transactions`
+    ),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -299,11 +302,13 @@ export async function registerRoutes(
   );
 
   router.delete(
-    `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam(
-      "securityId"
-    )}/transactions/${uuidRouteParam("transactionId")}`,
+    regExpPath(
+      `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam(
+        "securityId"
+      )}/transactions/${uuidRouteParam("transactionId")}`
+    ),
     requireUser,
-    asyncCatch(async (req: AuthRequest, res) => {
+    async (req: AuthRequest, res) => {
       console.log("DELETE req.params", JSON.stringify(req.params, null, 2));
 
       if (!req.params.assetId) {
@@ -320,7 +325,7 @@ export async function registerRoutes(
         req.params.transactionId
       );
       res.json({ success: result });
-    })
+    }
   );
 
   // router.put(
@@ -345,7 +350,7 @@ export async function registerRoutes(
 
   // Broker asset contributions (debits)
   router.post(
-    `/${uuidRouteParam("assetId")}/contributions`,
+    regExpPath(`/${uuidRouteParam("assetId")}/contributions`),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -361,7 +366,7 @@ export async function registerRoutes(
   );
 
   router.get(
-    `/${uuidRouteParam("assetId")}/contributions`,
+    regExpPath(`/${uuidRouteParam("assetId")}/contributions`),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -378,9 +383,11 @@ export async function registerRoutes(
   );
 
   router.put(
-    `/${uuidRouteParam("assetId")}/contributions/${uuidRouteParam(
-      "contributionId"
-    )}`,
+    regExpPath(
+      `/${uuidRouteParam("assetId")}/contributions/${uuidRouteParam(
+        "contributionId"
+      )}`
+    ),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -400,9 +407,11 @@ export async function registerRoutes(
   );
 
   router.delete(
-    `/${uuidRouteParam("assetId")}/contributions/${uuidRouteParam(
-      "contributionId"
-    )}`,
+    regExpPath(
+      `/${uuidRouteParam("assetId")}/contributions/${uuidRouteParam(
+        "contributionId"
+      )}`
+    ),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -420,7 +429,9 @@ export async function registerRoutes(
   );
 
   router.put(
-    `/${uuidRouteParam("assetId")}/history/${uuidRouteParam("historyId")}`,
+    regExpPath(
+      `/${uuidRouteParam("assetId")}/history/${uuidRouteParam("historyId")}`
+    ),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -440,7 +451,9 @@ export async function registerRoutes(
   );
 
   router.delete(
-    `/${uuidRouteParam("assetId")}/history/${uuidRouteParam("historyId")}`,
+    regExpPath(
+      `/${uuidRouteParam("assetId")}/history/${uuidRouteParam("historyId")}`
+    ),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -525,8 +538,6 @@ export async function registerRoutes(
         }
       );
 
-      console.log("response :", JSON.stringify(response.length, null, 2));
-
       res.json(response);
     }
   );
@@ -555,7 +566,7 @@ export async function registerRoutes(
 
   // Recurring Contributions Routes
   router.get(
-    `/${uuidRouteParam("assetId")}/recurring-contributions`,
+    regExpPath(`/${uuidRouteParam("assetId")}/recurring-contributions`),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -572,7 +583,7 @@ export async function registerRoutes(
   );
 
   router.post(
-    `/${uuidRouteParam("assetId")}/recurring-contributions`,
+    regExpPath(`/${uuidRouteParam("assetId")}/recurring-contributions`),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -589,9 +600,11 @@ export async function registerRoutes(
   );
 
   router.put(
-    `/${uuidRouteParam("assetId")}/recurring-contributions/${uuidRouteParam(
-      "contributionId"
-    )}`,
+    regExpPath(
+      `/${uuidRouteParam("assetId")}/recurring-contributions/${uuidRouteParam(
+        "contributionId"
+      )}`
+    ),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -612,9 +625,11 @@ export async function registerRoutes(
   );
 
   router.delete(
-    `/${uuidRouteParam("assetId")}/recurring-contributions/${uuidRouteParam(
-      "contributionId"
-    )}`,
+    regExpPath(
+      `/${uuidRouteParam("assetId")}/recurring-contributions/${uuidRouteParam(
+        "contributionId"
+      )}`
+    ),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
@@ -633,7 +648,7 @@ export async function registerRoutes(
 
   // Add a route to manually trigger processing of recurring contributions (for admin/testing)
   router.post(
-    `/recurring-contributions/process`,
+    regExpPath(`/recurring-contributions/process`),
     requireApiKey,
     async (req: AuthRequest, res) => {
       const processCount = await assetService.processRecurringContributions();

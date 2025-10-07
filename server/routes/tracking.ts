@@ -1,7 +1,7 @@
 import { AuthRequest, AuthService } from "@server/auth";
 import { Router } from "express";
 import asyncCatch from "./utils";
-import { uuidRouteParam } from "@server/utils/uuid";
+import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
 
 export async function registerRoutes(
   router: Router,
@@ -18,7 +18,7 @@ export async function registerRoutes(
   );
 
   router.get(
-    `/processes/${uuidRouteParam("processId")}`,
+    regExpPath(`/processes/${uuidRouteParam("processId")}`),
     requireUser,
     asyncCatch(async (req: AuthRequest, res) => {
       res.json({});
