@@ -13,8 +13,9 @@ export const useSocket = () => {
       const data = JSON.parse(event.data);
 
       if (isQueryMessage(data)) {
-        const queryKey = [...data.entity, data.id].filter(Boolean);
-        queryClient.invalidateQueries({ queryKey });
+        for (const queryKey of data.queryKeys) {
+          queryClient.invalidateQueries({ queryKey });
+        }
       }
       if (isNotificationMessage(data)) {
         toast({

@@ -38,7 +38,7 @@ import {
   portfolioAssets,
   portfolioGraphTransactions,
   portfolioGraphValues,
-} from "@/api/queryKeys";
+} from "@shared/api/queryKeys";
 
 export type PortfolioContextType = {
   assets: UserAsset[];

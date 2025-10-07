@@ -2,7 +2,7 @@ import {
   assetGraphTransactions,
   assetGraphValues,
   assetSecuritiesTransactions,
-} from "@/api/queryKeys";
+} from "@shared/api/queryKeys";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   SecurityTransactionInsert,

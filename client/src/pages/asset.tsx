@@ -71,7 +71,7 @@ import { usePortfolio as usePortfolioNew } from "@/hooks/use-portfolio";
 import { getDateUrlParams } from "@/lib/date";
 import { useAssetTransactions } from "@/hooks/use-asset-transactions";
 import { AssetSecuritiesProvider } from "@/context/AssetSecuritiesContext";
-import { assetGraphValues } from "@/api/queryKeys";
+import { assetGraphValues } from "@shared/api/queryKeys";
 
 // Form schema for history entry
 const historySchema = z.object({

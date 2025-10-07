@@ -1,4 +1,4 @@
-import { assetGraphTransactions } from "@/api/queryKeys";
+import { assetGraphTransactions } from "@shared/api/queryKeys";
 import { getDateUrlParams } from "@/lib/date";
 import { apiRequest } from "@/lib/queryClient";
 import {

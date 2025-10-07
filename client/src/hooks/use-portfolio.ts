@@ -2,7 +2,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { TransactionTimePoint } from "@shared/schema";
 import { getDateUrlParams } from "@/lib/date";
-import { portfolioGraphTransactions } from "@/api/queryKeys";
+import { portfolioGraphTransactions } from "@shared/api/queryKeys";
 
 export const usePortfolio = (startDate?: Date, endDate?: Date) => {
   const portfolioTransactions = useQuery({

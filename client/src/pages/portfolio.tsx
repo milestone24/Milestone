@@ -42,7 +42,7 @@ import { usePortfolio as usePortfolioNew } from "@/hooks/use-portfolio";
 import { CombinedDayTimePointBase } from "shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { getDateUrlParams } from "@/lib/date";
-import { portfolioGraphValues } from "@/api/queryKeys";
+import { portfolioGraphValues } from "@shared/api/queryKeys";
 
 function Portfolio() {
   const { dateRange } = useDateRange();
