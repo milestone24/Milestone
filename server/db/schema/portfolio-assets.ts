@@ -18,17 +18,6 @@ import { InferResultType } from "../types/utils";
 import { securities, securityDailyHistory } from "./securities";
 export const accountType = ["ISA", "CISA", "SIPP", "LISA", "GIA"] as const;
 export const accountTypeEnum = pgEnum("account_type", accountType);
-export const contributionInterval = [
-  "weekly",
-  "biweekly",
-  "monthly",
-  "quarterly",
-  "yearly",
-] as const;
-export const contributionIntervalEnum = pgEnum(
-  "contribution_interval",
-  contributionInterval
-);
 export const valueEntryMethod = ["manual", "calculated"] as const;
 export const valueEntryMethodEnum = pgEnum(
   "value_entry_method",
@@ -60,7 +49,6 @@ export type RRulePattern = {
 export type SchedulePattern = CronPattern | RRulePattern;
 
 export type AccountType = (typeof accountType)[number];
-export type ContributionInterval = (typeof contributionInterval)[number];
 export type ValueEntryMethod = (typeof valueEntryMethod)[number];
 export type ValueMethod = (typeof valueMethod)[number];
 
