@@ -15,6 +15,7 @@ import FireChart from "@/components/charts/FireChart";
 import { useToast } from "@/hooks/use-toast";
 import { FireSettingsInsert } from "shared/schema";
 import { useSession } from "@/hooks/use-session";
+import { usePortfolioWithFIREProjection } from "@/hooks/use-projections";
 
 function calculateAge(dateOfBirth: Date) {
   const today = new Date();
@@ -47,6 +48,16 @@ export default function Fire() {
   const { user } = useSession();
 
   const currentAge = user?.profile.dob ? calculateAge(user.profile.dob) : NaN;
+
+  const { data: projection } = usePortfolioWithFIREProjection({
+    mode: "simple",
+    growthRate: 7.0,
+    growthModel: "compound",
+    interval: "yearly",
+    modifiers: [],
+  });
+
+  console.log("projection", projection);
 
   // Default values if fireSettings is not loaded yet
   const defaultSettings: Omit<FireSettingsInsert, "id" | "userAccountId"> & {

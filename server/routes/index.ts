@@ -10,6 +10,7 @@ import { registerRoutes as registerOcrRoutes } from "./ocr";
 //import { registerRoutes as registerVerificationRoutes } from "./verification"
 import { AuthService } from "server/auth";
 import { registerRoutes as registerTrackingRoutes } from "./tracking";
+import { registerRoutes as registerProjectionsRoutes } from "./projections";
 
 export async function registerRoutes(
   router: Router,
@@ -30,6 +31,10 @@ export async function registerRoutes(
   router.use("/auth", await registerAuthRoutes(Router(), authService));
   router.use("/ocr", await registerOcrRoutes(Router()));
   router.use("/tracking", await registerTrackingRoutes(Router(), authService));
+  router.use(
+    "/projections",
+    await registerProjectionsRoutes(Router(), authService)
+  );
   //router.use("/verification", await registerVerificationRoutes(Router(), authService));
   return router;
 } 

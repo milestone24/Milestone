@@ -1,0 +1,431 @@
+import {
+  SimpleProjectionConfig,
+  ProjectionTimePoint,
+  ProjectionInterval,
+} from "@shared/schema/projections";
+import { RecurringContribution } from "@shared/schema";
+import type { SchedulePattern } from "@server/db/schema/portfolio-assets";
+import { getNextExecutionDate } from "@shared/utils/scheduling";
+import {
+  addDays,
+  addMonths,
+  addWeeks,
+  addYears,
+  differenceInDays,
+} from "date-fns";
+import {
+  ModifierChain,
+  createModifierContext,
+  calculateYearsElapsed,
+} from "./modifiers";
+
+// ============================================================================
+// SIMPLE PROJECTION SERVICE
+// ============================================================================
+
+/**
+ * Input for simple projections
+ */
+export interface SimpleProjectionInput {
+  currentValue: number;
+  currentDate: Date;
+  recurringContributions: RecurringContribution[];
+  config: SimpleProjectionConfig;
+  modifierChain?: ModifierChain;
+}
+
+/**
+ * Result of a simple projection
+ */
+export interface SimpleProjectionResult {
+  timePoints: ProjectionTimePoint[];
+  totalGrowth: number;
+  totalContributions: number;
+  finalValue: number;
+}
+
+// ============================================================================
+// LINEAR GROWTH
+// ============================================================================
+
+/**
+ * Apply linear growth - flat rate applied only to initial value
+ * Formula: FV = PV + (PV * rate * years)
+ */
+export function projectWithLinearGrowth(
+  principal: number,
+  annualGrowthRate: number,
+  years: number
+): number {
+  const growthAmount = principal * (annualGrowthRate / 100) * years;
+  return principal + growthAmount;
+}
+
+// ============================================================================
+// COMPOUND GROWTH
+// ============================================================================
+
+/**
+ * Apply compound growth - rate applied to accumulated value
+ * Formula: FV = PV * (1 + rate)^years
+ */
+export function projectWithCompoundGrowth(
+  principal: number,
+  annualGrowthRate: number,
+  years: number
+): number {
+  return principal * Math.pow(1 + annualGrowthRate / 100, years);
+}
+
+/**
+ * Calculate compound growth with regular contributions
+ * Formula: FV = PV * (1 + r)^n + PMT * [((1 + r)^n - 1) / r]
+ * Where PMT is the periodic payment
+ */
+export function projectWithCompoundGrowthAndContributions(
+  principal: number,
+  annualContribution: number,
+  annualGrowthRate: number,
+  years: number
+): number {
+  const r = annualGrowthRate / 100;
+  const n = years;
+
+  // Future value of principal
+  const fvPrincipal = principal * Math.pow(1 + r, n);
+
+  // Future value of annuity (contributions)
+  const fvContributions =
+    r !== 0
+      ? annualContribution * ((Math.pow(1 + r, n) - 1) / r)
+      : annualContribution * n; // Handle zero growth rate
+
+  return fvPrincipal + fvContributions;
+}
+
+// ============================================================================
+// RECURRING CONTRIBUTIONS
+// ============================================================================
+
+/**
+ * Project future contribution dates based on schedule pattern
+ */
+export function* projectRecurringContributions(
+  contribution: RecurringContribution,
+  startDate: Date,
+  endDate: Date
+): Generator<{ date: Date; amount: number }> {
+  let currentDate =
+    startDate > contribution.startDate ? startDate : contribution.startDate;
+
+  while (currentDate <= endDate) {
+    // Yield current contribution
+    yield {
+      date: new Date(currentDate),
+      amount: contribution.amount,
+    };
+
+    // Get next execution date
+    const nextDate = getNextExecutionDate(
+      contribution.patternConfig,
+      currentDate,
+      endDate
+    );
+
+    if (!nextDate || nextDate > endDate) {
+      break;
+    }
+
+    currentDate = nextDate;
+  }
+}
+
+/**
+ * Calculate total contributions over a period
+ */
+export function calculateTotalContributions(
+  contributions: RecurringContribution[],
+  startDate: Date,
+  endDate: Date
+): number {
+  let total = 0;
+
+  for (const contribution of contributions.filter((c) => c.isActive)) {
+    for (const { amount } of projectRecurringContributions(
+      contribution,
+      startDate,
+      endDate
+    )) {
+      total += amount;
+    }
+  }
+
+  return total;
+}
+
+// ============================================================================
+// TIME SERIES GENERATION
+// ============================================================================
+
+/**
+ * Get date incrementor function based on interval
+ */
+function getDateIncrement(interval: ProjectionInterval): (date: Date) => Date {
+  switch (interval) {
+    case "daily":
+      return (date) => addDays(date, 1);
+    case "weekly":
+      return (date) => addWeeks(date, 1);
+    case "monthly":
+      return (date) => addMonths(date, 1);
+    case "yearly":
+      return (date) => addYears(date, 1);
+  }
+}
+
+/**
+ * Generate projection time series with linear growth
+ */
+export function generateLinearProjectionTimeSeries(
+  input: SimpleProjectionInput
+): ProjectionTimePoint[] {
+  const {
+    currentValue,
+    currentDate,
+    recurringContributions,
+    config,
+    modifierChain,
+  } = input;
+
+  const timePoints: ProjectionTimePoint[] = [];
+  const incrementDate = getDateIncrement(config.interval);
+
+  let currentProjectionDate = new Date(config.startDate);
+  let accumulatedValue = currentValue;
+  let totalContributions = 0;
+  let totalGrowth = 0;
+
+  // Initial point
+  timePoints.push({
+    date: new Date(currentProjectionDate),
+    value: accumulatedValue,
+    contributions: 0,
+    growth: 0,
+    projectedValue: false, // First point is current
+  });
+
+  // Generate points until end date
+  while (currentProjectionDate < config.endDate) {
+    currentProjectionDate = incrementDate(currentProjectionDate);
+
+    if (currentProjectionDate > config.endDate) {
+      currentProjectionDate = new Date(config.endDate);
+    }
+
+    // Calculate years elapsed from start
+    const yearsFromStart = calculateYearsElapsed(
+      config.startDate,
+      currentProjectionDate
+    );
+
+    // Apply linear growth to initial value only
+    const growthValue =
+      currentValue * (config.growthRate / 100) * yearsFromStart;
+
+    // Calculate contributions in this period
+    let periodContributions = 0;
+    const lastTimePoint = timePoints[timePoints.length - 1];
+    for (const contribution of recurringContributions.filter(
+      (c) => c.isActive
+    )) {
+      for (const { amount } of projectRecurringContributions(
+        contribution,
+        lastTimePoint ? lastTimePoint.date : config.startDate,
+        currentProjectionDate
+      )) {
+        let contributionAmount = amount;
+
+        // Apply modifiers to contribution
+        if (modifierChain) {
+          const context = createModifierContext(
+            accumulatedValue,
+            config.startDate,
+            currentProjectionDate,
+            amount
+          );
+          contributionAmount = modifierChain.apply(amount, context);
+        }
+
+        periodContributions += contributionAmount;
+      }
+    }
+
+    totalContributions += periodContributions;
+    totalGrowth = growthValue;
+    accumulatedValue = currentValue + growthValue + totalContributions;
+
+    // Apply modifiers to final value (inflation, fees)
+    let finalValue = accumulatedValue;
+    if (modifierChain) {
+      const context = createModifierContext(
+        accumulatedValue,
+        config.startDate,
+        currentProjectionDate
+      );
+      finalValue = modifierChain.apply(accumulatedValue, context);
+    }
+
+    timePoints.push({
+      date: new Date(currentProjectionDate),
+      value: finalValue,
+      contributions: totalContributions,
+      growth: totalGrowth,
+      projectedValue: true,
+    });
+  }
+
+  return timePoints;
+}
+
+/**
+ * Generate projection time series with compound growth
+ */
+export function generateCompoundProjectionTimeSeries(
+  input: SimpleProjectionInput
+): ProjectionTimePoint[] {
+  const {
+    currentValue,
+    currentDate,
+    recurringContributions,
+    config,
+    modifierChain,
+  } = input;
+
+  const timePoints: ProjectionTimePoint[] = [];
+  const incrementDate = getDateIncrement(config.interval);
+
+  let currentProjectionDate = new Date(config.startDate);
+  let accumulatedValue = currentValue;
+  let totalContributions = 0;
+
+  // Initial point
+  timePoints.push({
+    date: new Date(currentProjectionDate),
+    value: accumulatedValue,
+    contributions: 0,
+    growth: 0,
+    projectedValue: false,
+  });
+
+  // Generate points until end date
+  while (currentProjectionDate < config.endDate) {
+    const previousDate = new Date(currentProjectionDate);
+    currentProjectionDate = incrementDate(currentProjectionDate);
+
+    if (currentProjectionDate > config.endDate) {
+      currentProjectionDate = new Date(config.endDate);
+    }
+
+    // Calculate time elapsed in this interval
+    const yearsInInterval = calculateYearsElapsed(
+      previousDate,
+      currentProjectionDate
+    );
+
+    // Apply compound growth to accumulated value
+    const growthFactor = Math.pow(1 + config.growthRate / 100, yearsInInterval);
+    let projectedValue = accumulatedValue * growthFactor;
+
+    // Calculate and add contributions in this period
+    let periodContributions = 0;
+    for (const contribution of recurringContributions.filter(
+      (c) => c.isActive
+    )) {
+      for (const { amount } of projectRecurringContributions(
+        contribution,
+        previousDate,
+        currentProjectionDate
+      )) {
+        let contributionAmount = amount;
+
+        // Apply modifiers to contribution
+        if (modifierChain) {
+          const context = createModifierContext(
+            projectedValue,
+            config.startDate,
+            currentProjectionDate,
+            amount
+          );
+          contributionAmount = modifierChain.apply(amount, context);
+        }
+
+        periodContributions += contributionAmount;
+      }
+    }
+
+    totalContributions += periodContributions;
+    projectedValue += periodContributions;
+    accumulatedValue = projectedValue;
+
+    // Apply modifiers to final value (inflation, fees)
+    let finalValue = projectedValue;
+    if (modifierChain) {
+      const context = createModifierContext(
+        projectedValue,
+        config.startDate,
+        currentProjectionDate
+      );
+      finalValue = modifierChain.apply(projectedValue, context);
+    }
+
+    const growthAmount =
+      finalValue -
+      (timePoints[timePoints.length - 1]?.value || 0) -
+      periodContributions;
+
+    timePoints.push({
+      date: new Date(currentProjectionDate),
+      value: finalValue,
+      contributions: totalContributions,
+      growth: growthAmount,
+      projectedValue: true,
+    });
+  }
+
+  return timePoints;
+}
+
+// ============================================================================
+// MAIN PROJECTION FUNCTION
+// ============================================================================
+
+/**
+ * Generate simple projection based on config
+ */
+export function generateSimpleProjection(
+  input: SimpleProjectionInput
+): SimpleProjectionResult {
+  const timePoints =
+    input.config.growthModel === "linear"
+      ? generateLinearProjectionTimeSeries(input)
+      : generateCompoundProjectionTimeSeries(input);
+
+  const lastPoint = timePoints[timePoints.length - 1];
+  const firstPoint = timePoints[0];
+
+  if (!lastPoint || !firstPoint) {
+    return {
+      timePoints,
+      totalGrowth: 0,
+      totalContributions: 0,
+      finalValue: input.currentValue,
+    };
+  }
+
+  return {
+    timePoints,
+    totalGrowth: lastPoint.value - firstPoint.value - lastPoint.contributions,
+    totalContributions: lastPoint.contributions,
+    finalValue: lastPoint.value,
+  };
+}
