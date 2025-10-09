@@ -159,7 +159,6 @@ export const AssetSecurityForm = ({
                   name="startDate"
                   rules={{ required: true }}
                   render={({ field }) => {
-                    console.log("field.value", field.value);
                     return (
                       <Input
                         type="date"
