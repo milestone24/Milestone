@@ -27,7 +27,7 @@ type TransactionRecurringFormProps = {
 const defaultValues: RecurringContributionFormData = {
   amount: 0,
   startDate: new Date(),
-  pattern: {
+  patternConfig: {
     type: "rrule",
     expression: "FREQ=MONTHLY;BYDAY=2TU",
   },

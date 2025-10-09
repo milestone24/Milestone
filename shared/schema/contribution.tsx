@@ -4,12 +4,13 @@ import type { SchedulePattern } from "@shared/utils/scheduling";
 
 export type RecurringContributionFormData = Pick<
   RecurringContribution,
-  "amount" | "startDate" | "isActive" | "pattern"
+  "amount" | "startDate" | "isActive" | "patternConfig"
 >;
 
 export const patternSchema = z.object({
   type: z.enum(["cron", "rrule"]),
   expression: z.string(),
+  timezone: z.string().optional(),
 });
 
 export type SchedulePatternInsert = z.infer<typeof patternSchema>;
@@ -21,7 +22,7 @@ export const recurringContributionOrphanSchema = z.object({
   startDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date",
   }),
-  pattern: patternSchema.required(),
+  patternConfig: patternSchema.required(),
   // interval: z.enum(["weekly", "biweekly", "monthly"], {
   //   required_error: "Interval is required",
   // }),
@@ -32,7 +33,10 @@ export type RecurringContributionOrphanInsert = z.infer<
   typeof recurringContributionOrphanSchema
 >;
 
-export type SingleContributionFormData = Pick<AssetTransaction, "value" | "valueDate">;
+export type SingleContributionFormData = Pick<
+  AssetTransaction,
+  "value" | "valueDate"
+>;
 
 export const singleContributionOrphanSchema = z.object({
   value: z.coerce.number(),
@@ -48,7 +52,7 @@ export const isSingleContributionFormData = (
 export const isRecurringContributionFormData = (
   data: SingleContributionFormData | RecurringContributionFormData
 ): data is RecurringContributionFormData => {
-  return "amount" in data && "startDate" in data && "interval" in data;
+  return "amount" in data && "startDate" in data && "patternConfig" in data;
 };
 
 export const isAssetContribution = (
@@ -60,5 +64,5 @@ export const isAssetContribution = (
 export const isRecurringContribution = (
   data: AssetTransaction | RecurringContribution
 ): data is RecurringContribution => {
-  return "amount" in data && "startDate" in data && "interval" in data;
+  return "amount" in data && "startDate" in data && "patternConfig" in data;
 };

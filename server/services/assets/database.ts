@@ -1504,7 +1504,7 @@ export class DatabaseAssetService {
     for (const contribution of dueContributions) {
       const nextDate = this.getNextProcessingDate(
         contribution.lastProcessedDate,
-        contribution.pattern
+        contribution.patternConfig
       );
 
       // Check if the next processing date is due

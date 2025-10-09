@@ -13,7 +13,6 @@ import type {
   BrokerPlatformSelect as DBBrokerPlatform,
   RecurringContributionInsert as DBRecurringContributionInsert,
   RecurringContributionSelect as DBRecurringContributionSelect,
-  ContributionInterval as DBContributionInterval,
   AccountType as DBAccountType,
   AssetValueMetadata as DBAssetValueMetadata,
   AssetValueMetadataSecurity as DBAssetValueMetadataSecurity,
@@ -277,13 +276,10 @@ export type AssetContributionInsert = IfConstructorEquals<
 >;
 assetContributionInsertSchema satisfies ZodType<AssetContributionInsert>;
 
-export type ContributionInterval = DBContributionInterval;
-
 export const recurringContributionOrphanInsertSchema = z.object({
   amount: z.number().positive(),
   startDate: z.coerce.date(),
-  //interval: z.enum(["weekly", "biweekly", "monthly", "quarterly", "yearly"]),
-  pattern: patternSchema.required(),
+  patternConfig: patternSchema,
 });
 
 type ZodRecurringContributionOrphanInsert = z.infer<
