@@ -4,6 +4,7 @@ import ws from "ws";
 import * as schema from "server/db/schema/index";
 import { sql } from "drizzle-orm";
 import { log, error, warn, info, debug } from "../log";
+export { Client as PgClient } from "pg";
 
 import { DefaultLogger, LogWriter } from 'drizzle-orm/logger';
 class MyLogWriter implements LogWriter {
