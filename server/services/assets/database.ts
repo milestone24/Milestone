@@ -9,6 +9,7 @@ import {
   securityTransactions,
   securityDailyHistory,
   SchedulePattern,
+  processes,
 } from "server/db/schema";
 import { Database } from "../../db";
 import {
@@ -85,10 +86,26 @@ import { factory as securitiesFactory } from "@server/services/securities";
 import { AssetSecurity } from "../securities/types";
 import { union, unionAll } from "drizzle-orm/pg-core";
 import { getNextExecutionDate } from "@shared/utils/scheduling";
+import { connections } from "@server/sockets/connections";
+import { SocketMessage } from "@shared/schema/socket";
+import {
+  portfolioGraphTransactions,
+  portfolioGraphValues,
+  processes as processesKey,
+} from "@shared/api/queryKeys";
 
 const securitiesService = securitiesFactory();
 
 type Transaction = NodePgTransaction<Schema, TSchema>;
+
+const sendNotification = (accountId: string, message: SocketMessage) => {
+  const sockets = connections.get(accountId);
+  if (sockets) {
+    sockets.forEach((socket) => {
+      socket.send(JSON.stringify(message));
+    });
+  }
+};
 
 const userAssetsQueryBuilder = new ResourceQueryBuilder({
   table: userAssets,
@@ -145,6 +162,119 @@ const recurringContributionsQueryBuilder = new ResourceQueryBuilder({
 
 export class DatabaseAssetService {
   constructor(private db: Database) {}
+
+  private async updateAssetValues(accountId: string, assetId: string) {
+    console.log(
+      "Updating asset values for accountId",
+      accountId,
+      "and assetId",
+      assetId
+    );
+
+    //TODO job needs some kind of identifier for what resources are affected
+    const [job] = await this.db
+      .insert(processes)
+      .values({
+        key: "update-asset-values",
+        status: "running",
+        startedAt: new Date(),
+        payload: {
+          accountId,
+          assetId,
+        },
+      })
+      .returning();
+
+    const assetPersistence = assetPersistenceFactory(this, assetId);
+
+    securitiesService.updateAssetValuesSync(assetPersistence, async () => {
+      console.log(
+        "Finished updating asset values for accountId",
+        accountId,
+        "and assetId",
+        assetId
+      );
+      console.log("Job", job);
+
+      if (job) {
+        await this.db
+          .update(processes)
+          .set({ status: "completed", completedAt: new Date() })
+          .where(eq(processes.id, job.id));
+      }
+      sendNotification(accountId, {
+        type: "query",
+        queryKeys: [
+          portfolioGraphValues,
+          portfolioGraphTransactions,
+          processesKey,
+        ],
+      });
+      sendNotification(accountId, {
+        type: "notification",
+        message: "Asset values updated",
+      });
+    });
+  }
+
+  private async clearAndUpdateAssetValuesFromDate(
+    accountId: string,
+    assetId: UserAsset["id"],
+    date: Date
+  ) {
+    console.log(
+      "Clearing and updating asset values from date",
+      accountId,
+      assetId,
+      date
+    );
+
+    const [job] = await this.db
+      .insert(processes)
+      .values({
+        key: "update-asset-values",
+        status: "running",
+        startedAt: new Date(),
+        payload: {
+          accountId,
+          assetId,
+        },
+      })
+      .returning();
+    await this.db
+      .delete(assetValues)
+      .where(
+        and(eq(assetValues.assetId, assetId), gte(assetValues.valueDate, date))
+      );
+    const assetPersistence = assetPersistenceFactory(this, assetId);
+    securitiesService.updateAssetValuesSync(assetPersistence, async () => {
+      console.log(
+        "Finished clearing and updating asset values from date",
+        accountId,
+        assetId,
+        date
+      );
+      console.log("Job", job);
+      if (job) {
+        await this.db
+          .update(processes)
+          .set({ status: "completed", completedAt: new Date() })
+          .where(eq(processes.id, job.id));
+      }
+      sendNotification(accountId, {
+        type: "query",
+        queryKeys: [
+          portfolioGraphValues,
+          portfolioGraphTransactions,
+          processesKey,
+        ],
+      });
+      sendNotification(accountId, {
+        type: "notification",
+        message: "Asset values updated",
+      });
+    });
+  }
 
   private async recalculateAssetValue(
     tx: Transaction,
@@ -705,12 +835,19 @@ export class DatabaseAssetService {
       return insertedUserAsset;
     });
 
-    const assetPersistence = assetPersistenceFactory(
-      this,
+    this.updateAssetValues(
+      insertedUserAsset.userAccountId,
       insertedUserAsset.id
     );
 
-    await securitiesService.updateAssetValues(assetPersistence);
+    // const assetPersistence = assetPersistenceFactory(
+    //   this,
+    //   insertedUserAsset.id
+    // );
+
+    // securitiesService.updateAssetValuesSync(assetPersistence, () => {
+    //   sendNotification(insertedUserAsset.userAccountId, "Asset values updated");
+    // });
 
     return insertedUserAsset;
   }
@@ -948,6 +1085,9 @@ export class DatabaseAssetService {
 
     const assetSecurity = await this.db.query.userAssetSecurities.findFirst({
       where: eq(userAssetSecurities.id, assetSecurityId),
+      with: {
+        userAsset: true,
+      },
     });
 
     if (!assetSecurity) {
@@ -955,7 +1095,8 @@ export class DatabaseAssetService {
     }
 
     //TODO this should be a background process??
-    await this.clearAndUpdateAssetValuesFromDate(
+    this.clearAndUpdateAssetValuesFromDate(
+      assetSecurity.userAsset.userAccountId,
       assetSecurity.userAssetId,
       data.valueDate
     );
@@ -970,7 +1111,6 @@ export class DatabaseAssetService {
     success: boolean;
     id: string;
   }> {
-
     const [result] = await this.db
       .delete(securityTransactions)
       .where(
@@ -1300,19 +1440,6 @@ export class DatabaseAssetService {
     return transactions;
   }
 
-  async clearAndUpdateAssetValuesFromDate(
-    assetId: UserAsset["id"],
-    date: Date
-  ): Promise<void> {
-    await this.db
-      .delete(assetValues)
-      .where(
-        and(eq(assetValues.assetId, assetId), gte(assetValues.valueDate, date))
-      );
-    const assetPersistence = assetPersistenceFactory(this, assetId);
-    await securitiesService.updateAssetValues(assetPersistence);
-  }
-
   async getPortfolioOverviewForUser(
     userAccountId: UserAccount["id"],
     query?: QueryParams
@@ -1628,6 +1755,8 @@ export class DatabaseAssetService {
     if (!value) {
       throw new Error("Failed to create user asset security");
     }
+
+    this.updateAssetValues(asset.userAccountId, assetId);
 
     return value;
   }

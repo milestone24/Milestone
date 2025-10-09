@@ -1,7 +1,6 @@
 export type QueryMessage = {
   type: "query";
-  entity: string[];
-  id: string;
+  queryKeys: string[][];
 };
 
 export type NotificationMessage = {

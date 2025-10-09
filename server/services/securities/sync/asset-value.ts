@@ -248,6 +248,14 @@ const updateAssetValues = async (assetPersistence: AssetPersistence) => {
   }
 };
 
+export const updateAssetValuesSync = async (
+  assetPersistence: AssetPersistence,
+  callback: () => void
+) => {
+  await updateAssetValues(assetPersistence);
+  callback();
+};
+
 /**
  * Triggered when user adds/modifies securities for an asset
  * Calculates current value and queues historical backfill
@@ -446,13 +454,14 @@ export const factory = () => {
     // Daily history caching
     // populateSecurityDailyHistory,
     // bulkPopulateSecurityDailyHistory,
-    
+
     // Asset value calculation
     // calculateAssetValueForDate,
     // populateAssetValuesForDateRange,
     //onSecuritiesUpdated,
     updateAssetValues,
+    updateAssetValuesSync,
     calculateAssetValueForDateFromCache,
-    bulkSyncAllAutomatedAssets
-  }
+    bulkSyncAllAutomatedAssets,
+  };
 }
