@@ -296,11 +296,14 @@ export default function ValuesChart({
                     content={({ active, payload }) => {
                       return active && payload && payload.length ? (
                         <>
-                          {payload.map((p) => {
+                          {payload.map((p, index) => {
                             const data = p.payload as ChartDataBase;
-                            const datey = new Date(data.valueDate);
+                            const date = new Date(data.valueDate);
                             return (
-                              <div className="bg-gray-100 border-none rounded-lg p-2 shadow-sm">
+                              <div
+                                className="bg-gray-100 border-none rounded-lg p-2 shadow-sm"
+                                key={index}
+                              >
                                 {/* <p className="font-medium text-gray-900">
                                 {data.valueDate.}
                               </p> */}
@@ -376,7 +379,7 @@ export default function ValuesChart({
               </ResponsiveContainer>
               <div className="flex flex-row items-center justify-center gap-2">
                 {data.map((s) => (
-                  <div className="flex items-center">
+                  <div className="flex items-center" key={s.id}>
                     <div
                       className="w-1 h-1 rounded-full"
                       style={{ backgroundColor: s.color }}
@@ -391,7 +394,10 @@ export default function ValuesChart({
 
             {selectedPoints &&
               selectedPoints.map((point) => (
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+                <div
+                  className="mt-4 p-4 bg-gray-50 rounded-lg border"
+                  key={new Date(point.valueDate).getTime()}
+                >
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       {/* <h3 className="font-medium text-lg">

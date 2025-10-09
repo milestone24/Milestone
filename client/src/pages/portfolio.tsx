@@ -145,8 +145,14 @@ function Portfolio() {
       : [];
 
   const chartData: ChartData = [
-    { name: "Total Portfolio Value", data: valuesChartData, color: "#3B82F6" },
     {
+      id: "1",
+      name: "Total Portfolio Value",
+      data: valuesChartData,
+      color: "#3B82F6",
+    },
+    {
+      id: "2",
       name: "Transactions Input Value",
       data: transactionChartData,
       color: "#F59E0B",
