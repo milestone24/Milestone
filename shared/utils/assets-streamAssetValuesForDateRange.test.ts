@@ -191,25 +191,30 @@ describe.only("streamAssetValuesForDateRange for asset values with one asset wit
         )
       );
 
-    const withHistory: WithAssetHistory<
-      UserAsset,
-      BrandedAbstractTransactionValue
-    >[] = await Promise.all(
-      assets.map(async (asset) => ({
-        ...asset,
-        history:
-          await assetService.getCombinedAssetTransactionsWithBoundariesForAsset(
-            asset.id,
-            queryParams
-          ),
-      }))
-    );
+    // const withHistory: WithAssetHistory<
+    //   UserAsset,
+    //   BrandedAbstractTransactionValue
+    // >[] = await Promise.all(
+    //   assets.map(async (asset) => ({
+    //     ...asset,
+    //     history:
+    //       await assetService.getCombinedAssetTransactionsWithBoundariesForAsset(
+    //         asset.id,
+    //         queryParams
+    //       ),
+    //   }))
+    // );
 
-    // const withHistory =
-    //   await assetService.getCombinedAssetTransactionsWithBoundariesForUserAccount(
-    //     userAccountId,
-    //     queryParams
-    //   );
+    // const withHistory: WithAssetHistory<
+    //   UserAsset,
+    //   BrandedAbstractTransactionValue
+    // >[] = [];
+
+    const withHistory =
+      await assetService.getCombinedAssetTransactionsWithBoundariesForUserAccount(
+        userAccountId,
+        queryParams
+      );
 
     // for (const asset of withHistory) {
     //   for (const history of asset.history) {
