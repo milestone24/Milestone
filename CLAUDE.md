@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## General chat understanding
+
+- if the if teh chat includes statements that ascertain that it is a discussion do not touch, or create any new code on the project
+
 ## Development Commands
 
 ### Build and Development
@@ -33,7 +37,7 @@ This is a full-stack investment tracking application built with:
 - **Runtime**: Node.js with tsx for development
 - **Framework**: Express with TypeScript
 - **Database**: PostgreSQL with Drizzle ORM
-- **Authentication**: Passport.js with local strategy, JWT tokens
+- **Authentication**: Custom auth module using cookie stateless cookie sessions
 - **API Integration**: Services for financial data (Alpha Vantage, EODHD)
 
 ### Database Schema (server/db/schema/)
@@ -68,7 +72,7 @@ This is a full-stack investment tracking application built with:
 - Small, controlled Git commits with user story format: "[subject] should [action]"
 - Remove unused imports
 - Check existing packages and architecture before installing new dependencies  
-- Use form validation instead of toast messages for errors
+- Use form validation instead and inline form errors form form submit errors instead of toast messages
 - Delegate complex loop operations to separate functions
 
 ### Server-Side Rules
@@ -77,6 +81,14 @@ This is a full-stack investment tracking application built with:
 - Follow existing database migration naming conventions
 - Use array return type for pgTable's third argument when needed
 - Check existing migrations before making database schema changes
+- Always refer to the shared module for types before presuming anything
+- all api routes should use the existing auth middleware, either `requireUser` or `requireAPI`
+- all api route controllers should be as small as possible and dleegate to service methods for complexity.
+- all database reliant code should consider optimisation at the database level rather than runtime code using window functions, CTE's, Materialised views or any postgres feature that can optimise the performance of the overall application operation.
+- all database reliant code should always consider scalability in memory data as an overhead.
+- all data set operations should always consider the use of iterators, generators and streams to avoid in memory overhead at all times.
+- Any assistant should always ask for approval of ideas for implementations before commencing.
+- Any assistant should never presume anything is required, only complete work in the requested context.
 
 ### Client-Side Rules
 - Use custom hooks for domain-specific API calls
@@ -84,6 +96,9 @@ This is a full-stack investment tracking application built with:
 - Forms must use react-hook-form
 - Place feature-specific components in organized subdirectories
 - Define shared types using Zod schemas with TypeScript inference
+- Always refer to the shared module for types before presuming anything
+- Any assistant should always ask for approval of ideas for implementations before commencing.
+- Any assistant should never presume anything is required, only complete work in the requested context.
 
 ## Financial Data Services
 
