@@ -51,38 +51,47 @@ export async function setupVite(app: Express) {
     appType: "custom",
   });
 
-  app.use(express.static(path.resolve(__dirname, "../public"), {
-    setHeaders: (res, filePath) => {
-      // Set security headers
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('X-Frame-Options', 'DENY');
-      res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
-      
-      // Set content type
-      const contentType = mime.lookup(filePath);
-      if (contentType) {
-        res.setHeader('Content-Type', contentType);
-      }
-    }
-  }));
+  app.use(
+    express.static(path.resolve(__dirname, "../public"), {
+      setHeaders: (res, filePath) => {
+        // Set security headers
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        res.setHeader("X-Frame-Options", "DENY");
+        res.setHeader("Referrer-Policy", "no-referrer-when-downgrade");
+
+        // Set content type
+        const contentType = mime.getType(filePath);
+        if (contentType) {
+          res.setHeader("Content-Type", contentType);
+        }
+      },
+    })
+  );
 
   app.use(vite.middlewares);
-  
-  app.use("*", async (req, res, next) => {
 
+  app.use("*all", async (req, res, next) => {
     const url = req.originalUrl;
-  
+
     try {
-      const clientTemplate = path.resolve(__dirname, "..", "client", "index.html");
+      const clientTemplate = path.resolve(
+        __dirname,
+        "..",
+        "client",
+        "index.html"
+      );
       // Always reload the index.html file from disk in case it changes
       const template = await fs.promises.readFile(clientTemplate, "utf-8");
       const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ 
-        "Content-Type": "text/html",
-        "X-Content-Type-Options": "nosniff",
-        "X-Frame-Options": "DENY",
-        "Referrer-Policy": "no-referrer-when-downgrade"
-      }).end(page);
+      res
+        .status(200)
+        .set({
+          "Content-Type": "text/html",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY",
+          "Referrer-Policy": "no-referrer-when-downgrade",
+        })
+        .end(page);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
       next(e);
