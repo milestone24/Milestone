@@ -72,7 +72,7 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
     mutationFn: (data: RecurringContributionInsert) =>
       apiRequest<RecurringContribution>(
         "POST",
-        `/api/assets/${data.assetId}/recurring-contributions`,
+        `/api/assets/${assetId}/recurring-contributions`,
         data
       ),
     onSuccess: () => {
@@ -92,7 +92,7 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
     ) =>
       apiRequest(
         "PUT",
-        `/api/assets/broker/${data.assetId}/recurring-contributions/${data.contributionId}`,
+        `/api/assets/${assetId}/recurring-contributions/${data.contributionId}`,
         data
       ),
     onSuccess: () => {
