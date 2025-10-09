@@ -4,7 +4,9 @@ import { AuthoriseAPIKey, AuthoriseUser, AuthRequest, TenantType } from "./types
 import { IncomingHttpHeaders } from "node:http";
 
 const createAuthMiddleware = (allowedAuthTypes: TenantType[], authoriseUser: AuthoriseUser, authoriseAPIKey: AuthoriseAPIKey) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    const t = req.tenant;
+
     try {
       // Try browser session auth if allowed
       if (allowedAuthTypes.includes("user")) {
@@ -26,6 +28,13 @@ const createAuthMiddleware = (allowedAuthTypes: TenantType[], authoriseUser: Aut
             type: "user",
             userAccountId: authResult.tenantAccountId,
           };
+
+          if (!("tenant" in req)) {
+            next(new Error("Tenant not found"));
+          }
+          if (!("userAccountId" in req.tenant)) {
+            next(new Error("User account ID not found"));
+          }
           return next();
         }
       }

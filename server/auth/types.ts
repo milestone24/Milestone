@@ -157,6 +157,13 @@ export interface AuthRequest extends Request {
   tenant?: Tenant;
 }
 
+export interface AuthUserRequest extends Request {
+  tenant: Omit<Tenant, "userAccountId" | "type"> & {
+    type: "user";
+    userAccountId: string;
+  };
+}
+
 //Added for tha sakes of the use of web socket and auth middleware
 declare module "http" {
   interface IncomingMessage {
