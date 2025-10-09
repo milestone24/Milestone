@@ -17,6 +17,7 @@ import {
   CombinedDayTimePointBase,
   TransactionTimePoint,
 } from "shared/schema";
+import { useProcesses } from "@/hooks/use-processes";
 
 type ChartDataBase = CombinedDayTimePointBase;
 
@@ -82,6 +83,7 @@ const valueDateFormatter = (value: string | Date) => {
 // };
 
 export type ChartDataItem = {
+  id: string;
   name: string;
   data: CombinedDayTimePointBase[];
   color: string;
@@ -112,6 +114,15 @@ export default function ValuesChart({
   const [selectedPoints, setSelectedPoints] = useState<ChartDataBase[] | null>(
     null
   );
+
+  const { processes } = useProcesses({
+    filters: {
+      keys: ["update-asset-values"],
+      status: ["running"],
+    },
+  });
+
+  console.log("processes", processes);
 
   return (
     <div
