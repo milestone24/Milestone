@@ -103,6 +103,7 @@ export const AssetSecurityTransactionItem = ({
           <Dialog>
             <DialogTrigger>
               <Button
+                asChild
                 variant="ghost"
                 size="sm"
                 className="mr-2 text-red-600 hover:text-red-800 hover:bg-red-50"
