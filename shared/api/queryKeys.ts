@@ -27,3 +27,4 @@ export const assetSecuritiesTransactions = [
   "securities",
   "transactions",
 ];
+export const processes = ["processes"];
