@@ -96,22 +96,41 @@ export function calculateFireNumber(
   return desiredAnnualIncome / (withdrawalRate / 100);
 }
 
-/**
- * Generate FIRE projection data for chart
- */
-export function calculateFireProjection({
-  currentAmount,
-  monthlyInvestment,
-  expectedReturn,
-  targetAmount,
-  currentAge,
-}: {
+
+export type FireProjectionConfig = {
   currentAmount: number;
   monthlyInvestment: number;
   expectedReturn: number;
   targetAmount: number;
   currentAge: number;
-}): { projectionData: any[]; yearsToFire: number } {
+};
+
+export type FireProjectionData = {
+  age: number;
+  portfolio: number;
+  target: number;
+};
+
+export type FireProjectionResult = {
+  config: FireProjectionConfig;
+  projectionData: FireProjectionData[];
+  yearsToFire: number;
+};
+
+/**
+ * Generate FIRE projection data for chart
+ */
+export function calculateFireProjection(
+  config: FireProjectionConfig
+): FireProjectionResult {
+  const {
+    currentAmount,
+    monthlyInvestment,
+    expectedReturn,
+    targetAmount,
+    currentAge,
+  } = config;
+
   const yearsToFire = calculateYearsToTarget(
     currentAmount,
     monthlyInvestment,
@@ -119,7 +138,8 @@ export function calculateFireProjection({
     targetAmount
   );
 
-  const projectionData = [];
+  const projectionData: FireProjectionData[] = [];
+
   let currentValue = currentAmount;
 
   // Calculate until age 87 or until we reach a sensible maximum
@@ -148,7 +168,7 @@ export function calculateFireProjection({
     if (age >= maxAge) break;
   }
 
-  return { projectionData, yearsToFire };
+  return { config, projectionData, yearsToFire };
 }
 
 /**

@@ -1,45 +1,51 @@
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, ReferenceLine, ReferenceArea, Scatter } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { calculateFireProjection } from "@shared/utils/tracking";
+import {
+  calculateFireProjection,
+  FireProjectionData,
+  FireProjectionResult,
+} from "@shared/utils/tracking";
 
 type FireChartProps = {
-  currentAge: number;
-  currentAmount: number;
-  monthlyInvestment: number;
-  targetAmount: number;
-  expectedReturn: number;
   targetRetirementAge: number;
   projectedRetirementAge: number;
+  fireProjectionResult: FireProjectionResult;
   className?: string;
 };
 
 export default function FireChart({
-  currentAge,
-  currentAmount,
-  monthlyInvestment,
-  targetAmount,
-  expectedReturn,
   targetRetirementAge,
   projectedRetirementAge,
+  fireProjectionResult,
   className,
 }: FireChartProps) {
   // Calculate projection data
-  const { projectionData, yearsToFire } = calculateFireProjection({
-    currentAmount,
-    monthlyInvestment,
-    expectedReturn,
-    targetAmount,
-    currentAge,
-  });
+  // const { projectionData, yearsToFire } = calculateFireProjection({
+  //   currentAmount,
+  //   monthlyInvestment,
+  //   expectedReturn,
+  //   targetAmount,
+  //   currentAge,
+  // });
 
-  console.log("cuurentAge", currentAge);
-  console.log("projectionData", projectionData);
-  console.log("yearsToFire", yearsToFire);
-  console.log("targetAmount", targetAmount);
-  console.log("expectedReturn", expectedReturn);
-  console.log("monthlyInvestment", monthlyInvestment);
-  console.log("currentAmount", currentAmount);
+  const { projectionData, yearsToFire, config } = fireProjectionResult;
+
+  const {
+    // currentAmount,
+    // monthlyInvestment,
+    // expectedReturn,
+    // targetAmount,
+    currentAge,
+  } = config;
+
+  // console.log("cuurentAge", currentAge);
+  // console.log("projectionData", projectionData);
+  // console.log("yearsToFire", yearsToFire);
+  // console.log("targetAmount", targetAmount);
+  // console.log("expectedReturn", expectedReturn);
+  // console.log("monthlyInvestment", monthlyInvestment);
+  // console.log("currentAmount", currentAmount);
 
   // Format currency values
   const formatCurrency = (value: number) => {
@@ -64,7 +70,7 @@ export default function FireChart({
         Math.abs(prev.age - retirementAge)
         ? curr
         : prev;
-    }, projectionData[0]);
+    }, projectionData[0] as FireProjectionData);
 
     // Create an interpolated point at the retirement age
     if (closest) {
@@ -100,16 +106,20 @@ export default function FireChart({
     xAxisTicks.push(retirementAge);
   }
 
-  // Add regular intervals up to 87
-  for (let age = Math.ceil(currentAge / 10) * 10; age <= 87; age += 10) {
+  // Add regular intervals up to projectedRetirementAge
+  for (
+    let age = Math.ceil(currentAge / 10) * 10;
+    age <= projectedRetirementAge;
+    age += 10
+  ) {
     if (!xAxisTicks.includes(age)) {
       xAxisTicks.push(age);
     }
   }
 
-  // Add age 87 if not already included
-  if (!xAxisTicks.includes(87)) {
-    xAxisTicks.push(87);
+  // Add age projectedRetirementAge if not already included
+  if (!xAxisTicks.includes(projectedRetirementAge)) {
+    xAxisTicks.push(projectedRetirementAge);
   }
 
   // Sort the ticks in ascending order
@@ -133,7 +143,7 @@ export default function FireChart({
               {/* Add a reference area for the retirement phase */}
               <ReferenceArea
                 x1={retirementAge}
-                x2={87}
+                x2={projectedRetirementAge}
                 fill="#f2f9ff"
                 fillOpacity={0.9}
                 strokeOpacity={0.8}

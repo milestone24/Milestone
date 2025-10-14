@@ -10,10 +10,12 @@ import {
   calculateFireNumber,
   calculateYearsToTarget,
   calculateContributionImpact,
+  calculateFireProjection,
+  FireProjectionResult,
 } from "@shared/utils/tracking";
 import FireChart from "@/components/charts/FireChart";
 import { useToast } from "@/hooks/use-toast";
-import { FireSettingsInsert } from "shared/schema";
+import { FireSettingsInsert, ProjectionModifier } from "shared/schema";
 import { useSession } from "@/hooks/use-session";
 import { usePortfolioWithFIREProjection } from "@/hooks/use-projections";
 import { calculateAge } from "@shared/utils/tracking";
@@ -27,21 +29,9 @@ export default function Fire() {
 
   const { user } = useSession();
 
-  console.log("user", user?.profile.dob);
-
   const currentAge = user?.profile.dob ? calculateAge(user.profile.dob) : NaN;
 
-  const { data: currentProjection } = usePortfolioWithFIREProjection({
-    mode: "simple",
-    growthRate: 7.0,
-    growthModel: "linear",
-    interval: "yearly",
-    modifiers: [],
-  });
-
   const { data: portfolioOverview } = usePortfolioOverview();
-  //currentProjection?.startDate,
-  //currentProjection?.endDate
 
   const { data: fireSettings, isLoading: isLoadingFireSettings } =
     useFireSettings();
@@ -130,19 +120,75 @@ export default function Fire() {
     }
   }, [fireSettings, defaultSettings.statePensionAge]);
 
-  // Calculate FIRE number based on desired income and withdrawal rate
-  const fireNumber = calculateFireNumber(
-    formState.annualIncome,
-    formState.withdrawalRate
-  );
+  const mod: ProjectionModifier = {
+    type: "contribution_scaler",
+    enabled: true,
+    scaleFactor: 10.0,
+    description: "Contribution Scaler",
+  };
 
-  // Calculate years to reach FIRE
-  const yearsToFire = calculateYearsToTarget(
-    portfolioOverview?.value ?? 0,
-    formState.monthlyInvestment,
-    formState.expectedReturn,
-    fireNumber
-  );
+  const modifiers: ProjectionModifier[] = formState.adjustInflation
+    ? [
+        {
+          type: "inflation",
+          enabled: true,
+          rate: 2.8,
+          description: "Inflation",
+        },
+        mod,
+      ]
+    : [mod];
+
+  const { data: currentProjection } = usePortfolioWithFIREProjection({
+    mode: "simple",
+    growthRate: 7.0,
+    growthModel: "linear",
+    interval: "yearly",
+    modifiers,
+  });
+
+  const { fireProgress } = currentProjection ?? {};
+
+  console.log("currentProjection", currentProjection);
+
+  // Calculate FIRE number based on desired income and withdrawal rate
+  // const fireNumber = calculateFireNumber(
+  //   formState.annualIncome,
+  //   formState.withdrawalRate
+  // );
+
+  const fireNumber = fireProgress?.fireNumber ?? 0;
+
+  // // Calculate years to reach FIRE
+  // const yearsToFire = calculateYearsToTarget(
+  //   portfolioOverview?.value ?? 0,
+  //   formState.monthlyInvestment,
+  //   formState.expectedReturn,
+  //   fireNumber
+  // );
+
+  const fireProjectionResult = calculateFireProjection({
+    currentAmount: portfolioOverview?.value ?? 0,
+    monthlyInvestment: formState.monthlyInvestment,
+    expectedReturn: formState.expectedReturn,
+    targetAmount: fireNumber,
+    currentAge,
+  });
+
+  const fpr2: FireProjectionResult = {
+    config: {
+      currentAmount: portfolioOverview?.value ?? 0,
+      monthlyInvestment: formState.monthlyInvestment,
+      expectedReturn: formState.expectedReturn,
+      targetAmount: fireNumber,
+      currentAge,
+    },
+    projectionData: [],
+    yearsToFire: fireProgress?.yearsAheadOrBehind ?? 0,
+  };
+
+  //const { yearsToFire } = fireProjectionResult;
+  const { yearsToFire } = fpr2;
 
   console.log("yearsToFire", yearsToFire);
 
@@ -396,6 +442,22 @@ export default function Fire() {
     );
   }
 
+  if (!user?.profile?.dob) {
+    return (
+      <div className="fire-screen max-w-5xl mx-auto px-4 pb-20">
+        <Card className="mt-4">
+          <CardContent className="p-4">
+            <h2 className="text-lg font-semibold mb-3">FIRE Calculator</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              You must set your date of birth before you can use the FIRE
+              calculator.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Main FIRE calculator view
   return (
     <div className="fire-screen max-w-5xl mx-auto px-4 pb-20">
@@ -408,11 +470,7 @@ export default function Fire() {
 
           {/* Chart */}
           <FireChart
-            currentAge={currentAge}
-            currentAmount={portfolioOverview?.value ?? 0}
-            monthlyInvestment={formState.monthlyInvestment}
-            targetAmount={fireNumber}
-            expectedReturn={formState.expectedReturn}
+            fireProjectionResult={fireProjectionResult}
             targetRetirementAge={formState.targetRetirementAge}
             projectedRetirementAge={projectedRetirementAge}
             className="mb-6"
@@ -429,7 +487,7 @@ export default function Fire() {
             </div>
             <div className="flex justify-between items-center mb-1">
               <span className="text-sm text-gray-600">
-                FIRE number (25x expenses):
+                FIRE number (Retirement Target):
               </span>
               <span className="font-medium">
                 £{fireNumber.toLocaleString()}

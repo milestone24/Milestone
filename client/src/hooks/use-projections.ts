@@ -263,6 +263,7 @@ export function useCustomFIREProjection(
 
 /**
  * Mutation hook for ad-hoc FIRE projection
+ * //What is this, why is there a POST here???
  */
 export function useFIREProjectionMutation() {
   return useMutation<
@@ -350,11 +351,19 @@ export function usePortfolioWithMilestoneProjection(
  * Hook that combines portfolio projection with FIRE analysis
  */
 export function usePortfolioWithFIREProjection(
-  config: ProjectionConfig | null
+  config: ProjectionConfig | null,
+  fireConfig?: FIREProjectionConfig | null
   //options?: UseQueryOptions<ProjectionResult & { fireProgress: FIREProgress }>
 ) {
-  return useQuery<ProjectionResult & { fireProgress: FIREProgress }>({
-    queryKey: [...portfolioProjection, "fire", config],
+  //return useQuery<ProjectionResult & { fireProgress: FIREProgress }>({
+  return useQuery<ProjectionResult>({
+    queryKey: [
+      ...portfolioProjection,
+      "fire",
+      {
+        includeFire: true,
+      },
+    ],
     queryFn: async () => {
       if (!config) {
         throw new Error("Config is required");
@@ -368,23 +377,32 @@ export function usePortfolioWithFIREProjection(
             new Date().setFullYear(new Date().getFullYear() + 30)
           ),
         },
+        fireConfig: fireConfig ? fireConfig : undefined,
       };
 
-      // Portfolio projection endpoint automatically includes FIRE if fireConfig present
-      // But we'll use dedicated FIRE endpoint for cleaner separation
-      const [portfolioResult, fireProgress] = await Promise.all([
-        apiRequest<ProjectionResult>(
-          "POST",
-          `/api/projections/portfolio`,
-          request
-        ),
-        apiRequest<FIREProgress>("POST", `/api/projections/fire`, request),
-      ]);
+      const result = await apiRequest<ProjectionResult>(
+        "POST",
+        `/api/projections/portfolio?includeFire=true`,
+        request
+      );
 
-      return {
-        ...portfolioResult,
-        fireProgress,
-      };
+      return result;
+
+      // // Portfolio projection endpoint automatically includes FIRE if fireConfig present
+      // // But we'll use dedicated FIRE endpoint for cleaner separation
+      // const [portfolioResult, fireProgress] = await Promise.all([
+      //   apiRequest<ProjectionResult>(
+      //     "POST",
+      //     `/api/projections/portfolio`,
+      //     request
+      //   ),
+      //   apiRequest<FIREProgress>("POST", `/api/projections/fire`, request),
+      // ]);
+
+      // return {
+      //   ...portfolioResult,
+      //   fireProgress,
+      // };
     },
     //enabled: !!config && (options?.enabled ?? true),
   });
