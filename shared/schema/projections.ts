@@ -1,4 +1,8 @@
 import { z } from "zod";
+import { RecurringContribution, UserAsset } from "./portfolio-assets";
+import { Milestone } from "./portfolio-milestone";
+import { FireSettings } from "./portfolio-fire";
+import { UserProfile } from "./user-account";
 
 // ============================================================================
 // PROJECTION CONFIGURATION
@@ -120,8 +124,16 @@ export const simpleProjectionConfigSchema = baseProjectionConfigSchema.extend({
   mode: z.literal("simple"),
   growthRate: z.number().min(-100).max(1000), // Annual percentage (-100% to +1000%)
 });
+
 export type SimpleProjectionConfig = z.infer<
   typeof simpleProjectionConfigSchema
+>;
+
+export const simpleProjectionConfigSchemaWithDateRange =
+  simpleProjectionConfigSchema.merge(configDateRangeSchema);
+
+export type SimpleProjectionConfigWithDateRange = z.infer<
+  typeof simpleProjectionConfigSchemaWithDateRange
 >;
 
 /**
@@ -135,8 +147,16 @@ export const advancedProjectionConfigSchema = baseProjectionConfigSchema.extend(
     blendRatio: z.number().min(0).max(1).default(0.5), // 0 = all historical, 1 = all anticipated
   }
 );
+
 export type AdvancedProjectionConfig = z.infer<
   typeof advancedProjectionConfigSchema
+>;
+
+export const advancedProjectionConfigSchemaWithDateRange =
+  advancedProjectionConfigSchema.merge(configDateRangeSchema);
+
+export type AdvancedProjectionConfigWithDateRange = z.infer<
+  typeof advancedProjectionConfigSchemaWithDateRange
 >;
 
 /**
@@ -291,7 +311,7 @@ export type ProjectionResult = z.infer<typeof projectionResultSchema>;
  */
 export const assetProjectionRequestSchema = z.object({
   assetId: z.string().uuid(),
-  config: projectionConfigSchema,
+  config: projectionConfigWithDateRangeSchema,
   milestoneTarget: milestoneTargetSchema.optional(),
 });
 export type AssetProjectionRequest = z.infer<
@@ -357,3 +377,39 @@ export const ProjectionSchemas = {
   contributionScalerModifier: contributionScalerModifierSchema,
   feeModifier: feeModifierSchema,
 };
+
+export type ProjectionOrhesratorAssetInput = {
+  id: string;
+  currentValue: number;
+  name: string;
+  accountType: UserAsset["accountType"];
+};
+
+/**
+ * The contract here provides means of obtaining data for purpose of projections.
+ * The scope will always be that of a user account.
+ */
+export type ProjectionDataSource = {
+  getAssetById: (
+    assetId: string
+  ) => Promise<ProjectionOrhesratorAssetInput | null>;
+  getAssets: () => Promise<ProjectionOrhesratorAssetInput[]>;
+  getContributionsForAssets: (
+    assetIds: string[]
+  ) => Promise<RecurringContribution[]>;
+  getMilestones: () => Promise<Milestone[]>;
+  getMilestoneById: (milestoneId: string) => Promise<Milestone | null>;
+  getFireSettings: () => Promise<FireSettings | null>;
+  getUserProfile: () => Promise<UserProfile | null>;
+};
+
+/**
+ * Input for orchestrating projections
+ */
+export interface ProjectionOrchestratorInput {
+  assets: ProjectionOrhesratorAssetInput[];
+  recurringContributions: RecurringContribution[]; // All contributions for all assets
+  config: ProjectionConfigWithDateRange;
+  //db: Database;
+  milestoneTarget?: MilestoneTarget;
+}

@@ -1,3 +1,25 @@
+export const calculateAge = (dateOfBirth: Date) => {
+  const today = new Date();
+  const dob = new Date(dateOfBirth);
+
+  console.log("today", today);
+  console.log("dob", dob);
+
+  let age = today.getFullYear() - dob.getFullYear();
+
+  const monthDifference = today.getMonth() - dob.getMonth();
+
+  // Adjust age if birthday hasn't occurred yet this year
+  if (
+    monthDifference < 0 ||
+    (monthDifference === 0 && today.getDate() < dob.getDate())
+  ) {
+    age--;
+  }
+
+  return age;
+};
+
 // Finance utility functions for the investment tracker
 
 /**
@@ -24,11 +46,12 @@ export function calculateFutureValueWithContributions(
 ): number {
   const monthlyRate = annualRate / 100 / 12;
   const months = years * 12;
-  
+
   const baseGrowth = presentValue * Math.pow(1 + monthlyRate, months);
-  const contributionGrowth = monthlyContribution * 
-    (Math.pow(1 + monthlyRate, months) - 1) / monthlyRate;
-  
+  const contributionGrowth =
+    (monthlyContribution * (Math.pow(1 + monthlyRate, months) - 1)) /
+    monthlyRate;
+
   return baseGrowth + contributionGrowth;
 }
 
@@ -43,21 +66,23 @@ export function calculateYearsToTarget(
   targetValue: number
 ): number {
   const monthlyRate = annualRate / 100 / 12;
-  
+
   // Handle edge cases
   if (presentValue >= targetValue) return 0;
   if (monthlyRate === 0 && monthlyContribution === 0) return Infinity;
-  if (monthlyRate === 0) return (targetValue - presentValue) / (monthlyContribution * 12);
-  
+  if (monthlyRate === 0)
+    return (targetValue - presentValue) / (monthlyContribution * 12);
+
   // Use numerical approximation for complex calculations with contributions
   let months = 0;
   let currentValue = presentValue;
-  
-  while (currentValue < targetValue && months < 1200) { // Cap at 100 years
+
+  while (currentValue < targetValue && months < 1200) {
+    // Cap at 100 years
     currentValue = currentValue * (1 + monthlyRate) + monthlyContribution;
     months++;
   }
-  
+
   return months / 12;
 }
 
@@ -79,7 +104,7 @@ export function calculateFireProjection({
   monthlyInvestment,
   expectedReturn,
   targetAmount,
-  currentAge
+  currentAge,
 }: {
   currentAmount: number;
   monthlyInvestment: number;
@@ -93,17 +118,17 @@ export function calculateFireProjection({
     expectedReturn,
     targetAmount
   );
-  
+
   const projectionData = [];
   let currentValue = currentAmount;
-  
+
   // Calculate until age 87 or until we reach a sensible maximum
   const maxAge = 87;
   const maxYearsToCalculate = maxAge - currentAge;
-  
+
   for (let year = 0; year <= maxYearsToCalculate; year++) {
     const age = currentAge + year;
-    
+
     if (year > 0) {
       currentValue = calculateFutureValueWithContributions(
         currentValue,
@@ -112,17 +137,17 @@ export function calculateFireProjection({
         1 // 1 year at a time
       );
     }
-    
+
     projectionData.push({
       age,
       portfolio: Math.round(currentValue),
-      target: targetAmount
+      target: targetAmount,
     });
-    
+
     // Stop if we've reached max age
     if (age >= maxAge) break;
   }
-  
+
   return { projectionData, yearsToFire };
 }
 
@@ -135,7 +160,7 @@ export function calculateContributionImpact({
   newMonthlyInvestment,
   expectedReturn,
   targetAmount,
-  currentAge
+  currentAge,
 }: {
   currentAmount: number;
   currentMonthlyInvestment: number;
@@ -143,9 +168,9 @@ export function calculateContributionImpact({
   expectedReturn: number;
   targetAmount: number;
   currentAge: number;
-}): { 
-  originalYears: number; 
-  newYears: number; 
+}): {
+  originalYears: number;
+  newYears: number;
   yearsDifference: number;
   monthsDifference: number;
 } {
@@ -155,22 +180,22 @@ export function calculateContributionImpact({
     expectedReturn,
     targetAmount
   );
-  
+
   const newYears = calculateYearsToTarget(
     currentAmount,
     newMonthlyInvestment,
     expectedReturn,
     targetAmount
   );
-  
+
   const yearsDifference = originalYears - newYears;
   const monthsDifference = Math.round(yearsDifference * 12);
-  
-  return { 
-    originalYears, 
-    newYears, 
-    yearsDifference, 
-    monthsDifference 
+
+  return {
+    originalYears,
+    newYears,
+    yearsDifference,
+    monthsDifference,
   };
 }
 
@@ -181,7 +206,7 @@ export function calculateOnTrackStatus({
   currentAge,
   targetAge,
   currentAmount,
-  targetAmount
+  targetAmount,
 }: {
   currentAge: number;
   targetAge: number;
@@ -195,18 +220,19 @@ export function calculateOnTrackStatus({
 } {
   const totalYears = targetAge - currentAge;
   const growthFactor = Math.pow(targetAmount / 100000, 1 / totalYears);
-  
+
   // What the amount should be at the current age to stay on track
-  const expectedCurrentAmount = 100000 * Math.pow(growthFactor, currentAge - 30);
-  
+  const expectedCurrentAmount =
+    100000 * Math.pow(growthFactor, currentAge - 30);
+
   const difference = currentAmount - expectedCurrentAmount;
   const isOnTrack = difference >= 0;
   const percentageOfTarget = (currentAmount / targetAmount) * 100;
-  
+
   return {
     expectedCurrentAmount,
     difference,
     isOnTrack,
-    percentageOfTarget
+    percentageOfTarget,
   };
 }

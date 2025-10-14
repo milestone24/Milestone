@@ -10,30 +10,13 @@ import {
   calculateFireNumber,
   calculateYearsToTarget,
   calculateContributionImpact,
-} from "@/lib/utils/finance";
+} from "@shared/utils/tracking";
 import FireChart from "@/components/charts/FireChart";
 import { useToast } from "@/hooks/use-toast";
 import { FireSettingsInsert } from "shared/schema";
 import { useSession } from "@/hooks/use-session";
 import { usePortfolioWithFIREProjection } from "@/hooks/use-projections";
-
-function calculateAge(dateOfBirth: Date) {
-  const today = new Date();
-  const dob = new Date(dateOfBirth);
-
-  let age = today.getFullYear() - dob.getFullYear();
-  const monthDifference = today.getMonth() - dob.getMonth();
-
-  // Adjust age if birthday hasn't occurred yet this year
-  if (
-    monthDifference < 0 ||
-    (monthDifference === 0 && today.getDate() < dob.getDate())
-  ) {
-    age--;
-  }
-
-  return age;
-}
+import { calculateAge } from "@shared/utils/tracking";
 
 export default function Fire() {
   const {
@@ -47,17 +30,30 @@ export default function Fire() {
 
   const { user } = useSession();
 
+  console.log("user", user?.profile.dob);
+
   const currentAge = user?.profile.dob ? calculateAge(user.profile.dob) : NaN;
 
-  const { data: projection } = usePortfolioWithFIREProjection({
+  const { data: currentProjection } = usePortfolioWithFIREProjection({
     mode: "simple",
     growthRate: 7.0,
-    growthModel: "compound",
+    growthModel: "linear",
     interval: "yearly",
     modifiers: [],
   });
 
-  console.log("projection", projection);
+  //This will be the idea.
+  //That we build a tool that can used on the
+  // const projection = createProjection(currentProjection)
+  //   .adjustMonthlyInvestment(formState.monthlyInvestment)
+  //   .adjustTargetRetirementAge(formState.targetRetirementAge)
+  //   .adjustAnnualIncome(formState.annualIncome)
+  //   .adjustExpectedReturn(formState.expectedReturn)
+  //   .adjustWithdrawalRate(formState.withdrawalRate)
+  //   .adjustAdjustInflation(formState.adjustInflation)
+  //   .adjustStatePensionAge(formState.statePensionAge)
+
+  //console.log("projection", projection);
 
   // Default values if fireSettings is not loaded yet
   const defaultSettings: Omit<FireSettingsInsert, "id" | "userAccountId"> & {
@@ -412,6 +408,7 @@ export default function Fire() {
             targetAmount={fireNumber}
             expectedReturn={formState.expectedReturn}
             targetRetirementAge={formState.targetRetirementAge}
+            projectedRetirementAge={projectedRetirementAge}
             className="mb-6"
           />
 

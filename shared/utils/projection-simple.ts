@@ -1,10 +1,10 @@
 import {
-  SimpleProjectionConfig,
+  SimpleProjectionConfigWithDateRange,
   ProjectionTimePoint,
   ProjectionInterval,
 } from "@shared/schema/projections";
-import { RecurringContribution } from "@shared/schema";
-import type { SchedulePattern } from "@server/db/schema/portfolio-assets";
+import type { RecurringContribution } from "@shared/schema";
+import type { SchedulePattern } from "@shared/utils/scheduling";
 import { getNextExecutionDate } from "@shared/utils/scheduling";
 import {
   addDays,
@@ -17,7 +17,7 @@ import {
   ModifierChain,
   createModifierContext,
   calculateYearsElapsed,
-} from "./modifiers";
+} from "./projection-modifiers";
 
 // ============================================================================
 // SIMPLE PROJECTION SERVICE
@@ -30,7 +30,7 @@ export interface SimpleProjectionInput {
   currentValue: number;
   currentDate: Date;
   recurringContributions: RecurringContribution[];
-  config: SimpleProjectionConfig;
+  config: SimpleProjectionConfigWithDateRange;
   modifierChain?: ModifierChain;
 }
 

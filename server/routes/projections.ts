@@ -2,24 +2,15 @@ import { Router, Request } from "express";
 import { AuthService, requireTenantWithUserAccountId } from "@server/auth";
 import { db } from "@server/db";
 import {
-  projectionConfigSchema,
   assetProjectionRequestSchema,
   portfolioProjectionRequestSchema,
   ProjectionSchemas,
+  projectionConfigWithDateRangeSchema,
 } from "@shared/schema/projections";
-import {
-  projectAssetById,
-  projectPortfolio,
-} from "@server/services/projections/orchestrator";
-import {
-  checkMilestoneProgress,
-  getAllMilestonesWithProgress,
-} from "@server/services/projections/milestone-tracker";
-import {
-  checkFIREFeasibility,
-  projectToRetirement,
-} from "@server/services/projections/fire-calculator";
 import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
+import { ProjectionService } from "@server/services/projections";
+
+const projectionService = new ProjectionService(db);
 
 // ============================================================================
 // PROJECTION ROUTES
@@ -65,21 +56,16 @@ export async function registerRoutes(
 
             const { config, milestoneTarget } = validationResult.data;
 
-            // Verify asset belongs to user
-            const asset = await db.query.userAssets.findFirst({
-              where: (userAssets, { eq }) => eq(userAssets.id, assetId),
-            });
-
-            if (!asset) {
-              throw new Error("Asset not found");
-            }
-
-            if (asset.userAccountId !== tenant.userAccountId) {
+            if (!tenant.userAccountId) {
               throw new Error("Unauthorized");
             }
 
             // Project asset
-            const result = await projectAssetById(assetId, config, db);
+            const result = await projectionService.projectAssetById(
+              tenant.userAccountId,
+              assetId,
+              config
+            );
 
             // Add milestone progress if requested
             if (milestoneTarget) {
@@ -134,16 +120,15 @@ export async function registerRoutes(
         const response = await requireTenantWithUserAccountId(
           req.tenant,
           async (tenant) => {
-            console.log("req.body", req.body);
+            if (!tenant.userAccountId) {
+              throw new Error(
+                "Tenant must be of type user and have a user account ID"
+              );
+            }
 
             // Validate request body
             const validationResult = portfolioProjectionRequestSchema.safeParse(
               req.body
-            );
-
-            console.log(
-              "validationResult",
-              JSON.stringify(validationResult.error)
             );
 
             if (!validationResult.success) {
@@ -154,20 +139,20 @@ export async function registerRoutes(
               validationResult.data;
 
             // Project portfolio
-            const result = await projectPortfolio(
+            const result = await projectionService.projectPortfolio(
               tenant.userAccountId,
               config,
-              db,
               milestoneTarget
             );
 
             // Add FIRE progress if requested
+            // Question this, why is this done here and not just given to the project portfolio function?
+            // Or the project to retirement function does the the projectPortfolio internally?
             if (fireConfig) {
-              const fireProgress = await projectToRetirement(
+              const fireProgress = await projectionService.projectToRetirement(
                 tenant.userAccountId,
                 fireConfig,
-                config,
-                db
+                config
               );
               result.fireProgress = fireProgress;
             }
@@ -210,9 +195,8 @@ export async function registerRoutes(
           req.tenant,
           async (tenant) => {
             // Validate config
-            const configValidation = projectionConfigSchema.safeParse(
-              req.body.config
-            );
+            const configValidation =
+              projectionConfigWithDateRangeSchema.safeParse(req.body.config);
 
             if (!configValidation.success) {
               throw new Error("Invalid projection config");
@@ -220,21 +204,12 @@ export async function registerRoutes(
 
             const config = configValidation.data;
 
-            // Verify milestone belongs to user
-            const milestone = await db.query.milestones.findFirst({
-              where: (milestones, { eq }) => eq(milestones.id, milestoneId),
-            });
-
-            if (!milestone) {
-              throw new Error("Milestone not found");
-            }
-
-            if (milestone.userAccountId !== tenant.userAccountId) {
-              throw new Error("Unauthorized");
-            }
-
             // Check milestone progress
-            return checkMilestoneProgress(milestoneId, config, db);
+            return projectionService.checkMilestoneProgress(
+              tenant.userAccountId,
+              milestoneId,
+              config
+            );
           }
         );
 
@@ -262,9 +237,8 @@ export async function registerRoutes(
           req.tenant,
           async (tenant) => {
             // Validate config
-            const configValidation = projectionConfigSchema.safeParse(
-              req.body.config
-            );
+            const configValidation =
+              projectionConfigWithDateRangeSchema.safeParse(req.body.config);
 
             if (!configValidation.success) {
               throw new Error("Invalid projection config");
@@ -273,10 +247,9 @@ export async function registerRoutes(
             const config = configValidation.data;
 
             // Get all milestones with progress
-            return getAllMilestonesWithProgress(
+            return projectionService.getAllMilestonesWithProgress(
               tenant.userAccountId,
-              config,
-              db
+              config
             );
           }
         );
@@ -299,6 +272,7 @@ export async function registerRoutes(
   /**
    * POST /api/projections/fire
    * Project FIRE retirement feasibility
+   * Is this needed as a separate endpoint?
    */
   router.post(regExpPath(`/fire`), requireUser, async (req: Request, res) => {
     try {
@@ -306,9 +280,8 @@ export async function registerRoutes(
         req.tenant,
         async (tenant) => {
           // Validate config
-          const configValidation = projectionConfigSchema.safeParse(
-            req.body.config
-          );
+          const configValidation =
+            projectionConfigWithDateRangeSchema.safeParse(req.body.config);
 
           if (!configValidation.success) {
             throw new Error("Invalid projection config");
@@ -317,7 +290,11 @@ export async function registerRoutes(
           const config = configValidation.data;
 
           // Check FIRE feasibility using saved settings
-          return checkFIREFeasibility(tenant.userAccountId, config, db);
+          return projectionService.checkFIREFeasibility(
+            tenant.userAccountId,
+            config
+            //req.body.fireConfig
+          );
         }
       );
 
@@ -344,9 +321,8 @@ export async function registerRoutes(
           req.tenant,
           async (tenant) => {
             // Validate request
-            const configValidation = projectionConfigSchema.safeParse(
-              req.body.config
-            );
+            const configValidation =
+              projectionConfigWithDateRangeSchema.safeParse(req.body.config);
             const fireConfigValidation = ProjectionSchemas.fireConfig.safeParse(
               req.body.fireConfig
             );
@@ -359,11 +335,10 @@ export async function registerRoutes(
             const fireConfig = fireConfigValidation.data;
 
             // Project with custom FIRE config
-            return projectToRetirement(
+            return projectionService.projectToRetirement(
               tenant.userAccountId,
               fireConfig,
-              config,
-              db
+              config
             );
           }
         );

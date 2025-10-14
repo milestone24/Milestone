@@ -2,11 +2,13 @@ import {
   MilestoneTarget,
   MilestoneProgress,
   ProjectionConfig,
+  ProjectionConfigWithDateRange,
+  ProjectionDataSource,
 } from "@shared/schema/projections";
-import { Database } from "@server/db";
+//import { Database } from "@server/db";
 import { milestones, userAssets } from "@server/db/schema";
-import { eq } from "drizzle-orm";
-import { projectPortfolio } from "./orchestrator";
+//import { eq } from "drizzle-orm";
+import { projectPortfolio } from "./projection-orchestrator";
 
 // ============================================================================
 // MILESTONE PROGRESS TRACKING
@@ -16,33 +18,35 @@ import { projectPortfolio } from "./orchestrator";
  * Check if user is on track for a specific milestone
  */
 export async function checkMilestoneProgress(
-  milestoneId: string,
-  config: ProjectionConfig,
-  db: Database
+  milestoneTarget: MilestoneTarget,
+  //milestoneId: string,
+  config: ProjectionConfigWithDateRange,
+  dataSource: ProjectionDataSource
+  //db: Database
 ): Promise<MilestoneProgress> {
   // Fetch milestone details
-  const milestone = await db.query.milestones.findFirst({
-    where: eq(milestones.id, milestoneId),
-  });
+  // const milestone = await db.query.milestones.findFirst({
+  //   where: eq(milestones.id, milestoneId),
+  // });
 
-  if (!milestone) {
-    throw new Error(`Milestone ${milestoneId} not found`);
-  }
+  // if (!milestone) {
+  //   throw new Error(`Milestone ${milestoneId} not found`);
+  // }
 
   // Create milestone target from database record
-  const milestoneTarget: MilestoneTarget = {
-    milestoneId: milestone.id,
-    milestoneName: milestone.name,
-    targetValue: Number(milestone.targetValue),
-    targetDate: config.endDate, // Use projection end date as target
-    accountType: milestone.accountType,
-  };
+  // const milestoneTarget: MilestoneTarget = {
+  //   milestoneId: milestone.id,
+  //   milestoneName: milestone.name,
+  //   targetValue: Number(milestone.targetValue),
+  //   targetDate: config.endDate, // Use projection end date as target
+  //   accountType: milestone.accountType,
+  // };
 
   // Run projection for relevant assets
   const projectionResult = await projectPortfolio(
-    milestone.userAccountId,
+    //milestone.userAccountId,
     config,
-    db,
+    dataSource,
     milestoneTarget
   );
 
@@ -111,46 +115,62 @@ export function recommendContributionAdjustment(
 
 /**
  * Filter assets by milestone account type
+ * Seems to be obsolete, to check
  */
-export async function filterAssetsByMilestone(
-  userAccountId: string,
-  accountType: string | null,
-  db: Database
-) {
-  if (accountType === null) {
-    // Null means portfolio-wide, return all assets
-    return db.query.userAssets.findMany({
-      where: eq(userAssets.userAccountId, userAccountId),
-    });
-  }
+// export async function filterAssetsByMilestone(
+//   userAccountId: string,
+//   accountType: string | null,
+//   db: Database
+// ) {
+//   if (accountType === null) {
+//     // Null means portfolio-wide, return all assets
+//     return db.query.userAssets.findMany({
+//       where: eq(userAssets.userAccountId, userAccountId),
+//     });
+//   }
 
-  // Filter by specific account type
-  return db.query.userAssets.findMany({
-    where: (userAssets, { eq, and }) =>
-      and(
-        eq(userAssets.userAccountId, userAccountId),
-        eq(userAssets.accountType, accountType)
-      ),
-  });
-}
+//   // Filter by specific account type
+//   return db.query.userAssets.findMany({
+//     where: (userAssets, { eq, and }) =>
+//       and(
+//         eq(userAssets.userAccountId, userAccountId),
+//         eq(userAssets.accountType, accountType)
+//       ),
+//   });
+// }
 
 /**
  * Get all milestones for a user with their progress
  */
 export async function getAllMilestonesWithProgress(
-  userAccountId: string,
-  config: ProjectionConfig,
-  db: Database
+  config: ProjectionConfigWithDateRange,
+  dataSource: ProjectionDataSource
+  //db: Database
 ): Promise<MilestoneProgress[]> {
-  const userMilestones = await db.query.milestones.findMany({
-    where: eq(milestones.userAccountId, userAccountId),
-  });
+  // const userMilestones = await db.query.milestones.findMany({
+  //   where: eq(milestones.userAccountId, userAccountId),
+  // });
+
+  const userMilestones = await dataSource.getMilestones();
 
   const progressResults: MilestoneProgress[] = [];
 
   for (const milestone of userMilestones) {
     try {
-      const progress = await checkMilestoneProgress(milestone.id, config, db);
+      //Create milestone target from database record
+      const milestoneTarget: MilestoneTarget = {
+        milestoneId: milestone.id,
+        milestoneName: milestone.name,
+        targetValue: Number(milestone.targetValue),
+        targetDate: config.endDate, // Use projection end date as target
+        accountType: milestone.accountType,
+      };
+
+      const progress = await checkMilestoneProgress(
+        milestoneTarget,
+        config,
+        dataSource
+      );
       progressResults.push(progress);
     } catch (error) {
       console.error(`Failed to check milestone ${milestone.id}:`, error);
@@ -159,4 +179,3 @@ export async function getAllMilestonesWithProgress(
 
   return progressResults;
 }
-

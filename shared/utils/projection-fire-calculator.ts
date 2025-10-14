@@ -3,13 +3,15 @@ import {
   FIREProgress,
   ProjectionConfig,
   SimpleProjectionConfig,
+  ProjectionConfigWithDateRange,
+  ProjectionDataSource,
 } from "@shared/schema/projections";
 import { Database } from "@server/db";
 import { fireSettings, userAccounts } from "@server/db/schema";
 import { eq } from "drizzle-orm";
-import { projectPortfolio } from "./orchestrator";
+import { projectPortfolio } from "./projection-orchestrator";
 import { differenceInYears, addYears } from "date-fns";
-import { recommendContributionAdjustment } from "./milestone-tracker";
+import { recommendContributionAdjustment } from "./projection-milestone-tracker";
 
 // ============================================================================
 // FIRE PROJECTION CALCULATOR
@@ -47,10 +49,10 @@ export function calculateAge(dateOfBirth: Date): number {
  * Project retirement feasibility for a user
  */
 export async function projectToRetirement(
-  userAccountId: string,
   fireConfig: FIREProjectionConfig,
   projectionConfig: Omit<ProjectionConfig, "startDate" | "endDate">,
-  db: Database
+  //db: Database
+  dataSource: ProjectionDataSource
 ): Promise<FIREProgress> {
   // Calculate retirement date
   const retirementDate = calculateRetirementDate(
@@ -65,17 +67,18 @@ export async function projectToRetirement(
   );
 
   // Create projection config with retirement date as end date
-  const fullProjectionConfig: ProjectionConfig = {
+  //There should not be a cast here
+  const fullProjectionConfig: ProjectionConfigWithDateRange = {
     ...projectionConfig,
     startDate: new Date(),
     endDate: retirementDate,
-  } as ProjectionConfig;
+  } as ProjectionConfigWithDateRange;
 
   // Run portfolio projection
   const projectionResult = await projectPortfolio(
-    userAccountId,
+    //userAccountId,
     fullProjectionConfig,
-    db
+    dataSource
   );
 
   // Get projected value at retirement
@@ -141,34 +144,39 @@ export async function projectToRetirement(
  * Check FIRE feasibility using user's saved fire settings
  */
 export async function checkFIREFeasibility(
-  userAccountId: string,
   projectionConfig: Omit<ProjectionConfig, "startDate" | "endDate">,
-  db: Database
+  //db: Database
+  dataSource: ProjectionDataSource
 ): Promise<FIREProgress> {
   // Get user's FIRE settings
-  const userFireSettings = await db.query.fireSettings.findFirst({
-    where: eq(fireSettings.userAccountId, userAccountId),
-  });
+  // const userFireSettings = await db.query.fireSettings.findFirst({
+  //   where: eq(fireSettings.userAccountId, userAccountId),
+  // });
+
+  const userFireSettings = await dataSource.getFireSettings();
 
   if (!userFireSettings) {
     throw new Error("FIRE settings not found for user");
   }
 
   // Get user's date of birth
-  const user = await db.query.userAccounts.findFirst({
-    where: eq(userAccounts.id, userAccountId),
-    with: {
-      userProfile: true,
-    },
-  });
 
-  if (!user?.userProfile?.dob) {
+  const userProfile = await dataSource.getUserProfile();
+
+  // const user = await db.query.userAccounts.findFirst({
+  //   where: eq(userAccounts.id, userAccountId),
+  //   with: {
+  //     userProfile: true,
+  //   },
+  // });
+
+  if (!userProfile?.dob) {
     throw new Error("User date of birth not found");
   }
 
   // Create FIRE config from settings
   const fireConfig: FIREProjectionConfig = {
-    dateOfBirth: user.userProfile.dob,
+    dateOfBirth: userProfile.dob,
     targetRetirementAge: userFireSettings.targetRetirementAge,
     annualIncomeGoal: Number(userFireSettings.annualIncomeGoal),
     safeWithdrawalRate: Number(userFireSettings.safeWithdrawalRate),
@@ -176,7 +184,7 @@ export async function checkFIREFeasibility(
     statePensionAge: userFireSettings.statePensionAge,
   };
 
-  return projectToRetirement(userAccountId, fireConfig, projectionConfig, db);
+  return projectToRetirement(fireConfig, projectionConfig, dataSource);
 }
 
 /**

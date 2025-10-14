@@ -1,3 +1,9 @@
+import type {
+  SchedulePattern as DBSchedulePattern,
+  CronPattern as DBCronPattern,
+  RRulePattern as DBRRulePattern,
+} from "@server/db/schema/portfolio-assets";
+
 /**
  * Flexible Recurring Schedule System
  *
@@ -21,22 +27,9 @@ const { RRule } = rrule;
 // TYPES AND INTERFACES
 // ============================================================================
 
-/**
- * Core schedule pattern types
- */
-export type SchedulePattern = CronPattern | RRulePattern;
-
-export type CronPattern = {
-  type: "cron";
-  expression: string; // e.g., "0 0 1 * *" for 1st of month
-  timezone?: string;
-};
-
-export type RRulePattern = {
-  type: "rrule";
-  expression: string; // e.g., "FREQ=MONTHLY;BYDAY=2TU" for 2nd Tuesday
-  timezone?: string;
-};
+export type SchedulePattern = DBSchedulePattern;
+export type CronPattern = DBCronPattern;
+export type RRulePattern = DBRRulePattern;
 
 /**
  * Pattern evaluation result
@@ -1186,4 +1179,3 @@ export function rruleToHumanReadable(rrule: string): string {
   const rule = RRule.fromString(rrule);
   return rule.toText();
 }
-

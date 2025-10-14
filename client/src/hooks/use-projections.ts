@@ -28,7 +28,7 @@ import {
  */
 export function useAssetProjection(
   assetId: string | null,
-  config: ProjectionConfig | null,
+  config: ProjectionConfigWithDateRange | null,
   options?: UseQueryOptions<ProjectionResult>
 ) {
   return useQuery<ProjectionResult>({
@@ -61,7 +61,7 @@ export function useAssetProjectionMutation() {
   return useMutation<
     ProjectionResult,
     Error,
-    { assetId: string; config: ProjectionConfig }
+    { assetId: string; config: ProjectionConfigWithDateRange }
   >({
     mutationFn: async ({ assetId, config }) => {
       const request: AssetProjectionRequest = {
@@ -373,16 +373,12 @@ export function usePortfolioWithFIREProjection(
       // Portfolio projection endpoint automatically includes FIRE if fireConfig present
       // But we'll use dedicated FIRE endpoint for cleaner separation
       const [portfolioResult, fireProgress] = await Promise.all([
-        apiRequest<ProjectionResult>("POST", `/api/projections/portfolio`, {
-          config: {
-            ...config,
-            startDate: new Date(),
-            endDate: new Date(
-              new Date().setFullYear(new Date().getFullYear() + 30)
-            ),
-          } as ProjectionConfigWithDateRange,
-        }),
-        apiRequest<FIREProgress>("POST", `/api/projections/fire`, { config }),
+        apiRequest<ProjectionResult>(
+          "POST",
+          `/api/projections/portfolio`,
+          request
+        ),
+        apiRequest<FIREProgress>("POST", `/api/projections/fire`, request),
       ]);
 
       return {

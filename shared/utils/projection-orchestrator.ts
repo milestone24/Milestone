@@ -1,40 +1,32 @@
 import {
-  ProjectionConfig,
+  ProjectionConfigWithDateRange,
   ProjectionResult,
   AssetProjection,
   ProjectionTimePoint,
   MilestoneTarget,
   MilestoneProgress,
+  ProjectionOrhesratorAssetInput,
+  ProjectionOrchestratorInput,
+  ProjectionDataSource,
 } from "@shared/schema/projections";
 import { UserAsset, RecurringContribution } from "@shared/schema";
-import { Database } from "@server/db";
-import { createModifierChain } from "./modifiers";
+//import { Database } from "@server/db";
+import { createModifierChain } from "@shared/utils/projection-modifiers";
 import {
   generateSimpleProjection,
   SimpleProjectionInput,
   SimpleProjectionResult,
-} from "./simple";
+} from "@shared/utils/projection-simple";
 import {
   generateAdvancedProjection,
   AdvancedProjectionInput,
-} from "./advanced";
-import { assetValues, userAssets } from "@server/db/schema";
-import { desc, eq, getTableColumns, sql } from "drizzle-orm";
+} from "./projection-advanced";
+//import { assetValues, userAssets } from "@server/db/schema";
+//import { desc, eq, getTableColumns, sql } from "drizzle-orm";
 
 // ============================================================================
 // PROJECTION ORCHESTRATOR
 // ============================================================================
-
-/**
- * Input for orchestrating projections
- */
-export interface ProjectionOrchestratorInput {
-  assets: UserAsset[];
-  recurringContributions: RecurringContribution[]; // All contributions for all assets
-  config: ProjectionConfig;
-  db: Database;
-  milestoneTarget?: MilestoneTarget;
-}
 
 /**
  * Result from orchestrator
@@ -51,10 +43,11 @@ export interface ProjectionOrchestratorResult extends ProjectionResult {
  * Project a single asset
  */
 async function projectSingleAsset(
-  asset: UserAsset,
+  asset: ProjectionOrhesratorAssetInput,
   assetContributions: RecurringContribution[],
-  config: ProjectionConfig,
-  db: Database
+  config: ProjectionConfigWithDateRange
+  //db: Database
+  //dataSource: ProjectionDataSource
 ): Promise<AssetProjection> {
   const modifierChain = createModifierChain(config.modifiers);
 
@@ -70,16 +63,17 @@ async function projectSingleAsset(
     };
     result = generateSimpleProjection(input);
   } else {
-    const input: AdvancedProjectionInput = {
-      assetId: asset.id,
-      currentValue: asset.currentValue,
-      currentDate: new Date(),
-      recurringContributions: assetContributions,
-      config,
-      modifierChain,
-      db,
-    };
-    result = await generateAdvancedProjection(input);
+    throw new Error("Advanced projection not implemented");
+    // const input: AdvancedProjectionInput = {
+    //   assetId: asset.id,
+    //   currentValue: asset.currentValue,
+    //   currentDate: new Date(),
+    //   recurringContributions: assetContributions,
+    //   config,
+    //   modifierChain,
+    //   db,
+    // };
+    // result = await generateAdvancedProjection(input);
   }
 
   return {
@@ -221,8 +215,9 @@ function calculateMilestoneProgress(
  */
 export async function orchestrateProjection(
   input: ProjectionOrchestratorInput
+  //dataSource: ProjectionDataSource
 ): Promise<ProjectionOrchestratorResult> {
-  const { assets, recurringContributions, config, db, milestoneTarget } = input;
+  const { assets, recurringContributions, config, milestoneTarget } = input;
 
   // Filter assets by milestone account type if specified
   let assetsToProject = assets;
@@ -250,8 +245,8 @@ export async function orchestrateProjection(
       const projection = await projectSingleAsset(
         asset,
         assetContributions,
-        config,
-        db
+        config
+        //db
       );
 
       assetProjections.push(projection);
@@ -313,29 +308,34 @@ export async function orchestrateProjection(
 /**
  * Project a single asset by ID
  */
-export async function projectAssetById(
+export async function projectAsset(
   assetId: string,
-  config: ProjectionConfig,
-  db: Database
+  config: ProjectionConfigWithDateRange,
+  dataSource: ProjectionDataSource
 ): Promise<ProjectionResult> {
-  const asset = await db.query.userAssets.findFirst({
-    where: (userAssets, { eq }) => eq(userAssets.id, assetId),
-  });
+  const asset = await dataSource.getAssetById(assetId);
+  const recurringContributions = await dataSource.getContributionsForAssets([
+    assetId,
+  ]);
+
+  // const asset = await db.query.userAssets.findFirst({
+  //   where: (userAssets, { eq }) => eq(userAssets.id, assetId),
+  // });
 
   if (!asset) {
     throw new Error(`Asset ${assetId} not found`);
   }
 
-  const contributions = await db.query.recurringContributions.findMany({
-    where: (recurringContributions, { eq }) =>
-      eq(recurringContributions.assetId, assetId),
-  });
+  // const contributions = await db.query.recurringContributions.findMany({
+  //   where: (recurringContributions, { eq }) =>
+  //     eq(recurringContributions.assetId, assetId),
+  // });
 
   return orchestrateProjection({
     assets: [asset],
-    recurringContributions: contributions,
+    recurringContributions,
     config,
-    db,
+    //db,
   });
 }
 
@@ -343,49 +343,36 @@ export async function projectAssetById(
  * Project entire portfolio for a user
  */
 export async function projectPortfolio(
-  userAccountId: string,
-  config: ProjectionConfig,
-  db: Database,
+  //assets: ProjectionOrhesratorAssetInput[],
+  config: ProjectionConfigWithDateRange,
+  dataSource: ProjectionDataSource,
   milestoneTarget?: MilestoneTarget
 ): Promise<ProjectionResult> {
   // Use LATERAL join to efficiently get only the latest value per asset
   // This only fetches one row per asset instead of ranking all values
-  const assets = await db
-    .select({
-      ...getTableColumns(userAssets),
-      currentValue: sql<number>`COALESCE(latest_value.value, ${userAssets.currentValue})`,
-    })
-    .from(userAssets)
-    .leftJoin(
-      sql`LATERAL (
-        SELECT ${assetValues.value}, ${assetValues.valueDate}
-        FROM ${assetValues}
-        WHERE ${assetValues.assetId} = ${userAssets.id}
-        ORDER BY ${assetValues.valueDate} DESC
-        LIMIT 1
-      ) AS latest_value`,
-      sql`true`
-    )
-    .where(eq(userAssets.userAccountId, userAccountId));
 
-  if (assets.length === 0) {
-    throw new Error("No assets found for user");
-  }
+  // if (assets.length === 0) {
+  //   throw new Error("No assets found for user");
+  // }
 
-  const contributions = await db.query.recurringContributions.findMany({
-    where: (recurringContributions, { inArray }) =>
-      inArray(
-        recurringContributions.assetId,
-        assets.map((a) => a.id)
-      ),
-  });
+  // const contributions = await db.query.recurringContributions.findMany({
+  //   where: (recurringContributions, { inArray }) =>
+  //     inArray(
+  //       recurringContributions.assetId,
+  //       assets.map((a) => a.id)
+  //     ),
+  // });
+
+  const assets = await dataSource.getAssets();
+  const contributions = await dataSource.getContributionsForAssets(
+    assets.map((a) => a.id)
+  );
 
   return orchestrateProjection({
     assets,
     recurringContributions: contributions,
     config,
-    db,
+    //db,
     milestoneTarget,
   });
 }
-
