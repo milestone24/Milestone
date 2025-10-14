@@ -38,7 +38,7 @@ import {
 } from "@/lib/broker";
 import BrokerLogoBoxed from "@/components/logo/BrokerLogoBoxed";
 import { getPlatformName } from "@/lib/platform";
-import { usePortfolio as usePortfolioNew } from "@/hooks/use-portfolio";
+import { usePortfolioTransactionHistory } from "@/hooks/use-portfolio-transactions";
 import { CombinedDayTimePointBase } from "shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { getDateUrlParams } from "@/lib/date";
@@ -122,8 +122,10 @@ function Portfolio() {
         })
       : [];
 
-  const { portfolioTransactions } = usePortfolioNew(startDate, endDate);
-  const { data: transactionHistoryData = [] } = portfolioTransactions;
+  const { data: transactionHistoryData = [] } = usePortfolioTransactionHistory(
+    startDate,
+    endDate
+  );
 
   const transactionChartData: CombinedDayTimePointBase[] =
     transactionHistoryData && transactionHistoryData.length > 0

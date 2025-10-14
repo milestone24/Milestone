@@ -4,8 +4,11 @@ import { TransactionTimePoint } from "@shared/schema";
 import { getDateUrlParams } from "@/lib/date";
 import { portfolioGraphTransactions } from "@shared/api/queryKeys";
 
-export const usePortfolio = (startDate?: Date, endDate?: Date) => {
-  const portfolioTransactions = useQuery({
+export const usePortfolioTransactionHistory = (
+  startDate?: Date,
+  endDate?: Date
+) =>
+  useQuery({
     queryKey: [...portfolioGraphTransactions, startDate, endDate],
     queryFn: () => {
       return apiRequest<TransactionTimePoint[]>(
@@ -17,8 +20,3 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
       );
     },
   });
-
-  return {
-    portfolioTransactions,
-  };
-};
