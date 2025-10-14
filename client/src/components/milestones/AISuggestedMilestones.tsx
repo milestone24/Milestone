@@ -9,13 +9,15 @@ import {
   SuggestedMilestone,
 } from "@/lib/utils/milestones";
 import { useToast } from "@/hooks/use-toast";
+import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
 
 // Define AccountType directly here as well to avoid type issues
 type AccountType = "ISA" | "SIPP" | "LISA" | "GIA";
 
 export default function AISuggestedMilestones() {
-  const { assets, milestones, addMilestone, isLoading, portfolioOverview } =
-    usePortfolio();
+  const { assets, milestones, addMilestone, isLoading } = usePortfolio();
+
+  const { data: portfolioOverview } = usePortfolioOverview();
 
   const [generatingSuggestions, setGeneratingSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<SuggestedMilestone[]>([]);

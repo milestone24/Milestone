@@ -3,7 +3,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { usePortfolio } from "@/context/PortfolioContext";
 import { calculateOnTrackStatus } from "@shared/utils/tracking";
 import TrackChart from "@/components/charts/TrackChart";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
@@ -11,7 +10,8 @@ import { useFireSettings } from "@/hooks/use-fire-settings";
 import { usePatchFireSettings } from "@/hooks/use-patch-fire-settings";
 
 export default function Track() {
-  const { portfolioOverview, isLoading } = usePortfolio();
+
+  const { data: portfolioOverview } = usePortfolioOverview();
 
   const { data: fireSettings } = useFireSettings();
   const { mutateAsync: updateFireSettings } = usePatchFireSettings();

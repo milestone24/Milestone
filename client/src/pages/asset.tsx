@@ -67,7 +67,6 @@ import {
 } from "@/components/ui/DateRangeControl";
 import { SecuritiesTransactionsPanel } from "@/components/account/SecuritiesTransactionsPanel";
 import { useAsset } from "@/hooks/use-asset";
-import { usePortfolio as usePortfolioNew } from "@/hooks/use-portfolio";
 import { getDateUrlParams } from "@/lib/date";
 import { useAssetTransactions } from "@/hooks/use-asset-transactions";
 import { AssetSecuritiesProvider } from "@/context/AssetSecuritiesContext";

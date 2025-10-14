@@ -41,7 +41,6 @@ export type PortfolioContextType = {
   assets: UserAsset[];
   milestones: Milestone[];
   activeSection: string;
-  portfolioOverview: AssetsChange;
 };
 
 type UserAssetUpdate = UserAssetOrphanInsert & {
@@ -75,14 +74,6 @@ export const PortfolioProvider = ({ children }: { children: ReactNode }) => {
     assets: [],
     milestones: [],
     activeSection: "portfolio",
-    portfolioOverview: {
-      value: 0,
-      currentChange: 0,
-      currentChangePercentage: 0,
-      startValue: 0,
-      startDate: new Date(),
-      endDate: new Date(),
-    },
   };
 
   return (
@@ -174,23 +165,6 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
       ? async () => apiRequest("GET", milestonesQueryKey[0] ?? "")
       : skipToken,
   });
-
-  // Fetch total portfolio value
-  const { data: portfolioOverview, isLoading: isLoadingPortfolioOverview } =
-    useQuery<AssetsChange>({
-      queryKey: ["/api/assets/portfolio-value", startDate, endDate],
-      queryFn: apiEnabled
-        ? async () =>
-            await apiRequest(
-              "GET",
-              `/api/assets/portfolio-value?${getDateUrlParams(
-                startDate,
-                endDate
-              )}`
-            )
-        : skipToken,
-    });
-
   // Mutations for assets
   const addAsset = useMutation<UserAsset, Error, UserAssetOrphanInsert>({
     mutationFn: (newAsset) =>
@@ -577,8 +551,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     }
   }, [isAssetsError, isMilestonesError]);
 
-  const isLoading =
-    isLoadingAssets || isLoadingMilestones || isLoadingPortfolioOverview;
+  const isLoading = isLoadingAssets || isLoadingMilestones;
 
   return {
     ...context,
@@ -598,6 +571,5 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     isLoading,
     assets,
     milestones,
-    portfolioOverview,
   };
 };

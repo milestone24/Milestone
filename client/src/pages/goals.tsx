@@ -48,6 +48,7 @@ import { useSession } from "@/context/SessionContext";
 import { EditMilestoneDialog } from "@/components/milestones/EditMilestoneDialog";
 import { Milestone, MilestoneOrphanInsert, AccountType } from "shared/schema";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
 
 // Form schema for adding a new milestone
 const milestoneSchema = z.object({
@@ -61,14 +62,10 @@ const milestoneSchema = z.object({
 });
 
 export default function Goals() {
-  const {
-    assets,
-    milestones,
-    portfolioOverview,
-    addMilestone,
-    deleteMilestone,
-    isLoading,
-  } = usePortfolio();
+  const { assets, milestones, addMilestone, deleteMilestone, isLoading } =
+    usePortfolio();
+
+  const { data: portfolioOverview } = usePortfolioOverview();
 
   const { user } = useSession();
 

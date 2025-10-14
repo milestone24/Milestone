@@ -43,6 +43,7 @@ import { CombinedDayTimePointBase } from "shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { getDateUrlParams } from "@/lib/date";
 import { portfolioGraphValues } from "@shared/api/queryKeys";
+import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
 
 function Portfolio() {
   const { dateRange } = useDateRange();
@@ -55,14 +56,12 @@ function Portfolio() {
     useBrokerPlatforms();
 
   const [, setLocation] = useLocation();
-  const {
-    assets,
-    milestones,
-    deleteAsset,
-    isLoading,
-    addAsset,
-    portfolioOverview,
-  } = usePortfolio(startDate, endDate);
+  const { assets, milestones, deleteAsset, isLoading, addAsset } = usePortfolio(
+    startDate,
+    endDate
+  );
+
+  const { data: portfolioOverview } = usePortfolioOverview(startDate, endDate);
 
   const { toast } = useToast();
 

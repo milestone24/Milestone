@@ -20,10 +20,9 @@ import { calculateAge } from "@shared/utils/tracking";
 import { useFireSettings } from "@/hooks/use-fire-settings";
 import { usePatchFireSettings } from "@/hooks/use-patch-fire-settings";
 import { useCreateFireSettings } from "@/hooks/use-create-fire-settings";
+import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
 
 export default function Fire() {
-  const { portfolioOverview } = usePortfolio();
-
   const { toast } = useToast();
 
   const { user } = useSession();
@@ -39,6 +38,10 @@ export default function Fire() {
     interval: "yearly",
     modifiers: [],
   });
+
+  const { data: portfolioOverview } = usePortfolioOverview();
+  //currentProjection?.startDate,
+  //currentProjection?.endDate
 
   const { data: fireSettings, isLoading: isLoadingFireSettings } =
     useFireSettings();
