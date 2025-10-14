@@ -15,7 +15,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 import {
   Milestone,
-  FireSettings,
   SessionUser,
   UserAsset,
   UserAssetOrphanInsert,
@@ -25,10 +24,8 @@ import {
   AssetTransaction,
   AssetContributionInsert,
   MilestoneOrphanInsert,
-  FireSettingsInsert,
   UserAssetWithHistoryAndAccountChange,
   MilestoneInsert,
-  FireSettingsOrphan,
 } from "@shared/schema";
 import { getEndpointPathWithUserId } from "@/lib/user";
 import { useSession } from "@/hooks/use-session";
@@ -43,7 +40,6 @@ import {
 export type PortfolioContextType = {
   assets: UserAsset[];
   milestones: Milestone[];
-  fireSettings: FireSettings | null;
   activeSection: string;
   portfolioOverview: AssetsChange;
 };
@@ -69,10 +65,6 @@ type MilestoneUpdate = MilestoneOrphanInsert & {
   id: Milestone["id"];
 };
 
-type FireSettingsUpdate = FireSettingsInsert & {
-  id: FireSettings["id"];
-};
-
 // Create the context
 const PortfolioContext = createContext<PortfolioContextType | undefined>(
   undefined
@@ -82,7 +74,6 @@ export const PortfolioProvider = ({ children }: { children: ReactNode }) => {
   const value: PortfolioContextType = {
     assets: [],
     milestones: [],
-    fireSettings: null,
     activeSection: "portfolio",
     portfolioOverview: {
       value: 0,
@@ -129,9 +120,6 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
   )(user);
 
   const milestonesQueryKey = getAuthQueryKey(["/api/milestones/user/{userId}"]);
-  const fireSettingsQueryKey = getAuthQueryKey([
-    "/api/fire-settings/user/{userId}",
-  ]);
 
   const invalidateAccounts = useCallback(() => {
     queryClient.invalidateQueries({
@@ -159,10 +147,6 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     queryClient.invalidateQueries({ queryKey: milestonesQueryKey });
   }, [milestonesQueryKey]);
 
-  const invalidateFireSettings = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: fireSettingsQueryKey });
-  }, [fireSettingsQueryKey]);
-
   // Fetch assets
   const {
     data: assets = [],
@@ -188,18 +172,6 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     queryKey: milestonesQueryKey,
     queryFn: apiEnabled
       ? async () => apiRequest("GET", milestonesQueryKey[0] ?? "")
-      : skipToken,
-  });
-
-  // Fetch FIRE settings
-  const {
-    data: fireSettings,
-    isLoading: isLoadingFireSettings,
-    isError: isFireSettingsError,
-  } = useQuery<FireSettings>({
-    queryKey: fireSettingsQueryKey,
-    queryFn: apiEnabled
-      ? async () => apiRequest("GET", fireSettingsQueryKey[0] ?? "")
       : skipToken,
   });
 
@@ -584,65 +556,6 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     },
   });
 
-  const createFireSettings = useMutation<
-    FireSettings,
-    Error,
-    FireSettingsOrphan
-  >({
-    mutationFn: (settings) => {
-      if (!user?.account.id) {
-        throw new Error("User account ID is required");
-      }
-      const processedSettings: FireSettingsInsert = {
-        ...settings,
-        userAccountId: user.account.id,
-      };
-
-      return apiRequest("POST", "/api/fire-settings", processedSettings);
-    },
-    onSuccess: () => {
-      invalidateFireSettings();
-      toast({
-        title: "FIRE settings created",
-        description:
-          "Your retirement planning settings have been created successfully.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error creating FIRE settings",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateFireSettings = useMutation<
-    FireSettings,
-    Error,
-    FireSettingsOrphan
-  >({
-    mutationFn: (settings) =>
-      apiRequest("PATCH", "/api/fire-settings", settings),
-    onSuccess: () => {
-      invalidateFireSettings();
-      toast({
-        title: "FIRE settings updated",
-        description:
-          "Your retirement planning settings have been updated successfully.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error updating FIRE settings",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    },
-  });
-
   // Check for errors and show notifications
   useEffect(() => {
     if (isAssetsError) {
@@ -662,22 +575,10 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
         variant: "destructive",
       });
     }
-
-    if (isFireSettingsError) {
-      toast({
-        title: "Failed to load FIRE settings",
-        description:
-          "There was an error loading your retirement settings. Please try again.",
-        variant: "destructive",
-      });
-    }
-  }, [isAssetsError, isMilestonesError, isFireSettingsError]);
+  }, [isAssetsError, isMilestonesError]);
 
   const isLoading =
-    isLoadingAssets ||
-    isLoadingMilestones ||
-    isLoadingFireSettings ||
-    isLoadingPortfolioOverview;
+    isLoadingAssets || isLoadingMilestones || isLoadingPortfolioOverview;
 
   return {
     ...context,
@@ -694,12 +595,9 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     addMilestone,
     deleteMilestone,
     updateMilestone,
-    updateFireSettings,
-    createFireSettings,
     isLoading,
     assets,
     milestones,
-    fireSettings,
     portfolioOverview,
   };
 };

@@ -29,6 +29,9 @@ export const assetSecuritiesTransactions = [
 ];
 export const processes = ["processes"];
 
+// Fire settings query keys
+export const fireSettings = ["fire-settings"];
+
 // Projection query keys
 export const assetProjection = ["projections", "asset"];
 export const portfolioProjection = ["projections", "portfolio"];
@@ -36,3 +39,4 @@ export const milestoneProjection = ["projections", "milestone"];
 export const milestonesProjection = ["projections", "milestones"];
 export const fireProjection = ["projections", "fire"];
 export const fireCustomProjection = ["projections", "fire", "custom"];
+

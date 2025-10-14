@@ -6,10 +6,15 @@ import { Label } from "@/components/ui/label";
 import { usePortfolio } from "@/context/PortfolioContext";
 import { calculateOnTrackStatus } from "@shared/utils/tracking";
 import TrackChart from "@/components/charts/TrackChart";
+import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
+import { useFireSettings } from "@/hooks/use-fire-settings";
+import { usePatchFireSettings } from "@/hooks/use-patch-fire-settings";
 
 export default function Track() {
-  const { portfolioOverview, fireSettings, updateFireSettings, isLoading } =
-    usePortfolio();
+  const { portfolioOverview, isLoading } = usePortfolio();
+
+  const { data: fireSettings } = useFireSettings();
+  const { mutateAsync: updateFireSettings } = usePatchFireSettings();
 
   // Default values if fireSettings is not loaded yet
   const defaultSettings = {
@@ -52,7 +57,7 @@ export default function Track() {
     if (!fireSettings) return;
 
     try {
-      await updateFireSettings.mutateAsync({
+      await updateFireSettings({
         targetRetirementAge: formState.retirementAge,
         // Calculate annual income goal based on target amount and withdrawal rate
         annualIncomeGoal: (

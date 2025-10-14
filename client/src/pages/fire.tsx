@@ -17,15 +17,13 @@ import { FireSettingsInsert } from "shared/schema";
 import { useSession } from "@/hooks/use-session";
 import { usePortfolioWithFIREProjection } from "@/hooks/use-projections";
 import { calculateAge } from "@shared/utils/tracking";
+import { useFireSettings } from "@/hooks/use-fire-settings";
+import { usePatchFireSettings } from "@/hooks/use-patch-fire-settings";
+import { useCreateFireSettings } from "@/hooks/use-create-fire-settings";
 
 export default function Fire() {
-  const {
-    fireSettings,
-    updateFireSettings,
-    isLoading,
-    createFireSettings,
-    portfolioOverview,
-  } = usePortfolio();
+  const { portfolioOverview } = usePortfolio();
+
   const { toast } = useToast();
 
   const { user } = useSession();
@@ -41,6 +39,11 @@ export default function Fire() {
     interval: "yearly",
     modifiers: [],
   });
+
+  const { data: fireSettings, isLoading: isLoadingFireSettings } =
+    useFireSettings();
+  const { mutateAsync: updateFireSettings } = usePatchFireSettings();
+  const { mutateAsync: createFireSettings } = useCreateFireSettings();
 
   //This will be the idea.
   //That we build a tool that can used on the
@@ -170,7 +173,7 @@ export default function Fire() {
       Number(formState.monthlyInvestment) + adjustment;
 
     try {
-      await updateFireSettings.mutateAsync({
+      await updateFireSettings({
         monthlyInvestment: newMonthlyInvestment.toString(),
         targetRetirementAge: fireSettings.targetRetirementAge,
         annualIncomeGoal: fireSettings.annualIncomeGoal,
@@ -205,9 +208,9 @@ export default function Fire() {
 
     try {
       if (!fireSettings) {
-        await createFireSettings.mutateAsync(settings);
+        await createFireSettings(settings);
       } else {
-        await updateFireSettings.mutateAsync(settings);
+        await updateFireSettings(settings);
       }
       toast({
         title: "Settings saved",
