@@ -1,10 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { usePortfolio } from "@/context/PortfolioContext";
 import {
   calculateFireNumber,
@@ -15,14 +11,37 @@ import {
 } from "@shared/utils/tracking";
 import FireChart from "@/components/charts/FireChart";
 import { useToast } from "@/hooks/use-toast";
-import { FireSettingsInsert, ProjectionModifier } from "shared/schema";
+import {
+  DEFAULT_STATE_PENSION_AGE,
+  DEFAULT_TARGET_RETIREMENT_AGE,
+  FireSettingsInsert,
+  fireSettingsInsertSchema,
+  fireSettingsOrphanSchema,
+  ProjectionModifier,
+} from "@shared/schema";
 import { useSession } from "@/hooks/use-session";
 import { usePortfolioWithFIREProjection } from "@/hooks/use-projections";
 import { calculateAge } from "@shared/utils/tracking";
 import { useFireSettings } from "@/hooks/use-fire-settings";
-import { usePatchFireSettings } from "@/hooks/use-patch-fire-settings";
-import { useCreateFireSettings } from "@/hooks/use-create-fire-settings";
+import { usePatchFireSettings } from "@/hooks/use-fire-settings-patch";
+import { useCreateFireSettings } from "@/hooks/use-fire-settings-create";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
+import { useForm, FormProvider } from "react-hook-form";
+import { FireSettingsForm } from "@/components/fire/FireSettingsForm";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+// Calculate UK State Pension age based on date of birth
+const calculateStatePensionAge = (
+  dob: string | Date | null | undefined
+): number => {
+  if (!dob) return DEFAULT_STATE_PENSION_AGE;
+
+  const dobDate = typeof dob === "string" ? new Date(dob) : dob;
+  const cutoffDate = new Date("1960-04-06");
+
+  // Born before April 6, 1960 → 66, otherwise → 67
+  return dobDate < cutoffDate ? 66 : 67;
+};
 
 export default function Fire() {
   const { toast } = useToast();
@@ -30,6 +49,7 @@ export default function Fire() {
   const { user } = useSession();
 
   const currentAge = user?.profile.dob ? calculateAge(user.profile.dob) : NaN;
+  const statePensionAge = calculateStatePensionAge(user?.profile.dob);
 
   const { data: portfolioOverview } = usePortfolioOverview();
 
@@ -38,87 +58,67 @@ export default function Fire() {
   const { mutateAsync: updateFireSettings } = usePatchFireSettings();
   const { mutateAsync: createFireSettings } = useCreateFireSettings();
 
-  //This will be the idea.
-  //That we build a tool that can used on the
-  // const projection = createProjection(currentProjection)
-  //   .adjustMonthlyInvestment(formState.monthlyInvestment)
-  //   .adjustTargetRetirementAge(formState.targetRetirementAge)
-  //   .adjustAnnualIncome(formState.annualIncome)
-  //   .adjustExpectedReturn(formState.expectedReturn)
-  //   .adjustWithdrawalRate(formState.withdrawalRate)
-  //   .adjustAdjustInflation(formState.adjustInflation)
-  //   .adjustStatePensionAge(formState.statePensionAge)
-
-  //console.log("projection", projection);
-
-  // Default values if fireSettings is not loaded yet
-  const defaultSettings: Omit<FireSettingsInsert, "id" | "userAccountId"> & {
-    statePensionAge: number;
-  } = {
-    targetRetirementAge: 60,
-    annualIncomeGoal: "48000",
-    expectedAnnualReturn: "7",
-    safeWithdrawalRate: "4",
-    monthlyInvestment: "300",
-    currentAge,
-    adjustInflation: true,
-    statePensionAge: 66,
-  };
-
-  // Form state with defaults
-  const [formState, setFormState] = useState<{
-    annualIncome: number;
-    expectedReturn: number;
-    withdrawalRate: number;
-    monthlyInvestment: number;
-    targetRetirementAge: number;
-    adjustInflation: boolean;
-    statePensionAge: number;
-  }>({
-    annualIncome:
-      Number(fireSettings?.annualIncomeGoal) ||
-      Number(defaultSettings.annualIncomeGoal),
-    expectedReturn:
-      Number(fireSettings?.expectedAnnualReturn) ||
-      Number(defaultSettings.expectedAnnualReturn),
-    withdrawalRate:
-      Number(fireSettings?.safeWithdrawalRate) ||
-      Number(defaultSettings.safeWithdrawalRate),
-    monthlyInvestment:
-      Number(fireSettings?.monthlyInvestment) ||
-      Number(defaultSettings.monthlyInvestment),
-    targetRetirementAge:
-      Number(fireSettings?.targetRetirementAge) ||
-      Number(defaultSettings.targetRetirementAge),
-    adjustInflation:
-      fireSettings?.adjustInflation !== undefined
-        ? Boolean(fireSettings.adjustInflation)
-        : true,
-    statePensionAge:
-      Number(fireSettings?.statePensionAge) ||
-      Number(defaultSettings.statePensionAge),
+  // Single form instance for the entire page
+  const form = useForm<FireSettingsInsert>({
+    resolver: zodResolver(fireSettingsOrphanSchema),
+    defaultValues: {
+      annualIncomeGoal: "",
+      expectedAnnualReturn: "7",
+      safeWithdrawalRate: "4",
+      monthlyInvestment: "",
+      targetRetirementAge: DEFAULT_TARGET_RETIREMENT_AGE,
+      statePensionAge: statePensionAge,
+      adjustInflation: true,
+    },
   });
 
-  // Update form state when fireSettings loads
+  const { formState, handleSubmit } = form;
+
+  const errors = formState.errors;
+  console.log("errors", errors);
+
+  const isValid = formState.isValid;
+  console.log("isValid", isValid);
+
+  const isSubmitting = formState.isSubmitting;
+  console.log("isSubmitting", isSubmitting);
+
+  // Watch values for calculations
+  const watchedValues = form.watch();
+
+  // Convert watched values to the format used for calculations
+  //TODO remove this eventually
+  const tempFormState = {
+    annualIncome: Number(watchedValues.annualIncomeGoal),
+    expectedReturn: Number(watchedValues.expectedAnnualReturn),
+    withdrawalRate: Number(watchedValues.safeWithdrawalRate),
+    monthlyInvestment: Number(watchedValues.monthlyInvestment),
+    targetRetirementAge: Number(watchedValues.targetRetirementAge),
+    adjustInflation: watchedValues.adjustInflation ?? true,
+    statePensionAge: Number(watchedValues.statePensionAge),
+  };
+
+  // Update form when fireSettings loads
   useEffect(() => {
     if (fireSettings) {
-      setFormState({
-        annualIncome: Number(fireSettings.annualIncomeGoal),
-        expectedReturn: Number(fireSettings.expectedAnnualReturn),
-        withdrawalRate: Number(fireSettings.safeWithdrawalRate),
-        monthlyInvestment: Number(fireSettings.monthlyInvestment),
-        targetRetirementAge: Number(fireSettings.targetRetirementAge),
-        adjustInflation:
-          fireSettings.adjustInflation !== undefined
-            ? Boolean(fireSettings.adjustInflation)
-            : true,
-        statePensionAge:
-          fireSettings.statePensionAge !== undefined
-            ? Number(fireSettings.statePensionAge)
-            : defaultSettings.statePensionAge,
+      form.reset({
+        ...fireSettings,
+        // Money fields: strip trailing zeros for cleaner display
+        annualIncomeGoal: parseFloat(fireSettings.annualIncomeGoal).toString(),
+        monthlyInvestment: parseFloat(
+          fireSettings.monthlyInvestment
+        ).toString(),
+        // Percentage fields: retain 2 decimal places
+        expectedAnnualReturn: parseFloat(
+          fireSettings.expectedAnnualReturn
+        ).toFixed(2),
+        safeWithdrawalRate: parseFloat(fireSettings.safeWithdrawalRate).toFixed(
+          2
+        ),
+        statePensionAge: statePensionAge, // Always use calculated value based on DOB
       });
     }
-  }, [fireSettings, defaultSettings.statePensionAge]);
+  }, [fireSettings, form, statePensionAge]);
 
   const mod: ProjectionModifier = {
     type: "contribution_scaler",
@@ -127,7 +127,7 @@ export default function Fire() {
     description: "Contribution Scaler",
   };
 
-  const modifiers: ProjectionModifier[] = formState.adjustInflation
+  const modifiers: ProjectionModifier[] = tempFormState.adjustInflation
     ? [
         {
           type: "inflation",
@@ -149,7 +149,7 @@ export default function Fire() {
 
   const { fireProgress } = currentProjection ?? {};
 
-  console.log("currentProjection", currentProjection);
+  //console.log("currentProjection", currentProjection);
 
   // Calculate FIRE number based on desired income and withdrawal rate
   // const fireNumber = calculateFireNumber(
@@ -169,8 +169,8 @@ export default function Fire() {
 
   const fireProjectionResult = calculateFireProjection({
     currentAmount: portfolioOverview?.value ?? 0,
-    monthlyInvestment: formState.monthlyInvestment,
-    expectedReturn: formState.expectedReturn,
+    monthlyInvestment: tempFormState.monthlyInvestment,
+    expectedReturn: tempFormState.expectedReturn,
     targetAmount: fireNumber,
     currentAge,
   });
@@ -178,8 +178,8 @@ export default function Fire() {
   const fpr2: FireProjectionResult = {
     config: {
       currentAmount: portfolioOverview?.value ?? 0,
-      monthlyInvestment: formState.monthlyInvestment,
-      expectedReturn: formState.expectedReturn,
+      monthlyInvestment: tempFormState.monthlyInvestment,
+      expectedReturn: tempFormState.expectedReturn,
       targetAmount: fireNumber,
       currentAge,
     },
@@ -195,18 +195,18 @@ export default function Fire() {
   // Calculate the impact of changing monthly investment
   const increaseImpact = calculateContributionImpact({
     currentAmount: portfolioOverview?.value ?? 0,
-    currentMonthlyInvestment: formState.monthlyInvestment,
-    newMonthlyInvestment: formState.monthlyInvestment + 100,
-    expectedReturn: formState.expectedReturn,
+    currentMonthlyInvestment: tempFormState.monthlyInvestment,
+    newMonthlyInvestment: tempFormState.monthlyInvestment + 100,
+    expectedReturn: tempFormState.expectedReturn,
     targetAmount: fireNumber,
     currentAge,
   });
 
   const decreaseImpact = calculateContributionImpact({
     currentAmount: portfolioOverview?.value ?? 0,
-    currentMonthlyInvestment: formState.monthlyInvestment,
-    newMonthlyInvestment: formState.monthlyInvestment - 100,
-    expectedReturn: formState.expectedReturn,
+    currentMonthlyInvestment: tempFormState.monthlyInvestment,
+    newMonthlyInvestment: tempFormState.monthlyInvestment - 100,
+    expectedReturn: tempFormState.expectedReturn,
     targetAmount: fireNumber,
     currentAge,
   });
@@ -215,44 +215,30 @@ export default function Fire() {
   const projectedRetirementAge = Math.round(currentAge + yearsToFire);
 
   // Handle adjusting the monthly investment
+  //This should not modify the fire settings imediately, it should show a preview
+  //of the potential change
   const handleAdjustInvestment = async (adjustment: number) => {
     if (!fireSettings) return;
 
-    const newMonthlyInvestment =
-      Number(formState.monthlyInvestment) + adjustment;
+    const currentMonthlyInvestment = Number(watchedValues.monthlyInvestment);
+    const newMonthlyInvestment = currentMonthlyInvestment + adjustment;
 
     try {
       await updateFireSettings({
+        ...watchedValues,
         monthlyInvestment: newMonthlyInvestment.toString(),
-        targetRetirementAge: fireSettings.targetRetirementAge,
-        annualIncomeGoal: fireSettings.annualIncomeGoal,
-        expectedAnnualReturn: fireSettings.expectedAnnualReturn,
-        safeWithdrawalRate: fireSettings.safeWithdrawalRate,
-        currentAge,
-        adjustInflation: fireSettings.adjustInflation,
-        statePensionAge: fireSettings.statePensionAge,
       });
 
-      setFormState((prev) => ({
-        ...prev,
-        monthlyInvestment: newMonthlyInvestment,
-      }));
+      form.setValue("monthlyInvestment", newMonthlyInvestment.toString());
     } catch (error) {
       console.error("Error updating monthly investment:", error);
     }
   };
 
   // Handle form submission
-  const handleSaveSettings = async () => {
+  const handleSaveSettings = form.handleSubmit(async (data) => {
     const settings: Omit<FireSettingsInsert, "id" | "userAccountId"> = {
-      targetRetirementAge: formState.targetRetirementAge,
-      annualIncomeGoal: formState.annualIncome.toString(),
-      expectedAnnualReturn: formState.expectedReturn.toString(),
-      safeWithdrawalRate: formState.withdrawalRate.toString(),
-      monthlyInvestment: formState.monthlyInvestment.toString(),
-      currentAge,
-      adjustInflation: formState.adjustInflation,
-      statePensionAge: formState.statePensionAge,
+      ...data,
     };
 
     try {
@@ -274,28 +260,7 @@ export default function Fire() {
         variant: "destructive",
       });
     }
-  };
-
-  // Handle input changes
-  const handleInputChange = (
-    field: keyof typeof formState,
-    value: string | boolean
-  ) => {
-    if (typeof value === "boolean") {
-      setFormState((prev) => ({
-        ...prev,
-        [field]: value,
-      }));
-    } else {
-      const numValue = parseFloat(value);
-      if (!isNaN(numValue)) {
-        setFormState((prev) => ({
-          ...prev,
-          [field]: numValue,
-        }));
-      }
-    }
-  };
+  });
 
   // If no FIRE settings exist, show initial setup
   if (!fireSettings) {
@@ -312,130 +277,17 @@ export default function Fire() {
               independence.
             </p>
 
-            <div className="space-y-4">
-              <div>
-                <Label
-                  htmlFor="annual-income"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+            <FormProvider {...form}>
+              <form onSubmit={handleSaveSettings} className="space-y-4">
+                <FireSettingsForm />
+                <Button
+                  type="submit"
+                  className="w-full bg-primary text-white py-2 rounded-lg font-medium mt-4"
                 >
-                  Desired Annual Income in Retirement
-                </Label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500">£</span>
-                  </div>
-                  <Input
-                    id="annual-income"
-                    type="number"
-                    className="pl-7"
-                    value={formState.annualIncome}
-                    onChange={(e) =>
-                      handleInputChange("annualIncome", e.target.value)
-                    }
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label
-                  htmlFor="expected-return"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Expected Annual Return (%)
-                </Label>
-                <Input
-                  id="expected-return"
-                  type="number"
-                  value={formState.expectedReturn}
-                  onChange={(e) =>
-                    handleInputChange("expectedReturn", e.target.value)
-                  }
-                />
-              </div>
-
-              <div>
-                <Label
-                  htmlFor="withdrawal-rate"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Safe Withdrawal Rate (%)
-                </Label>
-                <Input
-                  id="withdrawal-rate"
-                  type="number"
-                  value={formState.withdrawalRate}
-                  onChange={(e) =>
-                    handleInputChange("withdrawalRate", e.target.value)
-                  }
-                />
-              </div>
-
-              <div>
-                <Label
-                  htmlFor="monthly-investment"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Monthly Investment
-                </Label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500">£</span>
-                  </div>
-                  <Input
-                    id="monthly-investment"
-                    type="number"
-                    className="pl-7"
-                    value={formState.monthlyInvestment}
-                    onChange={(e) =>
-                      handleInputChange("monthlyInvestment", e.target.value)
-                    }
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label className="block text-sm font-medium text-gray-700 mb-2">
-                  UK State Pension Age
-                </Label>
-                <div className="flex flex-col space-y-1">
-                  <ToggleGroup
-                    type="single"
-                    variant="outline"
-                    value={formState.statePensionAge.toString()}
-                    onValueChange={(value) => {
-                      if (value) {
-                        // prevent deselection
-                        handleInputChange("statePensionAge", value);
-                      }
-                    }}
-                  >
-                    <ToggleGroupItem value="66" className="flex-1 text-center">
-                      66
-                      <span className="block text-xs text-gray-500">
-                        Born before April 6, 1960
-                      </span>
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="67" className="flex-1 text-center">
-                      67
-                      <span className="block text-xs text-gray-500">
-                        Born after April 6, 1960
-                      </span>
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                  <p className="text-xs text-gray-500 italic mt-1">
-                    The UK State Pension age is used in retirement planning
-                    calculations
-                  </p>
-                </div>
-              </div>
-
-              <Button
-                className="w-full bg-primary text-white py-2 rounded-lg font-medium mt-4"
-                onClick={handleSaveSettings}
-              >
-                Save FIRE Settings
-              </Button>
-            </div>
+                  Save FIRE Settings
+                </Button>
+              </form>
+            </FormProvider>
           </CardContent>
         </Card>
       </div>
@@ -471,7 +323,7 @@ export default function Fire() {
           {/* Chart */}
           <FireChart
             fireProjectionResult={fireProjectionResult}
-            targetRetirementAge={formState.targetRetirementAge}
+            targetRetirementAge={tempFormState.targetRetirementAge}
             projectedRetirementAge={projectedRetirementAge}
             className="mb-6"
           />
@@ -495,10 +347,10 @@ export default function Fire() {
             </div>
             <div className="flex justify-between items-center mb-1">
               <span className="text-sm text-gray-600">
-                Annual sustainable income ({formState.withdrawalRate}%):
+                Annual sustainable income ({tempFormState.withdrawalRate}%):
               </span>
               <span className="font-medium">
-                £{formState.annualIncome.toLocaleString()}
+                £{tempFormState.annualIncome.toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between items-center mb-1">
@@ -515,146 +367,17 @@ export default function Fire() {
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
             <h3 className="font-medium mb-3">Your FIRE Settings</h3>
 
-            <div className="mb-4">
-              <Label
-                htmlFor="annual-income"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Desired Annual Income
-              </Label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500">£</span>
-                </div>
-                <Input
-                  id="annual-income"
-                  type="number"
-                  className="pl-7"
-                  value={formState.annualIncome}
-                  onChange={(e) =>
-                    handleInputChange("annualIncome", e.target.value)
-                  }
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Your desired annual income in today's money.
-              </p>
-            </div>
-
-            <div className="mb-4">
-              <Label
-                htmlFor="expected-return"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Expected Annual Return (%)
-              </Label>
-              <Input
-                id="expected-return"
-                type="number"
-                value={formState.expectedReturn}
-                onChange={(e) =>
-                  handleInputChange("expectedReturn", e.target.value)
-                }
-              />
-            </div>
-
-            <div className="mb-4">
-              <Label
-                htmlFor="withdrawal-rate"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Safe Withdrawal Rate (%)
-              </Label>
-              <Input
-                id="withdrawal-rate"
-                type="number"
-                value={formState.withdrawalRate}
-                onChange={(e) =>
-                  handleInputChange("withdrawalRate", e.target.value)
-                }
-              />
-            </div>
-
-            <div className="mb-4">
-              <Label
-                htmlFor="target-retirement-age"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Desired Retirement Age
-              </Label>
-              <Input
-                id="target-retirement-age"
-                type="number"
-                value={formState.targetRetirementAge}
-                onChange={(e) =>
-                  handleInputChange("targetRetirementAge", e.target.value)
-                }
-              />
-            </div>
-
-            <div className="mb-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="adjust-inflation"
-                  checked={formState.adjustInflation}
-                  onCheckedChange={(checked) =>
-                    handleInputChange("adjustInflation", checked === true)
-                  }
-                />
-                <Label
-                  htmlFor="adjust-inflation"
-                  className="text-sm cursor-pointer"
+            <FormProvider {...form}>
+              <form onSubmit={handleSaveSettings} className="space-y-4">
+                <FireSettingsForm />
+                <Button
+                  type="submit"
+                  className="w-full bg-primary text-white py-2 rounded-lg font-medium mt-4"
                 >
-                  Adjust for inflation{" "}
-                  <span className="italic font-normal text-gray-500">
-                    (average 2.8% over the past 30 years)
-                  </span>
-                </Label>
-              </div>
-
-              <div className="mt-4">
-                <Label className="block text-sm font-medium text-gray-700 mb-2">
-                  UK State Pension Age
-                </Label>
-                <div className="flex flex-col space-y-1">
-                  <ToggleGroup
-                    type="single"
-                    variant="outline"
-                    value={formState.statePensionAge.toString()}
-                    onValueChange={(value) => {
-                      if (value) {
-                        // prevent deselection
-                        handleInputChange("statePensionAge", value);
-                      }
-                    }}
-                  >
-                    <ToggleGroupItem value="66" className="flex-1 text-center">
-                      66
-                      <span className="block text-xs text-gray-500">
-                        Born before April 6, 1960
-                      </span>
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="67" className="flex-1 text-center">
-                      67
-                      <span className="block text-xs text-gray-500">
-                        Born after April 6, 1960
-                      </span>
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                  <p className="text-xs text-gray-500 italic">
-                    The UK State Pension age is used in retirement planning
-                    calculations
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <Button
-              className="w-full bg-primary text-white py-2 rounded-lg font-medium mt-4"
-              onClick={handleSaveSettings}
-            >
-              Save Settings
-            </Button>
+                  Save Settings
+                </Button>
+              </form>
+            </FormProvider>
           </div>
 
           {/* Adjust Investment */}
@@ -662,26 +385,12 @@ export default function Fire() {
             <h3 className="font-medium mb-3">Adjust Your Investment</h3>
 
             <div className="mb-4">
-              <Label
-                htmlFor="monthly-investment"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <p className="text-sm font-medium text-gray-700 mb-2">
                 Current Monthly Investment
-              </Label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500">£</span>
-                </div>
-                <Input
-                  id="monthly-investment"
-                  type="number"
-                  className="pl-7"
-                  value={formState.monthlyInvestment}
-                  onChange={(e) =>
-                    handleInputChange("monthlyInvestment", e.target.value)
-                  }
-                />
-              </div>
+              </p>
+              <p className="text-2xl font-bold">
+                £{tempFormState.monthlyInvestment.toLocaleString()}
+              </p>
             </div>
 
             <div className="flex space-x-2 mb-4">
@@ -689,7 +398,7 @@ export default function Fire() {
                 variant="outline"
                 className="flex-1 py-2 px-3"
                 onClick={() => handleAdjustInvestment(-100)}
-                disabled={formState.monthlyInvestment <= 100}
+                disabled={tempFormState.monthlyInvestment <= 100}
               >
                 -£100/month
               </Button>

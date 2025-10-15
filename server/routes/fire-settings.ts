@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
-import { fireSettingsInsertSchema } from "@shared/schema";
+import {
+  fireSettingsInsertSchema,
+  fireSettingsOrphanSchema,
+} from "@shared/schema";
 import {
   AuthRequest,
   AuthService,
@@ -52,16 +55,19 @@ export async function registerRoutes(
         }
 
         try {
-          const settingsData = fireSettingsInsertSchema.parse(req.body);
-          const settings = await fireSettingsService.create(settingsData);
-          return settings;
-        } catch (error) {
-          if (error instanceof z.ZodError) {
+          const settingsData = fireSettingsOrphanSchema.safeParse(req.body);
+          if (!settingsData.success) {
             return res.status(400).json({
               message: "Invalid FIRE settings data",
-              errors: error.errors,
+              errors: settingsData.error.errors,
             });
           }
+          const settings = await fireSettingsService.create({
+            ...settingsData.data,
+            userAccountId: tenant.userAccountId,
+          });
+          return settings;
+        } catch (error) {
           res.status(500).json({ message: "Failed to create FIRE settings" });
         }
       }
@@ -81,22 +87,21 @@ export async function registerRoutes(
         }
 
         try {
-          const userAccountId = req.params.userAccountId;
-          const settingsData = fireSettingsInsertSchema
+          const settingsData = fireSettingsOrphanSchema
             .partial()
-            .parse(req.body);
+            .safeParse(req.body);
+          if (!settingsData.success) {
+            return res.status(400).json({
+              message: "Invalid FIRE settings data",
+              errors: settingsData.error.errors,
+            });
+          }
           const settings = await fireSettingsService.updateByUserAccountId(
             tenant.userAccountId,
-            settingsData
+            settingsData.data
           );
           return settings;
         } catch (error) {
-          if (error instanceof z.ZodError) {
-            return res.status(400).json({
-              message: "Invalid FIRE settings data",
-              errors: error.errors,
-            });
-          }
           if (
             error instanceof Error &&
             error.message === "FIRE settings not found"

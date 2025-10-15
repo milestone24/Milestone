@@ -7,7 +7,7 @@ import { calculateOnTrackStatus } from "@shared/utils/tracking";
 import TrackChart from "@/components/charts/TrackChart";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
 import { useFireSettings } from "@/hooks/use-fire-settings";
-import { usePatchFireSettings } from "@/hooks/use-patch-fire-settings";
+import { usePatchFireSettings } from "@/hooks/use-fire-settings-patch";
 
 export default function Track() {
 
