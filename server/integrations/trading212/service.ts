@@ -1,4 +1,4 @@
-import type { UserAsset } from "@shared/schema";
+import type { UserAsset, UserAssetWithValue } from "@shared/schema";
 import { DatabaseAssetService } from "../../services/assets/database";
 import { db } from "../../db";
 
@@ -61,7 +61,9 @@ export class Trading212Service {
   /**
    * Fetch all accounts that have Trading212 API connections
    */
-  private static async getAllApiConnectedAccounts(): Promise<UserAsset[]> {
+  private static async getAllApiConnectedAccounts(): Promise<
+    UserAssetWithValue[]
+  > {
     // Get all users (in a real app with multiple users, we'd need more logic here)
 
     throw new Error("Not implemented");
@@ -84,7 +86,9 @@ export class Trading212Service {
   /**
    * Update a single account with simulated data from Trading212
    */
-  private static async updateAccountValue(account: UserAsset): Promise<void> {
+  private static async updateAccountValue(
+    account: UserAssetWithValue
+  ): Promise<void> {
     throw new Error("Not implemented");
 
     //TODO: Implement this

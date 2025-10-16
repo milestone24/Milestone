@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { UserAsset, Milestone } from "@shared/schema";
+import { UserAsset, Milestone, UserAssetWithValue } from "@shared/schema";
 
 // Initialize the xAI client only if API key is available
 let xai: OpenAI | null = null;
@@ -16,7 +16,7 @@ if (process.env.XAI_API_KEY) {
  * Generate intelligent milestone suggestions using xAI's Grok API
  */
 export async function generateMilestoneSuggestions(
-  accounts: UserAsset[],
+  accounts: UserAssetWithValue[],
   totalPortfolioValue: number,
   existingMilestones: Milestone[]
 ): Promise<
@@ -79,7 +79,7 @@ export async function generateMilestoneSuggestions(
  * Build a detailed prompt for the AI based on portfolio data
  */
 function buildMilestonePrompt(
-  accounts: UserAsset[],
+  accounts: UserAssetWithValue[],
   totalPortfolioValue: number,
   existingMilestones: Milestone[]
 ): string {

@@ -16,6 +16,7 @@ import {
   PossibleDummyHistoryValue,
   CombinedDayTimePointBase,
   BrandedAbstractTransactionValue,
+  UserAssetWithValue,
 } from "@shared/schema";
 import { arrayToAsyncIterator } from "./async";
 import { QueryParams } from "@server/utils/resource-query-builder";
@@ -636,7 +637,7 @@ export const resolveAssetWithChangeForDateRange = <
  * @deprecated Use resolveDayValueHistoryForAssetsForDateRange instead
  */
 export const resolveAssetsWithChange = <
-  T extends WithAssetHistory<UserAsset, AssetValue>
+  T extends WithAssetHistory<UserAssetWithValue, AssetValue>
 >(
   assets: T[],
   query?: DataRangeQuery

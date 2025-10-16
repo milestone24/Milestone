@@ -219,7 +219,6 @@ export const userAssets = pgTable(
     valueMethod: valueMethodEnum("value_method")
       .notNull()
       .default("calculated"),
-    currentValue: real("current_value").notNull().default(0),
     userAccountId: uuid("user_account_id")
       .notNull()
       .references(() => userAccounts.id),

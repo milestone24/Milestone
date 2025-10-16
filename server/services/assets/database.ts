@@ -63,6 +63,7 @@ import {
   TransactionType,
   AssetWithValueHistory,
   WithValueHistory,
+  UserAssetWithValue,
 } from "@shared/schema";
 import { NodePgTransaction } from "drizzle-orm/node-postgres";
 import { Schema, TSchema } from "server/db/types/utils";
@@ -94,6 +95,7 @@ import {
   processes as processesKey,
 } from "@shared/api/queryKeys";
 import { randomUUID } from "node:crypto";
+import { assetsQueryBuilder } from "./query";
 
 const securitiesService = securitiesFactory();
 
@@ -277,35 +279,35 @@ export class DatabaseAssetService {
     });
   }
 
-  private async recalculateAssetValue(
-    tx: Transaction,
-    assetId: UserAsset["id"]
-  ): Promise<void> {
-    // Get the most recent history entry for the account
-    const latestHistory = await tx.query.assetValues.findFirst({
-      where: eq(assetValues.assetId, assetId),
-      orderBy: (assetValues, { desc }) => [desc(assetValues.recordedAt)],
-    });
+  // private async recalculateAssetValue(
+  //   tx: Transaction,
+  //   assetId: UserAsset["id"]
+  // ): Promise<void> {
+  //   // Get the most recent history entry for the account
+  //   const latestHistory = await tx.query.assetValues.findFirst({
+  //     where: eq(assetValues.assetId, assetId),
+  //     orderBy: (assetValues, { desc }) => [desc(assetValues.recordedAt)],
+  //   });
 
-    if (latestHistory) {
-      // Update the account's current value with the latest history value
-      await tx
-        .update(userAssets)
-        .set({ currentValue: latestHistory.value })
-        .where(eq(userAssets.id, assetId));
-    }
-  }
+  //   if (latestHistory) {
+  //     // Update the account's current value with the latest history value
+  //     await tx
+  //       .update(userAssets)
+  //       .set({ currentValue: latestHistory.value })
+  //       .where(eq(userAssets.id, assetId));
+  //   }
+  // }
 
-  private async withValueTransaction<T>(
-    operation: (tx: Transaction) => Promise<T>,
-    assetId: UserAsset["id"]
-  ): Promise<T> {
-    return this.db.transaction(async (tx) => {
-      const result = await operation(tx);
-      await this.recalculateAssetValue(tx, assetId);
-      return result;
-    });
-  }
+  // private async withValueTransaction<T>(
+  //   operation: (tx: Transaction) => Promise<T>,
+  //   assetId: UserAsset["id"]
+  // ): Promise<T> {
+  //   return this.db.transaction(async (tx) => {
+  //     const result = await operation(tx);
+  //     await this.recalculateAssetValue(tx, assetId);
+  //     return result;
+  //   });
+  // }
 
   async getUserAssets(
     userId: UserAccount["id"],
@@ -487,7 +489,7 @@ export class DatabaseAssetService {
   async getUserAssetsWithAssetValueHistory(
     userId: UserAccount["id"],
     query: QueryParams
-  ): Promise<WithAssetHistory<UserAsset, AssetValue>[]> {
+  ): Promise<WithAssetHistory<UserAssetWithValue, AssetValue>[]> {
     const {
       /**@ts-ignore */
       start: { eq: start } = { eq: null },
@@ -495,12 +497,11 @@ export class DatabaseAssetService {
       end: { eq: end } = { eq: null },
     } = query.filter;
 
-    const assets = await this.db
-      .select()
-      .from(userAssets)
-      .where(and(eq(userAssets.userAccountId, userId)));
+    const assets = await assetsQueryBuilder(this.db)
+      .where(and(eq(userAssets.userAccountId, userId)))
+      .execute();
 
-    const results: WithAssetHistory<UserAsset, AssetValue>[] = [];
+    const results: WithAssetHistory<UserAssetWithValue, AssetValue>[] = [];
 
     for (const asset of assets) {
       const historyResult = await this.getUserAssetHistory(asset.id, query);
@@ -522,13 +523,13 @@ export class DatabaseAssetService {
   async getUserAssetsWithAssetValueHistoryWithBoundary(
     userId: UserAccount["id"],
     query?: QueryParams
-  ): Promise<WithAssetHistory<UserAsset, BrandedAssetValue>[]> {
-    const assets = await this.db
-      .select()
-      .from(userAssets)
-      .where(and(eq(userAssets.userAccountId, userId)));
+  ): Promise<WithAssetHistory<UserAssetWithValue, BrandedAssetValue>[]> {
+    const assets = await assetsQueryBuilder(this.db)
+      .where(and(eq(userAssets.userAccountId, userId)))
+      .execute();
 
-    const results: WithAssetHistory<UserAsset, BrandedAssetValue>[] = [];
+    const results: WithAssetHistory<UserAssetWithValue, BrandedAssetValue>[] =
+      [];
 
     for (const asset of assets) {
       const allData = await this.getUserAssetHistoryWithBoundary(
@@ -757,10 +758,7 @@ export class DatabaseAssetService {
     const insertedUserAsset = await this.db.transaction(async (tx) => {
       const [insertedUserAsset] = await tx
         .insert(userAssets)
-        .values({
-          ...data,
-          currentValue: data.currentValue ?? 0,
-        })
+        .values(data)
         .returning();
 
       if (!insertedUserAsset) {
@@ -935,16 +933,14 @@ export class DatabaseAssetService {
     id: UserAsset["id"],
     data: UserAssetValueOrphanInsert
   ): Promise<AssetValue | undefined> {
-    return this.withValueTransaction(async (tx: Transaction) => {
-      const [insertedAssetValue] = await tx
-        .insert(assetValues)
-        .values({
-          ...data,
-          assetId: id,
-        })
-        .returning();
-      return insertedAssetValue;
-    }, id);
+    const [insertedAssetValue] = await this.db
+      .insert(assetValues)
+      .values({
+        ...data,
+        assetId: id,
+      })
+      .returning();
+    return insertedAssetValue;
   }
 
   async pushAssetValuesForAsset(

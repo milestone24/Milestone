@@ -27,50 +27,21 @@ import {
   checkFIREFeasibility as hybridCheckFIREFeasibility,
 } from "@shared/utils/projection-fire-calculator";
 import { and, eq, getTableColumns, inArray, sql } from "drizzle-orm";
+import { assetsQueryBuilder } from "../assets/query";
 
 //Maybe tables could be injected here for use of materialised views
 const defineDataSource = (
   db: Database,
   accountId: string
 ): ProjectionDataSource => {
-  const assetsQuery = db
-    .select({
-      ...getTableColumns(userAssets),
-      currentValue: sql<number>`COALESCE(latest_value.value, ${userAssets.currentValue})`,
-    })
-    .from(userAssets)
-    .leftJoin(
-      sql`LATERAL (
-                  SELECT ${assetValues.value}, ${assetValues.valueDate}
-                  FROM ${assetValues}
-                  WHERE ${assetValues.assetId} = ${userAssets.id}
-                  ORDER BY ${assetValues.valueDate} DESC
-                  LIMIT 1
-                ) AS latest_value`,
-      sql`true`
-    )
-    .where(eq(userAssets.userAccountId, accountId));
+  const assetsQuery = assetsQueryBuilder(db).where(
+    eq(userAssets.userAccountId, accountId)
+  );
 
   const assetQuery = (assetId: string) =>
-    db
-      .select({
-        ...getTableColumns(userAssets),
-        currentValue: sql<number>`COALESCE(latest_value.value, ${userAssets.currentValue})`,
-      })
-      .from(userAssets)
-      .leftJoin(
-        sql`LATERAL (
-                  SELECT ${assetValues.value}, ${assetValues.valueDate}
-                  FROM ${assetValues}
-                  WHERE ${assetValues.assetId} = ${userAssets.id}
-                  ORDER BY ${assetValues.valueDate} DESC
-                  LIMIT 1
-                ) AS latest_value`,
-        sql`true`
-      )
-      .where(
-        and(eq(userAssets.id, assetId), eq(userAssets.userAccountId, accountId))
-      );
+    assetsQueryBuilder(db).where(
+      and(eq(userAssets.id, assetId), eq(userAssets.userAccountId, accountId))
+    );
 
   const recurringContrbutionsForAssetsQuery = (assetIds: string[]) =>
     db.query.recurringContributions.findMany({

@@ -154,12 +154,15 @@ export type UserAssetWithHistoryAndAccountChange = WithAccountChange<
   WithAssetHistory<UserAsset, AssetValue>
 >;
 
+export type ValueFields = {
+  lastValueDate: Date | null;
+  currentValue: number;
+};
+
+export type UserAssetWithValue = UserAsset & ValueFields;
+
 export type ResolvedUserAsset = WithPlatform<
-  WithResolvedSecurities<
-    UserAsset & {
-      lastValueDate: Date | null;
-    }
-  >
+  WithResolvedSecurities<UserAssetWithValue>
 >;
 
 export const userAssetValueOrphanInsertSchema = z.object({

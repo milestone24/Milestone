@@ -1,6 +1,9 @@
 import { usePortfolio } from "@/context/PortfolioContext";
-import { UserAsset } from "@shared/schema";
-import { Milestone } from "@shared/schema";
+import type {
+  Milestone,
+  ResolvedUserAsset,
+  UserAssetWithValue,
+} from "@shared/schema";
 
 // Use the same Account type from PortfolioContext
 type AccountType = "ISA" | "SIPP" | "LISA" | "GIA";
@@ -28,7 +31,7 @@ export interface SuggestedMilestone {
  * Generate milestone suggestions based on portfolio analysis
  */
 export function generateMilestoneSuggestions(
-  assets: UserAsset[],
+  assets: UserAssetWithValue[],
   totalPortfolioValue: number,
   existingMilestones: any[]
 ): SuggestedMilestone[] {
@@ -49,7 +52,7 @@ export function generateMilestoneSuggestions(
 /**
  * Analyze portfolio to extract useful metrics for milestone suggestions
  */
-function analyzePortfolio(assets: UserAsset[], totalValue: number) {
+function analyzePortfolio(assets: UserAssetWithValue[], totalValue: number) {
   // Account type totals
   const accountTypeTotals: Record<string, number> = {};
   const accountTypeCount: Record<string, number> = {};
@@ -99,7 +102,7 @@ function analyzePortfolio(assets: UserAsset[], totalValue: number) {
  */
 function createSuggestions(
   metrics: ReturnType<typeof analyzePortfolio>,
-  assets: UserAsset[],
+  assets: UserAssetWithValue[],
   totalValue: number,
   existingMilestones: any[]
 ): SuggestedMilestone[] {
