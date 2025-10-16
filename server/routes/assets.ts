@@ -12,6 +12,7 @@ import {
   recurringContributionOrphanInsertSchema,
   securityTransactionOrphanInsertSchema,
   userAssetSecurityInsertSchema,
+  userAssetOrphanInsertSchema,
 } from "@shared/schema";
 import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
 import { db } from "@server/db";
@@ -52,11 +53,21 @@ export async function registerRoutes(
   });
 
   router.post("/", requireUser, async (req: Request, res) => {
-    req.tenant;
+    if (!req.tenant?.userAccountId) {
+      return res.status(400).json({ error: "User account ID is required" });
+    }
 
     try {
-      const data = userAssetInsertSchema.parse(req.body);
-      const asset = await assetService.createUserAsset(data);
+      const parsedData = userAssetOrphanInsertSchema.safeParse(req.body);
+
+      if (!parsedData.success) {
+        return res.status(400).json({ error: parsedData.error.message });
+      }
+
+      const asset = await assetService.createUserAsset({
+        ...parsedData.data,
+        userAccountId: req.tenant.userAccountId,
+      });
       res.json(asset);
     } catch (error) {
       res.status(400).json({
