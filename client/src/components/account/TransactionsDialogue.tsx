@@ -10,19 +10,21 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TransactionRecurringForm } from "./TransactionRecurringForm";
-import {
+import type {
   RecurringContributionFormData,
-  SingleContributionFormData,
+  AssetContributionFormData,
+  AssetTransaction,
+  RecurringContribution,
+} from "@shared/schema";
+import { TransactionSingleForm } from "./TransactionSingleForm";
+import {
   isAssetContribution,
   isRecurringContribution,
-} from "@shared/schema/contribution";
-import { TransactionSingleForm } from "./TransactionSingleForm";
-import { AssetTransaction } from "@shared/schema/portfolio-assets";
-import { RecurringContribution } from "@shared/schema/portfolio-assets";
+} from "@shared/schema/transaction";
 
 type TransactionsDialogueProps<
-  T extends SingleContributionFormData | RecurringContributionFormData =
-    | SingleContributionFormData
+  T extends AssetContributionFormData | RecurringContributionFormData =
+    | AssetContributionFormData
     | RecurringContributionFormData,
   S extends (data: T, contributionId?: string) => Promise<T> = (
     data: T,
@@ -80,7 +82,7 @@ export const TransactionsDialogue = ({
   };
 
   const handleSingleContributionSubmit = async (
-    values: SingleContributionFormData
+    values: AssetContributionFormData
   ) => {
     if (!onSubmit) return;
     await onSubmit(values, data?.id);

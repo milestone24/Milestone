@@ -813,13 +813,14 @@ export class DatabaseAssetService {
 
             if (
               data.contributions &&
-              data.contributions?.isScheduled &&
+              data.contributions.type === "security" &&
               data.contributions.securityDistribution.length > 0
             ) {
               const securityDictribution =
                 data.contributions.securityDistribution.find(
                   (securityDistribution) =>
-                    securityDistribution.securityTempId === security.tempId
+                    securityDistribution.isTempSecurityId === true &&
+                    securityDistribution.securityId === security.tempId
                 );
 
               if (securityDictribution) {
@@ -833,7 +834,7 @@ export class DatabaseAssetService {
                       : data.contributions.amount *
                         (securityDictribution.commitment / 100),
                   startDate: data.startDate,
-                  patternConfig: data.contributions.schedulePattern,
+                  patternConfig: data.contributions.patternConfig,
                   type: "security",
                   process: data.contributions.process,
                   notificationEmail: data.contributions.notificationEmail,
@@ -864,13 +865,13 @@ export class DatabaseAssetService {
           updatedAt: new Date(),
         });
 
-        if (data.contributions?.isScheduled) {
+        if (data.contributions) {
           await tx.insert(recurringContributions).values({
             assetId: insertedUserAsset.id,
             process: data.contributions.process,
             amount: data.contributions.amount,
             startDate: data.startDate,
-            patternConfig: data.contributions.schedulePattern,
+            patternConfig: data.contributions.patternConfig,
             type: "asset",
             notificationEmail: data.contributions.notificationEmail,
             notificationPush: data.contributions.notificationPush,
@@ -1005,7 +1006,7 @@ export class DatabaseAssetService {
       .values({
         ...data,
         assetId: id,
-        recordedAt: data.recordedAt ?? new Date(),
+        recordedAt: new Date(),
       })
       .returning();
 
@@ -1669,7 +1670,6 @@ export class DatabaseAssetService {
         await this.createUserAssetTransaction(contribution.assetId, {
           value: contribution.amount,
           valueDate: new Date(),
-          recordedAt: new Date(),
           // currency: "GBP", default GBP is set at the DB level
           // currencyValue: contribution.currencyValue, set to default zero at DB level
           // fees: contribution.fees, set to default zero at DB level

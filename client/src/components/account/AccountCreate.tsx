@@ -1,10 +1,8 @@
-import {
-  userAssetOrphanInsertSchema,
+import type {
   UserAssetOrphanInsert,
-  SecuritySearchResult,
   UserAssetSecurityInsert,
-  accountType,
 } from "@shared/schema";
+import { accountType, userAssetOrphanInsertSchema } from "@shared/schema";
 import {
   useForm,
   useFormContext,
@@ -96,33 +94,58 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
               : 0,
           })) ?? [],
         contributions: values.contributions
-          ? {
-              isScheduled: values.contributions?.isScheduled,
-              process:
-                values.valueMethod === "calculated"
-                  ? "manual"
-                  : values.contributions?.process,
-              amount: values.contributions?.amount
-                ? parseFloat(values.contributions.amount as unknown as string)
-                : 0,
-              date: new Date(),
-              // notificationPeriod:
-              //   values.contributions?.notificationPeriod ?? "weekly",
-              schedulePattern: values.contributions?.schedulePattern,
-              notificationEmail:
-                values.contributions?.notificationEmail === true ? true : false,
-              notificationPush:
-                values.contributions?.notificationPush === true ? true : false,
-              securityDistribution:
-                values.contributions?.securityDistribution?.map((security) => ({
-                  ...security,
-                  commitment: security.commitment
-                    ? typeof security.commitment === "string"
-                      ? parseFloat(security.commitment)
-                      : security.commitment
-                    : 0,
-                })) ?? [],
-            }
+          ? values.contributions.type === "security"
+            ? {
+                type: "security",
+                isActive: true,
+                process: values.contributions.process,
+                amount: values.contributions.amount
+                  ? parseFloat(values.contributions.amount as unknown as string)
+                  : 0,
+                startDate: values.startDate,
+                // notificationPeriod:
+                //   values.contributions?.notificationPeriod ?? "weekly",
+                patternConfig: values.contributions?.patternConfig,
+                notificationEmail:
+                  values.contributions?.notificationEmail === true
+                    ? true
+                    : false,
+                notificationPush:
+                  values.contributions?.notificationPush === true
+                    ? true
+                    : false,
+                securityDistribution:
+                  values.contributions?.securityDistribution?.map(
+                    (security) => ({
+                      ...security,
+                      commitment: security.commitment
+                        ? typeof security.commitment === "string"
+                          ? parseFloat(security.commitment)
+                          : security.commitment
+                        : 0,
+                    })
+                  ) ?? [],
+              }
+            : values.contributions.type === "asset"
+            ? {
+                type: "asset",
+                isActive: true,
+                process: values.contributions.process,
+                amount: values.contributions.amount
+                  ? parseFloat(values.contributions.amount as unknown as string)
+                  : 0,
+                startDate: values.startDate,
+                patternConfig: values.contributions?.patternConfig,
+                notificationEmail:
+                  values.contributions?.notificationEmail === true
+                    ? true
+                    : false,
+                notificationPush:
+                  values.contributions?.notificationPush === true
+                    ? true
+                    : false,
+              }
+            : undefined
           : undefined,
       })
     ),
@@ -141,9 +164,8 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
       //startDate: new Date("2025-01-01"),
       valueMethod: "calculated",
       contributions: {
-        isScheduled: false,
         process: "manual",
-        schedulePattern: {
+        patternConfig: {
           type: "rrule",
           expression: "",
         },
@@ -618,14 +640,15 @@ const useContributionSecurities = (securities: UserAssetSecurityInsert[]) => {
         .forEach((security) => {
           if (
             securitiesFields.find(
-              (field) => field.securityTempId === security.securityTempId
+              (field) => field.securityId === security.securityTempId
             )
           ) {
             return;
           }
 
           append({
-            securityTempId: security.securityTempId,
+            securityId: security.securityTempId,
+            isTempSecurityId: true,
             securityName: security.securityName,
             commitment: security.commitment,
           });
@@ -648,16 +671,16 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
   } = form;
 
   const securities = watch("securities");
-  const valueMethod = watch("valueMethod");
 
   const { securitiesFields } = useContributionSecurities(securities);
 
+  const [isScheduled, setIsScheduled] = useState<boolean>(false);
+
   const process = watch("contributions.process");
-  const isScheduled = watch("contributions.isScheduled");
 
   const handleSchedulePatternChange = useCallback(
     (value: string) => {
-      setValue("contributions.schedulePattern", {
+      setValue("contributions.patternConfig", {
         type: "rrule",
         expression: value,
       });
@@ -665,15 +688,7 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
     [setValue]
   );
 
-  const handleIsScheduledChange = useCallback(
-    (value: boolean) => {
-      if (isScheduled === value) return;
-      setValue("contributions.isScheduled", value);
-    },
-    [setValue, isScheduled]
-  );
-
-  const schedulePattern = watch("contributions.schedulePattern");
+  const schedulePattern = watch("contributions.patternConfig");
 
   return (
     <>
@@ -687,7 +702,7 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
           <ToggleGroup
             type="single"
             value={isScheduled ? "yes" : "no"}
-            onValueChange={(value) => handleIsScheduledChange(value === "yes")}
+            onValueChange={(value) => setIsScheduled(value === "yes")}
             className="mb-4"
           >
             <ToggleGroupItem value="yes">Yes</ToggleGroupItem>
@@ -698,66 +713,59 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
 
       {isScheduled ? (
         <>
+          <FormField
+            control={form.control}
+            name="contributions.amount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Contribution Amount</FormLabel>
+                <FormDescription>
+                  How much do you invest each month into this account?
+                </FormDescription>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="Contribution Amount"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <RRuleScheduler
             value={schedulePattern?.expression}
             onChange={handleSchedulePatternChange}
           />
 
-          {/* <div className="flex flex-row gap-2 text-sm">
-          <span>Schedule Pattern:</span>
-          <span>{rruleToHumanReadable(schedulePattern?.expression)}</span>
-        </div> */}
-
-          {valueMethod === "manual" ? (
-            <div className="flex flex-col gap-3 items-start">
-              <FormField
-                control={form.control}
-                name="contributions.process"
-                render={({ field }) => (
-                  <FormItem className="items-start justify-start">
-                    <FormLabel>
-                      Would you like use to add your contributions
-                      automatically?
-                    </FormLabel>
-                    <FormControl className="items-start justify-start">
-                      <ToggleGroup
-                        type="single"
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        className="mb-4"
-                      >
-                        <ToggleGroupItem value="automatic">Yes</ToggleGroupItem>
-                        <ToggleGroupItem value="manual">No</ToggleGroupItem>
-                      </ToggleGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          ) : null}
-          {valueMethod === "manual" && process === "automatic" ? (
+          <div className="flex flex-col gap-3 items-start">
+            <FormField
+              control={form.control}
+              name="contributions.process"
+              render={({ field }) => (
+                <FormItem className="items-start justify-start">
+                  <FormLabel>
+                    Would you like use to add your contributions automatically?
+                  </FormLabel>
+                  <FormControl className="items-start justify-start">
+                    <ToggleGroup
+                      type="single"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      className="mb-4"
+                    >
+                      <ToggleGroupItem value="automatic">Yes</ToggleGroupItem>
+                      <ToggleGroupItem value="manual">No</ToggleGroupItem>
+                    </ToggleGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          {process === "automatic" ? (
             <>
-              <FormField
-                control={form.control}
-                name="contributions.amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contribution Amount</FormLabel>
-                    <FormDescription>
-                      How much do you invest each month into this account?
-                    </FormDescription>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="Contribution Amount"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               {/* <FormField
                 control={form.control}
                 name="contributions.date"
@@ -788,6 +796,10 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
                   <FormLabel>Security Distribution</FormLabel>
                   <FormDescription>
                     How is the money distributed between the securities?
+                    <br />
+                    We will automatically record a contribution for each
+                    security based on day stock prices but you may need to
+                    correct the stock price for a given day.
                   </FormDescription>
                   {securitiesFields.map((security, index) => (
                     <div

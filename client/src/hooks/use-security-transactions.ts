@@ -4,12 +4,11 @@ import {
   assetSecuritiesTransactions,
 } from "@shared/api/queryKeys";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import {
-  SecurityTransactionInsert,
+import type {
   SecurityTransactionOrphanInsert,
   SecurityTransactionSelect,
   UserAssetSecurityTransactionResolved,
-} from "@shared/schema/securities";
+} from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "./use-toast";
 

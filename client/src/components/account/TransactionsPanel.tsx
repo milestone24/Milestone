@@ -13,9 +13,9 @@ import { TransactionsDialogue } from "./TransactionsDialogue";
 import { usePortfolio } from "@/context/PortfolioContext";
 import {
   RecurringContributionFormData,
-  SingleContributionFormData,
+  AssetContributionFormData,
   isSingleContributionFormData,
-} from "@shared/schema/contribution";
+} from "@shared/schema/transaction";
 import {
   AlertDialogAction,
   AlertDialogCancel,
@@ -132,7 +132,7 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
 
   // Handlers for contributions
   const handleCreateContribution = async (
-    data: SingleContributionFormData
+    data: AssetContributionFormData
   ): Promise<AssetTransaction> => {
     if (!assetId) throw new Error("Asset ID is required");
     try {
@@ -149,7 +149,7 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
 
   const handleEditContribution = async (
     contributionId: string,
-    data: SingleContributionFormData
+    data: AssetContributionFormData
   ): Promise<AssetTransaction> => {
     try {
       return updateAssetContribution.mutateAsync({
@@ -184,6 +184,7 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
     try {
       await addRecurringContribution.mutateAsync({
         assetId: assetId,
+        type: "asset",
         ...data,
       });
     } catch (error) {
@@ -199,6 +200,7 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
     try {
       return updateRecurringContribution.mutateAsync({
         assetId: assetId,
+        type: "asset",
         ...data,
         contributionId: contributionId,
       });
@@ -208,10 +210,10 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
   };
 
   const handleContributionSubmit = async <
-    T extends SingleContributionFormData | RecurringContributionFormData =
-      | SingleContributionFormData
+    T extends AssetContributionFormData | RecurringContributionFormData =
+      | AssetContributionFormData
       | RecurringContributionFormData,
-    R = T extends SingleContributionFormData
+    R = T extends AssetContributionFormData
       ? AssetTransaction
       : T extends RecurringContributionFormData
       ? RecurringContribution

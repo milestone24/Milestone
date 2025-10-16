@@ -1,8 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  SingleContributionFormData,
-  singleContributionOrphanSchema,
-} from "@shared/schema/contribution";
+  AssetContributionFormData,
+  assetContributionOrphanInsertSchema,
+} from "@shared/schema/transaction";
 import {
   Form,
   FormControl,
@@ -18,17 +18,17 @@ import { useForm } from "react-hook-form";
 import { withTransform } from "@/lib/utils/mappers";
 
 type TransactionSingleFormProps = {
-  onSubmit: (data: SingleContributionFormData) => Promise<void>;
-  data?: SingleContributionFormData;
+  onSubmit: (data: AssetContributionFormData) => Promise<void>;
+  data?: AssetContributionFormData;
 };
 
 export const TransactionSingleForm = ({
   onSubmit,
   data,
 }: TransactionSingleFormProps) => {
-  const form = useForm<SingleContributionFormData>({
+  const form = useForm<AssetContributionFormData>({
     resolver: withTransform(
-      zodResolver(singleContributionOrphanSchema),
+      zodResolver(assetContributionOrphanInsertSchema),
       (values) => ({
         ...values,
         value: values.value

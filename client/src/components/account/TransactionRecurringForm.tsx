@@ -1,9 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
-import {
-  recurringContributionOrphanSchema,
-  RecurringContributionFormData,
-} from "@shared/schema/contribution";
+import type { RecurringContributionFormData } from "@shared/schema/transaction";
+import { recurringContributionOrphanInsertSchema } from "@shared/schema";
 import {
   Form,
   FormField,
@@ -15,7 +13,7 @@ import {
 import { Input } from "../ui/input";
 import { Checkbox } from "../ui/checkbox";
 import { Button } from "../ui/button";
-import { RecurringContribution } from "@shared/schema/portfolio-assets";
+import { RecurringContribution } from "@shared/schema";
 import { dateToDateInputValue } from "@/lib/form";
 import { Loader2 } from "lucide-react";
 
@@ -31,6 +29,9 @@ const defaultValues: RecurringContributionFormData = {
     type: "rrule",
     expression: "FREQ=MONTHLY;BYDAY=2TU",
   },
+  process: "manual",
+  notificationEmail: false,
+  notificationPush: false,
   isActive: true,
 };
 
@@ -39,7 +40,7 @@ export const TransactionRecurringForm = ({
   data,
 }: TransactionRecurringFormProps) => {
   const form = useForm<RecurringContributionFormData>({
-    resolver: zodResolver(recurringContributionOrphanSchema),
+    resolver: zodResolver(recurringContributionOrphanInsertSchema),
     values: data ?? defaultValues,
     defaultValues: defaultValues,
   });
@@ -107,6 +108,15 @@ export const TransactionRecurringForm = ({
                     />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={control}
+              name="process"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Process</FormLabel>
                 </FormItem>
               )}
             />

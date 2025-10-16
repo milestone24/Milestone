@@ -11,23 +11,21 @@ import { Plus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TransactionRecurringForm } from "./TransactionRecurringForm";
 import {
-  RecurringContributionFormData,
-  SingleContributionFormData,
   isAssetContribution,
   isRecurringContribution,
-} from "@shared/schema/contribution";
+} from "@shared/schema/transaction";
 import { TransactionSingleForm } from "./TransactionSingleForm";
-import {
-  AssetTransaction,
-  UserAssetSecuritySelect,
-} from "@shared/schema/portfolio-assets";
-import { RecurringContribution } from "@shared/schema/portfolio-assets";
-import {
+import type {
   SecurityTransactionInsert,
   SecurityTransactionOrphanInsert,
   SecurityTransactionSelect,
   SecurityTransactionUpsert,
-} from "@shared/schema/securities";
+  RecurringContribution,
+  AssetTransaction,
+  UserAssetSecuritySelect,
+  RecurringContributionFormData,
+  AssetContributionFormData,
+} from "@shared/schema";
 import { useCallback } from "react";
 import { SecurityTransactionSingleForm } from "./SecurityTransactionSingleForm";
 

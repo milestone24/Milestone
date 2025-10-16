@@ -13,12 +13,11 @@ import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { dateToDateInputValue } from "@/lib/form";
 import { Loader2 } from "lucide-react";
-import {
+import type {
   SecurityTransactionInsert,
-  securityTransactionInsertSchema,
-  securityTransactionOrphanInsertSchema,
   SecurityTransactionUpsert,
-} from "@shared/schema/securities";
+} from "@shared/schema";
+import { securityTransactionInsertSchema } from "@shared/schema/transaction";
 import { Controller, useForm } from "react-hook-form";
 import {
   Select,

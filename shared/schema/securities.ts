@@ -4,7 +4,8 @@ import type {
   SecurityTransactionSelect as DBSecurityTransactionSelect,
   SecurityTransactionInsert as DBSecurityTransactionInsert,
 } from "@server/db/schema/index";
-import { BrandedValue, IfConstructorEquals, UserAssetSecuritySelect } from ".";
+import { IfConstructorEquals, UserAssetSecuritySelect } from ".";
+import { BrandedValue } from "./common";
 
 export type { SecurityDailyHistorySelect } from "@server/db/schema/index";
 
@@ -44,79 +45,3 @@ export const securitySearchResultSchema = z.object({
 });
 
 export type SecuritySearchResult = z.infer<typeof securitySearchResultSchema>;
-
-export type SecurityTransaction = DBSecurityTransactionSelect;
-
-export const securityTransactionOrphanInsertSchema = z.object({
-  value: z
-    .number()
-    .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
-  currencyValue: z.number(),
-  fees: z.number().optional().nullable(),
-  currency: z.string().optional(),
-  valueDate: z.coerce.date(),
-  recordedAt: z.coerce.date().optional(),
-});
-
-type ZodSecurityTransactionOrphanInsert = z.infer<
-  typeof securityTransactionOrphanInsertSchema
->;
-
-export type SecurityTransactionOrphanInsert = IfConstructorEquals<
-  ZodSecurityTransactionOrphanInsert,
-  Omit<DBSecurityTransactionInsert, "assetSecurityId" | "recordedAt">,
-  never
->;
-
-securityTransactionOrphanInsertSchema satisfies ZodType<SecurityTransactionOrphanInsert>;
-
-export type SecurityTransactionSelect = DBSecurityTransactionSelect;
-
-export const securityTransactionInsertSchema =
-  securityTransactionOrphanInsertSchema.extend({
-    assetSecurityId: z.string(),
-  });
-
-type ZodSecurityTransactionInsert = z.infer<
-  typeof securityTransactionInsertSchema
->;
-
-export type SecurityTransactionInsert = IfConstructorEquals<
-  ZodSecurityTransactionInsert,
-  Omit<DBSecurityTransactionInsert, "recordedAt">,
-  never
->;
-
-export type SecurityTransactionUpsert = SecurityTransactionInsert & {
-  id?: string;
-};
-
-export type UserAssetSecurityTransactionResolved = {
-  id: string;
-  assetSecurityId: string;
-  securityName: string;
-  value: number;
-  currency: string;
-  currencyValue: number;
-  valueDate: Date;
-  recordedAt: Date;
-};
-
-export type BrandedUserAssetSecurityTransactionResolved = BrandedValue<
-  UserAssetSecurityTransactionResolved,
-  "transaction"
->;
-
-// // Cache Management Types
-// export const securityCacheRequestSchema = z.object({
-//   securities: z.array(securityOrphanInsertSchema),
-// });
-
-// export type SecurityCacheRequest = z.infer<typeof securityCacheRequestSchema>;
-
-// export const securityCacheResponseSchema = z.object({
-//   message: z.string(),
-//   securities: z.array(securitySearchResultSchema),
-// });
-
-// export type SecurityCacheResponse = z.infer<typeof securityCacheResponseSchema>;

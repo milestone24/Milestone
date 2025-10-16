@@ -1,35 +1,29 @@
-import { optional, z, ZodObject, ZodType } from "zod";
+import { z, ZodType } from "zod";
 import type {
   UserAssetInsert as DBUserAssetInsert,
   UserAssetSelect as DBUserAsset,
   AssetValueInsert as DBAssetValueInsert,
   AssetValueSelect as DBAssetValueSelect,
-  AssetTransactionInsert as DBAssetTransactionInsert,
-  AssetTransactionSelect as DBAssetTransactionSelect,
-  UserAssetSecurityInsert as DBUserAssetSecurityInsert,
   UserAssetSecuritySelect as DBUserAssetSecurity,
   UserAssetAPIKeyConnectionSelect as DBUserAssetAPIKeyConnection,
   BrokerProviderSelect as DBBrokerProvider,
   BrokerPlatformSelect as DBBrokerPlatform,
-  RecurringContributionInsert as DBRecurringContributionInsert,
-  RecurringContributionSelect as DBRecurringContributionSelect,
   AccountType as DBAccountType,
   AssetValueMetadata as DBAssetValueMetadata,
   AssetValueMetadataSecurity as DBAssetValueMetadataSecurity,
 } from "@server/db/schema/index";
-import {
-  accountType,
-  recurringContributionProcessTypes,
-  recurringContributionTypes,
-} from "@server/db/schema/index";
-import { ExtractCommonFields, IfConstructorEquals, Orphan } from "./utils";
-import {
-  securityInsertSchema,
-  SecuritySearchResult,
-  SecuritySelect,
-} from "./securities";
+import { accountType } from "@server/db/schema/index";
+import { IfConstructorEquals } from "./utils";
+import { securityInsertSchema, SecuritySelect } from "./securities";
 
-import { patternSchema } from "./contribution";
+import {
+  BrandedAbstractTransactionValue,
+  patternSchema,
+  recurringContributionGroupInsertSchema,
+  recurringContributionOrphanInsertSchema,
+  TransactionAbstract,
+} from "./transaction";
+import { BrandedValue, ValueAbstract, ValueAbstractType } from "./common";
 
 export { accountType } from "@server/db/schema/index";
 
@@ -54,6 +48,12 @@ export { accountType } from "@server/db/schema/index";
 // export type GeneralAssetWithAccountChange = WithAccountChange<GeneralAsset>
 
 export type AccountType = DBAccountType;
+
+export type BrandedAssetValue = BrandedValue<
+  AssetValue,
+  Extract<ValueAbstractType, "asset_value">
+>;
+
 //export { accountType } from "@server/db/schema";
 
 export const userAssetSecurityInsertSchema = z.object({
@@ -105,31 +105,35 @@ export const userAssetOrphanInsertSchema = z.object({
   //Only to be specified by user if the asset is to be manually updated
   currentValue: z.number().optional(),
   securities: z.array(userAssetSecurityInsertSchema),
-  contributions: z
-    .object({
-      isScheduled: z.boolean(),
-      process: z.enum(["automatic", "manual"]),
-      amount: z.coerce.number(),
-      //date: z.coerce.date(),
-      securityDistribution: z.array(
-        z.object({
-          securityTempId: z.string(),
-          securityName: z.string(),
-          commitment: z.number(),
-        })
-      ),
-      schedulePattern: patternSchema,
-      // notificationPeriod: z.enum([
-      //   "daily",
-      //   "weekly",
-      //   "monthly",
-      //   "quarterly",
-      //   "yearly",
-      // ]),
-      notificationEmail: z.boolean(),
-      notificationPush: z.boolean(),
-    })
-    .optional(),
+  //Contibutions here should be in unison with the recurringContributionOrphanInsertSchema and recurringContributionInsertSchema
+  contributions: recurringContributionGroupInsertSchema.optional(),
+  // contributions: z
+  //   .object({
+  //     type: z.enum(["asset", "security"]),
+  //     isScheduled: z.boolean(),
+  //     process: z.enum(["automatic", "manual"]),
+  //     amount: z.coerce.number(),
+  //     startDate: z.coerce.date(),
+  //     //date: z.coerce.date(),
+  //     securityDistribution: z.array(
+  //       z.object({
+  //         securityTempId: z.string(),
+  //         securityName: z.string(),
+  //         commitment: z.number(),
+  //       })
+  //     ),
+  //     patternConfig: patternSchema,
+  //     // notificationPeriod: z.enum([
+  //     //   "daily",
+  //     //   "weekly",
+  //     //   "monthly",
+  //     //   "quarterly",
+  //     //   "yearly",
+  //     // ]),
+  //     notificationEmail: z.boolean(),
+  //     notificationPush: z.boolean(),
+  //   })
+  //   .optional(),
 });
 
 type ZodUserAssetOrphan = z.infer<typeof userAssetOrphanInsertSchema>;
@@ -151,7 +155,7 @@ export type UserAssetInsert = ZodUserAssetInsert;
 
 export type UserAsset = DBUserAsset;
 export type UserAssetWithHistoryAndAccountChange = WithAccountChange<
-  WithAssetHistory<UserAsset, AssetValue>
+  WithAssetHistory<UserAssetWithValue, AssetValue>
 >;
 
 export type ValueFields = {
@@ -214,117 +218,6 @@ export type AssetValue = DBAssetValueSelect;
 // assetDebitInsertSchema satisfies ZodType<AssetDebitInsert>;
 
 // export type AssetDebit = DBAssetDebitSelect;
-
-/* Transaction */
-
-export type AssetTransaction = DBAssetTransactionSelect;
-
-export const userAssetTransactionOrphanInsertSchema = z.object({
-  value: z.number(),
-  valueDate: z.coerce.date(),
-  //TODO
-  //The currency information will need to be added and not optional eventually
-  currencyValue: z.number().optional(),
-  fees: z.number().optional(),
-  currency: z.string().optional(),
-  recordedAt: z.coerce.date().optional(),
-});
-
-type ZodUserAssetTransactionOrphanInsert = z.infer<
-  typeof userAssetTransactionOrphanInsertSchema
->;
-export type UserAssetTransactionOrphanInsert = IfConstructorEquals<
-  ZodUserAssetTransactionOrphanInsert,
-  Omit<DBAssetTransactionInsert, "assetId" | "recordedAt"> & {
-    recordedAt?: Date;
-  },
-  never
->;
-
-userAssetTransactionOrphanInsertSchema satisfies ZodType<UserAssetTransactionOrphanInsert>;
-
-/* Contribution */
-
-/**
- * Asset Contributions is a term used in the UI only.
- * In the backend, we use AssetTransactions to represent contributions and debits.
- * The term "Contributions" is used in the backend only for use in recurring contributions
- * but they would translate to a positive value in the AssetTransactions table.
- */
-
-export const assetContributionOrphanInsertSchema = z.object({
-  value: z.number(),
-  valueDate: z.coerce.date(),
-  currencyValue: z.number().optional(),
-  fees: z.number().optional(),
-  currency: z.string().optional(),
-});
-
-type ZodAssetContributionOrphanInsert = z.infer<
-  typeof assetContributionOrphanInsertSchema
->;
-export type AssetContributionOrphanInsert = IfConstructorEquals<
-  ZodAssetContributionOrphanInsert,
-  Omit<DBAssetTransactionInsert, "assetId" | "recordedAt">,
-  never
->;
-assetContributionOrphanInsertSchema satisfies ZodType<AssetContributionOrphanInsert>;
-
-export const assetContributionInsertSchema =
-  assetContributionOrphanInsertSchema.extend({
-    assetId: z.string(),
-  });
-
-type ZodAssetContributionInsert = z.infer<typeof assetContributionInsertSchema>;
-export type AssetContributionInsert = IfConstructorEquals<
-  ZodAssetContributionInsert,
-  Omit<DBAssetTransactionInsert, "recordedAt">,
-  never
->;
-assetContributionInsertSchema satisfies ZodType<AssetContributionInsert>;
-
-export const recurringContributionOrphanInsertSchema = z.object({
-  amount: z.number().positive(),
-  type: z.enum(recurringContributionTypes),
-  process: z.enum(recurringContributionProcessTypes),
-  startDate: z.coerce.date(),
-  patternConfig: patternSchema,
-  notificationEmail: z.boolean().optional().default(false),
-  notificationPush: z.boolean().optional().default(false),
-});
-
-type ZodRecurringContributionOrphanInsert = z.input<
-  typeof recurringContributionOrphanInsertSchema
->;
-export type RecurringContributionOrphanInsert = IfConstructorEquals<
-  ZodRecurringContributionOrphanInsert,
-  Omit<
-    DBRecurringContributionInsert,
-    "isActive" | "lastProcessedDate" | "assetId" | "groupId"
-  >,
-  never
->;
-recurringContributionOrphanInsertSchema satisfies ZodType<RecurringContributionOrphanInsert>;
-
-export const recurringContributionInsertSchema =
-  recurringContributionOrphanInsertSchema.extend({
-    assetId: z.string(),
-  });
-
-type ZodRecurringContributionInsert = z.input<
-  typeof recurringContributionInsertSchema
->;
-export type RecurringContributionInsert = IfConstructorEquals<
-  ZodRecurringContributionInsert,
-  Omit<
-    DBRecurringContributionInsert,
-    "isActive" | "lastProcessedDate" | "groupId"
-  >,
-  never
->;
-recurringContributionInsertSchema satisfies ZodType<RecurringContributionInsert>;
-
-export type RecurringContribution = DBRecurringContributionSelect;
 
 export type AssetValueMetadata = DBAssetValueMetadata;
 export type AssetValueMetadataSecurity = DBAssetValueMetadataSecurity;
@@ -567,33 +460,6 @@ export type AssetWithValueHistoryGenerators = {
   history: Generator<BrandedAssetValue>;
 };
 
-export type TransactionType = "asset" | "security" | "synthetic";
-
-export type ValueAbstract = {
-  value: number;
-  valueDate: Date;
-  //recordedAt: Date;
-  //currentValue: number;
-  //or
-  //valueSum: number
-};
-
-export type TransactionAbstract = ValueAbstract & {
-  assetId: string;
-  id: string;
-  transactionType: TransactionType;
-  recordedAt: Date;
-  value: number;
-  //accValue: number;
-  valueDate: Date;
-  currencyValue: number;
-  //accumalted security level, not asset level
-  accumulativeAssetCurrencyValue: number;
-  accumulativeAssetCurrencyValueRow: number;
-  //assetAccumalitiveCurrencyValue: number;
-  currency: string;
-};
-
 export type CombinedDayValuesChange = {
   previousValue: number;
   newValue: number;
@@ -628,30 +494,6 @@ export type CombinedValueHistory = {
   transactions: TransactionTimePoint[];
   valueHistory: AssetValueTimePoint[];
 };
-
-export type ValueAbstractType = "asset_value" | "transaction";
-
-export type BrandedValue<
-  T extends ValueAbstract,
-  B extends ValueAbstractType
-> = T & {
-  recordType: B;
-};
-
-export type BrandedAssetValue = BrandedValue<
-  AssetValue,
-  Extract<ValueAbstractType, "asset_value">
->;
-
-export type BrandedAssetTransactionValue = BrandedValue<
-  AssetTransaction,
-  Extract<ValueAbstractType, "transaction">
->;
-
-export type BrandedAbstractTransactionValue = BrandedValue<
-  TransactionAbstract,
-  Extract<ValueAbstractType, "transaction">
->;
 
 export type AssetHistoryValue =
   | BrandedAbstractTransactionValue

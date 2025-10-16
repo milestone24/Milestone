@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { RecurringContribution, UserAsset } from "./portfolio-assets";
+import { UserAsset } from "./portfolio-assets";
+import { RecurringContribution } from "./transaction";
 import { Milestone } from "./portfolio-milestone";
 import { FireSettings } from "./portfolio-fire";
 import { UserProfile } from "./user-account";
