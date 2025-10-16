@@ -17,7 +17,11 @@ import type {
   AssetValueMetadata as DBAssetValueMetadata,
   AssetValueMetadataSecurity as DBAssetValueMetadataSecurity,
 } from "@server/db/schema/index";
-import { accountType } from "@server/db/schema/index";
+import {
+  accountType,
+  recurringContributionProcessTypes,
+  recurringContributionTypes,
+} from "@server/db/schema/index";
 import { ExtractCommonFields, IfConstructorEquals, Orphan } from "./utils";
 import {
   securityInsertSchema,
@@ -105,8 +109,8 @@ export const userAssetOrphanInsertSchema = z.object({
     .object({
       isScheduled: z.boolean(),
       process: z.enum(["automatic", "manual"]),
-      amount: z.number(),
-      date: z.coerce.date(),
+      amount: z.coerce.number(),
+      //date: z.coerce.date(),
       securityDistribution: z.array(
         z.object({
           securityTempId: z.string(),
@@ -278,18 +282,22 @@ assetContributionInsertSchema satisfies ZodType<AssetContributionInsert>;
 
 export const recurringContributionOrphanInsertSchema = z.object({
   amount: z.number().positive(),
+  type: z.enum(recurringContributionTypes),
+  process: z.enum(recurringContributionProcessTypes),
   startDate: z.coerce.date(),
   patternConfig: patternSchema,
+  notificationEmail: z.boolean().optional().default(false),
+  notificationPush: z.boolean().optional().default(false),
 });
 
-type ZodRecurringContributionOrphanInsert = z.infer<
+type ZodRecurringContributionOrphanInsert = z.input<
   typeof recurringContributionOrphanInsertSchema
 >;
 export type RecurringContributionOrphanInsert = IfConstructorEquals<
   ZodRecurringContributionOrphanInsert,
   Omit<
     DBRecurringContributionInsert,
-    "isActive" | "lastProcessedDate" | "assetId"
+    "isActive" | "lastProcessedDate" | "assetId" | "groupId"
   >,
   never
 >;
@@ -300,12 +308,15 @@ export const recurringContributionInsertSchema =
     assetId: z.string(),
   });
 
-type ZodRecurringContributionInsert = z.infer<
+type ZodRecurringContributionInsert = z.input<
   typeof recurringContributionInsertSchema
 >;
 export type RecurringContributionInsert = IfConstructorEquals<
   ZodRecurringContributionInsert,
-  Omit<DBRecurringContributionInsert, "isActive" | "lastProcessedDate">,
+  Omit<
+    DBRecurringContributionInsert,
+    "isActive" | "lastProcessedDate" | "groupId"
+  >,
   never
 >;
 recurringContributionInsertSchema satisfies ZodType<RecurringContributionInsert>;

@@ -93,6 +93,7 @@ import {
   portfolioGraphValues,
   processes as processesKey,
 } from "@shared/api/queryKeys";
+import { randomUUID } from "node:crypto";
 
 const securitiesService = securitiesFactory();
 
@@ -767,7 +768,9 @@ export class DatabaseAssetService {
       }
 
       if (data.valueMethod === "calculated") {
-        await Promise.all(
+        const groupId = randomUUID();
+
+        const assetSecurities = await Promise.all(
           data.securities.map(async (security) => {
             const persistedSecurity =
               await securitiesService.createOrFindCachedSecurity(
@@ -806,7 +809,39 @@ export class DatabaseAssetService {
               .returning();
 
             if (!transaction) {
+              tx.rollback();
               throw new Error("Failed to create security transaction");
+            }
+
+            if (
+              data.contributions &&
+              data.contributions?.isScheduled &&
+              data.contributions.securityDistribution.length > 0
+            ) {
+              const securityDictribution =
+                data.contributions.securityDistribution.find(
+                  (securityDistribution) =>
+                    securityDistribution.securityTempId === security.tempId
+                );
+
+              if (securityDictribution) {
+                await tx.insert(recurringContributions).values({
+                  assetId: insertedUserAsset.id,
+                  securityId: assetSecurity.id,
+                  groupId,
+                  amount:
+                    data.contributions.securityDistribution.length === 1
+                      ? data.contributions.amount
+                      : data.contributions.amount *
+                        (securityDictribution.commitment / 100),
+                  startDate: data.startDate,
+                  patternConfig: data.contributions.schedulePattern,
+                  type: "security",
+                  process: data.contributions.process,
+                  notificationEmail: data.contributions.notificationEmail,
+                  notificationPush: data.contributions.notificationPush,
+                });
+              }
             }
           })
         );
@@ -830,6 +865,19 @@ export class DatabaseAssetService {
           createdAt: new Date(),
           updatedAt: new Date(),
         });
+
+        if (data.contributions?.isScheduled) {
+          await tx.insert(recurringContributions).values({
+            assetId: insertedUserAsset.id,
+            process: data.contributions.process,
+            amount: data.contributions.amount,
+            startDate: data.startDate,
+            patternConfig: data.contributions.schedulePattern,
+            type: "asset",
+            notificationEmail: data.contributions.notificationEmail,
+            notificationPush: data.contributions.notificationPush,
+          });
+        }
       }
 
       return insertedUserAsset;

@@ -106,16 +106,48 @@ export type AssetValueInsert = InferInsertModelBasic<typeof assetValues>;
 // export type AssetDebitSelect = InferSelectModel<typeof assetDebits>;
 // export type AssetDebitInsert = InferInsertModelBasic<typeof assetDebits>;
 
+export const recurringContributionTypes = ["asset", "security"] as const;
+export const recurringContributionTypesEnum = pgEnum(
+  "recurring_contribution_type",
+  recurringContributionTypes
+);
+
+export type RecurringContributionType =
+  (typeof recurringContributionTypes)[number];
+
+export const recurringContributionProcessTypes = [
+  "automatic",
+  "manual",
+] as const;
+
+export const recurringContributionProcessTypesEnum = pgEnum(
+  "recurring_contribution_process_type",
+  recurringContributionProcessTypes
+);
+
+export type RecurringContributionProcessType =
+  (typeof recurringContributionProcessTypes)[number];
+
 export const recurringContributions = pgTable("recurring_contributions", {
   id: uuid("id")
     .notNull()
     .default(sql`gen_random_uuid()`),
-  assetId: uuid("asset_id").notNull(),
+  groupId: uuid("group_id"), //to associate recurring contributions with a group of recurring contributions
+  type: recurringContributionTypesEnum("type").notNull(),
+  process: recurringContributionProcessTypesEnum("process_type").notNull(),
+  assetId: uuid("asset_id")
+    .notNull()
+    .references(() => userAssets.id, { onDelete: "cascade" }),
+  securityId: uuid("security_id").references(() => userAssetSecurities.id, {
+    onDelete: "cascade",
+  }),
   amount: real("amount").notNull(),
   startDate: timestamp("start_date").notNull(),
   patternConfig: jsonb("pattern_config").$type<SchedulePattern>().notNull(),
   lastProcessedDate: timestamp("last_processed_date"),
   isActive: boolean("is_active").notNull().default(true),
+  notificationEmail: boolean("notification_email").default(false).notNull(),
+  notificationPush: boolean("notification_push").default(false).notNull(),
   ...timestampColumns(),
 });
 
