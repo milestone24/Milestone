@@ -7,7 +7,6 @@ import { UserAssetOrphanInsert } from "@shared/schema";
 type AddAccountDialogueProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  inProgress: boolean;
   onSubmit: (data: UserAssetOrphanInsert) => void;
 };
 

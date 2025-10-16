@@ -20,11 +20,7 @@ import { usePortfolio } from "@/context/PortfolioContext";
 import { useToast } from "@/hooks/use-toast";
 import { getNextMilestone } from "@/lib/utils/milestones";
 import AddAccountDialogue from "@/components/account/AddAccountDialogue";
-import {
-  AssetValueTimePoint,
-  UserAssetInsert,
-  UserAssetOrphanInsert,
-} from "shared/schema";
+import { AssetValueTimePoint, UserAssetOrphanInsert } from "shared/schema";
 import { DateRangeProvider, useDateRange } from "@/context/DateRangeContext";
 
 import {
@@ -44,6 +40,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getDateUrlParams } from "@/lib/date";
 import { portfolioGraphValues } from "@shared/api/queryKeys";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
+import { useAssetCreate } from "@/hooks/use-asset-create";
 
 function Portfolio() {
   const { dateRange } = useDateRange();
@@ -56,10 +53,12 @@ function Portfolio() {
     useBrokerPlatforms();
 
   const [, setLocation] = useLocation();
-  const { assets, milestones, deleteAsset, isLoading, addAsset } = usePortfolio(
+  const { assets, milestones, deleteAsset, isLoading } = usePortfolio(
     startDate,
     endDate
   );
+
+  const { mutateAsync: addAsset } = useAssetCreate();
 
   const { data: portfolioOverview } = usePortfolioOverview(startDate, endDate);
 
@@ -167,7 +166,6 @@ function Portfolio() {
   const [showMilestones, setShowMilestones] = useState(true);
   const [displayInPercentage, setDisplayInPercentage] = useState(false);
   const [accountToDelete, setAccountToDelete] = useState<string | null>(null);
-  const [isAddingAccount, setIsAddingAccount] = useState(false);
 
   // Get color for account type
   const getAccountTypeColor = (type: string) => {
@@ -183,8 +181,7 @@ function Portfolio() {
 
   const onSubmit = async (values: UserAssetOrphanInsert) => {
     try {
-      setIsAddingAccount(true);
-      await addAsset.mutateAsync(values);
+      await addAsset(values);
       setIsAddAccountOpen(false);
       toast({
         title: "Account added successfully",
@@ -199,8 +196,6 @@ function Portfolio() {
           "There was a problem adding your account. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsAddingAccount(false);
     }
   };
 
@@ -340,7 +335,6 @@ function Portfolio() {
           <AddAccountDialogue
             open={isAddAccountOpen}
             onOpenChange={setIsAddAccountOpen}
-            inProgress={isAddingAccount}
             onSubmit={onSubmit}
           />
         </div>
