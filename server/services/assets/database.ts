@@ -888,23 +888,8 @@ export class DatabaseAssetService {
       insertedUserAsset.id
     );
 
-    // const assetPersistence = assetPersistenceFactory(
-    //   this,
-    //   insertedUserAsset.id
-    // );
-
-    // securitiesService.updateAssetValuesSync(assetPersistence, () => {
-    //   sendNotification(insertedUserAsset.userAccountId, "Asset values updated");
-    // });
-
     return insertedUserAsset;
   }
-
-  // async updateManualAssetValues(assetId: UserAsset["id"]): Promise<void> {
-
-  //   const
-
-  // }
 
   async updateUserAsset(
     id: UserAsset["id"],
