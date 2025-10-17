@@ -347,3 +347,11 @@ export type RecurringContributionGroupInsertSecurityDistribution = z.input<
 export type RecurringContributionGroupInsertAssetDistribution = z.input<
   typeof recurringContributionGroupInsertSchemaAssetDistribution
 >;
+
+export type AssetSecurityLike = {
+  id: string;
+  isTempSecurityId?: boolean;
+  security: {
+    name: string;
+  };
+};
