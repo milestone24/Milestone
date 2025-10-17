@@ -1,4 +1,6 @@
 import type {
+  AssetSecurityLike,
+  RecurringContributionGroupInsert,
   UserAssetOrphanInsert,
   UserAssetSecurityInsert,
 } from "@shared/schema";
@@ -30,7 +32,7 @@ import {
 } from "../ui/select";
 import { Button } from "../ui/button";
 import { useCallback, useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { withTransform } from "@/lib/utils/mappers";
 import { Switch } from "../ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
@@ -38,6 +40,18 @@ import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import { RRuleScheduler } from "../schedule/RRuleScheduler";
 import { AssetSecurityForm } from "./AssetSecurityForm";
+import {
+  RecurringContributionForm,
+  RecurringContributionFormProps,
+} from "./RecurringContributionForm";
+
+const contributionsDefaultValues: Partial<RecurringContributionGroupInsert> = {
+  process: "manual",
+  patternConfig: {
+    type: "rrule",
+    expression: "",
+  },
+};
 
 type AccountCreateProps = {
   onSubmit: (data: UserAssetOrphanInsert) => void;
@@ -64,7 +78,6 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
   onCancel,
 }) => {
   const form = useForm<UserAssetOrphanInsert>({
-    //resolver: zodResolver(brokerProviderAssetOrphanInsertSchema),
     resolver: withTransform(
       zodResolver(userAssetOrphanInsertSchema),
       (values) => ({
@@ -163,14 +176,14 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
       //accountType: "ISA",
       //startDate: new Date("2025-01-01"),
       valueMethod: "calculated",
-      contributions: {
-        process: "manual",
-        patternConfig: {
-          type: "rrule",
-          expression: "",
-        },
-        securityDistribution: [],
-      },
+      // contributions: {
+      //   process: "manual",
+      //   patternConfig: {
+      //     type: "rrule",
+      //     expression: "",
+      //   },
+      //   securityDistribution: [],
+      // },
       // securities: [
       // {
       //   security: {
@@ -194,6 +207,8 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
   const {
     handleSubmit,
     formState: { errors, isSubmitting },
+    watch,
+    getValues,
   } = form;
 
   return (
@@ -239,6 +254,8 @@ const ActionsBar = ({
   isProcessing,
   canSubmit,
 }: ActionsBarProps) => {
+  console.log("isProcessing", isProcessing);
+
   return (
     <section className="mt-4 flex justify-end flex-row gap-2">
       {onCancel ? (
@@ -279,7 +296,7 @@ const ActionsBar = ({
         <Button type="submit" disabled={isProcessing}>
           {isProcessing ? (
             <>
-              <span className="mr-2">Processing...</span>
+              <Loader2 className="w-4 h-4 animate-spin" />
             </>
           ) : (
             "Add Account"
@@ -319,6 +336,7 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
 
   const actionsBarProps = {
     ...props,
+    isProcessing: isSubmitting,
     onNext: canNext ? props.onNext : undefined,
   };
 
@@ -671,24 +689,51 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
   } = form;
 
   const securities = watch("securities");
-
-  const { securitiesFields } = useContributionSecurities(securities);
+  const valueMethod = watch("valueMethod");
+  const securitiesForGroup: AssetSecurityLike[] =
+    securities?.map((security) => ({
+      ...security,
+      id: security.tempId,
+      isTempSecurityId: true,
+    })) ?? [];
 
   const [isScheduled, setIsScheduled] = useState<boolean>(false);
 
-  const process = watch("contributions.process");
+  const startDate = watch("startDate");
 
-  const handleSchedulePatternChange = useCallback(
-    (value: string) => {
-      setValue("contributions.patternConfig", {
-        type: "rrule",
-        expression: value,
-      });
-    },
-    [setValue]
-  );
+  useEffect(() => {
+    setValue(
+      "contributions",
+      isScheduled
+        ? {
+            type: valueMethod === "calculated" ? "security" : "asset",
+            notificationEmail: false,
+            notificationPush: false,
+            isActive: true,
+            startDate: startDate ?? new Date(),
+            amount: 0,
+            process: "manual",
+            patternConfig: {
+              type: "rrule",
+              expression: "",
+            },
+            securityDistribution: [],
+          }
+        : undefined,
+      { shouldDirty: true }
+    );
+  }, [isScheduled]);
 
-  const schedulePattern = watch("contributions.patternConfig");
+  const recurringProps: RecurringContributionFormProps =
+    valueMethod === "calculated"
+      ? {
+          type: "security",
+          securities: securitiesForGroup,
+        }
+      : {
+          type: "asset",
+          securities: undefined,
+        };
 
   return (
     <>
@@ -713,184 +758,7 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
 
       {isScheduled ? (
         <>
-          <FormField
-            control={form.control}
-            name="contributions.amount"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Contribution Amount</FormLabel>
-                <FormDescription>
-                  How much do you invest each month into this account?
-                </FormDescription>
-                <FormControl>
-                  <Input
-                    type="number"
-                    placeholder="Contribution Amount"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <RRuleScheduler
-            value={schedulePattern?.expression}
-            onChange={handleSchedulePatternChange}
-          />
-
-          <div className="flex flex-col gap-3 items-start">
-            <FormField
-              control={form.control}
-              name="contributions.process"
-              render={({ field }) => (
-                <FormItem className="items-start justify-start">
-                  <FormLabel>
-                    Would you like use to add your contributions automatically?
-                  </FormLabel>
-                  <FormControl className="items-start justify-start">
-                    <ToggleGroup
-                      type="single"
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      className="mb-4"
-                    >
-                      <ToggleGroupItem value="automatic">Yes</ToggleGroupItem>
-                      <ToggleGroupItem value="manual">No</ToggleGroupItem>
-                    </ToggleGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          {process === "automatic" ? (
-            <>
-              {/* <FormField
-                control={form.control}
-                name="contributions.date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contribution Date</FormLabel>
-                    <FormDescription>
-                      The date of the contribution. (This should not be a date.
-                      This should allow the user to select, for example 1st of
-                      the month, every 3 months, etc.)
-                    </FormDescription>
-                    <FormControl>
-                      <Input
-                        type="date"
-                        placeholder="Contribution Date"
-                        {...field}
-                        value={""}
-                        disabled={true}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              /> */}
-
-              {securitiesFields.length > 0 ? (
-                <FormItem>
-                  <FormLabel>Security Distribution</FormLabel>
-                  <FormDescription>
-                    How is the money distributed between the securities?
-                    <br />
-                    We will automatically record a contribution for each
-                    security based on day stock prices but you may need to
-                    correct the stock price for a given day.
-                  </FormDescription>
-                  {securitiesFields.map((security, index) => (
-                    <div
-                      key={security.id}
-                      className="flex flex-row gap-2 items-center"
-                    >
-                      <span className="text-sm flex-1">
-                        {security.securityName}
-                      </span>
-                      <FormField
-                        control={form.control}
-                        name={`contributions.securityDistribution.${index}.commitment`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl className="flex flex-row gap-2">
-                              <Input
-                                type="number"
-                                placeholder="Commitment"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  ))}
-                </FormItem>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <div className="flex flex-row gap-2 items-center">
-                <p>We'll remind you to manually add your contributions.</p>
-              </div>
-              {/* <FormField
-              control={form.control}
-              name="contributions.notificationPeriod"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notification Period</FormLabel>
-                  <FormControl>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select notification period" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            /> */}
-              <FormField
-                control={form.control}
-                name="contributions.notificationEmail"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email Notifications</FormLabel>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="contributions.notificationPush"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Push Notifications</FormLabel>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </>
-          )}
+          <RecurringContributionForm {...recurringProps} />
         </>
       ) : null}
       <ActionsBar {...props} isProcessing={isSubmitting} />
