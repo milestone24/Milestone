@@ -202,17 +202,13 @@ export default function Fire() {
 
   const yearsToFire = fireProgress?.yearsAheadOrBehind ?? 0;
 
-  // Wrap for FireChart component
-  const fireProjectionResult = {
-    config: {
-      currentAmount: portfolioOverview?.value ?? 0,
-      monthlyInvestment: tempFormState.monthlyInvestment,
-      expectedReturn: tempFormState.expectedReturn,
-      targetAmount: fireNumber,
-      currentAge,
-    },
-    projectionData: fireProjectionData,
-    yearsToFire,
+  // Prepare config for FireChart component
+  const fireConfig = {
+    currentAmount: portfolioOverview?.value ?? 0,
+    monthlyInvestment: tempFormState.monthlyInvestment,
+    expectedReturn: tempFormState.expectedReturn,
+    targetAmount: fireNumber,
+    currentAge,
   };
 
   console.log("yearsToFire", yearsToFire);
@@ -377,7 +373,9 @@ export default function Fire() {
 
         {/* Chart */}
         <FireChart
-          fireProjectionResult={fireProjectionResult}
+          projectionData={fireProjectionData}
+          yearsToFire={yearsToFire}
+          config={fireConfig}
           targetRetirementAge={tempFormState.targetRetirementAge}
           projectedRetirementAge={projectedRetirementAge}
           className="mb-6"

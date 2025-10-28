@@ -1,43 +1,34 @@
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, ReferenceLine, ReferenceArea, Scatter } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import {
-  calculateFireProjection,
-  FireProjectionData,
-  FireProjectionResult,
-} from "@shared/utils/tracking";
+import type { FireProjectionData } from "@shared/utils/projection-client";
+
+type FireProjectionConfig = {
+  currentAmount: number;
+  monthlyInvestment: number;
+  expectedReturn: number;
+  targetAmount: number;
+  currentAge: number;
+};
 
 type FireChartProps = {
   targetRetirementAge: number;
   projectedRetirementAge: number;
-  fireProjectionResult: FireProjectionResult;
+  projectionData: FireProjectionData[];
+  yearsToFire: number;
+  config: FireProjectionConfig;
   className?: string;
 };
 
 export default function FireChart({
   targetRetirementAge,
   projectedRetirementAge,
-  fireProjectionResult,
+  projectionData,
+  yearsToFire,
+  config,
   className,
 }: FireChartProps) {
-  // Calculate projection data
-  // const { projectionData, yearsToFire } = calculateFireProjection({
-  //   currentAmount,
-  //   monthlyInvestment,
-  //   expectedReturn,
-  //   targetAmount,
-  //   currentAge,
-  // });
-
-  const { projectionData, yearsToFire, config } = fireProjectionResult;
-
-  const {
-    // currentAmount,
-    // monthlyInvestment,
-    // expectedReturn,
-    // targetAmount,
-    currentAge,
-  } = config;
+  const { currentAge } = config;
 
   // console.log("cuurentAge", currentAge);
   // console.log("projectionData", projectionData);
