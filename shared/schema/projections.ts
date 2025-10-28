@@ -256,6 +256,35 @@ export const assetProjectionSchema = z.object({
 export type AssetProjection = z.infer<typeof assetProjectionSchema>;
 
 /**
+ * Computation context for client-side adjustments
+ * Contains enough data to recompute projections without server round-trips
+ */
+export const computationContextSchema = z.object({
+  // Assets used in the projection
+  assets: z.array(
+    z.object({
+      id: z.string().uuid(),
+      name: z.string(),
+      accountType: z.string(),
+      currentValue: z.number(),
+    })
+  ),
+  // Snapshot of contributions at computation time
+  recurringContributions: z.array(
+    z.object({
+      id: z.string(),
+      assetId: z.string(),
+      amount: z.number(),
+      isActive: z.boolean(),
+      startDate: z.coerce.date(),
+      patternConfig: z.any(), // SchedulePattern
+      process: z.string(),
+    })
+  ),
+});
+export type ComputationContext = z.infer<typeof computationContextSchema>;
+
+/**
  * Milestone progress result - indicates if user is on track
  */
 export const milestoneProgressSchema = z.object({
@@ -298,8 +327,10 @@ export const projectionResultSchema = z.object({
   assetBreakdown: z.array(assetProjectionSchema),
   milestoneProgress: z.array(milestoneProgressSchema).optional(),
   fireProgress: fireProgressSchema.optional(),
-  calculatedAt: z.coerce.date(),
+  computedAt: z.coerce.date(),
   warnings: z.array(z.string()).optional(), // E.g., "Insufficient historical data for asset X"
+  // NEW: Context for client-side recomputation
+  computationContext: computationContextSchema.optional(),
 });
 export type ProjectionResult = z.infer<typeof projectionResultSchema>;
 

@@ -8,6 +8,7 @@ import {
   ProjectionOrhesratorAssetInput,
   ProjectionOrchestratorInput,
   ProjectionDataSource,
+  ComputationContext,
 } from "@shared/schema/projections";
 import { UserAsset, RecurringContribution } from "@shared/schema";
 //import { Database } from "@server/db";
@@ -259,6 +260,27 @@ export async function orchestrateProjection(
   const totalGrowth =
     totalProjectedValue - totalCurrentValue - totalContributions;
 
+  // Build computation context for client-side adjustments
+  const computationContext: ComputationContext = {
+    assets: assetsToProject.map((asset) => ({
+      id: asset.id,
+      name: asset.name,
+      accountType: asset.accountType,
+      currentValue: asset.currentValue,
+    })),
+    recurringContributions: input.recurringContributions.map(
+      (contribution) => ({
+        id: contribution.id,
+        assetId: contribution.assetId,
+        amount: contribution.amount,
+        isActive: contribution.isActive,
+        startDate: contribution.startDate,
+        patternConfig: contribution.patternConfig,
+        process: contribution.process,
+      })
+    ),
+  };
+
   // Build result
   const result: ProjectionOrchestratorResult = {
     config,
@@ -268,8 +290,9 @@ export async function orchestrateProjection(
     totalContributions,
     timePoints: portfolioTimePoints,
     assetBreakdown: assetProjections,
-    calculatedAt: new Date(),
+    computedAt: new Date(),
     warnings: warnings.length > 0 ? warnings : undefined,
+    computationContext,
   };
 
   // Calculate milestone progress if requested
