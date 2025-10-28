@@ -32,7 +32,7 @@ export const FireSettingsForm = () => {
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <span className="text-gray-500">£</span>
                 </div>
-                <Input {...field} type="number" step="0.01" className="pl-7" />
+                <Input {...field} type="number" step="500" className="pl-7" />
               </div>
             </FormControl>
             <p className="text-xs text-gray-500 mt-1">
@@ -56,7 +56,12 @@ export const FireSettingsForm = () => {
               year (Linear not compounded).
             </FormDescription>
             <FormControl>
-              <Input {...field} type="number" step="0.01" />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500">%</span>
+                </div>
+                <Input {...field} type="number" step="0.1" className="pl-8" />
+              </div>
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -76,7 +81,12 @@ export const FireSettingsForm = () => {
               pensions in retirement.
             </FormDescription>
             <FormControl>
-              <Input {...field} type="number" step="0.01" />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500">%</span>
+                </div>
+                <Input {...field} type="number" step="0.1" className="pl-8" />
+              </div>
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -93,14 +103,14 @@ export const FireSettingsForm = () => {
             </FormLabel>
             <FormDescription>
               This is your intent, and will be compared to your actual monthly
-              cntributions.
+              contributions.
             </FormDescription>
             <FormControl>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <span className="text-gray-500">£</span>
                 </div>
-                <Input {...field} type="number" step="0.01" className="pl-7" />
+                <Input {...field} type="number" step="10" className="pl-7" />
               </div>
             </FormControl>
             <FormMessage />
@@ -120,7 +130,7 @@ export const FireSettingsForm = () => {
               This is the age you hope to retire at.
             </FormDescription>
             <FormControl>
-              <Input {...field} type="number" />
+              <Input {...field} type="number" step="1" />
             </FormControl>
             <FormMessage />
           </FormItem>
