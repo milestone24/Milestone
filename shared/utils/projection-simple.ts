@@ -19,6 +19,7 @@ import {
   applyModifiersToValue,
   createProjectionTimePoint,
   getNextProjectionDate,
+  projectRecurringContributions,
 } from "./projection-utils";
 
 // ============================================================================
@@ -103,66 +104,6 @@ export function projectWithCompoundGrowthAndContributions(
       : annualContribution * n; // Handle zero growth rate
 
   return fvPrincipal + fvContributions;
-}
-
-// ============================================================================
-// RECURRING CONTRIBUTIONS
-// ============================================================================
-
-/**
- * Project future contribution dates based on schedule pattern
- */
-export function* projectRecurringContributions(
-  contribution: RecurringContribution,
-  startDate: Date,
-  endDate: Date
-): Generator<{ date: Date; amount: number }> {
-  let currentDate =
-    startDate > contribution.startDate ? startDate : contribution.startDate;
-
-  while (currentDate <= endDate) {
-    // Yield current contribution
-    yield {
-      date: new Date(currentDate),
-      amount: contribution.amount,
-    };
-
-    // Get next execution date
-    const nextDate = getNextExecutionDate(
-      contribution.patternConfig,
-      currentDate,
-      endDate
-    );
-
-    if (!nextDate || nextDate > endDate) {
-      break;
-    }
-
-    currentDate = nextDate;
-  }
-}
-
-/**
- * Calculate total contributions over a period
- */
-export function calculateTotalContributions(
-  contributions: RecurringContribution[],
-  startDate: Date,
-  endDate: Date
-): number {
-  let total = 0;
-
-  for (const contribution of contributions.filter((c) => c.isActive)) {
-    for (const { amount } of projectRecurringContributions(
-      contribution,
-      startDate,
-      endDate
-    )) {
-      total += amount;
-    }
-  }
-
-  return total;
 }
 
 // ============================================================================

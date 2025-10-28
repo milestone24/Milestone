@@ -1,7 +1,7 @@
 import type { RecurringContribution } from "@shared/schema";
 import type { ProjectionTimePoint } from "@shared/schema/projections";
-import { projectRecurringContributions } from "./projection-simple";
 import { ModifierChain, createModifierContext } from "./projection-modifiers";
+import { getNextExecutionDate } from "./scheduling";
 
 export const calculateAge = (dateOfBirth: Date) => {
   const today = new Date();
@@ -21,6 +21,43 @@ export const calculateAge = (dateOfBirth: Date) => {
 
   return age;
 };
+
+// ============================================================================
+// RECURRING CONTRIBUTIONS
+// ============================================================================
+
+/**
+ * Project future contribution dates based on schedule pattern
+ */
+export function* projectRecurringContributions(
+  contribution: RecurringContribution,
+  startDate: Date,
+  endDate: Date
+): Generator<{ date: Date; amount: number }> {
+  let currentDate =
+    startDate > contribution.startDate ? startDate : contribution.startDate;
+
+  while (currentDate <= endDate) {
+    // Yield current contribution
+    yield {
+      date: new Date(currentDate),
+      amount: contribution.amount,
+    };
+
+    // Get next execution date
+    const nextDate = getNextExecutionDate(
+      contribution.patternConfig,
+      currentDate,
+      endDate
+    );
+
+    if (!nextDate || nextDate > endDate) {
+      break;
+    }
+
+    currentDate = nextDate;
+  }
+}
 
 // ============================================================================
 // CONTRIBUTION CALCULATION HELPERS

@@ -15,9 +15,9 @@ import {
   applyModifiersToValue,
   createProjectionTimePoint,
   getNextProjectionDate,
+  projectRecurringContributions,
 } from "./projection-utils";
 import { addDays, addMonths, addWeeks, addYears } from "date-fns";
-import { projectRecurringContributions } from "./projection-simple";
 
 // ============================================================================
 // TYPES
