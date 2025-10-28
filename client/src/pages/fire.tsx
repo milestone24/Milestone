@@ -312,141 +312,134 @@ export default function Fire() {
 
   // Main FIRE calculator view
   return (
-    <div className="fire-screen max-w-5xl mx-auto px-4 pb-20">
-      <Card className="mt-4">
-        <CardContent className="p-4">
-          <h2 className="text-lg font-semibold mb-3">FIRE Calculator</h2>
-          <p className="text-sm text-gray-600 mb-6">
-            Plan your Financial Independence and Retire Early
-          </p>
+    <div className="fire-screen max-w-5xl mx-auto px-2 md:px-4 pb-20">
+      <div className="w-full flex flex-col">
+        <h2 className="text-lg font-semibold mb-3">FIRE Calculator</h2>
+        <p className="text-sm text-gray-600 mb-6">
+          Plan your Financial Independence and Retire Early
+        </p>
 
-          {/* Chart */}
-          <FireChart
-            fireProjectionResult={fireProjectionResult}
-            targetRetirementAge={tempFormState.targetRetirementAge}
-            projectedRetirementAge={projectedRetirementAge}
-            className="mb-6"
-          />
-
-          {/* FIRE Summary */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <h3 className="font-medium mb-3">Your FIRE Summary</h3>
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-sm text-gray-600">Current portfolio:</span>
-              <span className="font-medium">
-                £{portfolioOverview?.value?.toLocaleString() ?? 0}
-              </span>
-            </div>
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-sm text-gray-600">
-                FIRE number (Retirement Target):
-              </span>
-              <span className="font-medium">
-                £{fireNumber.toLocaleString()}
-              </span>
-            </div>
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-sm text-gray-600">
-                Annual sustainable income ({tempFormState.withdrawalRate}%):
-              </span>
-              <span className="font-medium">
-                £{tempFormState.annualIncome.toLocaleString()}
-              </span>
-            </div>
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-sm text-gray-600">
-                Projected retirement age:
-              </span>
-              <span className="font-medium">
-                {projectedRetirementAge} years
-              </span>
-            </div>
+        {/* FIRE Summary */}
+        <div className="bg-gray-50 rounded-lg p-4 mb-6">
+          <h3 className="font-medium mb-3">Your FIRE Summary</h3>
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-sm text-gray-600">Current portfolio:</span>
+            <span className="font-medium">
+              £{portfolioOverview?.value?.toLocaleString() ?? 0}
+            </span>
           </div>
-
-          {/* FIRE Settings */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <h3 className="font-medium mb-3">Your FIRE Settings</h3>
-
-            <FormProvider {...form}>
-              <form onSubmit={handleSaveSettings} className="space-y-4">
-                <FireSettingsForm />
-                <Button
-                  type="submit"
-                  className="w-full bg-primary text-white py-2 rounded-lg font-medium mt-4"
-                >
-                  Save Settings
-                </Button>
-              </form>
-            </FormProvider>
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-sm text-gray-600">
+              FIRE number (Retirement Target):
+            </span>
+            <span className="font-medium">£{fireNumber.toLocaleString()}</span>
           </div>
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-sm text-gray-600">
+              Annual sustainable income ({tempFormState.withdrawalRate}%):
+            </span>
+            <span className="font-medium">
+              £{tempFormState.annualIncome.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-sm text-gray-600">
+              Projected retirement age:
+            </span>
+            <span className="font-medium">{projectedRetirementAge} years</span>
+          </div>
+        </div>
 
-          {/* Adjust Investment */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-medium mb-3">Adjust Your Investment</h3>
+        {/* Chart */}
+        <FireChart
+          fireProjectionResult={fireProjectionResult}
+          targetRetirementAge={tempFormState.targetRetirementAge}
+          projectedRetirementAge={projectedRetirementAge}
+          className="mb-6"
+        />
 
-            <div className="mb-4">
-              <p className="text-sm font-medium text-gray-700 mb-2">
-                Current Monthly Investment
-              </p>
-              <p className="text-2xl font-bold">
-                £{tempFormState.monthlyInvestment.toLocaleString()}
-              </p>
-            </div>
+        {/* FIRE Settings */}
+        <div className="bg-gray-50 rounded-lg p-4 mb-6">
+          <h3 className="font-medium mb-3">Your FIRE Settings</h3>
 
-            <div className="flex space-x-2 mb-4">
+          <FormProvider {...form}>
+            <form onSubmit={handleSaveSettings} className="space-y-4">
+              <FireSettingsForm />
               <Button
-                variant="outline"
-                className="flex-1 py-2 px-3"
-                onClick={() => handleAdjustInvestment(-100)}
-                disabled={tempFormState.monthlyInvestment <= 100}
+                type="submit"
+                className="w-full bg-primary text-white py-2 rounded-lg font-medium mt-4"
               >
-                -£100/month
+                Save Settings
               </Button>
-              <Button
-                className="flex-1 py-2 px-3 bg-primary text-white"
-                onClick={() => handleAdjustInvestment(100)}
-              >
-                +£100/month
-              </Button>
-            </div>
+            </form>
+          </FormProvider>
+        </div>
 
-            <div className="px-3 py-2 bg-blue-50 rounded-lg text-blue-700 text-sm">
-              {increaseImpact.monthsDifference > 0 ? (
-                <p>
-                  By increasing your monthly investment by £100, you could
-                  retire{" "}
-                  <span className="font-medium">
-                    {increaseImpact.monthsDifference > 12
-                      ? `${Math.floor(
-                          increaseImpact.monthsDifference / 12
-                        )} years and ${
-                          increaseImpact.monthsDifference % 12
-                        } months`
-                      : `${increaseImpact.monthsDifference} months`}{" "}
-                    earlier
-                  </span>
-                  .
-                </p>
-              ) : (
-                <p>
-                  By decreasing your monthly investment by £100, your retirement
-                  would be delayed by{" "}
-                  <span className="font-medium">
-                    {decreaseImpact.monthsDifference > 12
-                      ? `${Math.floor(
-                          Math.abs(decreaseImpact.monthsDifference) / 12
-                        )} years and ${
-                          Math.abs(decreaseImpact.monthsDifference) % 12
-                        } months`
-                      : `${Math.abs(decreaseImpact.monthsDifference)} months`}
-                  </span>
-                  .
-                </p>
-              )}
-            </div>
+        {/* Adjust Investment */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h3 className="font-medium mb-3">Adjust Your Investment</h3>
+
+          <div className="mb-4">
+            <p className="text-sm font-medium text-gray-700 mb-2">
+              Current Monthly Investment
+            </p>
+            <p className="text-2xl font-bold">
+              £{tempFormState.monthlyInvestment.toLocaleString()}
+            </p>
           </div>
-        </CardContent>
-      </Card>
+
+          <div className="flex space-x-2 mb-4">
+            <Button
+              variant="outline"
+              className="flex-1 py-2 px-3"
+              onClick={() => handleAdjustInvestment(-100)}
+              disabled={tempFormState.monthlyInvestment <= 100}
+            >
+              -£100/month
+            </Button>
+            <Button
+              className="flex-1 py-2 px-3 bg-primary text-white"
+              onClick={() => handleAdjustInvestment(100)}
+            >
+              +£100/month
+            </Button>
+          </div>
+
+          <div className="px-3 py-2 bg-blue-50 rounded-lg text-blue-700 text-sm">
+            {increaseImpact.monthsDifference > 0 ? (
+              <p>
+                By increasing your monthly investment by £100, you could retire{" "}
+                <span className="font-medium">
+                  {increaseImpact.monthsDifference > 12
+                    ? `${Math.floor(
+                        increaseImpact.monthsDifference / 12
+                      )} years and ${
+                        increaseImpact.monthsDifference % 12
+                      } months`
+                    : `${increaseImpact.monthsDifference} months`}{" "}
+                  earlier
+                </span>
+                .
+              </p>
+            ) : (
+              <p>
+                By decreasing your monthly investment by £100, your retirement
+                would be delayed by{" "}
+                <span className="font-medium">
+                  {decreaseImpact.monthsDifference > 12
+                    ? `${Math.floor(
+                        Math.abs(decreaseImpact.monthsDifference) / 12
+                      )} years and ${
+                        Math.abs(decreaseImpact.monthsDifference) % 12
+                      } months`
+                    : `${Math.abs(decreaseImpact.monthsDifference)} months`}
+                </span>
+                .
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
