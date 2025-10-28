@@ -3,12 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { usePortfolio } from "@/context/PortfolioContext";
 import {
-  calculateFireNumber,
-  calculateYearsToTarget,
-  calculateContributionImpact,
-  calculateFireProjection,
-  FireProjectionResult,
-} from "@shared/utils/tracking";
+  computeClientFireProjection,
+  calculateContributionImpactWithProjections,
+  type FireProjectionData,
+} from "@shared/utils/projection-client";
 import FireChart from "@/components/charts/FireChart";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -21,7 +19,7 @@ import {
 } from "@shared/schema";
 import { useSession } from "@/hooks/use-session";
 import { usePortfolioWithFIREProjection } from "@/hooks/use-projections";
-import { calculateAge } from "@shared/utils/tracking";
+import { calculateAge } from "@shared/utils/projection-utils";
 import { useFireSettings } from "@/hooks/use-fire-settings";
 import { usePatchFireSettings } from "@/hooks/use-fire-settings-patch";
 import { useCreateFireSettings } from "@/hooks/use-fire-settings-create";
@@ -147,7 +145,7 @@ export default function Fire() {
     modifiers,
   });
 
-  const { fireProgress } = currentProjection ?? {};
+  const { fireProgress, computationContext } = currentProjection ?? {};
 
   //console.log("currentProjection", currentProjection);
 
@@ -167,15 +165,45 @@ export default function Fire() {
   //   fireNumber
   // );
 
-  const fireProjectionResult = calculateFireProjection({
-    currentAmount: portfolioOverview?.value ?? 0,
-    monthlyInvestment: tempFormState.monthlyInvestment,
-    expectedReturn: tempFormState.expectedReturn,
-    targetAmount: fireNumber,
-    currentAge,
-  });
+  // Use recurring contributions from computationContext if available
+  // Otherwise fall back to mock based on FIRE settings
+  const recurringContributions =
+    computationContext?.recurringContributions ?? [];
 
-  const fpr2: FireProjectionResult = {
+  const contributionsForFire =
+    recurringContributions.length > 0
+      ? recurringContributions
+      : tempFormState.monthlyInvestment
+      ? [
+          {
+            id: "mock",
+            assetId: "mock",
+            amount: tempFormState.monthlyInvestment,
+            isActive: true,
+            startDate: new Date(),
+            patternConfig: {
+              type: "rrule",
+              expression: "FREQ=MONTHLY",
+            },
+            process: "manual",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ]
+      : [];
+
+  const fireProjectionData = computeClientFireProjection(
+    portfolioOverview?.value ?? 0,
+    contributionsForFire as any,
+    tempFormState.expectedReturn,
+    fireNumber,
+    currentAge
+  );
+
+  const yearsToFire = fireProgress?.yearsAheadOrBehind ?? 0;
+
+  // Wrap for FireChart component
+  const fireProjectionResult = {
     config: {
       currentAmount: portfolioOverview?.value ?? 0,
       monthlyInvestment: tempFormState.monthlyInvestment,
@@ -183,33 +211,30 @@ export default function Fire() {
       targetAmount: fireNumber,
       currentAge,
     },
-    projectionData: [],
-    yearsToFire: fireProgress?.yearsAheadOrBehind ?? 0,
+    projectionData: fireProjectionData,
+    yearsToFire,
   };
-
-  //const { yearsToFire } = fireProjectionResult;
-  const { yearsToFire } = fpr2;
 
   console.log("yearsToFire", yearsToFire);
 
   // Calculate the impact of changing monthly investment
-  const increaseImpact = calculateContributionImpact({
-    currentAmount: portfolioOverview?.value ?? 0,
-    currentMonthlyInvestment: tempFormState.monthlyInvestment,
-    newMonthlyInvestment: tempFormState.monthlyInvestment + 100,
-    expectedReturn: tempFormState.expectedReturn,
-    targetAmount: fireNumber,
-    currentAge,
-  });
+  const increaseImpact = calculateContributionImpactWithProjections(
+    portfolioOverview?.value ?? 0,
+    contributionsForFire as any,
+    tempFormState.monthlyInvestment + 100,
+    tempFormState.expectedReturn,
+    fireNumber,
+    currentAge
+  );
 
-  const decreaseImpact = calculateContributionImpact({
-    currentAmount: portfolioOverview?.value ?? 0,
-    currentMonthlyInvestment: tempFormState.monthlyInvestment,
-    newMonthlyInvestment: tempFormState.monthlyInvestment - 100,
-    expectedReturn: tempFormState.expectedReturn,
-    targetAmount: fireNumber,
-    currentAge,
-  });
+  const decreaseImpact = calculateContributionImpactWithProjections(
+    portfolioOverview?.value ?? 0,
+    contributionsForFire as any,
+    tempFormState.monthlyInvestment - 100,
+    tempFormState.expectedReturn,
+    fireNumber,
+    currentAge
+  );
 
   // Projected retirement age
   const projectedRetirementAge = Math.round(currentAge + yearsToFire);
