@@ -1,9 +1,21 @@
+/**
+ * @deprecated This module is legacy and should be migrated to the new projection system.
+ * See @shared/utils/projection-client.ts for the modern equivalent.
+ *
+ * This module contains legacy financial calculation utilities. Most functionality has been
+ * superseded by the projection-* utilities in the shared module. Consider migrating to:
+ * - projection-client.ts for client-side calculations
+ * - projection-simple.ts for basic projections
+ * - projection-orchestrator.ts for multi-asset projections
+ */
+
+/**
+ * @deprecated Use date-fns differenceInYears or a dedicated date utility
+ * Calculate age from date of birth
+ */
 export const calculateAge = (dateOfBirth: Date) => {
   const today = new Date();
   const dob = new Date(dateOfBirth);
-
-  console.log("today", today);
-  console.log("dob", dob);
 
   let age = today.getFullYear() - dob.getFullYear();
 
@@ -23,20 +35,9 @@ export const calculateAge = (dateOfBirth: Date) => {
 // Finance utility functions for the investment tracker
 
 /**
- * Calculate future value using compound interest formula
- * FV = PV * (1 + r)^n
- */
-export function calculateFutureValue(
-  presentValue: number,
-  rate: number,
-  years: number
-): number {
-  return presentValue * Math.pow(1 + rate / 100, years);
-}
-
-/**
  * Calculate future value with regular contributions
  * FV = PV * (1 + r)^n + PMT * ((1 + r)^n - 1) / r
+ * @deprecated Use projection-client.ts computeCompoundProjection or computeLinearProjection
  */
 export function calculateFutureValueWithContributions(
   presentValue: number,
@@ -58,6 +59,7 @@ export function calculateFutureValueWithContributions(
 /**
  * Calculate years until reaching target amount
  * n = log(FV/PV) / log(1 + r)
+ * @deprecated Use projection-client.ts calculateYearsToTarget
  */
 export function calculateYearsToTarget(
   presentValue: number,
@@ -88,6 +90,7 @@ export function calculateYearsToTarget(
 
 /**
  * Calculate FIRE number based on desired annual income and withdrawal rate
+ * @deprecated Consider calculating this in projection-client.ts or projection-fire-calculator.ts
  */
 export function calculateFireNumber(
   desiredAnnualIncome: number,
@@ -96,7 +99,9 @@ export function calculateFireNumber(
   return desiredAnnualIncome / (withdrawalRate / 100);
 }
 
-
+/**
+ * @deprecated Use projection-client.ts FireProjectionData and related types
+ */
 export type FireProjectionConfig = {
   currentAmount: number;
   monthlyInvestment: number;
@@ -105,12 +110,18 @@ export type FireProjectionConfig = {
   currentAge: number;
 };
 
+/**
+ * @deprecated Use projection-client.ts FireProjectionData
+ */
 export type FireProjectionData = {
   age: number;
   portfolio: number;
   target: number;
 };
 
+/**
+ * @deprecated Use projection-client.ts FireProjectionResult
+ */
 export type FireProjectionResult = {
   config: FireProjectionConfig;
   projectionData: FireProjectionData[];
@@ -119,6 +130,7 @@ export type FireProjectionResult = {
 
 /**
  * Generate FIRE projection data for chart
+ * @deprecated Use projection-client.ts computeClientFireProjection
  */
 export function calculateFireProjection(
   config: FireProjectionConfig
@@ -173,6 +185,7 @@ export function calculateFireProjection(
 
 /**
  * Calculate the impact of changing monthly contribution
+ * @deprecated Use projection-client.ts calculateContributionImpactWithProjections
  */
 export function calculateContributionImpact({
   currentAmount,
@@ -221,6 +234,7 @@ export function calculateContributionImpact({
 
 /**
  * Calculate if someone is on track for their retirement goals
+ * @deprecated Consider using projection-client.ts for more accurate calculations with contributions
  */
 export function calculateOnTrackStatus({
   currentAge,
