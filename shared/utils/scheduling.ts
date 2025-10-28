@@ -20,8 +20,7 @@ import type {
  */
 
 import { Cron } from "croner";
-import rrule from "rrule";
-const { RRule } = rrule;
+import { RRule } from "rrule";
 
 // ============================================================================
 // TYPES AND INTERFACES
