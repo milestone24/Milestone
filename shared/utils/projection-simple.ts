@@ -13,11 +13,13 @@ import {
   addYears,
   differenceInDays,
 } from "date-fns";
+import { ModifierChain, calculateYearsElapsed } from "./projection-modifiers";
 import {
-  ModifierChain,
-  createModifierContext,
-  calculateYearsElapsed,
-} from "./projection-modifiers";
+  calculatePeriodContributions,
+  applyModifiersToValue,
+  createProjectionTimePoint,
+  getNextProjectionDate,
+} from "./projection-utils";
 
 // ============================================================================
 // SIMPLE PROJECTION SERVICE
@@ -206,21 +208,23 @@ export function generateLinearProjectionTimeSeries(
   let totalGrowth = 0;
 
   // Initial point
-  timePoints.push({
-    date: new Date(currentProjectionDate),
-    value: accumulatedValue,
-    contributions: 0,
-    growth: 0,
-    projectedValue: false, // First point is current
-  });
+  timePoints.push(
+    createProjectionTimePoint(
+      currentProjectionDate,
+      accumulatedValue,
+      0,
+      0,
+      false // First point is current
+    )
+  );
 
   // Generate points until end date
   while (currentProjectionDate < config.endDate) {
-    currentProjectionDate = incrementDate(currentProjectionDate);
-
-    if (currentProjectionDate > config.endDate) {
-      currentProjectionDate = new Date(config.endDate);
-    }
+    currentProjectionDate = getNextProjectionDate(
+      currentProjectionDate,
+      incrementDate,
+      config.endDate
+    );
 
     // Calculate years elapsed from start
     const yearsFromStart = calculateYearsElapsed(
@@ -233,55 +237,38 @@ export function generateLinearProjectionTimeSeries(
       currentValue * (config.growthRate / 100) * yearsFromStart;
 
     // Calculate contributions in this period
-    let periodContributions = 0;
     const lastTimePoint = timePoints[timePoints.length - 1];
-    for (const contribution of recurringContributions.filter(
-      (c) => c.isActive
-    )) {
-      for (const { amount } of projectRecurringContributions(
-        contribution,
-        lastTimePoint ? lastTimePoint.date : config.startDate,
-        currentProjectionDate
-      )) {
-        let contributionAmount = amount;
-
-        // Apply modifiers to contribution
-        if (modifierChain) {
-          const context = createModifierContext(
-            accumulatedValue,
-            config.startDate,
-            currentProjectionDate,
-            amount
-          );
-          contributionAmount = modifierChain.apply(amount, context);
-        }
-
-        periodContributions += contributionAmount;
-      }
-    }
+    const periodContributions = calculatePeriodContributions(
+      recurringContributions,
+      lastTimePoint ? lastTimePoint.date : config.startDate,
+      currentProjectionDate,
+      modifierChain,
+      accumulatedValue,
+      config.startDate
+    );
 
     totalContributions += periodContributions;
     totalGrowth = growthValue;
     accumulatedValue = currentValue + growthValue + totalContributions;
 
     // Apply modifiers to final value (inflation, fees)
-    let finalValue = accumulatedValue;
-    if (modifierChain) {
-      const context = createModifierContext(
-        accumulatedValue,
-        config.startDate,
-        currentProjectionDate
-      );
-      finalValue = modifierChain.apply(accumulatedValue, context);
-    }
+    const finalValue = applyModifiersToValue(
+      accumulatedValue,
+      accumulatedValue,
+      config.startDate,
+      currentProjectionDate,
+      modifierChain
+    );
 
-    timePoints.push({
-      date: new Date(currentProjectionDate),
-      value: finalValue,
-      contributions: totalContributions,
-      growth: totalGrowth,
-      projectedValue: true,
-    });
+    timePoints.push(
+      createProjectionTimePoint(
+        currentProjectionDate,
+        finalValue,
+        totalContributions,
+        totalGrowth,
+        true
+      )
+    );
   }
 
   return timePoints;
@@ -309,22 +296,24 @@ export function generateCompoundProjectionTimeSeries(
   let totalContributions = 0;
 
   // Initial point
-  timePoints.push({
-    date: new Date(currentProjectionDate),
-    value: accumulatedValue,
-    contributions: 0,
-    growth: 0,
-    projectedValue: false,
-  });
+  timePoints.push(
+    createProjectionTimePoint(
+      currentProjectionDate,
+      accumulatedValue,
+      0,
+      0,
+      false
+    )
+  );
 
   // Generate points until end date
   while (currentProjectionDate < config.endDate) {
     const previousDate = new Date(currentProjectionDate);
-    currentProjectionDate = incrementDate(currentProjectionDate);
-
-    if (currentProjectionDate > config.endDate) {
-      currentProjectionDate = new Date(config.endDate);
-    }
+    currentProjectionDate = getNextProjectionDate(
+      currentProjectionDate,
+      incrementDate,
+      config.endDate
+    );
 
     // Calculate time elapsed in this interval
     const yearsInInterval = calculateYearsElapsed(
@@ -337,59 +326,42 @@ export function generateCompoundProjectionTimeSeries(
     let projectedValue = accumulatedValue * growthFactor;
 
     // Calculate and add contributions in this period
-    let periodContributions = 0;
-    for (const contribution of recurringContributions.filter(
-      (c) => c.isActive
-    )) {
-      for (const { amount } of projectRecurringContributions(
-        contribution,
-        previousDate,
-        currentProjectionDate
-      )) {
-        let contributionAmount = amount;
-
-        // Apply modifiers to contribution
-        if (modifierChain) {
-          const context = createModifierContext(
-            projectedValue,
-            config.startDate,
-            currentProjectionDate,
-            amount
-          );
-          contributionAmount = modifierChain.apply(amount, context);
-        }
-
-        periodContributions += contributionAmount;
-      }
-    }
+    const periodContributions = calculatePeriodContributions(
+      recurringContributions,
+      previousDate,
+      currentProjectionDate,
+      modifierChain,
+      projectedValue,
+      config.startDate
+    );
 
     totalContributions += periodContributions;
     projectedValue += periodContributions;
     accumulatedValue = projectedValue;
 
     // Apply modifiers to final value (inflation, fees)
-    let finalValue = projectedValue;
-    if (modifierChain) {
-      const context = createModifierContext(
-        projectedValue,
-        config.startDate,
-        currentProjectionDate
-      );
-      finalValue = modifierChain.apply(projectedValue, context);
-    }
+    const finalValue = applyModifiersToValue(
+      projectedValue,
+      projectedValue,
+      config.startDate,
+      currentProjectionDate,
+      modifierChain
+    );
 
     const growthAmount =
       finalValue -
       (timePoints[timePoints.length - 1]?.value || 0) -
       periodContributions;
 
-    timePoints.push({
-      date: new Date(currentProjectionDate),
-      value: finalValue,
-      contributions: totalContributions,
-      growth: growthAmount,
-      projectedValue: true,
-    });
+    timePoints.push(
+      createProjectionTimePoint(
+        currentProjectionDate,
+        finalValue,
+        totalContributions,
+        growthAmount,
+        true
+      )
+    );
   }
 
   return timePoints;

@@ -23,6 +23,10 @@ import {
 } from "./projection-advanced";
 //import { assetValues, userAssets } from "@server/db/schema";
 //import { desc, eq, getTableColumns, sql } from "drizzle-orm";
+import {
+  findTimePointAtOrBefore,
+  extractAndSortDates,
+} from "./projection-utils";
 
 // ============================================================================
 // PROJECTION ORCHESTRATOR
@@ -100,19 +104,13 @@ function aggregateAssetTimePoints(
     return [];
   }
 
-  // Collect all unique dates
-  const datesSet = new Set<number>();
-  for (const projection of assetProjections) {
-    for (const point of projection.timePoints) {
-      datesSet.add(point.date.getTime());
-    }
-  }
-
-  const sortedDates = Array.from(datesSet).sort();
+  // Extract all time series and get sorted unique dates
+  const timeSeries = assetProjections.map((p) => p.timePoints);
+  const sortedDates = extractAndSortDates(timeSeries);
 
   // For each date, sum values from all assets
-  return sortedDates.map((timestamp) => {
-    const date = new Date(timestamp);
+  return sortedDates.map((date) => {
+    const timestamp = date.getTime();
     let totalValue = 0;
     let totalContributions = 0;
     let totalGrowth = 0;
@@ -122,7 +120,7 @@ function aggregateAssetTimePoints(
       // Find the time point for this asset at this date (or closest before)
       const point =
         projection.timePoints.find((p) => p.date.getTime() === timestamp) ||
-        findClosestBeforeDate(projection.timePoints, date);
+        findTimePointAtOrBefore(projection.timePoints, date);
 
       if (point) {
         totalValue += point.value;
@@ -140,26 +138,6 @@ function aggregateAssetTimePoints(
       projectedValue: hasProjected,
     };
   });
-}
-
-/**
- * Find the closest time point before or on the given date
- */
-function findClosestBeforeDate(
-  points: ProjectionTimePoint[],
-  targetDate: Date
-): ProjectionTimePoint | undefined {
-  let closest: ProjectionTimePoint | undefined;
-
-  for (const point of points) {
-    if (point.date <= targetDate) {
-      if (!closest || point.date > closest.date) {
-        closest = point;
-      }
-    }
-  }
-
-  return closest;
 }
 
 // ============================================================================
@@ -181,7 +159,10 @@ function calculateMilestoneProgress(
       projectionResult.timePoints.find(
         (p) => p.date.getTime() === milestone.targetDate?.getTime()
       ) ||
-      findClosestBeforeDate(projectionResult.timePoints, milestone.targetDate);
+      findTimePointAtOrBefore(
+        projectionResult.timePoints,
+        milestone.targetDate
+      );
 
     projectedValueAtTarget =
       targetPoint?.value || projectionResult.totalCurrentValue;
