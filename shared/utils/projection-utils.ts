@@ -1,7 +1,11 @@
 import type { RecurringContribution } from "@shared/schema";
-import type { ProjectionTimePoint } from "@shared/schema/projections";
+import type {
+  ProjectionTimePoint,
+  ProjectionInterval,
+} from "@shared/schema/projections";
 import { ModifierChain, createModifierContext } from "./projection-modifiers";
 import { getNextExecutionDate } from "./scheduling";
+import { addDays, addMonths, addWeeks, addYears } from "date-fns";
 
 export const calculateAge = (dateOfBirth: Date) => {
   const today = new Date();
@@ -157,6 +161,24 @@ export function createProjectionTimePoint(
 // ============================================================================
 // DATE ITERATION HELPERS
 // ============================================================================
+
+/**
+ * Get date incrementor function based on interval
+ */
+export function getDateIncrement(
+  interval: ProjectionInterval
+): (date: Date) => Date {
+  switch (interval) {
+    case "daily":
+      return (date) => addDays(date, 1);
+    case "weekly":
+      return (date) => addWeeks(date, 1);
+    case "monthly":
+      return (date) => addMonths(date, 1);
+    case "yearly":
+      return (date) => addYears(date, 1);
+  }
+}
 
 /**
  * Iterate through projection dates with proper boundary handling

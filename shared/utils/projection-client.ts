@@ -18,6 +18,10 @@ import {
   projectRecurringContributions,
 } from "./projection-utils";
 import { addDays, addMonths, addWeeks, addYears } from "date-fns";
+import {
+  generateSimpleProjection,
+  SimpleProjectionInput,
+} from "./projection-simple";
 
 // ============================================================================
 // TYPES
@@ -34,216 +38,13 @@ export type FireProjectionResult = {
   yearsToFire: number;
 };
 
-/**
- * Simplified input for client-side projections
- * Works with data already fetched from server
- */
-export interface ClientProjectionInput {
-  currentValue: number;
-  recurringContributions: RecurringContribution[];
-  config: SimpleProjectionConfigWithDateRange;
-  modifierChain?: ModifierChain;
-}
-
-// ============================================================================
-// DATE UTILITIES
-// ============================================================================
-
-/**
- * Get date incrementor function based on interval
- */
-function getDateIncrement(interval: "daily" | "weekly" | "monthly" | "yearly") {
-  switch (interval) {
-    case "daily":
-      return (date: Date) => addDays(date, 1);
-    case "weekly":
-      return (date: Date) => addWeeks(date, 1);
-    case "monthly":
-      return (date: Date) => addMonths(date, 1);
-    case "yearly":
-      return (date: Date) => addYears(date, 1);
-  }
-}
-
 // ============================================================================
 // CLIENT-SIDE PROJECTION CALCULATION
 // ============================================================================
-
-/**
- * Generate compound growth projection on the client side
- * Uses same logic as server but optimized for browser
- */
-export function computeCompoundProjection(
-  input: ClientProjectionInput
-): ProjectionTimePoint[] {
-  const { currentValue, recurringContributions, config, modifierChain } = input;
-
-  const timePoints: ProjectionTimePoint[] = [];
-  const incrementDate = getDateIncrement(config.interval);
-
-  let currentProjectionDate = new Date(config.startDate);
-  let accumulatedValue = currentValue;
-  let totalContributions = 0;
-
-  // Initial point
-  timePoints.push(
-    createProjectionTimePoint(
-      currentProjectionDate,
-      accumulatedValue,
-      0,
-      0,
-      false
-    )
-  );
-
-  // Generate points until end date
-  while (currentProjectionDate < config.endDate) {
-    const previousDate = new Date(currentProjectionDate);
-    currentProjectionDate = getNextProjectionDate(
-      currentProjectionDate,
-      incrementDate,
-      config.endDate
-    );
-
-    // Calculate time elapsed in this interval
-    const yearsInInterval = calculateYearsElapsed(
-      previousDate,
-      currentProjectionDate
-    );
-
-    // Apply compound growth to accumulated value
-    const growthFactor = Math.pow(1 + config.growthRate / 100, yearsInInterval);
-    let projectedValue = accumulatedValue * growthFactor;
-
-    // Calculate and add contributions in this period
-    const periodContributions = calculatePeriodContributions(
-      recurringContributions,
-      previousDate,
-      currentProjectionDate,
-      modifierChain,
-      projectedValue,
-      config.startDate
-    );
-
-    totalContributions += periodContributions;
-    projectedValue += periodContributions;
-    accumulatedValue = projectedValue;
-
-    // Apply modifiers to final value (inflation, fees)
-    const finalValue = applyModifiersToValue(
-      projectedValue,
-      projectedValue,
-      config.startDate,
-      currentProjectionDate,
-      modifierChain
-    );
-
-    const growthAmount =
-      finalValue -
-      (timePoints[timePoints.length - 1]?.value || 0) -
-      periodContributions;
-
-    timePoints.push(
-      createProjectionTimePoint(
-        currentProjectionDate,
-        finalValue,
-        totalContributions,
-        growthAmount,
-        true
-      )
-    );
-  }
-
-  return timePoints;
-}
-
-// ============================================================================
-// LINEAR PROJECTION (for comparison/target scenarios)
-// ============================================================================
-
-/**
- * Generate linear growth projection on client side
- * Useful for conservative estimates or comparison scenarios
- */
-export function computeLinearProjection(
-  input: ClientProjectionInput
-): ProjectionTimePoint[] {
-  const { currentValue, recurringContributions, config, modifierChain } = input;
-
-  const timePoints: ProjectionTimePoint[] = [];
-  const incrementDate = getDateIncrement(config.interval);
-
-  let currentProjectionDate = new Date(config.startDate);
-  let accumulatedValue = currentValue;
-  let totalContributions = 0;
-  let totalGrowth = 0;
-
-  // Initial point
-  timePoints.push(
-    createProjectionTimePoint(
-      currentProjectionDate,
-      accumulatedValue,
-      0,
-      0,
-      false
-    )
-  );
-
-  // Generate points until end date
-  while (currentProjectionDate < config.endDate) {
-    currentProjectionDate = getNextProjectionDate(
-      currentProjectionDate,
-      incrementDate,
-      config.endDate
-    );
-
-    // Calculate years elapsed from start
-    const yearsFromStart = calculateYearsElapsed(
-      config.startDate,
-      currentProjectionDate
-    );
-
-    // Apply linear growth to initial value only
-    const growthValue =
-      currentValue * (config.growthRate / 100) * yearsFromStart;
-
-    // Calculate contributions in this period
-    const lastTimePoint = timePoints[timePoints.length - 1];
-    const periodContributions = calculatePeriodContributions(
-      recurringContributions,
-      lastTimePoint ? lastTimePoint.date : config.startDate,
-      currentProjectionDate,
-      modifierChain,
-      accumulatedValue,
-      config.startDate
-    );
-
-    totalContributions += periodContributions;
-    totalGrowth = growthValue;
-    accumulatedValue = currentValue + growthValue + totalContributions;
-
-    // Apply modifiers to final value (inflation, fees)
-    const finalValue = applyModifiersToValue(
-      accumulatedValue,
-      accumulatedValue,
-      config.startDate,
-      currentProjectionDate,
-      modifierChain
-    );
-
-    timePoints.push(
-      createProjectionTimePoint(
-        currentProjectionDate,
-        finalValue,
-        totalContributions,
-        totalGrowth,
-        true
-      )
-    );
-  }
-
-  return timePoints;
-}
+// NOTE: Projection computation is delegated to projection-simple.ts via
+// the SimpleProjectionInput interface to avoid code duplication.
+// This file focuses on client-specific utilities such as age-based
+// conversions, FIRE calculations, and the ProjectionClient wrapper.
 
 // ============================================================================
 // FIRE PROJECTION CONVERSION
@@ -388,14 +189,16 @@ export function computeClientFireProjection(
   };
 
   // Create input for projection
-  const input: ClientProjectionInput = {
+  const input: SimpleProjectionInput = {
     currentValue: currentAmount,
+    currentDate: new Date(),
     recurringContributions,
     config,
   };
 
-  // Calculate projection
-  const timePoints = computeCompoundProjection(input);
+  // Calculate projection using shared implementation
+  const result = generateSimpleProjection(input);
+  const timePoints = result.timePoints;
 
   // Convert to age-based format for charts
   const projectionData: FireProjectionData[] = [];
@@ -577,20 +380,16 @@ export class ProjectionClient {
   }
 
   compute(): ProjectionTimePoint[] {
-    const { config } = this.state;
-    if (config.growthModel === "linear") {
-      return computeLinearProjection({
-        currentValue: this.state.currentValue,
-        recurringContributions: this.state.recurringContributions,
-        config: this.state.config,
-        modifierChain: this.state.modifierChain,
-      });
-    }
-    return computeCompoundProjection({
+    // Use the shared implementation from projection-simple.ts
+    const input: SimpleProjectionInput = {
       currentValue: this.state.currentValue,
+      currentDate: new Date(), // Not used in calculations but required by interface
       recurringContributions: this.state.recurringContributions,
       config: this.state.config,
       modifierChain: this.state.modifierChain,
-    });
+    };
+
+    const result = generateSimpleProjection(input);
+    return result.timePoints;
   }
 }

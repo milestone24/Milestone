@@ -6,13 +6,6 @@ import {
 import type { RecurringContribution } from "@shared/schema";
 import type { SchedulePattern } from "@shared/utils/scheduling";
 import { getNextExecutionDate } from "@shared/utils/scheduling";
-import {
-  addDays,
-  addMonths,
-  addWeeks,
-  addYears,
-  differenceInDays,
-} from "date-fns";
 import { ModifierChain, calculateYearsElapsed } from "./projection-modifiers";
 import {
   calculatePeriodContributions,
@@ -20,6 +13,7 @@ import {
   createProjectionTimePoint,
   getNextProjectionDate,
   projectRecurringContributions,
+  getDateIncrement,
 } from "./projection-utils";
 
 // ============================================================================
@@ -31,7 +25,7 @@ import {
  */
 export interface SimpleProjectionInput {
   currentValue: number;
-  currentDate: Date;
+  currentDate?: Date;
   recurringContributions: RecurringContribution[];
   config: SimpleProjectionConfigWithDateRange;
   modifierChain?: ModifierChain;
@@ -109,22 +103,6 @@ export function projectWithCompoundGrowthAndContributions(
 // ============================================================================
 // TIME SERIES GENERATION
 // ============================================================================
-
-/**
- * Get date incrementor function based on interval
- */
-function getDateIncrement(interval: ProjectionInterval): (date: Date) => Date {
-  switch (interval) {
-    case "daily":
-      return (date) => addDays(date, 1);
-    case "weekly":
-      return (date) => addWeeks(date, 1);
-    case "monthly":
-      return (date) => addMonths(date, 1);
-    case "yearly":
-      return (date) => addYears(date, 1);
-  }
-}
 
 /**
  * Generate projection time series with linear growth
