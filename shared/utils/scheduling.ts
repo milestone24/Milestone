@@ -20,7 +20,12 @@ import type {
  */
 
 import { Cron } from "croner";
-import { RRule } from "rrule";
+// rrule ESM/CJS interop: Namespace import works for both environments
+// Server (CJS): Module exports object with RRule property
+// Client (ESM via Vite): Named exports accessible via namespace import
+import * as rrule from "rrule";
+// Type-safe access: RRule is available on the namespace in both CJS and ESM
+const RRule: typeof rrule.RRule = rrule.RRule;
 
 // ============================================================================
 // TYPES AND INTERFACES
