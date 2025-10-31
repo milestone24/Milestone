@@ -95,7 +95,7 @@ import {
   processes as processesKey,
 } from "@shared/api/queryKeys";
 import { randomUUID } from "node:crypto";
-import { assetsQueryBuilder } from "./query";
+import { calculatedAssetsQueryBuilder } from "./query";
 
 const securitiesService = securitiesFactory();
 
@@ -497,7 +497,7 @@ export class DatabaseAssetService {
       end: { eq: end } = { eq: null },
     } = query.filter;
 
-    const assets = await assetsQueryBuilder(this.db)
+    const assets = await calculatedAssetsQueryBuilder(this.db)
       .where(and(eq(userAssets.userAccountId, userId)))
       .execute();
 
@@ -524,7 +524,7 @@ export class DatabaseAssetService {
     userId: UserAccount["id"],
     query?: QueryParams
   ): Promise<WithAssetHistory<UserAssetWithValue, BrandedAssetValue>[]> {
-    const assets = await assetsQueryBuilder(this.db)
+    const assets = await calculatedAssetsQueryBuilder(this.db)
       .where(and(eq(userAssets.userAccountId, userId)))
       .execute();
 
