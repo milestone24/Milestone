@@ -16,6 +16,7 @@ import {
   fireSettingsInsertSchema,
   fireSettingsOrphanSchema,
   ProjectionModifier,
+  ContributorSchedule,
 } from "@shared/schema";
 import { useSession } from "@/hooks/use-session";
 import { usePortfolioWithFIREProjection } from "@/hooks/use-projections";
@@ -73,13 +74,13 @@ export default function Fire() {
   const { formState, handleSubmit } = form;
 
   const errors = formState.errors;
-  console.log("errors", errors);
+  //console.log("errors", errors);
 
   const isValid = formState.isValid;
-  console.log("isValid", isValid);
+  //console.log("isValid", isValid);
 
   const isSubmitting = formState.isSubmitting;
-  console.log("isSubmitting", isSubmitting);
+  //console.log("isSubmitting", isSubmitting);
 
   // Watch values for calculations
   const watchedValues = form.watch();
@@ -157,6 +158,12 @@ export default function Fire() {
 
   const fireNumber = fireProgress?.fireNumber ?? 0;
 
+  const contributionsForFire =
+    computationContext?.contributors?.reduce<ContributorSchedule[]>(
+      (acc, c) => acc.concat(c.schedules),
+      []
+    ) ?? [];
+
   // // Calculate years to reach FIRE
   // const yearsToFire = calculateYearsToTarget(
   //   portfolioOverview?.value ?? 0,
@@ -167,34 +174,34 @@ export default function Fire() {
 
   // Use recurring contributions from computationContext if available
   // Otherwise fall back to mock based on FIRE settings
-  const recurringContributions =
-    computationContext?.recurringContributions ?? [];
+  // const recurringContributions =
+  //   computationContext?.recurringContributions ?? [];
 
-  const contributionsForFire =
-    recurringContributions.length > 0
-      ? recurringContributions
-      : tempFormState.monthlyInvestment
-      ? [
-          {
-            id: "mock",
-            assetId: "mock",
-            amount: tempFormState.monthlyInvestment,
-            isActive: true,
-            startDate: new Date(),
-            patternConfig: {
-              type: "rrule",
-              expression: "FREQ=MONTHLY",
-            },
-            process: "manual",
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        ]
-      : [];
+  // const contributionsForFire =
+  //   recurringContributions.length > 0
+  //     ? recurringContributions
+  //     : tempFormState.monthlyInvestment
+  //     ? [
+  //         {
+  //           id: "mock",
+  //           assetId: "mock",
+  //           amount: tempFormState.monthlyInvestment,
+  //           isActive: true,
+  //           startDate: new Date(),
+  //           patternConfig: {
+  //             type: "rrule",
+  //             expression: "FREQ=MONTHLY",
+  //           },
+  //           process: "manual",
+  //           createdAt: new Date(),
+  //           updatedAt: new Date(),
+  //         },
+  //       ]
+  //     : [];
 
   const fireProjectionData = computeClientFireProjection(
     portfolioOverview?.value ?? 0,
-    contributionsForFire as any,
+    contributionsForFire,
     tempFormState.expectedReturn,
     fireNumber,
     currentAge
@@ -216,7 +223,7 @@ export default function Fire() {
   // Calculate the impact of changing monthly investment
   const increaseImpact = calculateContributionImpactWithProjections(
     portfolioOverview?.value ?? 0,
-    contributionsForFire as any,
+    contributionsForFire,
     tempFormState.monthlyInvestment + 100,
     tempFormState.expectedReturn,
     fireNumber,
