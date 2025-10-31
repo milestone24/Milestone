@@ -53,16 +53,17 @@ export function useSession() {
       dispatch({ type: "INITIAL_USER_LOADING" });
 
       try {
-
-        const responseData = await apiRequest<SessionResponse>("GET", "/api/auth/me");
+        const responseData = await apiRequest<SessionResponse>(
+          "GET",
+          "/api/auth/me"
+        );
 
         queryClient.setQueryData(["user"], responseData.user);
         dispatch({ type: "INITIAL_USER_LOADED", payload: responseData.user });
-        
-        console.log("Initial user load successful:", responseData.user);
+
+        //console.log("Initial user load successful:", responseData.user);
 
         return responseData;
-
       } catch (error) {
 
         console.log("Initial user load failed:", error);

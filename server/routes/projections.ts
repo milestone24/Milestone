@@ -169,15 +169,6 @@ export async function registerRoutes(
                 )
               : undefined;
 
-            // if (fireConfig) {
-            //   const fireProgress = await projectionService.projectToRetirement(
-            //     tenant.userAccountId,
-            //     fireConfig,
-            //     config
-            //   );
-            //   result.fireProgress = fireProgress;
-            // }
-
             return result;
           }
         );

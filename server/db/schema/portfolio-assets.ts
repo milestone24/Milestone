@@ -132,7 +132,8 @@ export const recurringContributions = pgTable("recurring_contributions", {
   id: uuid("id")
     .notNull()
     .default(sql`gen_random_uuid()`),
-  groupId: uuid("group_id"), //to associate recurring contributions with a group of recurring contributions
+  //to associate recurring contributions with a group of recurring contributions
+  groupId: uuid("group_id"),
   type: recurringContributionTypesEnum("type").notNull(),
   process: recurringContributionProcessTypesEnum("process_type").notNull(),
   assetId: uuid("asset_id")
