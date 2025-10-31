@@ -1,18 +1,14 @@
 import {
   SimpleProjectionConfigWithDateRange,
   ProjectionTimePoint,
-  ProjectionInterval,
+  ContributorSchedule,
 } from "@shared/schema/projections";
-import type { RecurringContribution } from "@shared/schema";
-import type { SchedulePattern } from "@shared/utils/scheduling";
-import { getNextExecutionDate } from "@shared/utils/scheduling";
 import { ModifierChain, calculateYearsElapsed } from "./projection-modifiers";
 import {
   calculatePeriodContributions,
   applyModifiersToValue,
   createProjectionTimePoint,
   getNextProjectionDate,
-  projectRecurringContributions,
   getDateIncrement,
 } from "./projection-utils";
 
@@ -26,7 +22,8 @@ import {
 export interface SimpleProjectionInput {
   currentValue: number;
   currentDate?: Date;
-  recurringContributions: RecurringContribution[];
+  //recurringContributions: RecurringContribution[];
+  scheduledContributions: ContributorSchedule[];
   config: SimpleProjectionConfigWithDateRange;
   modifierChain?: ModifierChain;
 }
@@ -113,7 +110,8 @@ export function generateLinearProjectionTimeSeries(
   const {
     currentValue,
     currentDate,
-    recurringContributions,
+    //recurringContributions,
+    scheduledContributions,
     config,
     modifierChain,
   } = input;
@@ -158,7 +156,8 @@ export function generateLinearProjectionTimeSeries(
     // Calculate contributions in this period
     const lastTimePoint = timePoints[timePoints.length - 1];
     const periodContributions = calculatePeriodContributions(
-      recurringContributions,
+      //recurringContributions,
+      scheduledContributions,
       lastTimePoint ? lastTimePoint.date : config.startDate,
       currentProjectionDate,
       modifierChain,
@@ -202,7 +201,8 @@ export function generateCompoundProjectionTimeSeries(
   const {
     currentValue,
     currentDate,
-    recurringContributions,
+    //recurringContributions,
+    scheduledContributions,
     config,
     modifierChain,
   } = input;
@@ -246,7 +246,7 @@ export function generateCompoundProjectionTimeSeries(
 
     // Calculate and add contributions in this period
     const periodContributions = calculatePeriodContributions(
-      recurringContributions,
+      scheduledContributions,
       previousDate,
       currentProjectionDate,
       modifierChain,

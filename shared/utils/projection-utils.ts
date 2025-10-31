@@ -1,7 +1,7 @@
-import type { RecurringContribution } from "@shared/schema";
 import type {
   ProjectionTimePoint,
   ProjectionInterval,
+  ContributorSchedule,
 } from "@shared/schema/projections";
 import { ModifierChain, createModifierContext } from "./projection-modifiers";
 import { getNextExecutionDate } from "./scheduling";
@@ -34,7 +34,7 @@ export const calculateAge = (dateOfBirth: Date) => {
  * Project future contribution dates based on schedule pattern
  */
 export function* projectRecurringContributions(
-  contribution: RecurringContribution,
+  contribution: ContributorSchedule,
   startDate: Date,
   endDate: Date
 ): Generator<{ date: Date; amount: number }> {
@@ -45,7 +45,7 @@ export function* projectRecurringContributions(
     // Yield current contribution
     yield {
       date: new Date(currentDate),
-      amount: contribution.amount,
+      amount: contribution.value,
     };
 
     // Get next execution date
@@ -71,7 +71,8 @@ export function* projectRecurringContributions(
  * Calculate total contributions for a given period with modifier application
  */
 export function calculatePeriodContributions(
-  contributions: RecurringContribution[],
+  //contributions: RecurringContribution[],
+  contributions: ContributorSchedule[],
   startDate: Date,
   endDate: Date,
   modifierChain?: ModifierChain,
@@ -80,7 +81,8 @@ export function calculatePeriodContributions(
 ): number {
   let totalContributions = 0;
 
-  for (const contribution of contributions.filter((c) => c.isActive)) {
+  //for (const contribution of contributions.filter((c) => c.isActive)) {
+  for (const contribution of contributions) {
     for (const { date, amount } of projectRecurringContributions(
       contribution,
       startDate,

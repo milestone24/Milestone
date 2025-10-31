@@ -8,7 +8,6 @@ import type {
   ProjectionTimePoint,
   SimpleProjectionConfigWithDateRange,
 } from "../schema/projections";
-import type { RecurringContribution } from "../schema/transaction";
 import { ModifierChain, calculateYearsElapsed } from "./projection-modifiers";
 import {
   calculatePeriodContributions,
@@ -22,6 +21,7 @@ import {
   generateSimpleProjection,
   SimpleProjectionInput,
 } from "./projection-simple";
+import { ContributorSchedule } from "../schema/projections";
 
 // ============================================================================
 // TYPES
@@ -95,7 +95,7 @@ export function convertToAgeBasedProjection(
  */
 export function calculateYearsToTarget(
   presentValue: number,
-  recurringContributions: RecurringContribution[],
+  scheduledContributions: ContributorSchedule[],
   annualRate: number,
   targetValue: number,
   config: {
@@ -111,8 +111,8 @@ export function calculateYearsToTarget(
   if (presentValue >= targetValue) return 0;
   if (monthlyRate === 0) {
     // No growth, calculate based on contributions only
-    const totalContributionAmount = recurringContributions.reduce(
-      (sum, c) => sum + (c.isActive ? c.amount : 0),
+    const totalContributionAmount = scheduledContributions.reduce(
+      (sum, c) => sum + c.value,
       0
     );
     if (totalContributionAmount === 0) return Infinity;
@@ -130,9 +130,7 @@ export function calculateYearsToTarget(
 
     // Add contributions for this month
     const nextMonth = addMonths(currentDate, 1);
-    for (const contribution of recurringContributions.filter(
-      (c) => c.isActive
-    )) {
+    for (const contribution of scheduledContributions) {
       for (const { amount } of projectRecurringContributions(
         contribution,
         currentDate,
@@ -159,7 +157,7 @@ export function calculateYearsToTarget(
  */
 export function computeClientFireProjection(
   currentAmount: number,
-  recurringContributions: RecurringContribution[],
+  scheduledContributions: ContributorSchedule[],
   expectedReturn: number,
   targetAmount: number,
   currentAge: number,
@@ -192,7 +190,7 @@ export function computeClientFireProjection(
   const input: SimpleProjectionInput = {
     currentValue: currentAmount,
     currentDate: new Date(),
-    recurringContributions,
+    scheduledContributions,
     config,
   };
 
@@ -235,7 +233,7 @@ export function computeClientFireProjection(
  */
 export function calculateContributionImpactWithProjections(
   currentAmount: number,
-  currentRecurringContributions: RecurringContribution[],
+  currentScheduledContributions: ContributorSchedule[],
   newMonthlyContribution: number,
   expectedReturn: number,
   targetAmount: number,
@@ -247,7 +245,7 @@ export function calculateContributionImpactWithProjections(
   monthsDifference: number;
 } {
   // Create adjusted contributions list
-  const adjustedContributions = currentRecurringContributions.map((c) => ({
+  const adjustedContributions = currentScheduledContributions.map((c) => ({
     ...c,
     amount: newMonthlyContribution,
   }));
@@ -257,7 +255,7 @@ export function calculateContributionImpactWithProjections(
   // Calculate years with current contributions
   const originalYears = calculateYearsToTarget(
     currentAmount,
-    currentRecurringContributions,
+    currentScheduledContributions,
     expectedReturn,
     targetAmount,
     { startDate }
@@ -292,13 +290,13 @@ export function calculateContributionImpactWithProjections(
  */
 export function calculateYearsToFire(
   currentAmount: number,
-  recurringContributions: RecurringContribution[],
+  scheduledContributions: ContributorSchedule[],
   expectedReturn: number,
   fireNumber: number
 ): number {
   return calculateYearsToTarget(
     currentAmount,
-    recurringContributions,
+    scheduledContributions,
     expectedReturn,
     fireNumber,
     { startDate: new Date() }
@@ -311,7 +309,7 @@ export function calculateYearsToFire(
 
 export type ProjectionClientState = {
   currentValue: number;
-  recurringContributions: RecurringContribution[];
+  scheduledContributions: ContributorSchedule[];
   config: SimpleProjectionConfigWithDateRange;
   modifierChain?: ModifierChain;
 };
@@ -327,8 +325,8 @@ export class ProjectionClient {
     return this.state.config;
   }
 
-  getContributions(): RecurringContribution[] {
-    return this.state.recurringContributions;
+  getContributions(): ContributorSchedule[] {
+    return this.state.scheduledContributions;
   }
 
   setGrowthRate(growthRate: number): this {
@@ -354,13 +352,13 @@ export class ProjectionClient {
     return this;
   }
 
-  setRecurringContributions(contributions: RecurringContribution[]): this {
-    this.state.recurringContributions = contributions;
+  setScheduledContributions(contributions: ContributorSchedule[]): this {
+    this.state.scheduledContributions = contributions;
     return this;
   }
 
   updateContributionAmount(amount: number): this {
-    this.state.recurringContributions = this.state.recurringContributions.map(
+    this.state.scheduledContributions = this.state.scheduledContributions.map(
       (c) => ({
         ...c,
         amount,
@@ -384,7 +382,7 @@ export class ProjectionClient {
     const input: SimpleProjectionInput = {
       currentValue: this.state.currentValue,
       currentDate: new Date(), // Not used in calculations but required by interface
-      recurringContributions: this.state.recurringContributions,
+      scheduledContributions: this.state.scheduledContributions,
       config: this.state.config,
       modifierChain: this.state.modifierChain,
     };

@@ -13,6 +13,9 @@ import {
   ProjectionConfigWithDateRange,
   ProjectionDataSource,
   ProjectionResult,
+  RecurringContribution,
+  ResolvedUserAsset,
+  UserAssetWithValue,
 } from "@shared/schema";
 import {
   projectPortfolio as hybridProjectPortfolio,
@@ -27,19 +30,51 @@ import {
   checkFIREFeasibility as hybridCheckFIREFeasibility,
 } from "@shared/utils/projection-fire-calculator";
 import { and, eq, getTableColumns, inArray, sql } from "drizzle-orm";
-import { assetsQueryBuilder } from "../assets/query";
+import {
+  calculatedAssetsQueryBuilder,
+  calculatedAssetsWithContributionsQueryBuilder,
+} from "../assets/query";
+
+export type AssetWithRecurringContributions = UserAssetWithValue & {
+  recurringContributions: RecurringContribution[];
+};
+
+export const mapAssetsWithRecurringContributions = (
+  rows: {
+    asset: UserAssetWithValue;
+    recurringContribution: RecurringContribution | null;
+  }[]
+): AssetWithRecurringContributions[] => {
+  return rows.reduce<AssetWithRecurringContributions[]>((acc, row) => {
+    const existingAsset = acc.find((a) => a.id === row.asset.id);
+    if (existingAsset) {
+      if (row.recurringContribution) {
+        existingAsset.recurringContributions.push(row.recurringContribution);
+      }
+    } else {
+      acc.push({
+        ...row.asset,
+        recurringContributions: row.recurringContribution
+          ? [row.recurringContribution]
+          : [],
+      });
+    }
+
+    return acc;
+  }, []);
+};
 
 //Maybe tables could be injected here for use of materialised views
 const defineDataSource = (
   db: Database,
   accountId: string
 ): ProjectionDataSource => {
-  const assetsQuery = assetsQueryBuilder(db).where(
+  const assetsQuery = calculatedAssetsWithContributionsQueryBuilder(db).where(
     eq(userAssets.userAccountId, accountId)
   );
 
   const assetQuery = (assetId: string) =>
-    assetsQueryBuilder(db).where(
+    calculatedAssetsWithContributionsQueryBuilder(db).where(
       and(eq(userAssets.id, assetId), eq(userAssets.userAccountId, accountId))
     );
 
@@ -74,11 +109,13 @@ const defineDataSource = (
   //const asset = (assetId: string) => assetQuery(assetId).execute();
 
   return {
-    getAssets: () => Promise.resolve(assetsQuery.execute()),
+    getAssets: () =>
+      assetsQuery.execute().then(mapAssetsWithRecurringContributions),
     getAssetById: (assetId) =>
       assetQuery(assetId)
         .execute()
-        .then(([asset]) => asset ?? null),
+        .then(mapAssetsWithRecurringContributions)
+        .then((assets) => assets.find((a) => a.id === assetId) ?? null),
     getContributionsForAssets: (assetIds) =>
       recurringContrbutionsForAssetsQuery(assetIds).execute(),
     getMilestones: () => milestonesQuery().execute(),

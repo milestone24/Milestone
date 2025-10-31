@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { UserAsset } from "./portfolio-assets";
+import { accountType, UserAsset } from "./portfolio-assets";
 import { RecurringContribution } from "./transaction";
 import { Milestone } from "./portfolio-milestone";
 import { FireSettings } from "./portfolio-fire";
 import { UserProfile } from "./user-account";
+import { schedulePatternType } from "@server/db/schema";
 
 // ============================================================================
 // PROJECTION CONFIGURATION
@@ -256,31 +257,95 @@ export const assetProjectionSchema = z.object({
 export type AssetProjection = z.infer<typeof assetProjectionSchema>;
 
 /**
+ * Contributor
+ */
+
+export const contributionTypes = [
+  "asset",
+  "state_pension",
+  "workplace_pension",
+] as const;
+
+export const contributorProjectionSchema = z.object({
+  contributorReferenceId: z.string().uuid().optional(),
+  contributorName: z.string(),
+  accountType: z.string(),
+  currentValue: z.number(),
+  projectedEndValue: z.number(), //??
+  timePoints: z.array(projectionTimePointSchema),
+});
+export type ContributorProjection = z.infer<typeof contributorProjectionSchema>;
+
+export type ContributionTypes = (typeof contributionTypes)[number];
+
+export const valueReleasePointInTimeSchema = z.object({
+  //age: z.number(),
+  date: z.coerce.date(),
+  value: z.number(),
+});
+
+export type ValueReleasePointInTime = z.infer<
+  typeof valueReleasePointInTimeSchema
+>;
+
+export const schedulePatternSchema = z.object({
+  type: z.enum(schedulePatternType),
+  expression: z.string(),
+  timezone: z.string().optional(),
+});
+
+export const contributorScheduleSchema = z.object({
+  patternConfig: schedulePatternSchema,
+  value: z.number(),
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date().nullable(),
+});
+
+export type ContributorSchedule = z.infer<typeof contributorScheduleSchema>;
+
+export const contributorSchema = z.object({
+  referenceId: z.string().uuid().optional(),
+  accountType: z.enum(accountType),
+  name: z.string(),
+  type: z.enum(contributionTypes),
+  accessPIT: z.array(valueReleasePointInTimeSchema),
+  currentValue: z.number(),
+  schedules: z.array(contributorScheduleSchema),
+});
+
+export type Contributor = z.infer<typeof contributorSchema>;
+
+/**
  * Computation context for client-side adjustments
  * Contains enough data to recompute projections without server round-trips
  */
+// export const computationContextSchema = z.object({
+//   // Assets used in the projection
+//   assets: z.array(
+//     z.object({
+//       id: z.string().uuid(),
+//       name: z.string(),
+//       accountType: z.string(),
+//       currentValue: z.number(),
+//     })
+//   ),
+//   // Snapshot of contributions at computation time
+//   recurringContributions: z.array(
+//     z.object({
+//       id: z.string(),
+//       assetId: z.string(),
+//       amount: z.number(),
+//       isActive: z.boolean(),
+//       startDate: z.coerce.date(),
+//       patternConfig: z.any(), // SchedulePattern
+//       process: z.string(),
+//     })
+//   ),
+// });
+// export type ComputationContext = z.infer<typeof computationContextSchema>;
+
 export const computationContextSchema = z.object({
-  // Assets used in the projection
-  assets: z.array(
-    z.object({
-      id: z.string().uuid(),
-      name: z.string(),
-      accountType: z.string(),
-      currentValue: z.number(),
-    })
-  ),
-  // Snapshot of contributions at computation time
-  recurringContributions: z.array(
-    z.object({
-      id: z.string(),
-      assetId: z.string(),
-      amount: z.number(),
-      isActive: z.boolean(),
-      startDate: z.coerce.date(),
-      patternConfig: z.any(), // SchedulePattern
-      process: z.string(),
-    })
-  ),
+  contributors: z.array(contributorSchema),
 });
 export type ComputationContext = z.infer<typeof computationContextSchema>;
 
@@ -324,7 +389,7 @@ export const projectionResultSchema = z.object({
   totalGrowth: z.number(),
   totalContributions: z.number(),
   timePoints: z.array(projectionTimePointSchema), // Aggregated portfolio-wide
-  assetBreakdown: z.array(assetProjectionSchema),
+  contributorBreakdown: z.array(contributorProjectionSchema),
   milestoneProgress: z.array(milestoneProgressSchema).optional(),
   fireProgress: fireProgressSchema.optional(),
   computedAt: z.coerce.date(),
@@ -415,6 +480,7 @@ export type ProjectionOrhesratorAssetInput = {
   currentValue: number;
   name: string;
   accountType: UserAsset["accountType"];
+  recurringContributions: RecurringContribution[];
 };
 
 /**
@@ -438,10 +504,26 @@ export type ProjectionDataSource = {
 /**
  * Input for orchestrating projections
  */
-export interface ProjectionOrchestratorInput {
-  assets: ProjectionOrhesratorAssetInput[];
-  recurringContributions: RecurringContribution[]; // All contributions for all assets
+// export interface ProjectionOrchestratorInput {
+//   assets: ProjectionOrhesratorAssetInput[];
+//   recurringContributions: RecurringContribution[]; // All contributions for all assets
+//   config: ProjectionConfigWithDateRange;
+//   //db: Database;
+//   milestoneTarget?: MilestoneTarget;
+// }
+
+export type ProjectionOrchestratorInput = {
+  contributors: Contributor[];
+  //assets: ProjectionOrhesratorAssetInput[];
+  //recurringContributions: RecurringContribution[]; // All contributions for all assets
   config: ProjectionConfigWithDateRange;
   //db: Database;
   milestoneTarget?: MilestoneTarget;
-}
+};
+
+export type ProjectionOrchestratorAssetInput = {
+  id: string;
+  currentValue: number;
+  name: string;
+  accountType: UserAsset["accountType"];
+};
