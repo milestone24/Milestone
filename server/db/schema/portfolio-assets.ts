@@ -234,6 +234,10 @@ export const userAssets = pgTable(
   ]
 );
 
+relations(userAssets, ({ many }) => ({
+  recurringContributions: many(recurringContributions),
+}));
+
 /**
  * This should only ever be used for manual transactions, not for calculated transactions.
  */
