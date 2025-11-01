@@ -200,25 +200,6 @@ userAssetValueInsertSchema satisfies ZodType<UserAssetValueInsert>;
 
 export type AssetValue = DBAssetValueSelect;
 
-// export const assetDebitOrphanInsertSchema = z.object({
-//   value: z.number(),
-//   recordedAt: z.coerce.date(),
-// })
-
-// type ZodAssetDebitOrphanInsert = z.infer<typeof assetDebitOrphanInsertSchema>;
-// export type AssetDebitOrphanInsert = IfConstructorEquals<ZodAssetDebitOrphanInsert, Omit<DBAssetDebitInsert, "assetId">, never>;
-// assetDebitOrphanInsertSchema satisfies ZodType<AssetDebitOrphanInsert>;
-
-// export const assetDebitInsertSchema = assetDebitOrphanInsertSchema.extend({
-//   assetId: z.string()
-// })
-
-// type ZodAssetDebitInsert = z.infer<typeof assetDebitInsertSchema>;
-// export type AssetDebitInsert = IfConstructorEquals<ZodAssetDebitInsert, DBAssetDebitInsert, never>;
-// assetDebitInsertSchema satisfies ZodType<AssetDebitInsert>;
-
-// export type AssetDebit = DBAssetDebitSelect;
-
 export type AssetValueMetadata = DBAssetValueMetadata;
 export type AssetValueMetadataSecurity = DBAssetValueMetadataSecurity;
 
@@ -231,7 +212,6 @@ export type BrokerProvider = DBBrokerProvider;
 export type UserAssetSecuritySelect = DBUserAssetSecurity & {
   security: SecuritySelect;
 };
-//export type UserAssetSecurityInsert = DBUserAssetSecurityInsert;
 
 export type CalculatedValue = {
   value: number;
@@ -308,8 +288,6 @@ export type WithPlatform<T extends { id: string }> = T & {
 
 export type AseetHistoryEntryType = "synthetic" | "synthetic-asset" | "asset";
 
-//export type PossibleDummyMod =
-
 export type AssetHistoryValueBase = {
   valueDate: Date;
   value: number;
@@ -336,71 +314,12 @@ export type PossibleDummyHistoryValue<T extends AssetHistoryValueBase> =
       valueType: Extract<AseetHistoryEntryType, "asset">;
     } & T);
 
-type B = PossibleDummyHistoryValue<{
-  valueDate: Date;
-  value: number;
-  assetId: string;
-  id: string;
-  foo: string;
-}>;
-
-// export type PossibleDummyAssetValue = Omit<
-//   AssetValue,
-//   "id" | "assetId" | "recordedAt"
-// > &
-//   (
-//     | {
-//         valueType: Extract<AseetHistoryEntryType, "synthetic">;
-//         id: null;
-//         //It could be that the synthetic value is from a real asset
-//         //but the value date is synthetic to match a start or end date
-//         assetId: string | null;
-//       }
-//     | (AssetValue & {
-//         valueType: Extract<AseetHistoryEntryType, "asset">;
-//         id: string;
-//         assetId: string;
-//       })
-//   );
-
 export type PossibleDummyAssetValue = PossibleDummyHistoryValue<
   Omit<AssetValue, "recordedAt">
 >;
 
-// export type PossibleDummyAssetTransactionValue = Omit<
-//   TransactionAbstract,
-//   "id" | "assetId" | "recordedAt"
-// > &
-//   (
-//     | {
-//         valueType: Extract<AseetHistoryEntryType, "synthetic">;
-//         id: null;
-//         assetId: string | null;
-//       }
-//     | (TransactionAbstract & {
-//         valueType: Extract<AseetHistoryEntryType, "asset">;
-//         id: string;
-//         assetId: string;
-//       })
-//   );
-
 export type PossibleDummyAssetTransactionValue =
   PossibleDummyHistoryValue<TransactionAbstract>;
-
-// export type PossibleDummyAssetHistoryValue =
-//   | (Omit<AssetHistoryValue, "id" | "assetId" | "recordedAt"> & {
-//       valueType: Extract<AseetHistoryEntryType, "synthetic">;
-//       id: null;
-//       assetId: string | null;
-//     })
-//   | (AssetHistoryValue & {
-//       valueType: Extract<AseetHistoryEntryType, "asset">;
-//       id: string;
-//       assetId: string;
-//     });
-
-// export type PossibleDummyAssetHistoryValue =
-//   PossibleDummyHistoryValue<AssetHistoryValue>;
 
 export type ResolvedAssetValue = AssetValue & {
   securities: UserAssetSecuritySelect[];
