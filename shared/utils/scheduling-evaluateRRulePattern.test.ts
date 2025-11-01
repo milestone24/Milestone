@@ -1,11 +1,44 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { RRulePattern, PatternEvaluation } from "./scheduling";
+import {
+  RRulePattern,
+  PatternEvaluation,
+  getNextExecutionDate,
+} from "./scheduling";
 
 // We need to import the internal function for testing
 // Since it's not exported, we'll test it through the public evaluateSchedulePattern function
 import { evaluateSchedulePattern, createRRulePattern } from "./scheduling";
 
-describe("evaluateRRulePattern", () => {
+describe.only("getNextExecutionDate", () => {
+  let testPattern: RRulePattern;
+  let startDate: Date;
+  let currentDate: Date;
+
+  beforeEach(() => {
+    startDate = new Date("2024-01-01T00:00:00Z");
+    currentDate = new Date("2024-01-15T12:00:00Z");
+  });
+  it("should get the next execution date correctly", () => {
+    //This should be the 1st of the month
+    const pattern = createRRulePattern("FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1");
+    const result = getNextExecutionDate(pattern, startDate, currentDate);
+    expect(result).toBeDefined();
+    expect(result).toBeInstanceOf(Date);
+    //We only test for the correct day on this test.
+    //We know RRule will use system time if the schedule expression does not have a time set.
+    expect(result?.getFullYear()).toEqual(2024);
+    expect(result?.getMonth()).toEqual(1); //start date plus one (February)
+    expect(result?.getDate()).toEqual(1); //1st of the month
+  });
+
+  //TODO
+  //What happens if no time is set on schedule expression?
+  //The Rrule library uses the system time by default.
+  //This should be considered wrong?
+  //Test options for include current date and default time.
+});
+
+describe.only("evaluateRRulePattern", () => {
   let testPattern: RRulePattern;
   let startDate: Date;
   let currentDate: Date;

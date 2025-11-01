@@ -110,7 +110,6 @@ export function generateLinearProjectionTimeSeries(
   const {
     currentValue,
     currentDate,
-    //recurringContributions,
     scheduledContributions,
     config,
     modifierChain,
@@ -150,13 +149,17 @@ export function generateLinearProjectionTimeSeries(
     );
 
     // Apply linear growth to initial value only
+    // this should be a float of two decimal places
+    //This is still succeptable to rounding errors, and should be using decimal.js
+    //config.growthRate is a a percentage but is represented as a integer, so we need to convert it to a decimal
+    const growthRate = config.growthRate / 100;
     const growthValue =
-      currentValue * (config.growthRate / 100) * yearsFromStart;
+      Math.round(currentValue * growthRate * yearsFromStart * 100) / 100;
 
     // Calculate contributions in this period
     const lastTimePoint = timePoints[timePoints.length - 1];
+
     const periodContributions = calculatePeriodContributions(
-      //recurringContributions,
       scheduledContributions,
       lastTimePoint ? lastTimePoint.date : config.startDate,
       currentProjectionDate,
@@ -178,15 +181,15 @@ export function generateLinearProjectionTimeSeries(
       modifierChain
     );
 
-    timePoints.push(
-      createProjectionTimePoint(
-        currentProjectionDate,
-        finalValue,
-        totalContributions,
-        totalGrowth,
-        true
-      )
+    const timePoint = createProjectionTimePoint(
+      currentProjectionDate,
+      finalValue,
+      totalContributions,
+      totalGrowth,
+      true
     );
+
+    timePoints.push(timePoint);
   }
 
   return timePoints;

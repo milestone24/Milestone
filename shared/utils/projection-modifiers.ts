@@ -268,7 +268,7 @@ export function calculateYearsElapsed(
   currentDate: Date
 ): number {
   const msPerYear = 1000 * 60 * 60 * 24 * 365.25;
-  return (currentDate.getTime() - startDate.getTime()) / msPerYear;
+  return Math.round((currentDate.getTime() - startDate.getTime()) / msPerYear);
 }
 
 /**

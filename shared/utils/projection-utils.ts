@@ -42,18 +42,20 @@ export function* projectRecurringContributions(
     startDate > contribution.startDate ? startDate : contribution.startDate;
 
   while (currentDate <= endDate) {
-    // Yield current contribution
-    yield {
-      date: new Date(currentDate),
-      amount: contribution.value,
-    };
-
     // Get next execution date
     const nextDate = getNextExecutionDate(
       contribution.patternConfig,
+      startDate,
       currentDate,
-      endDate
+      { includeCurrentDate: false, defaultTime: "midday" }
     );
+
+    if (nextDate && nextDate <= endDate) {
+      yield {
+        date: new Date(nextDate),
+        amount: contribution.value,
+      };
+    }
 
     if (!nextDate || nextDate > endDate) {
       break;
@@ -81,7 +83,6 @@ export function calculatePeriodContributions(
 ): number {
   let totalContributions = 0;
 
-  //for (const contribution of contributions.filter((c) => c.isActive)) {
   for (const contribution of contributions) {
     for (const { date, amount } of projectRecurringContributions(
       contribution,

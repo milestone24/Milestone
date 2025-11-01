@@ -1096,20 +1096,44 @@ export function demonstratePatternWorkflow() {
 export function getNextExecutionDate(
   pattern: SchedulePattern,
   startDate: Date,
-  currentDate: Date
+  currentDate: Date,
+  options: {
+    includeCurrentDate: boolean;
+    defaultTime: "midnight" | "midday" | "system";
+  } = {
+    includeCurrentDate: false,
+    defaultTime: "midday",
+  }
 ): Date | undefined {
+  const { includeCurrentDate, defaultTime } = options;
+
   try {
     switch (pattern.type) {
       case "cron":
         const cron = new Cron(pattern.expression, {
           timezone: pattern.timezone || "UTC",
-          startAt: startDate,
+          startAt: currentDate,
         });
         return cron.nextRun() || undefined;
 
       case "rrule":
         const rrule = RRule.fromString(pattern.expression);
-        return rrule.after(currentDate) || undefined;
+        //We have to make sure the start date is set to the start date of the pattern.
+        //The RRule constructor will use todays date of system time by default
+        //from String does not support options and the start date is not set on the RRule pattern. Shuold it be?
+        rrule.options.dtstart = startDate;
+
+        //It is important to state that if a time is not set on the schedule expression, the RRule library will use the system time by default.
+        //How do we correct this?, set to midnight?
+        //Maybe add a utility function that can detect if there is a time set on the schedule expression and if not, set it to midnight.
+        //const hasTimeSetting = pattern.expression.includes("T");
+        //if (!hasTimeSetting) {
+        //  rrule.options.byhour = 0;
+        //  rrule.options.byminute = 0;
+        //  rrule.options.bysecond = 0;
+        //}
+
+        return rrule.after(currentDate, includeCurrentDate) || undefined;
 
       default:
         return undefined;
