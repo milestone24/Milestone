@@ -1,4 +1,8 @@
-import { assetValues, recurringContributions } from "@server/db/schema";
+import {
+  assetValues,
+  DecimalValueString,
+  recurringContributions,
+} from "@server/db/schema";
 import { Database } from "@server/db";
 import { userAssets } from "@server/db/schema";
 import { eq, getTableColumns, sql } from "drizzle-orm";
@@ -15,7 +19,7 @@ export const calculatedAssetsQueryBuilder = (db: Database) =>
   db
     .select({
       ...getTableColumns(userAssets),
-      currentValue: sql<number>`COALESCE(latest_value.value, 0)`,
+      currentValue: sql<DecimalValueString>`cast(COALESCE(latest_value.value, 0) as decimal(18, 2))`,
       lastValueDate: sql<Date | null>`latest_value.value_date`,
     })
     .from(userAssets)
@@ -26,7 +30,7 @@ export const calculatedAssetsWithContributionsQueryBuilder = (db: Database) =>
     .select({
       asset: {
         ...getTableColumns(userAssets),
-        currentValue: sql<number>`COALESCE(latest_value.value, 0)`,
+        currentValue: sql<DecimalValueString>`cast(COALESCE(latest_value.value, 0) as decimal(18, 2))`,
         lastValueDate: sql<Date | null>`latest_value.value_date`,
       },
       recurringContribution: recurringContributions,

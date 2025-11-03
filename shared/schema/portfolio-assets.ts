@@ -12,8 +12,12 @@ import type {
   AssetValueMetadata as DBAssetValueMetadata,
   AssetValueMetadataSecurity as DBAssetValueMetadataSecurity,
 } from "@server/db/schema/index";
-import { accountType } from "@server/db/schema/index";
-import { IfConstructorEquals } from "./utils";
+import { accountType, decimalValueSchema } from "@server/db/schema/index";
+import {
+  DecimalValueString,
+  IfConstructorEquals,
+  isDecimalValueString,
+} from "./utils";
 import { securityInsertSchema, SecuritySelect } from "./securities";
 
 import {
@@ -59,19 +63,16 @@ export type BrandedAssetValue = BrandedValue<
 export const userAssetSecurityInsertSchema = z.object({
   tempId: z.string(),
   security: securityInsertSchema,
-  shareHolding: z.coerce
-    .number()
-    .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
-  // gainLoss: z
-  //   .number()
-  //   .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
-  currencyValue: z.coerce
-    .number()
-    .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
+  shareHolding: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Share holding must be a valid decimal string",
+  }),
+  currencyValue: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Currency value must be a valid decimal string",
+  }),
   startDate: z.coerce.date(),
-  priorGainLoss: z.coerce
-    .number()
-    .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
+  priorGainLoss: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Prior gain/loss must be a valid decimal string",
+  }),
   recordedAt: z.coerce.date().optional(),
 });
 
@@ -103,7 +104,11 @@ export const userAssetOrphanInsertSchema = z.object({
   valueMethod: z.enum(["manual", "calculated"]),
 
   //Only to be specified by user if the asset is to be manually updated
-  currentValue: z.number().optional(),
+  currentValue: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Current value must be a valid decimal string",
+    })
+    .optional(),
   securities: z.array(userAssetSecurityInsertSchema),
   //Contibutions here should be in unison with the recurringContributionOrphanInsertSchema and recurringContributionInsertSchema
   contributions: recurringContributionGroupInsertSchema.optional(),
@@ -160,7 +165,7 @@ export type UserAssetWithHistoryAndAccountChange = WithAccountChange<
 
 export type ValueFields = {
   lastValueDate: Date | null;
-  currentValue: number;
+  currentValue: DecimalValueString;
 };
 
 export type UserAssetWithValue = UserAsset & ValueFields;
@@ -170,35 +175,37 @@ export type ResolvedUserAsset = WithPlatform<
 >;
 
 export const userAssetValueOrphanInsertSchema = z.object({
-  value: z.number(),
+  value: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Value must be a valid decimal string",
+  }),
   recordedAt: z.coerce.date(),
   valueDate: z.coerce.date(),
 });
 
-type ZodUserAssetValueOrphanInsert = z.infer<
+userAssetValueOrphanInsertSchema._output satisfies Omit<
+  DBAssetValueInsert,
+  "assetId"
+>;
+
+export type UserAssetValueOrphanInsert = z.infer<
   typeof userAssetValueOrphanInsertSchema
 >;
-export type UserAssetValueOrphanInsert = IfConstructorEquals<
-  ZodUserAssetValueOrphanInsert,
-  Omit<DBAssetValueInsert, "assetId">,
-  never
->;
-userAssetValueOrphanInsertSchema satisfies ZodType<UserAssetValueOrphanInsert>;
 
 export const userAssetValueInsertSchema =
   userAssetValueOrphanInsertSchema.extend({
     assetId: z.string(),
   });
 
-type ZodUserAssetValueInsert = z.infer<typeof userAssetValueInsertSchema>;
-export type UserAssetValueInsert = IfConstructorEquals<
-  ZodUserAssetValueInsert,
+userAssetValueInsertSchema._output satisfies Omit<
   DBAssetValueInsert,
-  never
+  "assetId"
 >;
-userAssetValueInsertSchema satisfies ZodType<UserAssetValueInsert>;
 
-export type AssetValue = DBAssetValueSelect;
+export type UserAssetValueInsert = z.infer<typeof userAssetValueInsertSchema>;
+
+export type AssetValue = Omit<DBAssetValueSelect, "value"> & {
+  value: DecimalValueString;
+};
 
 export type AssetValueMetadata = DBAssetValueMetadata;
 export type AssetValueMetadataSecurity = DBAssetValueMetadataSecurity;
@@ -214,16 +221,15 @@ export type UserAssetSecuritySelect = DBUserAssetSecurity & {
 };
 
 export type CalculatedValue = {
-  value: number;
-  currentChange: number;
-  currentChangePercentage: number;
+  value: DecimalValueString;
+  currentChange: DecimalValueString;
+  currentChangePercentage: DecimalValueString;
 };
 
 export type AssetsChange = CalculatedValue & {
   startDate: Date;
   endDate: Date;
-  startValue: number;
-  value: number;
+  startValue: DecimalValueString;
 };
 
 export type WithCalculatedValue<T extends { id: string }> = T & {
@@ -290,7 +296,7 @@ export type AseetHistoryEntryType = "synthetic" | "synthetic-asset" | "asset";
 
 export type AssetHistoryValueBase = {
   valueDate: Date;
-  value: number;
+  value: DecimalValueString;
   assetId: string;
   id: string;
 };
@@ -299,14 +305,14 @@ export type PossibleDummyHistoryValue<T extends AssetHistoryValueBase> =
   | ({
       valueType: Extract<AseetHistoryEntryType, "synthetic">;
       valueDate: Date;
-      value: number;
+      value: DecimalValueString;
       id: null;
       assetId: null;
     } & Partial<Omit<T, "assetId" | "id" | "valueDate" | "value">>)
   | ({
       valueType: Extract<AseetHistoryEntryType, "synthetic-asset">;
       valueDate: Date;
-      value: number;
+      value: DecimalValueString;
       id: null;
       assetId: string;
     } & Omit<T, "assetId" | "id" | "valueDate" | "value">)
@@ -333,7 +339,7 @@ export type DataRangeQuery = {
 export type AssetHistoryPoint = {
   id: string;
   type: "value" | "transaction";
-  value: number;
+  value: DecimalValueString;
   valueDate: Date;
   //recordedAt: Date;
 };
@@ -341,7 +347,7 @@ export type AssetHistoryPoint = {
 export type SecurityHistoryPoint = {
   id: string;
   quantity: number;
-  value: number;
+  value: DecimalValueString;
   recordedAt: Date;
 };
 
@@ -380,9 +386,9 @@ export type AssetWithValueHistoryGenerators = {
 };
 
 export type CombinedDayValuesChange = {
-  previousValue: number;
-  newValue: number;
-  change: number;
+  previousValue: DecimalValueString;
+  newValue: DecimalValueString;
+  change: DecimalValueString;
 } & (
   | {
       assetId: string;

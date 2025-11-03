@@ -9,6 +9,8 @@ import {
 } from "@shared/schema/projections";
 import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
 import { ProjectionService } from "@server/services/projections";
+import { Decimal } from "decimal.js";
+import { createDecimalValueString } from "@shared/schema";
 
 const projectionService = new ProjectionService(db);
 
@@ -78,13 +80,21 @@ export async function registerRoutes(
                   projectedValueAtTarget: result.totalProjectedValue,
                   isOnTrack:
                     result.totalProjectedValue >= milestoneTarget.targetValue,
-                  shortfall:
-                    milestoneTarget.targetValue - result.totalProjectedValue,
-                  shortfallPercentage:
-                    ((milestoneTarget.targetValue -
-                      result.totalProjectedValue) /
-                      milestoneTarget.targetValue) *
-                    100,
+                  shortfall: createDecimalValueString(
+                    Decimal.sub(
+                      milestoneTarget.targetValue,
+                      result.totalProjectedValue
+                    ).toString()
+                  ),
+                  shortfallPercentage: Decimal.div(
+                    Decimal.sub(
+                      milestoneTarget.targetValue,
+                      result.totalProjectedValue
+                    ),
+                    milestoneTarget.targetValue
+                  )
+                    .mul(100)
+                    .toNumber(),
                 },
               ];
             }

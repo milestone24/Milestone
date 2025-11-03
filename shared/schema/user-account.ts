@@ -33,7 +33,11 @@ export {
   employmentStatus,
 } from "@server/db/schema/index";
 
-import { IfConstructorEquals } from "./utils";
+import {
+  DecimalValueString,
+  IfConstructorEquals,
+  isDecimalValueString,
+} from "./utils";
 
 // Core schemas
 export const coreUserInsertSchema = z.object({
@@ -215,29 +219,17 @@ export const updateProfileOrphanSchema = z.object({
   maritalStatus: z.enum(maritalStatus).nullable().optional(),
   employmentStatus: z.enum(employmentStatus).nullable().optional(),
   incomeLevel: z.enum(["low", "medium", "high", "other"]).nullable().optional(),
-  netWorth: z.number().nullable().optional(),
-});
+  netWorth: z
+    .string()
+    .refine(isDecimalValueString, {
+      message: "Net worth must be a valid decimal string",
+    })
+    .optional(),
+}) satisfies ZodType<Omit<DBInsertUserProfile, "userAccountId">>;
 
-export type ZodUpdateProfileOrphanInput = z.infer<
+export type UpdateProfileOrphanInput = z.infer<
   typeof updateProfileOrphanSchema
 >;
-
-//type A<T> = T;
-
-type B<C, T extends C = C> = T extends C ? T : never;
-
-type D = B<
-  Omit<DBInsertUserProfile, "userAccountId">,
-  ZodUpdateProfileOrphanInput
->;
-
-export type UpdateProfileOrphanInput = IfConstructorEquals<
-  ZodUpdateProfileOrphanInput,
-  Omit<DBInsertUserProfile, "userAccountId">,
-  never
->;
-
-updateProfileOrphanSchema satisfies ZodType<UpdateProfileOrphanInput>;
 
 export type SessionUser = {
   id: string;

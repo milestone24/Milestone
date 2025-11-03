@@ -11,7 +11,13 @@ import { addDays } from "date-fns"
 import { AssetSecurity, AssetValueResult } from "../types"
 import type { AssetPersistence } from "@server/services/assets/database"
 import { populateSecuritiesDailyHistoryCache, populateSecurityDailyHistoryCache } from "./cache"
-import { AssetValueMetadata, AssetValueMetadataSecurity } from "@shared/schema";
+import {
+  AssetValueMetadata,
+  AssetValueMetadataSecurity,
+  createDecimalValueString,
+  DecimalValueString,
+} from "@shared/schema";
+import { Decimal } from "decimal.js";
 
 // ============================================================================
 // DAILY HISTORY CACHING METHODS
@@ -68,7 +74,7 @@ const calculateAssetValueForDateFromCache = async (
 
       return history.map((record) => ({
         //TODO: close can not be null
-        close: Number(record.close ?? 0),
+        close: createDecimalValueString(record.close ?? "0"),
         shareHolding: security.shareHolding,
         source: record.source,
         securityName: record.security.name,
@@ -81,7 +87,7 @@ const calculateAssetValueForDateFromCache = async (
 };
 
 type SecurityHistoryForAssetCalculation = {
-  close: number;
+  close: DecimalValueString;
   shareHolding: number;
   source: string;
   securityName: string;
@@ -93,20 +99,24 @@ const calculateAssetValue = async (
   securityHistory: SecurityHistoryForAssetCalculation[][]
 ): Promise<AssetValueResult | null> => {
   const calculationTimestamp = new Date().toISOString();
-  let totalValue = 0;
+  let totalValue: Decimal = new Decimal(0);
   let securitiesProcessed = 0;
   const sourcesUsed = new Set<string>();
   const values: AssetValueMetadataSecurity[] = [];
 
   for (const history of securityHistory) {
     for (const security of history) {
-      totalValue += security.close * security.shareHolding;
+      totalValue = totalValue.add(
+        new Decimal(security.close).mul(security.shareHolding)
+      );
       securitiesProcessed++;
       sourcesUsed.add(security.source);
       values.push({
         securityName: security.securityName,
         securitySymbol: security.securitySymbol,
-        value: security.close * security.shareHolding,
+        value: createDecimalValueString(
+          Decimal.mul(security.close, security.shareHolding).toString()
+        ),
         shareHolding: security.shareHolding,
       });
     }
@@ -118,7 +128,7 @@ const calculateAssetValue = async (
   }
 
   return {
-    value: totalValue,
+    value: createDecimalValueString(totalValue.toString()),
     entryMethod: "calculated",
     valueDate: historyDate,
     metadata: {

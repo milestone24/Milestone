@@ -12,6 +12,8 @@ import { eq } from "drizzle-orm";
 import { projectPortfolio } from "./projection-orchestrator";
 import { differenceInYears, addYears } from "date-fns";
 import { recommendContributionAdjustment } from "./projection-milestone-tracker";
+import Decimal from "decimal.js";
+import { createDecimalValueString } from "@shared/schema/utils";
 
 // ============================================================================
 // FIRE PROJECTION CALCULATOR
@@ -62,7 +64,7 @@ export async function projectToRetirement(
 
   // Calculate FIRE number
   const fireNumber = calculateFIRENumber(
-    fireConfig.annualIncomeGoal,
+    Decimal(fireConfig.annualIncomeGoal).toNumber(),
     fireConfig.safeWithdrawalRate
   );
 
@@ -85,8 +87,10 @@ export async function projectToRetirement(
   const projectedValueAtRetirement = projectionResult.totalProjectedValue;
 
   // Check if on track
-  const isOnTrack = projectedValueAtRetirement >= fireNumber;
-  const shortfall = fireNumber - projectedValueAtRetirement;
+  const isOnTrack = Decimal(projectedValueAtRetirement).gte(fireNumber);
+  const shortfall = Decimal(fireNumber)
+    .sub(projectedValueAtRetirement)
+    .toNumber();
 
   // Calculate years until retirement
   const currentAge = calculateAge(fireConfig.dateOfBirth);
@@ -94,7 +98,7 @@ export async function projectToRetirement(
     ? 0 // Calculate actual years if ahead
     : Math.ceil(
         shortfall /
-          (projectedValueAtRetirement /
+          (Decimal(projectedValueAtRetirement).toNumber() /
             (fireConfig.targetRetirementAge - currentAge))
       );
 
@@ -102,8 +106,11 @@ export async function projectToRetirement(
   let monthlyShortfall: number | undefined;
   if (!isOnTrack) {
     const monthsRemaining = (fireConfig.targetRetirementAge - currentAge) * 12;
-    const currentMonthlyContribution =
-      projectionResult.totalContributions / monthsRemaining;
+    const currentMonthlyContribution = Decimal(
+      projectionResult.totalContributions
+    )
+      .div(monthsRemaining)
+      .toNumber();
 
     // Use growth rate from config
     const growthRate =
@@ -136,7 +143,9 @@ export async function projectToRetirement(
     projectedValueAtRetirement,
     isOnTrack,
     yearsAheadOrBehind,
-    monthlyShortfall,
+    monthlyShortfall: monthlyShortfall
+      ? createDecimalValueString(Decimal(monthlyShortfall).toString())
+      : undefined,
   };
 }
 
@@ -178,8 +187,8 @@ export async function checkFIREFeasibility(
   const fireConfig: FIREProjectionConfig = {
     dateOfBirth: userProfile.dob,
     targetRetirementAge: userFireSettings.targetRetirementAge,
-    annualIncomeGoal: Number(userFireSettings.annualIncomeGoal),
-    safeWithdrawalRate: Number(userFireSettings.safeWithdrawalRate),
+    annualIncomeGoal: userFireSettings.annualIncomeGoal,
+    safeWithdrawalRate: Decimal(userFireSettings.safeWithdrawalRate).toNumber(),
     adjustForInflation: userFireSettings.adjustInflation,
     statePensionAge: userFireSettings.statePensionAge,
   };

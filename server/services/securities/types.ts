@@ -1,4 +1,8 @@
-import { AssetValueMetadata, SecuritySearchResult } from "@shared/schema";
+import {
+  AssetValueMetadata,
+  DecimalValueString,
+  SecuritySearchResult,
+} from "@shared/schema";
 
 export type WithSourceIdentifier<T> = T & {
   sourceIdentifier: string;
@@ -8,10 +12,10 @@ export type SecurityHistory = WithSourceIdentifier<{
   symbol: string;
   exchange: string;
   date: Date;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
+  open: DecimalValueString;
+  high: DecimalValueString;
+  low: DecimalValueString;
+  close: DecimalValueString;
 }>;
 
 export type IntradayInterval = "15min" | "30min" | "60min";
@@ -84,7 +88,7 @@ export interface AssetSecurity {
 
 // Simplified return type
 export interface AssetValueResult {
-  value: number;
+  value: DecimalValueString;
   entryMethod: "calculated";
   valueDate: Date;
   metadata: AssetValueMetadata;

@@ -1,8 +1,7 @@
 import { z, ZodType } from "zod";
-import type { SchedulePattern } from "@shared/utils/scheduling";
 import {
+  decimalValueSchema,
   recurringContributionProcessTypes,
-  recurringContributionTypes,
 } from "@server/db/schema";
 import type {
   RecurringContributionInsert as DBRecurringContributionInsert,
@@ -12,7 +11,12 @@ import type {
   SecurityTransactionInsert as DBSecurityTransactionInsert,
   SecurityTransactionSelect as DBSecurityTransactionSelect,
 } from "@server/db/schema";
-import { IfConstructorEquals } from "./utils";
+import {
+  createDecimalValueString,
+  DecimalValueString,
+  IfConstructorEquals,
+  isDecimalValueString,
+} from "./utils";
 import { BrandedValue, ValueAbstract, ValueAbstractType } from "./common";
 
 export const patternSchema = z.object({
@@ -30,12 +34,11 @@ export type TransactionAbstract = ValueAbstract & {
   id: string;
   transactionType: TransactionType;
   recordedAt: Date;
-  value: number;
-  //accValue: number;
+  value: DecimalValueString;
   valueDate: Date;
-  currencyValue: number;
+  currencyValue: DecimalValueString;
   //accumalted security level, not asset level
-  accumulativeAssetCurrencyValue: number;
+  accumulativeAssetCurrencyValue: DecimalValueString;
   accumulativeAssetCurrencyValueRow: number;
   //assetAccumalitiveCurrencyValue: number;
   currency: string;
@@ -45,30 +48,34 @@ export type TransactionAbstract = ValueAbstract & {
 AssetTransaction
 */
 
-export type AssetTransaction = DBAssetTransactionSelect;
+export type AssetTransaction = Omit<
+  DBAssetTransactionSelect,
+  "value" | "currencyValue"
+> & {
+  value: DecimalValueString;
+  currencyValue: DecimalValueString;
+};
 
 export const userAssetTransactionOrphanInsertSchema = z.object({
-  value: z.number(),
+  value: decimalValueSchema,
   valueDate: z.coerce.date(),
   //TODO
   //The currency information will need to be added and not optional eventually
-  currencyValue: z.number().optional(),
-  fees: z.number().optional(),
+  currencyValue: decimalValueSchema.optional(),
+  fees: decimalValueSchema.optional(),
   currency: z.string().optional(),
 });
 
-type ZodUserAssetTransactionOrphanInsert = z.input<
+userAssetTransactionOrphanInsertSchema._output satisfies Omit<
+  DBAssetTransactionInsert,
+  "assetId" | "recordedAt"
+> & {
+  recordedAt?: Date;
+};
+
+export type UserAssetTransactionOrphanInsert = z.infer<
   typeof userAssetTransactionOrphanInsertSchema
 >;
-export type UserAssetTransactionOrphanInsert = IfConstructorEquals<
-  ZodUserAssetTransactionOrphanInsert,
-  Omit<DBAssetTransactionInsert, "assetId" | "recordedAt"> & {
-    recordedAt?: Date;
-  },
-  never
->;
-
-userAssetTransactionOrphanInsertSchema satisfies ZodType<UserAssetTransactionOrphanInsert>;
 
 /* Contribution */
 
@@ -80,22 +87,23 @@ userAssetTransactionOrphanInsertSchema satisfies ZodType<UserAssetTransactionOrp
  */
 
 export const assetContributionOrphanInsertSchema = z.object({
-  value: z.coerce.number(),
+  value: z.string().refine(isDecimalValueString, {
+    message: "Value must be a valid decimal string",
+  }),
   valueDate: z.coerce.date(),
-  currencyValue: z.coerce.number().optional(),
-  fees: z.coerce.number().optional(),
+  currencyValue: decimalValueSchema.optional(),
+  fees: decimalValueSchema.optional(),
   currency: z.string().optional(),
 });
 
-type ZodAssetContributionOrphanInsert = z.input<
+assetContributionOrphanInsertSchema._output satisfies Omit<
+  DBAssetTransactionInsert,
+  "assetId" | "recordedAt"
+>;
+
+type AssetContributionOrphanInsert = z.input<
   typeof assetContributionOrphanInsertSchema
 >;
-export type AssetContributionOrphanInsert = IfConstructorEquals<
-  ZodAssetContributionOrphanInsert,
-  Omit<DBAssetTransactionInsert, "assetId" | "recordedAt">,
-  never
->;
-assetContributionOrphanInsertSchema satisfies ZodType<AssetContributionOrphanInsert>;
 
 export type AssetContributionFormData = Pick<
   AssetContributionOrphanInsert,
@@ -107,14 +115,14 @@ export const assetContributionInsertSchema =
     assetId: z.string(),
   });
 
-type ZodAssetContributionInsert = z.infer<typeof assetContributionInsertSchema>;
-export type AssetContributionInsert = IfConstructorEquals<
-  ZodAssetContributionInsert,
-  Omit<DBAssetTransactionInsert, "recordedAt">,
-  never
+assetContributionInsertSchema._output satisfies Omit<
+  DBAssetTransactionInsert,
+  "recordedAt"
 >;
 
-assetContributionInsertSchema satisfies ZodType<AssetContributionInsert>;
+export type AssetContributionInsert = z.infer<
+  typeof assetContributionInsertSchema
+>;
 
 /*
 SecurityTransaction
@@ -123,43 +131,44 @@ SecurityTransaction
 export type SecurityTransaction = DBSecurityTransactionSelect;
 
 export const securityTransactionOrphanInsertSchema = z.object({
-  value: z
-    .number()
-    .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
-  currencyValue: z.number(),
-  fees: z.number().optional().nullable(),
+  value: decimalValueSchema,
+  currencyValue: decimalValueSchema,
+  fees: decimalValueSchema.optional(),
   currency: z.string().optional(),
   valueDate: z.coerce.date(),
   recordedAt: z.coerce.date().optional(),
 });
 
-type ZodSecurityTransactionOrphanInsert = z.input<
+securityTransactionOrphanInsertSchema._output satisfies Omit<
+  DBSecurityTransactionInsert,
+  "assetSecurityId" | "recordedAt"
+>;
+
+export type SecurityTransactionOrphanInsert = z.infer<
   typeof securityTransactionOrphanInsertSchema
 >;
 
-export type SecurityTransactionOrphanInsert = IfConstructorEquals<
-  ZodSecurityTransactionOrphanInsert,
-  Omit<DBSecurityTransactionInsert, "assetSecurityId" | "recordedAt">,
-  never
->;
-
-securityTransactionOrphanInsertSchema satisfies ZodType<SecurityTransactionOrphanInsert>;
-
-export type SecurityTransactionSelect = DBSecurityTransactionSelect;
+export type SecurityTransactionSelect = Omit<
+  DBSecurityTransactionSelect,
+  "value" | "currencyValue" | "accumulativeAssetCurrencyValue"
+> & {
+  value: DecimalValueString;
+  currencyValue: DecimalValueString;
+  accumulativeAssetCurrencyValue: DecimalValueString;
+};
 
 export const securityTransactionInsertSchema =
   securityTransactionOrphanInsertSchema.extend({
     assetSecurityId: z.string(),
   });
 
-type ZodSecurityTransactionInsert = z.input<
-  typeof securityTransactionInsertSchema
+securityTransactionInsertSchema._output satisfies Omit<
+  DBSecurityTransactionInsert,
+  "recordedAt"
 >;
 
-export type SecurityTransactionInsert = IfConstructorEquals<
-  ZodSecurityTransactionInsert,
-  Omit<DBSecurityTransactionInsert, "recordedAt">,
-  never
+export type SecurityTransactionInsert = z.infer<
+  typeof securityTransactionInsertSchema
 >;
 
 export type SecurityTransactionUpsert = SecurityTransactionInsert & {
@@ -170,9 +179,9 @@ export type UserAssetSecurityTransactionResolved = {
   id: string;
   assetSecurityId: string;
   securityName: string;
-  value: number;
+  value: DecimalValueString;
   currency: string;
-  currencyValue: number;
+  currencyValue: DecimalValueString;
   valueDate: Date;
   recordedAt: Date;
 };
@@ -215,7 +224,7 @@ export type BrandedUserAssetSecurityTransactionResolved = BrandedValue<
 // >;
 
 export const recurringContributionOrphanInsertSchemaBase = z.object({
-  amount: z.coerce.number().positive(),
+  amount: decimalValueSchema,
   process: z.enum(recurringContributionProcessTypes),
   startDate: z.coerce.date(),
   patternConfig: patternSchema,
@@ -236,17 +245,20 @@ export const recurringSecurityContributionOrphanInsertSchema =
     groupId: z.string().optional(),
   });
 
-export const recurringContributionOrphanInsertSchema = z.discriminatedUnion("type", [
-  recurringAssetContributionOrphanInsertSchema,
-  recurringSecurityContributionOrphanInsertSchema,
-]) satisfies ZodType<
-  Omit<
-    DBRecurringContributionInsert,
-    "isActive" | "lastProcessedDate" | "assetId"
-  >
+export const recurringContributionOrphanInsertSchema = z.discriminatedUnion(
+  "type",
+  [
+    recurringAssetContributionOrphanInsertSchema,
+    recurringSecurityContributionOrphanInsertSchema,
+  ]
+);
+
+recurringContributionOrphanInsertSchema._output satisfies Omit<
+  DBRecurringContributionInsert,
+  "isActive" | "lastProcessedDate" | "assetId"
 >;
 
-export type RecurringContributionOrphanInsert = z.input<
+export type RecurringContributionOrphanInsert = z.infer<
   typeof recurringContributionOrphanInsertSchema
 >;
 
@@ -264,11 +276,11 @@ export const recurringContributionInsertSchema = z.discriminatedUnion("type", [
   recurringSecurityContributionOrphanInsertSchema.extend({
     assetId: z.string(),
   }),
-]) satisfies ZodType<
-  Omit<
-    DBRecurringContributionInsert,
-    "isActive" | "lastProcessedDate" | "groupId"
-  >
+]);
+
+recurringContributionInsertSchema._output satisfies Omit<
+  DBRecurringContributionInsert,
+  "isActive" | "lastProcessedDate" | "groupId"
 >;
 
 export type RecurringContributionInsert = z.input<
@@ -313,7 +325,7 @@ export const securityDistributionInsertSchema = z.object({
   securityId: z.string(),
   isTempSecurityId: z.boolean(),
   securityName: z.string(),
-  commitment: z.number(),
+  commitment: decimalValueSchema,
   groupId: z.string().optional(),
 });
 

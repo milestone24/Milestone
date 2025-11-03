@@ -1,6 +1,8 @@
+import { createDecimalValueString } from "@shared/schema";
 import { ALPHA_VANTAGE_SOURCE_IDENTIFIER } from "../alpha-vantage/const";
 import { EODHD_SOURCE_IDENTIFIER } from "../eodhd/const";
-import { SecurityHistory } from "../types"
+import { SecurityHistory } from "../types";
+import Decimal from "decimal.js";
 
 export type EODHDHistoryResponse = {
   date: string;
@@ -10,7 +12,7 @@ export type EODHDHistoryResponse = {
   close: number;
   adjusted_close: number;
   volume: number;
-}
+};
 
 export type AlphaVantageHistoryValues = {
   "1. open": string;
@@ -18,7 +20,7 @@ export type AlphaVantageHistoryValues = {
   "3. low": string;
   "4. close": string;
   "5. volume": string;
-}
+};
 
 /**
  * Maps EODHD history response to SecurityHistory type
@@ -33,10 +35,10 @@ export const mapEodhdToSecurityHistory = (
   symbol,
   exchange: EODHD_SOURCE_IDENTIFIER,
   date: new Date(item.date),
-  open: item.open,
-  high: item.high,
-  low: item.low,
-  close: item.close,
+  open: createDecimalValueString(Decimal(item.open).toString()),
+  high: createDecimalValueString(Decimal(item.high).toString()),
+  low: createDecimalValueString(Decimal(item.low).toString()),
+  close: createDecimalValueString(Decimal(item.close).toString()),
   sourceIdentifier: EODHD_SOURCE_IDENTIFIER,
 });
 
@@ -69,10 +71,18 @@ export const mapAlphaVantageToSecurityHistory = (
     symbol,
     exchange: ALPHA_VANTAGE_SOURCE_IDENTIFIER,
     date: parsedDate,
-    open: parseFloat(values["1. open"]),
-    high: parseFloat(values["2. high"]),
-    low: parseFloat(values["3. low"]),
-    close: parseFloat(values["4. close"]),
+    open: createDecimalValueString(
+      Decimal(parseFloat(values["1. open"])).toString()
+    ),
+    high: createDecimalValueString(
+      Decimal(parseFloat(values["2. high"])).toString()
+    ),
+    low: createDecimalValueString(
+      Decimal(parseFloat(values["3. low"])).toString()
+    ),
+    close: createDecimalValueString(
+      Decimal(parseFloat(values["4. close"])).toString()
+    ),
     sourceIdentifier: ALPHA_VANTAGE_SOURCE_IDENTIFIER,
   };
-}; 
+};

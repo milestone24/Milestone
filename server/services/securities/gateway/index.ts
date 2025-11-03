@@ -3,7 +3,8 @@ import { factory as alphaVantageFactory } from "../alpha-vantage"
 import { combineSecurityResults } from "@server/utils/securities"
 import { searchCachedSecurities} from "../cache"
 import { SecurityHistory, SecurityIdentifier, IntradayOptions } from "../types"
-import { SecuritySearchResult } from "@shared/schema"
+import { createDecimalValueString, SecuritySearchResult } from "@shared/schema";
+import Decimal from "decimal.js";
 
 const eodhd = eodhdFactory()
 const alphaVantage = alphaVantageFactory()
@@ -339,13 +340,19 @@ export const getCalculatedSecurityHistoryForDateRange = async (identifier: Secur
 
   const history = await getSecurityHistoryForDateRange(identifier, startDate, endDate)
     .then(history => {
-      return history.map(h => ({
+      return history.map((h) => ({
         ...h,
-        open: h.open * holdings,
-        high: h.high * holdings,
-        low: h.low * holdings,
-        close: h.close * holdings,
-      }))
+        open: createDecimalValueString(
+          Decimal(h.open).mul(holdings).toString()
+        ),
+        high: createDecimalValueString(
+          Decimal(h.high).mul(holdings).toString()
+        ),
+        low: createDecimalValueString(Decimal(h.low).mul(holdings).toString()),
+        close: createDecimalValueString(
+          Decimal(h.close).mul(holdings).toString()
+        ),
+      }));
     })
 
   if (history.length === 0) {

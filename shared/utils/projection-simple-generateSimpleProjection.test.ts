@@ -1,6 +1,7 @@
 import { generateSimpleProjection } from "./projection-simple";
 import { describe, it, expect } from "vitest";
 import { createRRulePattern } from "./scheduling";
+import { createDecimalValueString } from "@shared/schema";
 
 describe("generateSimpleProjection and expect contributions to be correct", () => {
   it("with one recurring contribution on 1st of each month for 18 months", () => {
@@ -20,10 +21,10 @@ describe("generateSimpleProjection and expect contributions to be correct", () =
         interval: "yearly",
         modifiers: [],
       },
-      currentValue: 100000,
+      currentValue: createDecimalValueString("100000"),
       scheduledContributions: [
         {
-          value: 1000,
+          value: createDecimalValueString("1000"),
           patternConfig: {
             type: "rrule",
             expression: createRRulePattern(

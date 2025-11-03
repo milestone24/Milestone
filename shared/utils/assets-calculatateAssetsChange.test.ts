@@ -1,16 +1,18 @@
 import { describe, it, expect } from "vitest";
 import { calculateAssetsChange, normalisePercentage } from "./assets";
 import {
+  createDecimalValueString,
   PossibleDummyAssetValue,
   UserAsset,
   WithAssetHistory,
 } from "@shared/schema";
+import Decimal from "decimal.js";
 
 describe("calculateAssetsChange", () => {
   it("should calculate the assets change", () => {
     const history: PossibleDummyAssetValue[] = [
       {
-        value: 300,
+        value: createDecimalValueString(Decimal(300).toString()),
         valueDate: new Date("2021-01-01"),
         entryMethod: "manual",
         metadata: null,
@@ -21,7 +23,7 @@ describe("calculateAssetsChange", () => {
         id: "1",
       },
       {
-        value: 2000,
+        value: createDecimalValueString(Decimal(2000).toString()),
         valueDate: new Date("2021-01-02"),
         entryMethod: "manual",
         metadata: null,

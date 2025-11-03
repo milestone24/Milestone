@@ -3,7 +3,6 @@ import {
   text,
   timestamp,
   boolean,
-  real,
   pgEnum,
   check,
   uuid,
@@ -11,7 +10,13 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { userAccounts } from "./user-account";
-import { InferInsertModelBasic, timestampColumns, slugify } from "./utils";
+import {
+  InferInsertModelBasic,
+  timestampColumns,
+  slugify,
+  DecimalValueString,
+  brandedDecimal,
+} from "./utils";
 import { relations, InferSelectModel, sql } from "drizzle-orm";
 import { IncludeRelation } from "../types/utils";
 import { InferResultType } from "../types/utils";
@@ -55,7 +60,7 @@ export type ValueMethod = (typeof valueMethod)[number];
 export type AssetValueMetadataSecurity = {
   securityName: string;
   securitySymbol: string;
-  value: number;
+  value: DecimalValueString;
   shareHolding: number;
 };
 
@@ -72,7 +77,7 @@ export const assetValues = pgTable("asset_values", {
   id: uuid("id")
     .notNull()
     .default(sql`gen_random_uuid()`),
-  value: real("value").notNull(),
+  value: brandedDecimal("value").notNull(),
   recordedAt: timestamp("recorded_at").notNull(),
   valueDate: timestamp("value_date").notNull(),
   entryMethod: valueEntryMethodEnum("entry_method").notNull().default("manual"),
@@ -142,7 +147,7 @@ export const recurringContributions = pgTable("recurring_contributions", {
   securityId: uuid("security_id").references(() => userAssetSecurities.id, {
     onDelete: "cascade",
   }),
-  amount: real("amount").notNull(),
+  amount: brandedDecimal("amount").notNull(),
   startDate: timestamp("start_date").notNull(),
   patternConfig: jsonb("pattern_config").$type<SchedulePattern>().notNull(),
   lastProcessedDate: timestamp("last_processed_date"),
@@ -250,9 +255,13 @@ export const assetTransactions = pgTable(
     assetId: uuid("asset_id")
       .notNull()
       .references(() => userAssets.id, { onDelete: "cascade" }),
-    value: real("value").notNull(),
-    currencyValue: real("currency_value").notNull().default(0),
-    fees: real("fees").notNull().default(0),
+    value: brandedDecimal("value").notNull(),
+    currencyValue: brandedDecimal("currency_value")
+      .notNull()
+      .default("0" as DecimalValueString),
+    fees: brandedDecimal("fees")
+      .notNull()
+      .default("0" as DecimalValueString),
     //TODO
     //The currency information will need to be added and not optional with default value eventually
     currency: text("currency").notNull().default("GBP"),
@@ -283,7 +292,7 @@ export const userAssetSecurities = pgTable("user_asset_securities", {
     .references(() => securities.id),
   //shareHolding: real("share_holding").notNull(),
   archived: boolean("archived").notNull().default(false),
-  priorGainLoss: real("prior_gain_loss").notNull(),
+  priorGainLoss: brandedDecimal("prior_gain_loss").notNull(),
   startDate: timestamp("start_date").notNull(),
   recordedAt: timestamp("recorded_at").notNull(),
   ...timestampColumns(),
@@ -298,14 +307,14 @@ export const securityTransactions = pgTable(
     assetSecurityId: uuid("asset_security_id")
       .notNull()
       .references(() => userAssetSecurities.id, { onDelete: "cascade" }),
-    value: real("value").notNull(), //The number of shares held
+    value: brandedDecimal("value").notNull(), //The number of shares held
     //TODO
     //We should have this but when user is adding there account they might not know the currency value.
     //Do we force the user to add the currency value? or do we obtain the currency value from the
     //cache or api?
     //currencyValue: real("currency_value").notNull().default(0),
-    currencyValue: real("currency_value").notNull(),
-    fees: real("fees").default(0),
+    currencyValue: brandedDecimal("currency_value").notNull(),
+    fees: brandedDecimal("fees").default("0" as DecimalValueString),
     //TODO
     //The currency information will need to be added and not optional with default value eventually
     currency: text("currency").notNull().default("GBP"),

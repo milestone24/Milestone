@@ -17,9 +17,12 @@ import {
   CombinedDayTimePointBase,
   BrandedAbstractTransactionValue,
   UserAssetWithValue,
+  createDecimalValueString,
+  DecimalValueString,
 } from "@shared/schema";
 import { arrayToAsyncIterator } from "./async";
 import { QueryParams } from "@server/utils/resource-query-builder";
+import Decimal from "decimal.js";
 
 export const dateRangeToQueryFilter = (
   query?: DataRangeQuery
@@ -95,32 +98,44 @@ export const calculateAssetsChange = (
   return firstAssetValue
     ? lastAssetValue
       ? ((percentageChange = normalisePercentage(
-          firstAssetValue.value,
-          lastAssetValue.value
+          parseFloat(firstAssetValue.value),
+          parseFloat(lastAssetValue.value)
         )),
         {
           startDate: firstAssetValue.valueDate,
           endDate: lastAssetValue.valueDate,
           startValue: firstAssetValue.value,
           value: lastAssetValue.value,
-          currentChange: lastAssetValue.value - firstAssetValue.value,
-          currentChangePercentage: percentageChange,
+          currentChange: createDecimalValueString(
+            Decimal(lastAssetValue.value)
+              .sub(Decimal(firstAssetValue.value))
+              .toString()
+          ),
+          currentChangePercentage: createDecimalValueString(
+            Decimal(percentageChange).toString()
+          ),
         })
       : {
           startDate: firstAssetValue.valueDate,
           endDate: firstAssetValue.valueDate,
           startValue: firstAssetValue.value,
           value: firstAssetValue.value,
-          currentChange: firstAssetValue.value - firstAssetValue.value,
-          currentChangePercentage: percentageChange,
+          currentChange: createDecimalValueString(
+            Decimal(firstAssetValue.value)
+              .sub(Decimal(firstAssetValue.value))
+              .toString()
+          ),
+          currentChangePercentage: createDecimalValueString(
+            Decimal(percentageChange).toString()
+          ),
         }
     : {
         startDate: new Date(),
         endDate: new Date(),
-        startValue: 0,
-        value: 0,
-        currentChange: 0,
-        currentChangePercentage: 0,
+        startValue: createDecimalValueString("0"),
+        value: createDecimalValueString("0"),
+        currentChange: createDecimalValueString("0"),
+        currentChangePercentage: createDecimalValueString("0"),
       };
 };
 
@@ -217,7 +232,7 @@ const defineAssetValuesForDateRange = (
             : addStartPoint(
                 {
                   id: null,
-                  value: 0,
+                  value: createDecimalValueString("0"),
                   assetId: values[0]?.assetId ?? "",
                   createdAt: queryStartDate,
                   updatedAt: queryStartDate,
@@ -285,7 +300,7 @@ const defineAssetValuesForDateRange = (
           : addEndPoint(
               {
                 id: null,
-                value: 0,
+                value: createDecimalValueString("0"),
                 assetId: null,
                 createdAt: queryEndDate,
                 updatedAt: queryEndDate,
@@ -325,7 +340,12 @@ const defineAssetValuesForDateRange = (
  * @returns An async generator function that takes a sorted async generator of asset values and yields values (real and synthetic) within the range
  */
 export function streamAssetValuesForDateRange<
-  I extends { id: string; value: number; valueDate: Date; assetId: string }
+  I extends {
+    id: string;
+    value: DecimalValueString;
+    valueDate: Date;
+    assetId: string;
+  }
 >(
   //<
   // I,
@@ -367,8 +387,8 @@ export function streamAssetValuesForDateRange<
 
     let next = await assetValues.next();
 
-    const getValue = (value: I): number =>
-      valueKey ? (value[valueKey] as number) : value.value;
+    const getValue = (value: I): string =>
+      valueKey ? (value[valueKey] as string) : value.value;
 
     while (!next.done) {
       const value = next.value;
@@ -417,7 +437,7 @@ export function streamAssetValuesForDateRange<
               valueType: "synthetic",
               id: null,
               assetId: null,
-              value: 0,
+              value: createDecimalValueString("0"),
               valueDate: queryStartDate,
             };
           }
@@ -505,7 +525,7 @@ export function streamAssetValuesForDateRange<
           valueType: "synthetic",
           id: null,
           assetId: null,
-          value: 0,
+          value: createDecimalValueString("0"),
           valueDate: queryStartDate,
         };
       }
@@ -527,7 +547,7 @@ export function streamAssetValuesForDateRange<
           valueType: "synthetic",
           id: null,
           assetId: null,
-          value: 0,
+          value: createDecimalValueString("0"),
           valueDate: queryEndDate,
         };
       }
@@ -545,7 +565,7 @@ export function streamAssetValuesForDateRange<
  * @yields AssetValue objects in strict global order by valueDate (and assetId for tie-breaks)
  */
 export async function* mergeSortedAssetHistories<
-  I extends { valueDate: Date; value: number; assetId: string }
+  I extends { valueDate: Date; value: string; assetId: string }
 >(
   assets: Iterable<{
     history: AsyncIterator<I>;
@@ -676,7 +696,7 @@ export const getCombinedDayValuesForValues = async <
   resolver: DayResolver<DD, I>
 ): Promise<D[]> => {
   // Create a map to track the latest known value for each account
-  const accountLatestValues = new Map<string, number>();
+  const accountLatestValues = new Map<string, DecimalValueString>();
 
   // Create a map to store portfolio values and changes at each timestamp
   const portfolioValues = new Map<string, DD>();
@@ -687,7 +707,7 @@ export const getCombinedDayValuesForValues = async <
 
     if (!dateKey) continue;
 
-    const value = entry.value ?? 0;
+    const value = entry.value ?? createDecimalValueString("0");
 
     // const change: CombinedDayValuesChange | null =
     //   entry.valueType === "asset"
@@ -711,13 +731,16 @@ export const getCombinedDayValuesForValues = async <
         //   ? accountLatestValues.get(entry.assetId) || 0
         //   : 0;
         const previousValue =
-          accountLatestValues.get(entry.assetId ?? "synthetic") || 0;
+          accountLatestValues.get(entry.assetId ?? "synthetic") ||
+          createDecimalValueString("0");
 
         //for transactions
         // const newValue = value + previousValue;
         // const change = newValue - previousValue;
 
-        const change = value - previousValue;
+        const change = createDecimalValueString(
+          Decimal(value).sub(Decimal(previousValue)).toString()
+        );
         const newValue = value;
         return {
           ...(entry.assetId
@@ -749,8 +772,8 @@ export const getCombinedDayValuesForValues = async <
 
     // Calculate total portfolio value at this point in time
     const totalValue = Array.from(accountLatestValues.values()).reduce(
-      (sum, value) => sum + value,
-      0
+      (sum, value) => Decimal(sum).add(Decimal(value)).toString(),
+      "0"
     );
 
     // If we already have an entry for this date, update it with the new changes
@@ -904,7 +927,6 @@ export const resolveDayTransactionHistoryForAssetsForDateRange = async (
 export const getPortfolioOverviewForAssets = async (
   assets: UserAssetWithHistoryAndAccountChange[]
 ): Promise<AssetsChange> => {
-
   const assetsValueChanges: AssetsChange =
     assets.length > 0
       ? assets
@@ -918,17 +940,34 @@ export const getPortfolioOverviewForAssets = async (
 
             const startValue =
               asset.startDate === acc.startDate
-                ? acc.startValue + asset.startValue
+                ? createDecimalValueString(
+                    Decimal(acc.startValue)
+                      .add(Decimal(asset.startValue))
+                      .toString()
+                  )
                 : asset.startDate < acc.startDate
                 ? asset.startValue
                 : asset.startDate > acc.startDate
                 ? acc.startValue
                 : acc.startValue;
 
-            const value = acc.value + asset.value;
-            const currentChange = acc.currentChange + asset.currentChange;
+            const value = createDecimalValueString(
+              Decimal(acc.value).add(Decimal(asset.value)).toString()
+            );
+            const currentChange = createDecimalValueString(
+              Decimal(acc.currentChange)
+                .add(Decimal(asset.currentChange))
+                .toString()
+            );
 
-            const percentageChange = normalisePercentage(startValue, value);
+            const percentageChange = createDecimalValueString(
+              Decimal(
+                normalisePercentage(
+                  Decimal(startValue).toNumber(),
+                  Decimal(value).toNumber()
+                )
+              ).toString()
+            );
 
             return {
               startDate,
@@ -942,10 +981,10 @@ export const getPortfolioOverviewForAssets = async (
       : {
           startDate: new Date(),
           endDate: new Date(),
-          startValue: 0,
-          value: 0,
-          currentChange: 0,
-          currentChangePercentage: 0,
+          startValue: createDecimalValueString("0"),
+          value: createDecimalValueString("0"),
+          currentChange: createDecimalValueString("0"),
+          currentChangePercentage: createDecimalValueString("0"),
         };
 
   return assetsValueChanges;

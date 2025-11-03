@@ -182,7 +182,7 @@ export class ProjectionService {
     const milestoneTarget: MilestoneTarget = {
       milestoneId: milestone.id,
       milestoneName: milestone.name,
-      targetValue: Number(milestone.targetValue),
+      targetValue: milestone.targetValue,
       targetDate: config.endDate, // Use projection end date as target
       accountType: milestone.accountType,
     };

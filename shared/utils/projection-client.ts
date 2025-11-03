@@ -22,6 +22,8 @@ import {
   SimpleProjectionInput,
 } from "./projection-simple";
 import { ContributorSchedule } from "../schema/projections";
+import Decimal from "decimal.js";
+import { createDecimalValueString, DecimalValueString } from "@shared/schema";
 
 // ============================================================================
 // TYPES
@@ -29,8 +31,8 @@ import { ContributorSchedule } from "../schema/projections";
 
 export type FireProjectionData = {
   age: number;
-  portfolio: number;
-  target: number;
+  portfolio: DecimalValueString;
+  target: DecimalValueString;
 };
 
 export type FireProjectionResult = {
@@ -57,7 +59,7 @@ export type FireProjectionResult = {
 export function convertToAgeBasedProjection(
   timePoints: ProjectionTimePoint[],
   dateOfBirth: Date,
-  targetAmount: number
+  targetAmount: DecimalValueString
 ): FireProjectionData[] {
   const projectionData: FireProjectionData[] = [];
 
@@ -81,7 +83,7 @@ export function convertToAgeBasedProjection(
 
     projectionData.push({
       age: Math.max(0, age),
-      portfolio: Math.round(point.value),
+      portfolio: createDecimalValueString(Decimal(point.value).toString()),
       target: targetAmount,
     });
   }
@@ -94,10 +96,10 @@ export function convertToAgeBasedProjection(
  * Similar to tracking.ts calculateYearsToTarget but uses projection system
  */
 export function calculateYearsToTarget(
-  presentValue: number,
+  presentValue: DecimalValueString,
   scheduledContributions: ContributorSchedule[],
   annualRate: number,
-  targetValue: number,
+  targetValue: DecimalValueString,
   config: {
     startDate: Date;
     maxYears?: number;
@@ -112,11 +114,15 @@ export function calculateYearsToTarget(
   if (monthlyRate === 0) {
     // No growth, calculate based on contributions only
     const totalContributionAmount = scheduledContributions.reduce(
-      (sum, c) => sum + c.value,
+      (sum, c) => Decimal(c.value).add(sum).toNumber(),
       0
     );
     if (totalContributionAmount === 0) return Infinity;
-    return (targetValue - presentValue) / (totalContributionAmount * 12);
+    return Decimal(targetValue)
+      .sub(presentValue)
+      .div(totalContributionAmount)
+      .mul(12)
+      .toNumber();
   }
 
   // Use iterative approach similar to tracking.ts
@@ -126,7 +132,9 @@ export function calculateYearsToTarget(
 
   while (currentValue < targetValue && months < maxMonths) {
     // Apply growth
-    currentValue = currentValue * (1 + monthlyRate);
+    currentValue = createDecimalValueString(
+      Decimal(currentValue).mul(Decimal(1).add(monthlyRate)).toString()
+    );
 
     // Add contributions for this month
     const nextMonth = addMonths(currentDate, 1);
@@ -136,7 +144,9 @@ export function calculateYearsToTarget(
         currentDate,
         nextMonth
       )) {
-        currentValue += amount;
+        currentValue = createDecimalValueString(
+          Decimal(currentValue).add(amount).toString()
+        );
       }
     }
 
@@ -156,10 +166,10 @@ export function calculateYearsToTarget(
  * Replaces tracking.ts calculateFireProjection with unified projection system
  */
 export function computeClientFireProjection(
-  currentAmount: number,
+  currentAmount: DecimalValueString,
   scheduledContributions: ContributorSchedule[],
   expectedReturn: number,
-  targetAmount: number,
+  targetAmount: DecimalValueString,
   currentAge: number,
   maxAge: number = 87
 ): FireProjectionData[] {
@@ -215,7 +225,11 @@ export function computeClientFireProjection(
 
     projectionData.push({
       age,
-      portfolio: Math.round(timePoint?.value || currentAmount),
+      portfolio: createDecimalValueString(
+        Decimal(timePoint?.value || currentAmount)
+          .round()
+          .toString()
+      ),
       target: targetAmount,
     });
   }
@@ -232,11 +246,11 @@ export function computeClientFireProjection(
  * Replaces tracking.ts calculateContributionImpact with projection system
  */
 export function calculateContributionImpactWithProjections(
-  currentAmount: number,
+  currentAmount: DecimalValueString,
   currentScheduledContributions: ContributorSchedule[],
-  newMonthlyContribution: number,
+  newMonthlyContribution: DecimalValueString,
   expectedReturn: number,
-  targetAmount: number,
+  targetAmount: DecimalValueString,
   currentAge: number
 ): {
   originalYears: number;
@@ -289,10 +303,10 @@ export function calculateContributionImpactWithProjections(
  * Calculate years until reaching FIRE target
  */
 export function calculateYearsToFire(
-  currentAmount: number,
+  currentAmount: DecimalValueString,
   scheduledContributions: ContributorSchedule[],
   expectedReturn: number,
-  fireNumber: number
+  fireNumber: DecimalValueString
 ): number {
   return calculateYearsToTarget(
     currentAmount,
@@ -308,7 +322,7 @@ export function calculateYearsToFire(
 // ============================================================================
 
 export type ProjectionClientState = {
-  currentValue: number;
+  currentValue: DecimalValueString;
   scheduledContributions: ContributorSchedule[];
   config: SimpleProjectionConfigWithDateRange;
   modifierChain?: ModifierChain;
@@ -372,8 +386,8 @@ export class ProjectionClient {
     return this;
   }
 
-  setCurrentValue(currentValue: number): this {
-    this.state.currentValue = currentValue;
+  setCurrentValue(currentValue: DecimalValueString): this {
+    this.state.currentValue = createDecimalValueString(currentValue);
     return this;
   }
 

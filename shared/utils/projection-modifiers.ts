@@ -1,3 +1,4 @@
+import { createDecimalValueString, DecimalValueString } from "@shared/schema";
 import {
   ProjectionModifier,
   TaxModifier,
@@ -5,6 +6,7 @@ import {
   ContributionScalerModifier,
   FeeModifier,
 } from "@shared/schema/projections";
+import Decimal from "decimal.js";
 
 // ============================================================================
 // MODIFIER CONTEXT
@@ -14,8 +16,8 @@ import {
  * Context provided to modifiers for calculations
  */
 export interface ModifierContext {
-  currentValue: number;
-  contributionAmount?: number;
+  currentValue: DecimalValueString;
+  contributionAmount?: DecimalValueString;
   projectionStartDate: Date;
   currentDate: Date;
   yearsElapsed: number;
@@ -25,7 +27,10 @@ export interface ModifierContext {
  * Base interface for applying modifiers
  */
 export interface ApplicableModifier {
-  apply(value: number, context: ModifierContext): number;
+  apply(
+    value: DecimalValueString,
+    context: ModifierContext
+  ): DecimalValueString;
   getName(): string;
   isEnabled(): boolean;
 }
@@ -41,7 +46,10 @@ export interface ApplicableModifier {
 export class TaxDeductorModifier implements ApplicableModifier {
   constructor(private config: TaxModifier) {}
 
-  apply(value: number, context: ModifierContext): number {
+  apply(
+    value: DecimalValueString,
+    context: ModifierContext
+  ): DecimalValueString {
     if (!this.config.enabled || !context.contributionAmount) {
       return value;
     }
@@ -49,8 +57,8 @@ export class TaxDeductorModifier implements ApplicableModifier {
     // Tax is deducted from contributions
     // If value is a contribution, reduce it by tax rate
     const taxRate = this.config.rate / 100;
-    const taxAmount = value * taxRate;
-    return value - taxAmount;
+    const taxAmount = Decimal(value).mul(taxRate);
+    return createDecimalValueString(Decimal(value).sub(taxAmount).toString());
   }
 
   getName(): string {
@@ -73,18 +81,20 @@ export class TaxDeductorModifier implements ApplicableModifier {
 export class InflationAdjusterModifier implements ApplicableModifier {
   constructor(private config: InflationModifier) {}
 
-  apply(value: number, context: ModifierContext): number {
+  apply(
+    value: DecimalValueString,
+    context: ModifierContext
+  ): DecimalValueString {
     if (!this.config.enabled) {
       return value;
     }
-
-    // Apply inflation adjustment based on years elapsed
-    // Real Value = Nominal Value / (1 + inflation rate)^years
     const inflationRate = this.config.rate / 100;
-    const adjustmentFactor = Math.pow(1 + inflationRate, context.yearsElapsed);
-
-    // Reduce value by inflation
-    return value / adjustmentFactor;
+    const adjustmentFactor = Decimal(1)
+      .add(inflationRate)
+      .pow(context.yearsElapsed);
+    return createDecimalValueString(
+      Decimal(value).div(adjustmentFactor).toString()
+    );
   }
 
   getName(): string {
@@ -107,18 +117,23 @@ export class InflationAdjusterModifier implements ApplicableModifier {
 export class ContributionScaler implements ApplicableModifier {
   constructor(private config: ContributionScalerModifier) {}
 
-  apply(value: number, context: ModifierContext): number {
+  apply(
+    value: DecimalValueString,
+    context: ModifierContext
+  ): DecimalValueString {
     if (!this.config.enabled || !context.contributionAmount) {
       return value;
     }
-
-    // Only scale if this is a contribution value
-    return value * this.config.scaleFactor;
+    return createDecimalValueString(
+      Decimal(value).mul(this.config.scaleFactor).toString()
+    );
   }
 
   getName(): string {
     const percentageValue = (this.config.scaleFactor - 1) * 100;
-    const percentage = percentageValue.toFixed(0);
+    const percentage = createDecimalValueString(
+      Decimal(percentageValue).toFixed(0)
+    );
     return `Contribution Adjustment (${
       percentageValue > 0 ? "+" : ""
     }${percentage}%)`;
@@ -140,7 +155,10 @@ export class ContributionScaler implements ApplicableModifier {
 export class FeeDeductorModifier implements ApplicableModifier {
   constructor(private config: FeeModifier) {}
 
-  apply(value: number, context: ModifierContext): number {
+  apply(
+    value: DecimalValueString,
+    context: ModifierContext
+  ): DecimalValueString {
     if (!this.config.enabled) {
       return value;
     }
@@ -148,9 +166,13 @@ export class FeeDeductorModifier implements ApplicableModifier {
     // Fees are deducted from the portfolio value annually
     // Calculate fee for the time period
     const annualFeeRate = this.config.annualRate / 100;
-    const feeForPeriod = value * annualFeeRate * context.yearsElapsed;
+    const feeForPeriod = Decimal(value)
+      .mul(annualFeeRate)
+      .mul(context.yearsElapsed);
 
-    return value - feeForPeriod;
+    return createDecimalValueString(
+      Decimal(value).sub(feeForPeriod).toString()
+    );
   }
 
   getName(): string {
@@ -183,10 +205,13 @@ export class ModifierChain {
   /**
    * Apply all modifiers in sequence
    */
-  apply(value: number, context: ModifierContext): number {
+  apply(
+    value: DecimalValueString,
+    context: ModifierContext
+  ): DecimalValueString {
     return this.modifiers.reduce(
       (currentValue, modifier) => modifier.apply(currentValue, context),
-      value
+      createDecimalValueString(value)
     );
   }
 
@@ -201,7 +226,7 @@ export class ModifierChain {
    * Get impact of each modifier
    */
   getModifierImpacts(
-    value: number,
+    value: DecimalValueString,
     context: ModifierContext
   ): Record<string, number> {
     const impacts: Record<string, number> = {};
@@ -209,7 +234,9 @@ export class ModifierChain {
 
     for (const modifier of this.modifiers) {
       const newValue = modifier.apply(currentValue, context);
-      impacts[modifier.getName()] = newValue - currentValue;
+      impacts[modifier.getName()] = Decimal(newValue)
+        .sub(Decimal(currentValue))
+        .toNumber();
       currentValue = newValue;
     }
 
@@ -275,10 +302,10 @@ export function calculateYearsElapsed(
  * Create modifier context
  */
 export function createModifierContext(
-  currentValue: number,
+  currentValue: DecimalValueString,
   projectionStartDate: Date,
   currentDate: Date,
-  contributionAmount?: number
+  contributionAmount?: DecimalValueString
 ): ModifierContext {
   return {
     currentValue,

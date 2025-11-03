@@ -16,6 +16,7 @@ import {
   assetPersistenceFactory,
   DatabaseAssetService,
 } from "@server/services/assets/database";
+import { createDecimalValueString } from "@shared/schema";
 
 const assetService = new DatabaseAssetService(db);
 const { calculateAssetValueForDateFromCache, updateAssetValues } =
@@ -23,12 +24,11 @@ const { calculateAssetValueForDateFromCache, updateAssetValues } =
 
 dotenv.config({
   path: "./.local.env",
-})
+});
 
-console.log("EODHD_API_KEY", process.env.EODHD_API_KEY)
+console.log("EODHD_API_KEY", process.env.EODHD_API_KEY);
 
 const go = async () => {
-
   const assetId = "f9348e7c-e5f9-4587-8587-544a62a561f3";
 
   const assetSecurities = await db.query.userAssetSecurities.findFirst({
@@ -40,7 +40,7 @@ const go = async () => {
 
   //insert a value for the asset as start point
   const assetValue = await assetService.createUserAssetValueHistory(assetId, {
-    value: 0,
+    value: createDecimalValueString("0"),
     recordedAt: new Date("2025-0-01"),
     valueDate: new Date("2025-0-01"),
     //entryMethod: "calculated",
@@ -105,6 +105,6 @@ const go = async () => {
   );
 
   console.log("RESULTS", results);
-}
+};
 
 go()

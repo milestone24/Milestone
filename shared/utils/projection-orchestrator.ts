@@ -14,7 +14,12 @@ import {
   ContributorSchedule,
   ComputationContext,
 } from "@shared/schema/projections";
-import { UserAsset, RecurringContribution, AccountType } from "@shared/schema";
+import {
+  UserAsset,
+  RecurringContribution,
+  AccountType,
+  createDecimalValueString,
+} from "@shared/schema";
 //import { Database } from "@server/db";
 import { createModifierChain } from "@shared/utils/projection-modifiers";
 import {
@@ -32,6 +37,7 @@ import {
   findTimePointAtOrBefore,
   extractAndSortDates,
 } from "./projection-utils";
+import Decimal from "decimal.js";
 
 // ============================================================================
 // PROJECTION ORCHESTRATOR
@@ -216,18 +222,22 @@ function aggregateContributionTimePoints(
         findTimePointAtOrBefore(projection.timePoints, date);
 
       if (point) {
-        totalValue += point.value;
-        totalContributions += point.contributions;
-        totalGrowth += point.growth;
+        totalValue = Decimal(point.value).add(totalValue).toNumber();
+        totalContributions = Decimal(point.contributions)
+          .add(totalContributions)
+          .toNumber();
+        totalGrowth = Decimal(point.growth).add(totalGrowth).toNumber();
         hasProjected = hasProjected || point.projectedValue;
       }
     }
 
     return {
       date,
-      value: totalValue,
-      contributions: totalContributions,
-      growth: totalGrowth,
+      value: createDecimalValueString(Decimal(totalValue).toString()),
+      contributions: createDecimalValueString(
+        Decimal(totalContributions).toString()
+      ),
+      growth: createDecimalValueString(Decimal(totalGrowth).toString()),
       projectedValue: hasProjected,
     };
   });
@@ -257,15 +267,23 @@ function calculateMilestoneProgress(
         milestone.targetDate
       );
 
-    projectedValueAtTarget =
-      targetPoint?.value || projectionResult.totalCurrentValue;
+    projectedValueAtTarget = Decimal(
+      targetPoint?.value || projectionResult.totalCurrentValue
+    ).toNumber();
   } else {
     // No target date specified, use final projected value
-    projectedValueAtTarget = projectionResult.totalProjectedValue;
+    projectedValueAtTarget = Decimal(
+      projectionResult.totalProjectedValue
+    ).toNumber();
   }
 
-  const shortfall = milestone.targetValue - projectedValueAtTarget;
-  const shortfallPercentage = (shortfall / milestone.targetValue) * 100;
+  const shortfall = Decimal(milestone.targetValue)
+    .sub(Decimal(projectedValueAtTarget))
+    .toNumber();
+  const shortfallPercentage = Decimal(shortfall)
+    .div(Decimal(milestone.targetValue))
+    .mul(100)
+    .toNumber();
   const isOnTrack = shortfall <= 0;
 
   return {
@@ -273,9 +291,11 @@ function calculateMilestoneProgress(
     milestoneName: milestone.milestoneName,
     targetValue: milestone.targetValue,
     targetDate: milestone.targetDate,
-    projectedValueAtTarget,
+    projectedValueAtTarget: createDecimalValueString(
+      Decimal(projectedValueAtTarget).toString()
+    ),
     isOnTrack,
-    shortfall,
+    shortfall: createDecimalValueString(Decimal(shortfall).toString()),
     shortfallPercentage,
   };
 }
@@ -357,15 +377,18 @@ export async function orchestrateProjection(
   //   0
   // );
   const totalCurrentValue = contributorsToProject.reduce(
-    (sum, contributor) => sum + contributor.currentValue,
+    (sum, contributor) =>
+      Decimal(sum).add(Decimal(contributor.currentValue)).toNumber(),
     0
   );
 
   const lastPoint = portfolioTimePoints[portfolioTimePoints.length - 1];
   const totalProjectedValue = lastPoint?.value || totalCurrentValue;
   const totalContributions = lastPoint?.contributions || 0;
-  const totalGrowth =
-    totalProjectedValue - totalCurrentValue - totalContributions;
+  const totalGrowth = Decimal(totalProjectedValue)
+    .sub(Decimal(totalCurrentValue))
+    .sub(Decimal(totalContributions))
+    .toNumber();
 
   // Build computation context for client-side adjustments
   const computationContext: ComputationContext = {
@@ -392,10 +415,16 @@ export async function orchestrateProjection(
   // Build result
   const result: ProjectionOrchestratorResult = {
     config,
-    totalCurrentValue,
-    totalProjectedValue,
-    totalGrowth,
-    totalContributions,
+    totalCurrentValue: createDecimalValueString(
+      Decimal(totalCurrentValue).toString()
+    ),
+    totalProjectedValue: createDecimalValueString(
+      Decimal(totalProjectedValue).toString()
+    ),
+    totalGrowth: createDecimalValueString(Decimal(totalGrowth).toString()),
+    totalContributions: createDecimalValueString(
+      Decimal(totalContributions).toString()
+    ),
     timePoints: portfolioTimePoints,
     contributorBreakdown: contributorProjections,
     computedAt: new Date(),

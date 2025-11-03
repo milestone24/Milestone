@@ -1,5 +1,7 @@
+import { DecimalValueString } from "./utils";
+
 export type ValueAbstract = {
-  value: number;
+  value: DecimalValueString;
   valueDate: Date;
   //recordedAt: Date;
   //currentValue: number;

@@ -5,9 +5,8 @@ import {
   timestamp,
   uuid,
   pgEnum,
-  real,
   date,
-  varchar,
+  decimal,
 } from "drizzle-orm/pg-core";
 import { InferSelectModel, relations, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -175,7 +174,7 @@ export const userProfiles = pgTable("user_profiles", {
   maritalStatus: maritalStatusEnum("marital_status"),
   employmentStatus: employmentStatusEnum("employment_status"),
   incomeLevel: incomeLevelEnum("income_level"),
-  netWorth: real("net_worth"),
+  netWorth: decimal("net_worth", { precision: 18, scale: 2 }),
   // Add profile fields as needed
   ...timestampColumns(),
 });

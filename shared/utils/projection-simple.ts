@@ -11,6 +11,8 @@ import {
   getNextProjectionDate,
   getDateIncrement,
 } from "./projection-utils";
+import { createDecimalValueString, DecimalValueString } from "@shared/schema";
+import Decimal from "decimal.js";
 
 // ============================================================================
 // SIMPLE PROJECTION SERVICE
@@ -20,7 +22,7 @@ import {
  * Input for simple projections
  */
 export interface SimpleProjectionInput {
-  currentValue: number;
+  currentValue: DecimalValueString;
   currentDate?: Date;
   //recurringContributions: RecurringContribution[];
   scheduledContributions: ContributorSchedule[];
@@ -33,9 +35,9 @@ export interface SimpleProjectionInput {
  */
 export interface SimpleProjectionResult {
   timePoints: ProjectionTimePoint[];
-  totalGrowth: number;
-  totalContributions: number;
-  finalValue: number;
+  totalGrowth: DecimalValueString;
+  totalContributions: DecimalValueString;
+  finalValue: DecimalValueString;
 }
 
 // ============================================================================
@@ -47,12 +49,15 @@ export interface SimpleProjectionResult {
  * Formula: FV = PV + (PV * rate * years)
  */
 export function projectWithLinearGrowth(
-  principal: number,
+  principal: DecimalValueString,
   annualGrowthRate: number,
   years: number
 ): number {
-  const growthAmount = principal * (annualGrowthRate / 100) * years;
-  return principal + growthAmount;
+  const growthAmount = Decimal(principal)
+    .mul(Decimal(annualGrowthRate).div(100))
+    .mul(years)
+    .toNumber();
+  return Decimal(principal).add(growthAmount).toNumber();
 }
 
 // ============================================================================
@@ -119,17 +124,19 @@ export function generateLinearProjectionTimeSeries(
   const incrementDate = getDateIncrement(config.interval);
 
   let currentProjectionDate = new Date(config.startDate);
-  let accumulatedValue = currentValue;
-  let totalContributions = 0;
-  let totalGrowth = 0;
+  let accumulatedValue = createDecimalValueString(
+    Decimal(currentValue).toString()
+  );
+  let totalContributions = Decimal(0);
+  let totalGrowth = Decimal(0);
 
   // Initial point
   timePoints.push(
     createProjectionTimePoint(
       currentProjectionDate,
       accumulatedValue,
-      0,
-      0,
+      createDecimalValueString("0"),
+      createDecimalValueString("0"),
       false // First point is current
     )
   );
@@ -153,8 +160,9 @@ export function generateLinearProjectionTimeSeries(
     //This is still succeptable to rounding errors, and should be using decimal.js
     //config.growthRate is a a percentage but is represented as a integer, so we need to convert it to a decimal
     const growthRate = config.growthRate / 100;
-    const growthValue =
-      Math.round(currentValue * growthRate * yearsFromStart * 100) / 100;
+    const growthValue = Decimal(currentValue)
+      .mul(growthRate)
+      .mul(yearsFromStart);
 
     // Calculate contributions in this period
     const lastTimePoint = timePoints[timePoints.length - 1];
@@ -168,9 +176,11 @@ export function generateLinearProjectionTimeSeries(
       config.startDate
     );
 
-    totalContributions += periodContributions;
+    totalContributions = Decimal(totalContributions).add(periodContributions);
     totalGrowth = growthValue;
-    accumulatedValue = currentValue + growthValue + totalContributions;
+    accumulatedValue = createDecimalValueString(
+      Decimal(currentValue).add(growthValue).add(totalContributions).toString()
+    );
 
     // Apply modifiers to final value (inflation, fees)
     const finalValue = applyModifiersToValue(
@@ -184,8 +194,8 @@ export function generateLinearProjectionTimeSeries(
     const timePoint = createProjectionTimePoint(
       currentProjectionDate,
       finalValue,
-      totalContributions,
-      totalGrowth,
+      createDecimalValueString(Decimal(totalContributions).toString()),
+      createDecimalValueString(Decimal(totalGrowth).toString()),
       true
     );
 
@@ -214,16 +224,16 @@ export function generateCompoundProjectionTimeSeries(
   const incrementDate = getDateIncrement(config.interval);
 
   let currentProjectionDate = new Date(config.startDate);
-  let accumulatedValue = currentValue;
+  let accumulatedValue = Decimal(currentValue);
   let totalContributions = 0;
 
   // Initial point
   timePoints.push(
     createProjectionTimePoint(
       currentProjectionDate,
-      accumulatedValue,
-      0,
-      0,
+      createDecimalValueString(accumulatedValue.toString()),
+      createDecimalValueString("0"),
+      createDecimalValueString("0"),
       false
     )
   );
@@ -245,7 +255,7 @@ export function generateCompoundProjectionTimeSeries(
 
     // Apply compound growth to accumulated value
     const growthFactor = Math.pow(1 + config.growthRate / 100, yearsInInterval);
-    let projectedValue = accumulatedValue * growthFactor;
+    let projectedValue = Decimal(accumulatedValue).mul(growthFactor);
 
     // Calculate and add contributions in this period
     const periodContributions = calculatePeriodContributions(
@@ -253,34 +263,34 @@ export function generateCompoundProjectionTimeSeries(
       previousDate,
       currentProjectionDate,
       modifierChain,
-      projectedValue,
+      createDecimalValueString(projectedValue.toString()),
       config.startDate
     );
 
     totalContributions += periodContributions;
-    projectedValue += periodContributions;
-    accumulatedValue = projectedValue;
+    projectedValue = Decimal(projectedValue).add(periodContributions);
+    accumulatedValue = Decimal(projectedValue);
 
     // Apply modifiers to final value (inflation, fees)
     const finalValue = applyModifiersToValue(
-      projectedValue,
-      projectedValue,
+      createDecimalValueString(projectedValue.toString()),
+      createDecimalValueString(projectedValue.toString()),
       config.startDate,
       currentProjectionDate,
       modifierChain
     );
 
-    const growthAmount =
-      finalValue -
-      (timePoints[timePoints.length - 1]?.value || 0) -
-      periodContributions;
+    const growthAmount = Decimal(finalValue)
+      .sub(Decimal(timePoints[timePoints.length - 1]?.value || 0))
+      .sub(Decimal(periodContributions))
+      .toNumber();
 
     timePoints.push(
       createProjectionTimePoint(
         currentProjectionDate,
         finalValue,
-        totalContributions,
-        growthAmount,
+        createDecimalValueString(Decimal(totalContributions).toString()),
+        createDecimalValueString(Decimal(growthAmount).toString()),
         true
       )
     );
@@ -310,16 +320,23 @@ export function generateSimpleProjection(
   if (!lastPoint || !firstPoint) {
     return {
       timePoints,
-      totalGrowth: 0,
-      totalContributions: 0,
+      totalGrowth: createDecimalValueString("0"),
+      totalContributions: createDecimalValueString("0"),
       finalValue: input.currentValue,
     };
   }
 
   return {
     timePoints,
-    totalGrowth: lastPoint.value - firstPoint.value - lastPoint.contributions,
-    totalContributions: lastPoint.contributions,
-    finalValue: lastPoint.value,
+    totalGrowth: createDecimalValueString(
+      Decimal(lastPoint.value)
+        .sub(Decimal(firstPoint.value))
+        .sub(Decimal(lastPoint.contributions))
+        .toString()
+    ),
+    totalContributions: createDecimalValueString(
+      Decimal(lastPoint.contributions).toString()
+    ),
+    finalValue: createDecimalValueString(Decimal(lastPoint.value).toString()),
   };
 }

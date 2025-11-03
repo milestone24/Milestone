@@ -6,6 +6,8 @@ import type {
 import { ModifierChain, createModifierContext } from "./projection-modifiers";
 import { getNextExecutionDate } from "./scheduling";
 import { addDays, addMonths, addWeeks, addYears } from "date-fns";
+import { createDecimalValueString, DecimalValueString } from "@shared/schema";
+import Decimal from "decimal.js";
 
 export const calculateAge = (dateOfBirth: Date) => {
   const today = new Date();
@@ -37,7 +39,7 @@ export function* projectRecurringContributions(
   contribution: ContributorSchedule,
   startDate: Date,
   endDate: Date
-): Generator<{ date: Date; amount: number }> {
+): Generator<{ date: Date; amount: DecimalValueString }> {
   let currentDate =
     startDate > contribution.startDate ? startDate : contribution.startDate;
 
@@ -78,7 +80,7 @@ export function calculatePeriodContributions(
   startDate: Date,
   endDate: Date,
   modifierChain?: ModifierChain,
-  currentValue: number = 0,
+  currentValue: DecimalValueString = createDecimalValueString("0"),
   projectionStartDate?: Date
 ): number {
   let totalContributions = 0;
@@ -102,7 +104,9 @@ export function calculatePeriodContributions(
         contributionAmount = modifierChain.apply(amount, context);
       }
 
-      totalContributions += contributionAmount;
+      totalContributions = Decimal(totalContributions)
+        .add(contributionAmount)
+        .toNumber();
     }
   }
 
@@ -117,13 +121,13 @@ export function calculatePeriodContributions(
  * Apply modifiers to a value with proper context creation
  */
 export function applyModifiersToValue(
-  value: number,
-  contextValue: number,
+  value: DecimalValueString,
+  contextValue: DecimalValueString,
   projectionStartDate: Date,
   currentDate: Date,
   modifierChain?: ModifierChain,
-  contributionAmount?: number
-): number {
+  contributionAmount?: DecimalValueString
+): DecimalValueString {
   if (!modifierChain) {
     return value;
   }
@@ -147,9 +151,9 @@ export function applyModifiersToValue(
  */
 export function createProjectionTimePoint(
   date: Date,
-  value: number,
-  contributions: number,
-  growth: number,
+  value: DecimalValueString,
+  contributions: DecimalValueString,
+  growth: DecimalValueString,
   isProjected: boolean = true
 ): ProjectionTimePoint {
   return {
