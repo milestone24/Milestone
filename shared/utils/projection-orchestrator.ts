@@ -5,7 +5,7 @@ import {
   ProjectionTimePoint,
   MilestoneTarget,
   MilestoneProgress,
-  ProjectionOrhesratorAssetInput,
+  ProjectionOrchestratorAssetInput,
   ProjectionOrchestratorInput,
   ProjectionDataSource,
   Contributor,
@@ -106,7 +106,8 @@ export interface ProjectionOrchestratorResult extends ProjectionResult {
  */
 async function projectSingleContributor(
   contribution: Contributor,
-  config: ProjectionConfigWithDateRange
+  config: ProjectionConfigWithDateRange,
+  dateOfBirth?: Date
 ): Promise<ContributorProjection> {
   const modifierChain = createModifierChain(config.modifiers);
 
@@ -116,24 +117,15 @@ async function projectSingleContributor(
     const input: SimpleProjectionInput = {
       currentValue: contribution.currentValue,
       currentDate: new Date(),
-      //recurringContributions: assetContributions,
       scheduledContributions: contribution.schedules,
+      contributor: contribution,
+      dateOfBirth: dateOfBirth,
       config,
       modifierChain,
     };
     result = generateSimpleProjection(input);
   } else {
     throw new Error("Advanced projection not implemented");
-    // const input: AdvancedProjectionInput = {
-    //   assetId: asset.id,
-    //   currentValue: asset.currentValue,
-    //   currentDate: new Date(),
-    //   recurringContributions: assetContributions,
-    //   config,
-    //   modifierChain,
-    //   db,
-    // };
-    // result = await generateAdvancedProjection(input);
   }
 
   return {
@@ -207,16 +199,21 @@ function aggregateContributionTimePoints(
   const timeSeries = contributorProjections.map((p) => p.timePoints);
   const sortedDates = extractAndSortDates(timeSeries);
 
-  // For each date, sum values from all assets
+  // For each date, sum values from all contributors
   return sortedDates.map((date) => {
     const timestamp = date.getTime();
     let totalValue = 0;
     let totalContributions = 0;
     let totalGrowth = 0;
+    let totalBonuses = 0;
+    let totalAccessibleValue = 0;
+    let totalLockedValue = 0;
     let hasProjected = false;
+    let hasBonuses = false;
+    let hasAccessible = false;
 
     for (const projection of contributorProjections) {
-      // Find the time point for this asset at this date (or closest before)
+      // Find the time point for this contributor at this date (or closest before)
       const point =
         projection.timePoints.find((p) => p.date.getTime() === timestamp) ||
         findTimePointAtOrBefore(projection.timePoints, date);
@@ -228,6 +225,25 @@ function aggregateContributionTimePoints(
           .toNumber();
         totalGrowth = Decimal(point.growth).add(totalGrowth).toNumber();
         hasProjected = hasProjected || point.projectedValue;
+
+        if (point.bonuses) {
+          totalBonuses = Decimal(point.bonuses).add(totalBonuses).toNumber();
+          hasBonuses = true;
+        }
+
+        if (point.accessibleValue) {
+          totalAccessibleValue = Decimal(point.accessibleValue)
+            .add(totalAccessibleValue)
+            .toNumber();
+          hasAccessible = true;
+        }
+
+        if (point.lockedValue) {
+          totalLockedValue = Decimal(point.lockedValue)
+            .add(totalLockedValue)
+            .toNumber();
+          hasAccessible = true;
+        }
       }
     }
 
@@ -238,6 +254,15 @@ function aggregateContributionTimePoints(
         Decimal(totalContributions).toString()
       ),
       growth: createDecimalValueString(Decimal(totalGrowth).toString()),
+      bonuses: hasBonuses
+        ? createDecimalValueString(Decimal(totalBonuses).toString())
+        : undefined,
+      accessibleValue: hasAccessible
+        ? createDecimalValueString(Decimal(totalAccessibleValue).toString())
+        : undefined,
+      lockedValue: hasAccessible
+        ? createDecimalValueString(Decimal(totalLockedValue).toString())
+        : undefined,
       projectedValue: hasProjected,
     };
   });
@@ -311,48 +336,31 @@ export async function orchestrateProjection(
   input: ProjectionOrchestratorInput
   //dataSource: ProjectionDataSource
 ): Promise<ProjectionOrchestratorResult> {
-  //const { assets, recurringContributions, config, milestoneTarget } = input;
-  const { contributors, config, milestoneTarget } = input;
+  const { contributors, config, milestoneTarget, dateOfBirth } = input;
 
-  // Filter assets by milestone account type if specified
-  //let assetsToProject = assets;
+  // Filter contributors by milestone account type if specified
   let contributorsToProject = contributors;
-  // if (milestoneTarget?.accountType) {
-  //   assetsToProject = assets.filter(
-  //     (asset) => asset.accountType === milestoneTarget.accountType
-  //   );
-  // }
+  if (milestoneTarget?.accountType) {
+    contributorsToProject = contributors.filter(
+      (contributor) => contributor.accountType === milestoneTarget.accountType
+    );
+  }
 
-  // if (assetsToProject.length === 0) {
-  //   throw new Error("No assets found to project");
-  // }
-
-  // Project each asset
-  //const assetProjections: AssetProjection[] = [];
+  // Project each contributor
   const contributorProjections: ContributorProjection[] = [];
   const warnings: string[] = [];
 
-
   for (const contributor of contributorsToProject) {
     try {
-      // Get contributions for this asset
-      // const assetContributions = recurringContributions.filter(
-      //   (c) => c.assetId === asset.id
-      // );
-
-      // const projection = await projectSingleAsset(
-      //   asset,
-      //   assetContributions,
-      //   config
-      //   //db
-      // );
-
-      const projection = await projectSingleContributor(contributor, config);
+      const projection = await projectSingleContributor(
+        contributor,
+        config,
+        dateOfBirth
+      );
 
       contributorProjections.push(projection);
     } catch (error) {
       warnings.push(
-        //`Failed to project asset ${asset.name}: ${
         `Failed to project contributor ${contributor.name}: ${
           error instanceof Error ? error.message : "Unknown error"
         }`
@@ -385,9 +393,13 @@ export async function orchestrateProjection(
   const lastPoint = portfolioTimePoints[portfolioTimePoints.length - 1];
   const totalProjectedValue = lastPoint?.value || totalCurrentValue;
   const totalContributions = lastPoint?.contributions || 0;
+  const totalBonuses = lastPoint?.bonuses || 0;
+  // Growth = totalProjectedValue - currentValue - userContributions - bonuses
+  // Note: totalContributions now excludes bonuses (user money only)
   const totalGrowth = Decimal(totalProjectedValue)
     .sub(Decimal(totalCurrentValue))
     .sub(Decimal(totalContributions))
+    .sub(Decimal(totalBonuses))
     .toNumber();
 
   // Build computation context for client-side adjustments
@@ -424,6 +436,9 @@ export async function orchestrateProjection(
     totalGrowth: createDecimalValueString(Decimal(totalGrowth).toString()),
     totalContributions: createDecimalValueString(
       Decimal(totalContributions).toString()
+    ),
+    totalBonuses: createDecimalValueString(
+      Decimal(totalBonuses).toString()
     ),
     timePoints: portfolioTimePoints,
     contributorBreakdown: contributorProjections,
@@ -482,7 +497,7 @@ export async function projectAsset(
         accountType: asset.accountType as AccountType,
         name: asset.name,
         type: "asset",
-        accessPIT: [],
+        valueReleases: [],
         currentValue: asset.currentValue,
         schedules: recurringContributions.map((c) => ({
           patternConfig: c.patternConfig,
@@ -506,6 +521,7 @@ export async function projectPortfolio(
   //assets: ProjectionOrhesratorAssetInput[],
   config: ProjectionConfigWithDateRange,
   dataSource: ProjectionDataSource,
+  contributors: Contributor[],
   milestoneTarget?: MilestoneTarget
 ): Promise<ProjectionResult> {
   // Use LATERAL join to efficiently get only the latest value per asset
@@ -523,53 +539,13 @@ export async function projectPortfolio(
   //     ),
   // });
 
-  const assets = await dataSource.getAssets();
+  //const assets = await dataSource.getAssets();
 
   return orchestrateProjection({
-    contributors: mapAssetsToContributors(assets),
+    //contributors: mapAssetsToContributors(assets),
+    contributors,
     config,
     //db,
     milestoneTarget,
   });
-}
-
-export function mapRecurringContributionToContributorSchedule(
-  recurringContribution: RecurringContribution
-): ContributorSchedule {
-  return {
-    patternConfig: recurringContribution.patternConfig,
-    value: recurringContribution.amount,
-    startDate: recurringContribution.startDate,
-    endDate: null,
-  };
-}
-
-export function mapRecurringContributionsToContributorSchedules(
-  recurringContributions: RecurringContribution[]
-): ContributorSchedule[] {
-  return recurringContributions.map(
-    mapRecurringContributionToContributorSchedule
-  );
-}
-
-export function mapAssetToContributor(
-  asset: ProjectionOrhesratorAssetInput
-): Contributor {
-  return {
-    referenceId: asset.id,
-    accountType: asset.accountType as AccountType,
-    name: asset.name,
-    type: "asset",
-    accessPIT: [],
-    currentValue: asset.currentValue,
-    schedules: mapRecurringContributionsToContributorSchedules(
-      asset.recurringContributions
-    ),
-  };
-}
-
-export function mapAssetsToContributors(
-  assets: ProjectionOrhesratorAssetInput[]
-): Contributor[] {
-  return assets.map(mapAssetToContributor);
 }

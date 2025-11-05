@@ -2,6 +2,7 @@ import {
   SimpleProjectionConfigWithDateRange,
   ProjectionTimePoint,
   ContributorSchedule,
+  Contributor,
 } from "@shared/schema/projections";
 import { ModifierChain, calculateYearsElapsed } from "./projection-modifiers";
 import {
@@ -13,6 +14,8 @@ import {
 } from "./projection-utils";
 import { createDecimalValueString, DecimalValueString } from "@shared/schema";
 import Decimal from "decimal.js";
+import { calculateAccessibleValue } from "./projection-accessible-value";
+import { BonusAnnualUsage } from "./projection-bonus-calculator";
 
 // ============================================================================
 // SIMPLE PROJECTION SERVICE
@@ -24,8 +27,9 @@ import Decimal from "decimal.js";
 export interface SimpleProjectionInput {
   currentValue: DecimalValueString;
   currentDate?: Date;
-  //recurringContributions: RecurringContribution[];
   scheduledContributions: ContributorSchedule[];
+  contributor: Contributor;
+  dateOfBirth?: Date;
   config: SimpleProjectionConfigWithDateRange;
   modifierChain?: ModifierChain;
 }
@@ -116,6 +120,8 @@ export function generateLinearProjectionTimeSeries(
     currentValue,
     currentDate,
     scheduledContributions,
+    contributor,
+    dateOfBirth,
     config,
     modifierChain,
   } = input;
@@ -128,16 +134,28 @@ export function generateLinearProjectionTimeSeries(
     Decimal(currentValue).toString()
   );
   let totalContributions = Decimal(0);
+  let totalBonuses = Decimal(0);
   let totalGrowth = Decimal(0);
+  let annualBonusUsage = new Map<string, BonusAnnualUsage>();
 
-  // Initial point
+  // Initial point - calculate accessible value
+  const initialAccessible = calculateAccessibleValue(
+    contributor,
+    accumulatedValue,
+    currentProjectionDate,
+    dateOfBirth
+  );
+
   timePoints.push(
     createProjectionTimePoint(
       currentProjectionDate,
       accumulatedValue,
       createDecimalValueString("0"),
       createDecimalValueString("0"),
-      false // First point is current
+      false, // First point is current
+      createDecimalValueString("0"),
+      initialAccessible.accessibleValue,
+      initialAccessible.lockedValue
     )
   );
 
@@ -156,30 +174,38 @@ export function generateLinearProjectionTimeSeries(
     );
 
     // Apply linear growth to initial value only
-    // this should be a float of two decimal places
-    //This is still succeptable to rounding errors, and should be using decimal.js
-    //config.growthRate is a a percentage but is represented as a integer, so we need to convert it to a decimal
     const growthRate = config.growthRate / 100;
     const growthValue = Decimal(currentValue)
       .mul(growthRate)
       .mul(yearsFromStart);
 
-    // Calculate contributions in this period
+    // Calculate contributions in this period (with bonuses)
     const lastTimePoint = timePoints[timePoints.length - 1];
 
-    const periodContributions = calculatePeriodContributions(
-      scheduledContributions,
+    const periodResult = calculatePeriodContributions(
+      contributor,
       lastTimePoint ? lastTimePoint.date : config.startDate,
       currentProjectionDate,
       modifierChain,
       accumulatedValue,
-      config.startDate
+      config.startDate,
+      annualBonusUsage
     );
 
+    const periodContributions = periodResult.contributions;
+    const periodBonuses = Decimal(periodResult.bonuses);
+    annualBonusUsage = periodResult.updatedAnnualUsage;
+
     totalContributions = Decimal(totalContributions).add(periodContributions);
+    totalBonuses = totalBonuses.add(periodBonuses);
     totalGrowth = growthValue;
+    // Portfolio value = currentValue + growth + userContributions + bonuses
     accumulatedValue = createDecimalValueString(
-      Decimal(currentValue).add(growthValue).add(totalContributions).toString()
+      Decimal(currentValue)
+        .add(growthValue)
+        .add(totalContributions)
+        .add(totalBonuses)
+        .toString()
     );
 
     // Apply modifiers to final value (inflation, fees)
@@ -191,12 +217,23 @@ export function generateLinearProjectionTimeSeries(
       modifierChain
     );
 
+    // Calculate accessible value at this time point
+    const accessible = calculateAccessibleValue(
+      contributor,
+      finalValue,
+      currentProjectionDate,
+      dateOfBirth
+    );
+
     const timePoint = createProjectionTimePoint(
       currentProjectionDate,
       finalValue,
       createDecimalValueString(Decimal(totalContributions).toString()),
       createDecimalValueString(Decimal(totalGrowth).toString()),
-      true
+      true,
+      createDecimalValueString(totalBonuses.toString()),
+      accessible.accessibleValue,
+      accessible.lockedValue
     );
 
     timePoints.push(timePoint);
@@ -214,8 +251,9 @@ export function generateCompoundProjectionTimeSeries(
   const {
     currentValue,
     currentDate,
-    //recurringContributions,
     scheduledContributions,
+    contributor,
+    dateOfBirth,
     config,
     modifierChain,
   } = input;
@@ -226,15 +264,28 @@ export function generateCompoundProjectionTimeSeries(
   let currentProjectionDate = new Date(config.startDate);
   let accumulatedValue = Decimal(currentValue);
   let totalContributions = 0;
+  let totalBonuses = Decimal(0);
+  let annualBonusUsage = new Map<string, BonusAnnualUsage>();
 
-  // Initial point
+  // Initial point - calculate accessible value
+  const initialValue = createDecimalValueString(accumulatedValue.toString());
+  const initialAccessible = calculateAccessibleValue(
+    contributor,
+    initialValue,
+    currentProjectionDate,
+    dateOfBirth
+  );
+
   timePoints.push(
     createProjectionTimePoint(
       currentProjectionDate,
-      createDecimalValueString(accumulatedValue.toString()),
+      initialValue,
       createDecimalValueString("0"),
       createDecimalValueString("0"),
-      false
+      false,
+      createDecimalValueString("0"),
+      initialAccessible.accessibleValue,
+      initialAccessible.lockedValue
     )
   );
 
@@ -257,18 +308,27 @@ export function generateCompoundProjectionTimeSeries(
     const growthFactor = Math.pow(1 + config.growthRate / 100, yearsInInterval);
     let projectedValue = Decimal(accumulatedValue).mul(growthFactor);
 
-    // Calculate and add contributions in this period
-    const periodContributions = calculatePeriodContributions(
-      scheduledContributions,
+    // Calculate and add contributions in this period (with bonuses)
+    const periodResult = calculatePeriodContributions(
+      contributor,
       previousDate,
       currentProjectionDate,
       modifierChain,
       createDecimalValueString(projectedValue.toString()),
-      config.startDate
+      config.startDate,
+      annualBonusUsage
     );
 
+    const periodContributions = periodResult.contributions;
+    const periodBonuses = Decimal(periodResult.bonuses);
+    annualBonusUsage = periodResult.updatedAnnualUsage;
+
     totalContributions += periodContributions;
-    projectedValue = Decimal(projectedValue).add(periodContributions);
+    totalBonuses = totalBonuses.add(periodBonuses);
+    // Add both user contributions and bonuses to portfolio value
+    projectedValue = Decimal(projectedValue)
+      .add(periodContributions)
+      .add(periodBonuses);
     accumulatedValue = Decimal(projectedValue);
 
     // Apply modifiers to final value (inflation, fees)
@@ -280,8 +340,17 @@ export function generateCompoundProjectionTimeSeries(
       modifierChain
     );
 
+    // Calculate accessible value at this time point
+    const accessible = calculateAccessibleValue(
+      contributor,
+      finalValue,
+      currentProjectionDate,
+      dateOfBirth
+    );
+
+    const previousPointValue = timePoints[timePoints.length - 1]?.value || "0";
     const growthAmount = Decimal(finalValue)
-      .sub(Decimal(timePoints[timePoints.length - 1]?.value || 0))
+      .sub(Decimal(previousPointValue))
       .sub(Decimal(periodContributions))
       .toNumber();
 
@@ -291,7 +360,10 @@ export function generateCompoundProjectionTimeSeries(
         finalValue,
         createDecimalValueString(Decimal(totalContributions).toString()),
         createDecimalValueString(Decimal(growthAmount).toString()),
-        true
+        true,
+        createDecimalValueString(totalBonuses.toString()),
+        accessible.accessibleValue,
+        accessible.lockedValue
       )
     );
   }
@@ -340,3 +412,4 @@ export function generateSimpleProjection(
     finalValue: createDecimalValueString(Decimal(lastPoint.value).toString()),
   };
 }
+

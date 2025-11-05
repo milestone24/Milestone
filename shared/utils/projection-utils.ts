@@ -2,12 +2,27 @@ import type {
   ProjectionTimePoint,
   ProjectionInterval,
   ContributorSchedule,
+  ProjectionOrchestratorAssetInput,
+  Contributor,
+  ProjectionConfigWithDateRange,
+  ProjectionConfig,
+  FireProjectionData,
+  BonusValue,
 } from "@shared/schema/projections";
 import { ModifierChain, createModifierContext } from "./projection-modifiers";
 import { getNextExecutionDate } from "./scheduling";
 import { addDays, addMonths, addWeeks, addYears } from "date-fns";
-import { createDecimalValueString, DecimalValueString } from "@shared/schema";
+import {
+  AccountType,
+  createDecimalValueString,
+  DecimalValueString,
+  RecurringContribution,
+} from "@shared/schema";
 import Decimal from "decimal.js";
+import {
+  applyBonusValuesToContribution,
+  BonusAnnualUsage,
+} from "./projection-bonus-calculator";
 
 export const calculateAge = (dateOfBirth: Date) => {
   const today = new Date();
@@ -72,45 +87,104 @@ export function* projectRecurringContributions(
 // ============================================================================
 
 /**
- * Calculate total contributions for a given period with modifier application
+ * Calculate total contributions for a given period with bonus and modifier application
  */
 export function calculatePeriodContributions(
-  //contributions: RecurringContribution[],
-  contributions: ContributorSchedule[],
+  contributor: Contributor,
   startDate: Date,
   endDate: Date,
   modifierChain?: ModifierChain,
   currentValue: DecimalValueString = createDecimalValueString("0"),
-  projectionStartDate?: Date
-): number {
+  projectionStartDate?: Date,
+  annualBonusUsage?: Map<string, BonusAnnualUsage>
+): {
+  contributions: number;
+  bonuses: DecimalValueString;
+  updatedAnnualUsage: Map<string, BonusAnnualUsage>;
+} {
   let totalContributions = 0;
+  let totalBonuses = Decimal(0);
+  let updatedUsage = annualBonusUsage || new Map<string, BonusAnnualUsage>();
 
-  for (const contribution of contributions) {
+  for (const contribution of contributor.schedules) {
     for (const { date, amount } of projectRecurringContributions(
       contribution,
       startDate,
       endDate
     )) {
-      let contributionAmount = amount;
+      // Track original user contribution separately from bonuses
+      const userContribution = amount;
+      let contributionWithBonuses = amount;
+      let bonusAmount = Decimal(0);
 
-      // Apply modifiers to contribution
+      // Apply bonus values if any
+      if (contributor.bonusValues && contributor.bonusValues.length > 0) {
+        const bonusResult = applyBonusValuesToContribution(
+          amount,
+          contributor.bonusValues,
+          date,
+          updatedUsage
+        );
+        contributionWithBonuses = bonusResult.totalContribution;
+        bonusAmount = Decimal(bonusResult.totalBonus);
+        totalBonuses = totalBonuses.add(bonusAmount);
+        updatedUsage = bonusResult.updatedAnnualUsage;
+      }
+
+      // Apply modifiers to contribution (user contribution + bonuses combined)
+      // Modifiers should be applied to the total amount that goes into the portfolio
+      let contributionAmountForModifiers = contributionWithBonuses;
       if (modifierChain && projectionStartDate) {
         const context = createModifierContext(
           currentValue,
           projectionStartDate,
           date,
-          amount
+          contributionAmountForModifiers
         );
-        contributionAmount = modifierChain.apply(amount, context);
+        contributionAmountForModifiers = modifierChain.apply(
+          contributionAmountForModifiers,
+          context
+        );
       }
 
-      totalContributions = Decimal(totalContributions)
-        .add(contributionAmount)
+      // Track user contributions separately (user money only, excluding bonuses)
+      // Apply modifiers proportionally to both user contributions and bonuses
+      // This ensures the sum of modified user contributions + modified bonuses = modified total
+      // Note: Contribution-level modifiers (like tax) are applied here proportionally
+      // Portfolio-level modifiers (like inflation) are applied later in projection-simple.ts
+      const modifierRatio =
+        contributionWithBonuses === "0" ||
+        Decimal(contributionWithBonuses).eq(0)
+          ? Decimal(1)
+          : Decimal(contributionAmountForModifiers).div(
+              contributionWithBonuses
+            );
+
+      // Apply modifiers proportionally to user contribution
+      const userContributionAfterModifiers = Decimal(userContribution)
+        .mul(modifierRatio)
         .toNumber();
+
+      // Apply modifiers proportionally to bonus as well
+      // The bonus portion that goes into portfolio = bonus * modifierRatio
+      const bonusAfterModifiers = bonusAmount.mul(modifierRatio);
+
+      totalContributions = Decimal(totalContributions)
+        .add(userContributionAfterModifiers)
+        .toNumber();
+
+      // Track bonuses with modifiers applied (for portfolio value calculation)
+      // Note: We track the modified bonus amount so that when added to portfolio,
+      // the sum of userContributions + bonuses equals the modified total
+      totalBonuses = totalBonuses.add(bonusAfterModifiers);
     }
   }
 
-  return totalContributions;
+  return {
+    contributions: totalContributions,
+    bonuses: createDecimalValueString(totalBonuses.toString()),
+    updatedAnnualUsage: updatedUsage,
+  };
 }
 
 // ============================================================================
@@ -154,13 +228,19 @@ export function createProjectionTimePoint(
   value: DecimalValueString,
   contributions: DecimalValueString,
   growth: DecimalValueString,
-  isProjected: boolean = true
+  isProjected: boolean = true,
+  bonuses?: DecimalValueString,
+  accessibleValue?: DecimalValueString,
+  lockedValue?: DecimalValueString
 ): ProjectionTimePoint {
   return {
     date: new Date(date),
     value,
     contributions,
     growth,
+    bonuses,
+    accessibleValue,
+    lockedValue,
     projectedValue: isProjected,
   };
 }
@@ -246,4 +326,123 @@ export function extractAndSortDates(
   const sortedTimestamps = Array.from(datesSet).sort();
 
   return sortedTimestamps.map((timestamp) => new Date(timestamp));
+}
+
+export function mapRecurringContributionToContributorSchedule(
+  recurringContribution: RecurringContribution
+): ContributorSchedule {
+  return {
+    patternConfig: recurringContribution.patternConfig,
+    value: recurringContribution.amount,
+    startDate: recurringContribution.startDate,
+    endDate: null,
+  };
+}
+
+export function mapRecurringContributionsToContributorSchedules(
+  recurringContributions: RecurringContribution[]
+): ContributorSchedule[] {
+  return recurringContributions.map(
+    mapRecurringContributionToContributorSchedule
+  );
+}
+
+function defineBonusValuesForAssetType(assetType: AccountType): BonusValue[] {
+  switch (assetType) {
+    case "LISA":
+      return [
+        {
+          name: "LISA",
+          valueType: "percentage",
+          value: createDecimalValueString("0.25"),
+          annualLimit: createDecimalValueString("4000"),
+          annualContributionLimit: createDecimalValueString("4000"),
+          priority: 1,
+        },
+      ];
+    default:
+      return [];
+  }
+}
+
+export function mapAssetToContributor(
+  asset: ProjectionOrchestratorAssetInput
+): Contributor {
+  return {
+    referenceId: asset.id,
+    accountType: asset.accountType as AccountType,
+    name: asset.name,
+    type: "asset",
+    valueReleases: [],
+    currentValue: asset.currentValue,
+    schedules: mapRecurringContributionsToContributorSchedules(
+      asset.recurringContributions
+    ),
+    bonusValues: defineBonusValuesForAssetType(
+      asset.accountType as AccountType
+    ),
+  };
+}
+
+export function mapAssetsToContributors(
+  assets: ProjectionOrchestratorAssetInput[]
+): Contributor[] {
+  return assets.map(mapAssetToContributor);
+}
+
+export function addDateRengeToProjectionConfig(
+  projectionConfig: ProjectionConfig,
+  startDate: Date,
+  endDate: Date
+): ProjectionConfigWithDateRange {
+  return {
+    ...projectionConfig,
+    startDate,
+    endDate,
+  };
+}
+
+/**
+ * Convert date-based projection to age-based for FIRE charts
+ * Takes ProjectionTimePoint[] from server and converts to FireProjectionData[]
+ */
+export function convertToAgeBasedProjection(
+  timePoints: ProjectionTimePoint[],
+  dateOfBirth: Date,
+  targetAmount: DecimalValueString
+): FireProjectionData[] {
+  const projectionData: FireProjectionData[] = [];
+
+  for (const point of timePoints) {
+    // Calculate age at this point in time
+    const birthYear = dateOfBirth.getFullYear();
+    const pointYear = point.date.getFullYear();
+    const birthMonth = dateOfBirth.getMonth();
+    const pointMonth = point.date.getMonth();
+    const birthDay = dateOfBirth.getDate();
+    const pointDay = point.date.getDate();
+
+    // Calculate age
+    let age = pointYear - birthYear;
+    if (
+      pointMonth < birthMonth ||
+      (pointMonth === birthMonth && pointDay < birthDay)
+    ) {
+      age--;
+    }
+
+    projectionData.push({
+      age: Math.max(0, age),
+      portfolio: createDecimalValueString(Decimal(point.value).toString()),
+      target: targetAmount,
+      accessibleValue: point.accessibleValue
+        ? createDecimalValueString(Decimal(point.accessibleValue).toString())
+        : undefined,
+      lockedValue: point.lockedValue
+        ? createDecimalValueString(Decimal(point.lockedValue).toString())
+        : undefined,
+    });
+  }
+
+  return projectionData;
 }

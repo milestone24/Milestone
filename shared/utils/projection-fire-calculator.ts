@@ -1,19 +1,32 @@
 import {
   FIREProjectionConfig,
-  FIREProgress,
+  FireProjection,
   ProjectionConfig,
   SimpleProjectionConfig,
   ProjectionConfigWithDateRange,
   ProjectionDataSource,
+  Contributor,
 } from "@shared/schema/projections";
 import { Database } from "@server/db";
-import { fireSettings, userAccounts } from "@server/db/schema";
+import {
+  DecimalValueString,
+  fireSettings,
+  userAccounts,
+} from "@server/db/schema";
 import { eq } from "drizzle-orm";
-import { projectPortfolio } from "./projection-orchestrator";
+import {
+  orchestrateProjection,
+  projectPortfolio,
+} from "./projection-orchestrator";
 import { differenceInYears, addYears } from "date-fns";
 import { recommendContributionAdjustment } from "./projection-milestone-tracker";
 import Decimal from "decimal.js";
 import { createDecimalValueString } from "@shared/schema/utils";
+import {
+  addDateRengeToProjectionConfig,
+  convertToAgeBasedProjection,
+  mapAssetsToContributors,
+} from "./projection-utils";
 
 // ============================================================================
 // FIRE PROJECTION CALCULATOR
@@ -37,7 +50,9 @@ export function calculateFIRENumber(
   annualIncomeGoal: number,
   safeWithdrawalRate: number
 ): number {
-  return annualIncomeGoal / (safeWithdrawalRate / 100);
+  return Decimal(annualIncomeGoal)
+    .div(Decimal(safeWithdrawalRate).div(100))
+    .toNumber();
 }
 
 /**
@@ -52,10 +67,11 @@ export function calculateAge(dateOfBirth: Date): number {
  */
 export async function projectToRetirement(
   fireConfig: FIREProjectionConfig,
-  projectionConfig: Omit<ProjectionConfig, "startDate" | "endDate">,
+  projectionConfig: ProjectionConfig,
+  contributors: Contributor[]
   //db: Database
-  dataSource: ProjectionDataSource
-): Promise<FIREProgress> {
+  //dataSource: ProjectionDataSource
+): Promise<FireProjection> {
   // Calculate retirement date
   const retirementDate = calculateRetirementDate(
     fireConfig.dateOfBirth,
@@ -70,18 +86,32 @@ export async function projectToRetirement(
 
   // Create projection config with retirement date as end date
   //There should not be a cast here
-  const fullProjectionConfig: ProjectionConfigWithDateRange = {
-    ...projectionConfig,
-    startDate: new Date(),
-    endDate: retirementDate,
-  } as ProjectionConfigWithDateRange;
+  const fullProjectionConfig: ProjectionConfigWithDateRange =
+    addDateRengeToProjectionConfig(
+      projectionConfig as ProjectionConfig,
+      new Date(),
+      retirementDate
+    );
+  // const fullProjectionConfig: ProjectionConfigWithDateRange = {
+  //   ...projectionConfig,
+  //   startDate: new Date(),
+  //   endDate: retirementDate,
+  // } as ProjectionConfigWithDateRange;
+
+  // const projectionResult = await projectPortfolio(
+  //   //userAccountId,
+  //   fullProjectionConfig,
+  //   dataSource,
+  //   contributors
+  // );
 
   // Run portfolio projection
-  const projectionResult = await projectPortfolio(
-    //userAccountId,
-    fullProjectionConfig,
-    dataSource
-  );
+  const projectionResult = await orchestrateProjection({
+    contributors,
+    config: fullProjectionConfig,
+    dateOfBirth: fireConfig.dateOfBirth,
+    //dataSource,
+  });
 
   // Get projected value at retirement
   const projectedValueAtRetirement = projectionResult.totalProjectedValue;
@@ -103,7 +133,7 @@ export async function projectToRetirement(
       );
 
   // Calculate monthly shortfall if behind
-  let monthlyShortfall: number | undefined;
+  let monthlyShortfall: DecimalValueString | undefined;
   if (!isOnTrack) {
     const monthsRemaining = (fireConfig.targetRetirementAge - currentAge) * 12;
     const currentMonthlyContribution = Decimal(
@@ -135,6 +165,12 @@ export async function projectToRetirement(
     calculateAge(fireConfig.dateOfBirth) +
     differenceInYears(projectedRetirementDate, new Date());
 
+  const fireProjection = convertToAgeBasedProjection(
+    projectionResult.timePoints,
+    fireConfig.dateOfBirth,
+    createDecimalValueString(fireNumber.toString())
+  );
+
   return {
     fireNumber,
     projectedRetirementDate,
@@ -143,20 +179,70 @@ export async function projectToRetirement(
     projectedValueAtRetirement,
     isOnTrack,
     yearsAheadOrBehind,
-    monthlyShortfall: monthlyShortfall
-      ? createDecimalValueString(Decimal(monthlyShortfall).toString())
-      : undefined,
+    monthlyShortfall,
+    fireProjection,
+    projectionResult,
   };
 }
+
+//type FireProjectionResult = FIREProjectionResult & {};
+
+// export async function projectFire(
+//   projectionConfig: Omit<ProjectionConfig, "startDate" | "endDate">,
+//   //db: Database
+//   dataSource: ProjectionDataSource
+// ): Promise<FireProjectionResult> {
+//   // Get user's FIRE settings
+//   // const userFireSettings = await db.query.fireSettings.findFirst({
+//   //   where: eq(fireSettings.userAccountId, userAccountId),
+//   // });
+
+//   const userFireSettings = await dataSource.getFireSettings();
+
+//   if (!userFireSettings) {
+//     throw new Error("FIRE settings not found for user");
+//   }
+
+//   // Get user's date of birth
+
+//   const userProfile = await dataSource.getUserProfile();
+
+//   // const user = await db.query.userAccounts.findFirst({
+//   //   where: eq(userAccounts.id, userAccountId),
+//   //   with: {
+//   //     userProfile: true,
+//   //   },
+//   // });
+
+//   if (!userProfile?.dob) {
+//     throw new Error("User date of birth not found");
+//   }
+
+//   // Create FIRE config from settings
+//   const fireConfig: FIREProjectionConfig = {
+//     dateOfBirth: userProfile.dob,
+//     targetRetirementAge: userFireSettings.targetRetirementAge,
+//     annualIncomeGoal: userFireSettings.annualIncomeGoal,
+//     safeWithdrawalRate: Decimal(userFireSettings.safeWithdrawalRate).toNumber(),
+//     adjustForInflation: userFireSettings.adjustInflation,
+//     statePensionAge: userFireSettings.statePensionAge,
+//   };
+
+//   const retirementProjection = await projectToRetirement(
+//     fireConfig,
+//     projectionConfig,
+//     dataSource
+//   );
+// }
 
 /**
  * Check FIRE feasibility using user's saved fire settings
  */
-export async function checkFIREFeasibility(
-  projectionConfig: Omit<ProjectionConfig, "startDate" | "endDate">,
+export async function projectRetirementWithAccountAssets(
+  projectionConfig: ProjectionConfig,
   //db: Database
   dataSource: ProjectionDataSource
-): Promise<FIREProgress> {
+): Promise<FireProjection> {
   // Get user's FIRE settings
   // const userFireSettings = await db.query.fireSettings.findFirst({
   //   where: eq(fireSettings.userAccountId, userAccountId),
@@ -193,7 +279,14 @@ export async function checkFIREFeasibility(
     statePensionAge: userFireSettings.statePensionAge,
   };
 
-  return projectToRetirement(fireConfig, projectionConfig, dataSource);
+  const assets = await dataSource.getAssets();
+  const contributors = mapAssetsToContributors(assets);
+
+  //return projectToRetirement(fireConfig, projectionConfig, dataSource);
+
+  //const contributors: Contributor[] = [];
+
+  return projectToRetirement(fireConfig, projectionConfig, contributors);
 }
 
 /**
@@ -204,12 +297,12 @@ export function calculateMonthlyShortfallToFIRE(
   fireNumber: number,
   yearsUntilRetirement: number,
   annualGrowthRate: number
-): number {
+): DecimalValueString {
   const monthsRemaining = yearsUntilRetirement * 12;
   const shortfall = fireNumber - currentPortfolioValue;
 
   if (shortfall <= 0) {
-    return 0; // Already at or above FIRE number
+    return createDecimalValueString("0"); // Already at or above FIRE number
   }
 
   return recommendContributionAdjustment(

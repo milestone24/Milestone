@@ -112,7 +112,7 @@ export const configDateRangeSchema = z.object({
  * Base configuration for all projections
  */
 export const baseProjectionConfigSchema = z.object({
-  mode: projectionModeSchema,
+  //mode: projectionModeSchema,
   growthModel: growthModelSchema,
   // startDate: z.coerce.date(),
   // endDate: z.coerce.date(),
@@ -249,6 +249,21 @@ export const projectionTimePointSchema = z.object({
   growth: decimalValueSchema.refine(isDecimalValueString, {
     message: "Growth must be a valid decimal string",
   }), // Cumulative growth by this date
+  bonuses: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Bonuses must be a valid decimal string",
+    })
+    .optional(), // Total bonuses applied by this date
+  accessibleValue: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Accessible value must be a valid decimal string",
+    })
+    .optional(), // Value accessible without penalty at this date
+  lockedValue: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Locked value must be a valid decimal string",
+    })
+    .optional(), // Value locked until release point(s)
   appliedModifiers: z.record(z.number()).optional(), // Modifier impacts
   projectedValue: z.boolean().default(true), // True for projected, false for actual historical
 });
@@ -297,12 +312,74 @@ export type ContributorProjection = z.infer<typeof contributorProjectionSchema>;
 
 export type ContributionTypes = (typeof contributionTypes)[number];
 
-export const valueReleasePointInTimeSchema = z.object({
-  //age: z.number(),
-  date: z.coerce.date(),
+/**
+ * Bonus value for a contributor
+ * A bonus value are bonuses that may be applied to each contibution.
+ * For example in the UK the government will provide bonuses for contributions to a pension schemes such as the Lifetime ISA.
+ * examples:
+ * For a Lifetime ISA, the government will provide a bonus of 25% on the first £4,000 of contributions.
+ *
+ */
+export const bonusValueSchema = z.object({
+  name: z.string(),
+  valueType: z.enum(["percentage", "fixed"]),
   value: decimalValueSchema.refine(isDecimalValueString, {
     message: "Value must be a valid decimal string",
   }),
+  annualLimit: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Annual limit must be a valid decimal string",
+    })
+    .optional(), // Maximum bonus amount per tax year (e.g., £1,000 for LISA)
+  annualContributionLimit: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Annual contribution limit must be a valid decimal string",
+    })
+    .optional(), // Maximum contributions eligible for bonus per tax year (e.g., £4,000 for LISA)
+  priority: z.number().int().min(0).optional(), // Lower number = higher priority when multiple bonuses apply
+});
+
+export type BonusValue = z.infer<typeof bonusValueSchema>;
+
+/**
+ * This needs refining
+ */
+export const taxSchema = z.object({
+  name: z.string(),
+  predicates: z.array(
+    z.object({
+      type: z.enum(["age", "date"]),
+      value: z.string(),
+    })
+  ),
+  valueType: z.enum(["percentage", "fixed"]),
+  value: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Value must be a valid decimal string",
+  }),
+});
+
+export type Tax = z.infer<typeof taxSchema>;
+
+export const valueReleasePointInTimeSchema = z.object({
+  valueType: z.enum(["age", "date"]),
+  value: z.string(), // Age as string (e.g., "60") or ISO date string (e.g., "2025-04-06")
+  penalties: z
+    .array(
+      z.object({
+        rule: z.object({
+          comparator: z.enum(["lt", "lte", "gt", "gte", "eq", "neq"]),
+          value: z.string(), // Age or date string to compare against
+        }),
+        penalty: z.object({
+          valueType: z.enum(["percentage", "fixed"]), // Percentage (e.g., "0.25" = 25%) or fixed amount
+          value: decimalValueSchema.refine(isDecimalValueString, {
+            message: "Penalty value must be a valid decimal string",
+          }),
+        }),
+      })
+    )
+    .optional(),
+  exceptions: z.array(z.string()).optional(), // Special cases that qualify (e.g., ["first_home", "terminal_illness"] for LISA)
 });
 
 export type ValueReleasePointInTime = z.infer<
@@ -331,11 +408,13 @@ export const contributorSchema = z.object({
   accountType: z.enum(accountType),
   name: z.string(),
   type: z.enum(contributionTypes),
-  accessPIT: z.array(valueReleasePointInTimeSchema),
+  valueReleases: z.array(valueReleasePointInTimeSchema).optional(),
+  bonusValues: z.array(bonusValueSchema).optional(),
   currentValue: decimalValueSchema.refine(isDecimalValueString, {
     message: "Current value must be a valid decimal string",
   }),
   schedules: z.array(contributorScheduleSchema),
+  taxes: z.array(taxSchema).optional(),
 });
 
 export type Contributor = z.infer<typeof contributorSchema>;
@@ -396,27 +475,6 @@ export const milestoneProgressSchema = z.object({
 export type MilestoneProgress = z.infer<typeof milestoneProgressSchema>;
 
 /**
- * FIRE progress result - retirement feasibility
- */
-export const fireProgressSchema = z.object({
-  fireNumber: z.number(), // Required portfolio value to retire
-  projectedRetirementDate: z.coerce.date(),
-  projectedRetirementAge: z.number(),
-  targetRetirementAge: z.number(),
-  projectedValueAtRetirement: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Projected value at retirement must be a valid decimal string",
-  }),
-  isOnTrack: z.boolean(),
-  yearsAheadOrBehind: z.number(), // Negative if ahead, positive if behind
-  monthlyShortfall: decimalValueSchema
-    .refine(isDecimalValueString, {
-      message: "Monthly shortfall must be a valid decimal string",
-    })
-    .optional(), // Additional monthly contribution needed if behind
-});
-export type FIREProgress = z.infer<typeof fireProgressSchema>;
-
-/**
  * Complete projection result
  */
 export const projectionResultSchema = z.object({
@@ -433,16 +491,70 @@ export const projectionResultSchema = z.object({
   totalContributions: decimalValueSchema.refine(isDecimalValueString, {
     message: "Total contributions must be a valid decimal string",
   }),
+  totalBonuses: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Total bonuses must be a valid decimal string",
+  }), // Total bonuses applied across all contributors (zero if no bonuses)
   timePoints: z.array(projectionTimePointSchema), // Aggregated portfolio-wide
   contributorBreakdown: z.array(contributorProjectionSchema),
   milestoneProgress: z.array(milestoneProgressSchema).optional(),
-  fireProgress: fireProgressSchema.optional(),
+  //fireProgress: fireProgressSchema.optional(),
   computedAt: z.coerce.date(),
   warnings: z.array(z.string()).optional(), // E.g., "Insufficient historical data for asset X"
   // NEW: Context for client-side recomputation
   computationContext: computationContextSchema.optional(),
 });
 export type ProjectionResult = z.infer<typeof projectionResultSchema>;
+
+export const fireProjectionDataSchema = z.object({
+  age: z.number(),
+  portfolio: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Portfolio value must be a valid decimal string",
+  }),
+  target: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Target value must be a valid decimal string",
+  }),
+  lockedValue: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Locked value must be a valid decimal string",
+    })
+    .optional(),
+  accessibleValue: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Accessible value must be a valid decimal string",
+    })
+    .optional(),
+});
+export type FireProjectionData = z.infer<typeof fireProjectionDataSchema>;
+
+export const fireProjectionResultSchema = z.object({
+  projectionData: z.array(fireProjectionDataSchema),
+  yearsToFire: z.number(),
+});
+
+export type FireProjectionResult = z.infer<typeof fireProjectionResultSchema>;
+
+/**
+ * FIRE progress result - retirement feasibility
+ */
+export const fireProjectionSchema = z.object({
+  fireNumber: z.number(), // Required portfolio value to retire
+  projectedRetirementDate: z.coerce.date(),
+  projectedRetirementAge: z.number(),
+  targetRetirementAge: z.number(),
+  projectedValueAtRetirement: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Projected value at retirement must be a valid decimal string",
+  }),
+  isOnTrack: z.boolean(),
+  yearsAheadOrBehind: z.number(), // Negative if ahead, positive if behind
+  monthlyShortfall: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Monthly shortfall must be a valid decimal string",
+    })
+    .optional(), // Additional monthly contribution needed if behind
+  projectionResult: projectionResultSchema,
+  fireProjection: z.array(fireProjectionDataSchema),
+});
+export type FireProjection = z.infer<typeof fireProjectionSchema>;
 
 // ============================================================================
 // API REQUEST/RESPONSE SCHEMAS
@@ -510,7 +622,7 @@ export const ProjectionSchemas = {
   milestoneTarget: milestoneTargetSchema,
   milestoneProgress: milestoneProgressSchema,
   fireConfig: fireProjectionConfigSchema,
-  fireProgress: fireProgressSchema,
+  fireProgress: fireProjectionResultSchema,
   assetProjectionRequest: assetProjectionRequestSchema,
   portfolioProjectionRequest: portfolioProjectionRequestSchema,
   modifier: projectionModifierSchema,
@@ -520,7 +632,7 @@ export const ProjectionSchemas = {
   feeModifier: feeModifierSchema,
 };
 
-export type ProjectionOrhesratorAssetInput = {
+export type ProjectionOrchestratorAssetInput = {
   id: string;
   currentValue: DecimalValueString;
   name: string;
@@ -535,8 +647,8 @@ export type ProjectionOrhesratorAssetInput = {
 export type ProjectionDataSource = {
   getAssetById: (
     assetId: string
-  ) => Promise<ProjectionOrhesratorAssetInput | null>;
-  getAssets: () => Promise<ProjectionOrhesratorAssetInput[]>;
+  ) => Promise<ProjectionOrchestratorAssetInput | null>;
+  getAssets: () => Promise<ProjectionOrchestratorAssetInput[]>;
   getContributionsForAssets: (
     assetIds: string[]
   ) => Promise<RecurringContribution[]>;
@@ -562,13 +674,7 @@ export type ProjectionOrchestratorInput = {
   //assets: ProjectionOrhesratorAssetInput[];
   //recurringContributions: RecurringContribution[]; // All contributions for all assets
   config: ProjectionConfigWithDateRange;
+  dateOfBirth?: Date; // For age-based value release calculations
   //db: Database;
   milestoneTarget?: MilestoneTarget;
-};
-
-export type ProjectionOrchestratorAssetInput = {
-  id: string;
-  currentValue: DecimalValueString;
-  name: string;
-  accountType: UserAsset["accountType"];
 };

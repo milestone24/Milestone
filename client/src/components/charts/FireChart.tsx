@@ -1,7 +1,9 @@
+import { useState, useMemo } from "react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, ReferenceLine, ReferenceArea, Scatter } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { FireProjectionData } from "@shared/utils/projection-client";
+import type { FireProjectionData } from "@shared/schema/projections";
 
 type FireProjectionConfig = {
   currentAmount: number;
@@ -29,6 +31,23 @@ export default function FireChart({
   className,
 }: FireChartProps) {
   const { currentAge } = config;
+  const [showAccessibleValue, setShowAccessibleValue] = useState(true);
+
+  // Check if any data points have accessibleValue
+  const hasAccessibleValue = useMemo(() => {
+    return projectionData.some((point) => point.accessibleValue !== undefined);
+  }, [projectionData]);
+
+  // Transform data to convert DecimalValueString to numbers for Recharts
+  const chartData = useMemo(() => {
+    return projectionData.map((point) => ({
+      age: point.age,
+      portfolio: Number(point.portfolio),
+      target: Number(point.target),
+      accessibleValue: point.accessibleValue ? Number(point.accessibleValue) : undefined,
+      lockedValue: point.lockedValue ? Number(point.lockedValue) : undefined,
+    }));
+  }, [projectionData]);
 
   // console.log("cuurentAge", currentAge);
   // console.log("projectionData", projectionData);
@@ -49,19 +68,20 @@ export default function FireChart({
   const retirementAge = targetRetirementAge || fireAchievedAge;
 
   // Find the exact retirement point or the closest one
-  let retirementPoint = projectionData.find(
+  let retirementPoint = chartData.find(
     (point) => point.age === retirementAge
   );
 
   // If we don't have an exact match, find the closest point
-  if (!retirementPoint) {
+  if (!retirementPoint && chartData.length > 0) {
     // Find the closest age point to the retirement age
-    const closest = projectionData.reduce((prev, curr) => {
+    const closest = chartData.reduce((prev, curr) => {
+      if (!prev) return curr;
       return Math.abs(curr.age - retirementAge) <
         Math.abs(prev.age - retirementAge)
         ? curr
         : prev;
-    }, projectionData[0] as FireProjectionData);
+    }, chartData[0] as typeof chartData[0] | undefined);
 
     // Create an interpolated point at the retirement age
     if (closest) {
@@ -69,6 +89,8 @@ export default function FireChart({
         age: retirementAge,
         portfolio: closest.portfolio,
         target: closest.target,
+        accessibleValue: closest.accessibleValue,
+        lockedValue: closest.lockedValue,
       };
     }
   }
@@ -117,14 +139,27 @@ export default function FireChart({
   xAxisTicks.sort((a, b) => a - b);
 
   // Calculate max value for Y axis formatting
-  const maxValue = Math.max(...projectionData.map((d) => d.portfolio));
+  const maxValue = Math.max(...chartData.map((d) => d.portfolio));
 
   return (
     <Card className={cn("w-full", className)}>
       <CardContent className="p-4">
+        {/* Toggle for accessible value if available */}
+        {hasAccessibleValue && (
+          <div className="mb-4 flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAccessibleValue(!showAccessibleValue)}
+              className="text-xs"
+            >
+              {showAccessibleValue ? "Hide" : "Show"} Accessible Value
+            </Button>
+          </div>
+        )}
         <div className="chart-container h-[240px] w-full mb-5">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={projectionData}>
+            <LineChart data={chartData}>
               <CartesianGrid
                 strokeDasharray="3 3"
                 vertical={false}
@@ -175,7 +210,9 @@ export default function FireChart({
                   // Customize label based on data series
                   let label = name;
                   if (name === "portfolio") {
-                    label = "Portfolio Growth";
+                    label = "Total Portfolio";
+                  } else if (name === "accessibleValue") {
+                    label = "Accessible Value";
                   } else if (name === "target") {
                     label = "FIRE Target";
                   } else if (name === "marker") {
@@ -217,13 +254,29 @@ export default function FireChart({
                 stroke="#3B82F6"
                 strokeWidth={2}
                 activeDot={{ r: 5 }}
-                name="Portfolio Growth"
+                name="Total Portfolio"
                 // Filter data points to only show up to retirement age
-                data={projectionData.filter(
+                data={chartData.filter(
                   (point) => point.age <= retirementAge
                 )}
                 dot={false}
               />
+              {/* Accessible value line - shown if toggle is on and data exists */}
+              {showAccessibleValue && hasAccessibleValue && (
+                <Line
+                  type="monotone"
+                  dataKey="accessibleValue"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  strokeDasharray="3 3"
+                  activeDot={{ r: 5 }}
+                  name="Accessible Value"
+                  data={chartData.filter(
+                    (point) => point.age <= retirementAge
+                  )}
+                  dot={false}
+                />
+              )}
               <Line
                 type="monotone"
                 dataKey="target"

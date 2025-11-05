@@ -1,12 +1,31 @@
 /**
  * Client-side projection utilities
- * Lightweight calculations for interactive adjustments without server round-trips
- * Intended to work with projection data returned from the server
+ * 
+ * IMPORTANT: These utilities are for PREVIEW/WHAT-IF calculations only.
+ * The server is the single source of truth for all authoritative projections.
+ * 
+ * Use cases:
+ * - Quick previews when adjusting contribution amounts
+ * - "What-if" scenario calculations
+ * - Interactive adjustments without server round-trips
+ * 
+ * DO NOT use for:
+ * - Main chart displays (use server projectionResult.timePoints)
+ * - Authoritative calculations (always use server)
+ * - Final projections (always use server)
+ * 
+ * The server handles:
+ * - Bonuses (e.g., LISA 25% government bonus)
+ * - Value releases (age/date-based access restrictions)
+ * - Account-specific modifiers (tax, fees, inflation)
+ * - Accurate compound growth with proper precision
  */
 
 import type {
+  FireProjectionData,
   ProjectionTimePoint,
   SimpleProjectionConfigWithDateRange,
+  Contributor,
 } from "../schema/projections";
 import { ModifierChain, calculateYearsElapsed } from "./projection-modifiers";
 import {
@@ -26,21 +45,6 @@ import Decimal from "decimal.js";
 import { createDecimalValueString, DecimalValueString } from "@shared/schema";
 
 // ============================================================================
-// TYPES
-// ============================================================================
-
-export type FireProjectionData = {
-  age: number;
-  portfolio: DecimalValueString;
-  target: DecimalValueString;
-};
-
-export type FireProjectionResult = {
-  projectionData: FireProjectionData[];
-  yearsToFire: number;
-};
-
-// ============================================================================
 // CLIENT-SIDE PROJECTION CALCULATION
 // ============================================================================
 // NOTE: Projection computation is delegated to projection-simple.ts via
@@ -51,45 +55,6 @@ export type FireProjectionResult = {
 // ============================================================================
 // FIRE PROJECTION CONVERSION
 // ============================================================================
-
-/**
- * Convert date-based projection to age-based for FIRE charts
- * Takes ProjectionTimePoint[] from server and converts to FireProjectionData[]
- */
-export function convertToAgeBasedProjection(
-  timePoints: ProjectionTimePoint[],
-  dateOfBirth: Date,
-  targetAmount: DecimalValueString
-): FireProjectionData[] {
-  const projectionData: FireProjectionData[] = [];
-
-  for (const point of timePoints) {
-    // Calculate age at this point in time
-    const birthYear = dateOfBirth.getFullYear();
-    const pointYear = point.date.getFullYear();
-    const birthMonth = dateOfBirth.getMonth();
-    const pointMonth = point.date.getMonth();
-    const birthDay = dateOfBirth.getDate();
-    const pointDay = point.date.getDate();
-
-    // Calculate age
-    let age = pointYear - birthYear;
-    if (
-      pointMonth < birthMonth ||
-      (pointMonth === birthMonth && pointDay < birthDay)
-    ) {
-      age--;
-    }
-
-    projectionData.push({
-      age: Math.max(0, age),
-      portfolio: createDecimalValueString(Decimal(point.value).toString()),
-      target: targetAmount,
-    });
-  }
-
-  return projectionData;
-}
 
 /**
  * Calculate years to reach target using client-side computation
@@ -196,11 +161,23 @@ export function computeClientFireProjection(
     modifiers: [],
   };
 
+  // Create minimal contributor for client-side projection (no bonuses/releases)
+  const contributor: Contributor = {
+    name: "Client Projection",
+    accountType: "GIA", // Default account type
+    type: "asset",
+    currentValue: currentAmount,
+    schedules: scheduledContributions,
+    valueReleases: [],
+    bonusValues: [],
+  };
+
   // Create input for projection
   const input: SimpleProjectionInput = {
     currentValue: currentAmount,
     currentDate: new Date(),
     scheduledContributions,
+    contributor,
     config,
   };
 
@@ -244,10 +221,15 @@ export function computeClientFireProjection(
 /**
  * Calculate the impact of changing contribution amounts
  * Replaces tracking.ts calculateContributionImpact with projection system
+ * 
+ * Accepts Contributor[] to preserve bonuses and value releases,
+ * but extracts schedules for impact calculation.
+ * For preview calculations, bonuses and value releases are already
+ * reflected in the currentAmount from server calculations.
  */
 export function calculateContributionImpactWithProjections(
   currentAmount: DecimalValueString,
-  currentScheduledContributions: ContributorSchedule[],
+  contributors: Contributor[],
   newMonthlyContribution: DecimalValueString,
   expectedReturn: number,
   targetAmount: DecimalValueString,
@@ -258,10 +240,15 @@ export function calculateContributionImpactWithProjections(
   yearsDifference: number;
   monthsDifference: number;
 } {
-  // Create adjusted contributions list
+  // Extract schedules from contributors (preserving bonuses and value releases in the model)
+  // For impact calculations, we adjust the user contribution amounts
+  const currentScheduledContributions = contributors.flatMap((c) => c.schedules);
+
+  // Create adjusted contributions list with new monthly contribution
+  // Note: Bonuses will still apply to the adjusted amount (if configured in contributors)
   const adjustedContributions = currentScheduledContributions.map((c) => ({
     ...c,
-    amount: newMonthlyContribution,
+    value: newMonthlyContribution,
   }));
 
   const startDate = new Date();
@@ -392,11 +379,23 @@ export class ProjectionClient {
   }
 
   compute(): ProjectionTimePoint[] {
+    // Create minimal contributor for client-side projection (no bonuses/releases)
+    const contributor: Contributor = {
+      name: "Client Projection",
+      accountType: "GIA", // Default account type
+      type: "asset",
+      currentValue: this.state.currentValue,
+      schedules: this.state.scheduledContributions,
+      valueReleases: [],
+      bonusValues: [],
+    };
+
     // Use the shared implementation from projection-simple.ts
     const input: SimpleProjectionInput = {
       currentValue: this.state.currentValue,
       currentDate: new Date(), // Not used in calculations but required by interface
       scheduledContributions: this.state.scheduledContributions,
+      contributor,
       config: this.state.config,
       modifierChain: this.state.modifierChain,
     };

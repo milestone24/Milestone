@@ -4,7 +4,7 @@ import {
   ProjectionResult,
   ProjectionConfig,
   MilestoneProgress,
-  FIREProgress,
+  FireProjection,
   AssetProjectionRequest,
   PortfolioProjectionRequest,
   FIREProjectionConfig,
@@ -18,6 +18,7 @@ import {
   fireProjection,
   fireCustomProjection,
 } from "@shared/api/queryKeys";
+import { DecimalValueString } from "@shared/schema";
 
 // ============================================================================
 // ASSET PROJECTION HOOK
@@ -218,16 +219,17 @@ export function useMilestoneProjectionMutation() {
  */
 export function useFIREProjection(
   config: Omit<ProjectionConfig, "startDate" | "endDate"> | null,
-  options?: UseQueryOptions<FIREProgress>
+  fireConfig?: FIREProjectionConfig | null,
+  options?: UseQueryOptions<FireProjection>
 ) {
-  return useQuery<FIREProgress>({
+  return useQuery<FireProjection>({
     queryKey: [...fireProjection, config],
     queryFn: async () => {
       if (!config) {
         throw new Error("Config is required");
       }
 
-      return apiRequest<FIREProgress>("POST", `/api/projections/fire`, {
+      return apiRequest<FireProjection>("POST", `/api/projections/fire`, {
         config,
       });
     },
@@ -236,25 +238,65 @@ export function useFIREProjection(
   });
 }
 
+// export function useFireProjection(
+//   config: Omit<ProjectionConfig, "startDate" | "endDate"> | null,
+//   fireConfig: FIREProjectionConfig | null,
+//   options?: UseQueryOptions<FIREProgress>
+// ) {
+//   return useQuery<FIREProgress>({
+//     queryKey: [...fireProjection, config, fireConfig],
+//     queryFn: async () => {
+//       if (!config || !fireConfig) {
+//         throw new Error("Config and FIRE config are required");
+//       }
+
+//       const request: PortfolioProjectionRequest = {
+//         config: {
+//           ...config,
+//           startDate: new Date(),
+//           endDate: new Date(
+//             new Date().setFullYear(new Date().getFullYear() + 30)
+//           ),
+//         },
+//         fireConfig: fireConfig ? fireConfig : undefined,
+//       };
+
+//       const result = await apiRequest<FIREProgress>(
+//         "POST",
+//         `/api/projections/fire`,
+//         request
+//       );
+
+//       return result;
+//     },
+//     enabled: !!config && !!fireConfig && (options?.enabled ?? true),
+//     ...options,
+//   });
+// }
+
 /**
  * Hook for FIRE retirement projection with custom configuration
  */
 export function useCustomFIREProjection(
   config: Omit<ProjectionConfig, "startDate" | "endDate"> | null,
   fireConfig: FIREProjectionConfig | null,
-  options?: UseQueryOptions<FIREProgress>
+  options?: UseQueryOptions<FireProjection>
 ) {
-  return useQuery<FIREProgress>({
+  return useQuery<FireProjection>({
     queryKey: [...fireCustomProjection, config, fireConfig],
     queryFn: async () => {
       if (!config || !fireConfig) {
         throw new Error("Config and FIRE config are required");
       }
 
-      return apiRequest<FIREProgress>("POST", `/api/projections/fire/custom`, {
-        config,
-        fireConfig,
-      });
+      return apiRequest<FireProjection>(
+        "POST",
+        `/api/projections/fire/custom`,
+        {
+          config,
+          fireConfig,
+        }
+      );
     },
     enabled: !!config && !!fireConfig && (options?.enabled ?? true),
     ...options,
@@ -267,7 +309,7 @@ export function useCustomFIREProjection(
  */
 export function useFIREProjectionMutation() {
   return useMutation<
-    FIREProgress,
+    FireProjection,
     Error,
     {
       config: Omit<ProjectionConfig, "startDate" | "endDate">;
@@ -276,7 +318,7 @@ export function useFIREProjectionMutation() {
   >({
     mutationFn: async ({ config, fireConfig }) => {
       if (fireConfig) {
-        return apiRequest<FIREProgress>(
+        return apiRequest<FireProjection>(
           "POST",
           `/api/projections/fire/custom`,
           {
@@ -286,7 +328,7 @@ export function useFIREProjectionMutation() {
         );
       }
 
-      return apiRequest<FIREProgress>("POST", `/api/projections/fire`, {
+      return apiRequest<FireProjection>("POST", `/api/projections/fire`, {
         config,
       });
     },
@@ -320,7 +362,7 @@ export function usePortfolioWithMilestoneProjection(
       const milestone = await apiRequest<{
         id: string;
         name: string;
-        targetValue: string;
+        targetValue: DecimalValueString;
         accountType: string | null;
       }>("GET", `/api/milestones/${milestoneId}`);
 
@@ -330,7 +372,7 @@ export function usePortfolioWithMilestoneProjection(
         milestoneTarget: {
           milestoneId: milestone.id,
           milestoneName: milestone.name,
-          targetValue: Number(milestone.targetValue),
+          targetValue: milestone.targetValue,
           targetDate: config.endDate,
           accountType: milestone.accountType,
         },
@@ -350,63 +392,63 @@ export function usePortfolioWithMilestoneProjection(
 /**
  * Hook that combines portfolio projection with FIRE analysis
  */
-export function usePortfolioWithFIREProjection(
-  config: ProjectionConfig | null,
-  fireConfig?: FIREProjectionConfig | null
-  //options?: UseQueryOptions<ProjectionResult & { fireProgress: FIREProgress }>
-) {
-  //return useQuery<ProjectionResult & { fireProgress: FIREProgress }>({
-  return useQuery<ProjectionResult>({
-    queryKey: [
-      ...portfolioProjection,
-      "fire",
-      {
-        includeFire: true,
-      },
-    ],
-    queryFn: async () => {
-      if (!config) {
-        throw new Error("Config is required");
-      }
+// export function usePortfolioWithFIREProjection(
+//   config: ProjectionConfig | null,
+//   fireConfig?: FIREProjectionConfig | null
+//   //options?: UseQueryOptions<ProjectionResult & { fireProgress: FIREProgress }>
+// ) {
+//   //return useQuery<ProjectionResult & { fireProgress: FIREProgress }>({
+//   return useQuery<ProjectionResult>({
+//     queryKey: [
+//       ...portfolioProjection,
+//       "fire",
+//       {
+//         includeFire: true,
+//       },
+//     ],
+//     queryFn: async () => {
+//       if (!config) {
+//         throw new Error("Config is required");
+//       }
 
-      const request: PortfolioProjectionRequest = {
-        config: {
-          ...config,
-          startDate: new Date(),
-          endDate: new Date(
-            new Date().setFullYear(new Date().getFullYear() + 30)
-          ),
-        },
-        fireConfig: fireConfig ? fireConfig : undefined,
-      };
+//       const request: PortfolioProjectionRequest = {
+//         config: {
+//           ...config,
+//           startDate: new Date(),
+//           endDate: new Date(
+//             new Date().setFullYear(new Date().getFullYear() + 30)
+//           ),
+//         },
+//         fireConfig: fireConfig ? fireConfig : undefined,
+//       };
 
-      const result = await apiRequest<ProjectionResult>(
-        "POST",
-        `/api/projections/portfolio?includeFire=true`,
-        request
-      );
+//       const result = await apiRequest<ProjectionResult>(
+//         "POST",
+//         `/api/projections/portfolio?includeFire=true`,
+//         request
+//       );
 
-      return result;
+//       return result;
 
-      // // Portfolio projection endpoint automatically includes FIRE if fireConfig present
-      // // But we'll use dedicated FIRE endpoint for cleaner separation
-      // const [portfolioResult, fireProgress] = await Promise.all([
-      //   apiRequest<ProjectionResult>(
-      //     "POST",
-      //     `/api/projections/portfolio`,
-      //     request
-      //   ),
-      //   apiRequest<FIREProgress>("POST", `/api/projections/fire`, request),
-      // ]);
+//       // // Portfolio projection endpoint automatically includes FIRE if fireConfig present
+//       // // But we'll use dedicated FIRE endpoint for cleaner separation
+//       // const [portfolioResult, fireProgress] = await Promise.all([
+//       //   apiRequest<ProjectionResult>(
+//       //     "POST",
+//       //     `/api/projections/portfolio`,
+//       //     request
+//       //   ),
+//       //   apiRequest<FIREProgress>("POST", `/api/projections/fire`, request),
+//       // ]);
 
-      // return {
-      //   ...portfolioResult,
-      //   fireProgress,
-      // };
-    },
-    //enabled: !!config && (options?.enabled ?? true),
-  });
-}
+//       // return {
+//       //   ...portfolioResult,
+//       //   fireProgress,
+//       // };
+//     },
+//     //enabled: !!config && (options?.enabled ?? true),
+//   });
+// }
 
 // ============================================================================
 // UTILITY HOOKS
@@ -479,7 +521,7 @@ export const useProjections = {
 
   // Convenience
   portfolioWithMilestone: usePortfolioWithMilestoneProjection,
-  portfolioWithFire: usePortfolioWithFIREProjection,
+  //portfolioWithFire: usePortfolioWithFIREProjection,
 
   // Utilities
   defaultSimpleConfig: useDefaultSimpleProjectionConfig,

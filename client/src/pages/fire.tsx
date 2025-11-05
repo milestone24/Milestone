@@ -2,11 +2,7 @@ import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { usePortfolio } from "@/context/PortfolioContext";
-import {
-  computeClientFireProjection,
-  calculateContributionImpactWithProjections,
-  type FireProjectionData,
-} from "@shared/utils/projection-client";
+import { calculateContributionImpactWithProjections } from "@shared/utils/projection-client";
 import FireChart from "@/components/charts/FireChart";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -16,11 +12,15 @@ import {
   fireSettingsInsertSchema,
   fireSettingsOrphanSchema,
   ProjectionModifier,
-  ContributorSchedule,
+  createDecimalValueString,
 } from "@shared/schema";
+import type { SimpleProjectionConfig } from "@shared/schema/projections";
 import { useSession } from "@/hooks/use-session";
-import { usePortfolioWithFIREProjection } from "@/hooks/use-projections";
-import { calculateAge } from "@shared/utils/projection-utils";
+import { useFIREProjection } from "@/hooks/use-projections";
+import {
+  calculateAge,
+  convertToAgeBasedProjection,
+} from "@shared/utils/projection-utils";
 import { useFireSettings } from "@/hooks/use-fire-settings";
 import { usePatchFireSettings } from "@/hooks/use-fire-settings-patch";
 import { useCreateFireSettings } from "@/hooks/use-fire-settings-create";
@@ -85,17 +85,16 @@ export default function Fire() {
   // Watch values for calculations
   const watchedValues = form.watch();
 
-  // Convert watched values to the format used for calculations
-  //TODO remove this eventually
-  const tempFormState = {
-    annualIncome: Number(watchedValues.annualIncomeGoal),
-    expectedReturn: Number(watchedValues.expectedAnnualReturn),
-    withdrawalRate: Number(watchedValues.safeWithdrawalRate),
-    monthlyInvestment: Number(watchedValues.monthlyInvestment),
-    targetRetirementAge: Number(watchedValues.targetRetirementAge),
-    adjustInflation: watchedValues.adjustInflation ?? true,
-    statePensionAge: Number(watchedValues.statePensionAge),
-  };
+  // Helper variables for numeric conversions (used in calculations and display)
+  // These convert DecimalValueString form values to numbers where needed
+  const monthlyInvestment = Number(watchedValues.monthlyInvestment || 0);
+  const expectedReturn = Number(watchedValues.expectedAnnualReturn || 0);
+  const withdrawalRate = Number(watchedValues.safeWithdrawalRate || 0);
+  const annualIncomeGoal = Number(watchedValues.annualIncomeGoal || 0);
+  const targetRetirementAge = Number(
+    watchedValues.targetRetirementAge || DEFAULT_TARGET_RETIREMENT_AGE
+  );
+  const adjustInflation = watchedValues.adjustInflation ?? true;
 
   // Update form when fireSettings loads
   useEffect(() => {
@@ -126,7 +125,7 @@ export default function Fire() {
     description: "Contribution Scaler",
   };
 
-  const modifiers: ProjectionModifier[] = tempFormState.adjustInflation
+  const modifiers: ProjectionModifier[] = adjustInflation
     ? [
         {
           type: "inflation",
@@ -138,82 +137,74 @@ export default function Fire() {
       ]
     : [mod];
 
-  const { data: currentProjection } = usePortfolioWithFIREProjection({
+  const projectionConfig: Omit<
+    SimpleProjectionConfig,
+    "startDate" | "endDate"
+  > = {
     mode: "simple",
     growthRate: 7.0,
     growthModel: "linear",
     interval: "yearly",
     modifiers,
-  });
+  };
 
-  const { fireProgress, computationContext } = currentProjection ?? {};
-
-  //console.log("currentProjection", currentProjection);
-
-  // Calculate FIRE number based on desired income and withdrawal rate
-  // const fireNumber = calculateFireNumber(
-  //   formState.annualIncome,
-  //   formState.withdrawalRate
-  // );
-
-  const fireNumber = fireProgress?.fireNumber ?? 0;
-
-  const contributionsForFire =
-    computationContext?.contributors?.reduce<ContributorSchedule[]>(
-      (acc, c) => acc.concat(c.schedules),
-      []
-    ) ?? [];
-
-  // // Calculate years to reach FIRE
-  // const yearsToFire = calculateYearsToTarget(
-  //   portfolioOverview?.value ?? 0,
-  //   formState.monthlyInvestment,
-  //   formState.expectedReturn,
-  //   fireNumber
-  // );
-
-  // Use recurring contributions from computationContext if available
-  // Otherwise fall back to mock based on FIRE settings
-  // const recurringContributions =
-  //   computationContext?.recurringContributions ?? [];
-
-  // const contributionsForFire =
-  //   recurringContributions.length > 0
-  //     ? recurringContributions
-  //     : tempFormState.monthlyInvestment
-  //     ? [
-  //         {
-  //           id: "mock",
-  //           assetId: "mock",
-  //           amount: tempFormState.monthlyInvestment,
-  //           isActive: true,
-  //           startDate: new Date(),
-  //           patternConfig: {
-  //             type: "rrule",
-  //             expression: "FREQ=MONTHLY",
-  //           },
-  //           process: "manual",
-  //           createdAt: new Date(),
-  //           updatedAt: new Date(),
-  //         },
-  //       ]
-  //     : [];
-
-  const fireProjectionData = computeClientFireProjection(
-    portfolioOverview?.value ?? 0,
-    contributionsForFire,
-    tempFormState.expectedReturn,
-    fireNumber,
-    currentAge
+  const { data: currentProjection } = useFIREProjection(
+    projectionConfig,
+    undefined
   );
 
-  const yearsToFire = fireProgress?.yearsAheadOrBehind ?? 0;
+  const {
+    yearsAheadOrBehind,
+    fireNumber = 0,
+    projectedRetirementDate,
+    projectedRetirementAge,
+    monthlyShortfall,
+    projectionResult,
+  } = currentProjection ?? {};
+
+  const { computationContext } = projectionResult ?? {};
+
+  // ============================================================================
+  // SERVER AS SOURCE OF TRUTH
+  // ============================================================================
+  // The main projection data comes from the server, which includes:
+  // - Bonuses (e.g., LISA 25% government bonus)
+  // - Value releases (age/date-based access restrictions)
+  // - Account-specific modifiers (tax, fees, inflation)
+  // - Accurate compound growth calculations
+  //
+  // Client-side calculations are ONLY used for preview/what-if scenarios
+  // (e.g., "what if I increase contributions by £100/month")
+  // ============================================================================
+
+  // Convert server-calculated timePoints to age-based projection data
+  // This uses the server's projection which includes bonuses, value releases, and modifiers
+  const fireProjectionData =
+    user?.profile?.dob && projectionResult
+      ? convertToAgeBasedProjection(
+          projectionResult.timePoints,
+          user.profile.dob,
+          createDecimalValueString(fireNumber.toString())
+        )
+      : [];
+
+  const yearsToFire = yearsAheadOrBehind ?? 0;
+
+  // Get full contributors from computation context for impact calculations
+  // This preserves bonuses, value releases, and account-specific logic
+  const contributorsForFire = computationContext?.contributors ?? [];
 
   // Prepare config for FireChart component
+  // Use projection result values instead of portfolio overview for consistency
+  const currentPortfolioValue: number = projectionResult?.totalCurrentValue
+    ? Number(projectionResult.totalCurrentValue)
+    : Number(portfolioOverview?.value ?? 0);
+
+  // FireChart expects number types for config
   const fireConfig = {
-    currentAmount: portfolioOverview?.value ?? 0,
-    monthlyInvestment: tempFormState.monthlyInvestment,
-    expectedReturn: tempFormState.expectedReturn,
+    currentAmount: currentPortfolioValue,
+    monthlyInvestment,
+    expectedReturn,
     targetAmount: fireNumber,
     currentAge,
   };
@@ -221,26 +212,43 @@ export default function Fire() {
   console.log("yearsToFire", yearsToFire);
 
   // Calculate the impact of changing monthly investment
+  // Use current portfolio value from projection result for consistency
+  const currentPortfolioValueDecimal = projectionResult?.totalCurrentValue
+    ? projectionResult.totalCurrentValue
+    : createDecimalValueString(currentPortfolioValue.toString());
+
+  // ============================================================================
+  // CLIENT-SIDE PREVIEW CALCULATIONS
+  // ============================================================================
+  // These calculations are for "what-if" scenarios only.
+  // They provide quick previews without server round-trips.
+  // For authoritative projections, always use server-calculated data.
+  // ============================================================================
+
+  // Calculate impact using full contributor model
+  // This preserves bonuses and value releases in the calculation
   const increaseImpact = calculateContributionImpactWithProjections(
-    portfolioOverview?.value ?? 0,
-    contributionsForFire,
-    tempFormState.monthlyInvestment + 100,
-    tempFormState.expectedReturn,
-    fireNumber,
+    currentPortfolioValueDecimal,
+    contributorsForFire,
+    createDecimalValueString((monthlyInvestment + 100).toString()),
+    expectedReturn,
+    createDecimalValueString(fireNumber.toString()),
     currentAge
   );
 
   const decreaseImpact = calculateContributionImpactWithProjections(
-    portfolioOverview?.value ?? 0,
-    contributionsForFire as any,
-    tempFormState.monthlyInvestment - 100,
-    tempFormState.expectedReturn,
-    fireNumber,
+    currentPortfolioValueDecimal,
+    contributorsForFire,
+    createDecimalValueString((monthlyInvestment - 100).toString()),
+    expectedReturn,
+    createDecimalValueString(fireNumber.toString()),
     currentAge
   );
 
-  // Projected retirement age
-  const projectedRetirementAge = Math.round(currentAge + yearsToFire);
+  // Projected retirement age - use value from server if available, otherwise calculate
+  const calculatedProjectedRetirementAge = projectedRetirementAge
+    ? Math.round(projectedRetirementAge)
+    : Math.round(currentAge + yearsToFire);
 
   // Handle adjusting the monthly investment
   //This should not modify the fire settings imediately, it should show a preview
@@ -254,10 +262,15 @@ export default function Fire() {
     try {
       await updateFireSettings({
         ...watchedValues,
-        monthlyInvestment: newMonthlyInvestment.toString(),
+        monthlyInvestment: createDecimalValueString(
+          newMonthlyInvestment.toString()
+        ),
       });
 
-      form.setValue("monthlyInvestment", newMonthlyInvestment.toString());
+      form.setValue(
+        "monthlyInvestment",
+        createDecimalValueString(newMonthlyInvestment.toString())
+      );
     } catch (error) {
       console.error("Error updating monthly investment:", error);
     }
@@ -353,7 +366,7 @@ export default function Fire() {
           <div className="flex justify-between items-center mb-1">
             <span className="text-sm text-gray-600">Current portfolio:</span>
             <span className="font-medium">
-              £{portfolioOverview?.value?.toLocaleString() ?? 0}
+              £{currentPortfolioValue.toLocaleString()}
             </span>
           </div>
           <div className="flex justify-between items-center mb-1">
@@ -364,17 +377,19 @@ export default function Fire() {
           </div>
           <div className="flex justify-between items-center mb-1">
             <span className="text-sm text-gray-600">
-              Annual sustainable income ({tempFormState.withdrawalRate}%):
+              Annual sustainable income ({withdrawalRate}%):
             </span>
             <span className="font-medium">
-              £{tempFormState.annualIncome.toLocaleString()}
+              £{annualIncomeGoal.toLocaleString()}
             </span>
           </div>
           <div className="flex justify-between items-center mb-1">
             <span className="text-sm text-gray-600">
               Projected retirement age:
             </span>
-            <span className="font-medium">{projectedRetirementAge} years</span>
+            <span className="font-medium">
+              {calculatedProjectedRetirementAge} years
+            </span>
           </div>
         </div>
 
@@ -383,8 +398,8 @@ export default function Fire() {
           projectionData={fireProjectionData}
           yearsToFire={yearsToFire}
           config={fireConfig}
-          targetRetirementAge={tempFormState.targetRetirementAge}
-          projectedRetirementAge={projectedRetirementAge}
+          targetRetirementAge={targetRetirementAge}
+          projectedRetirementAge={calculatedProjectedRetirementAge}
           className="mb-6"
         />
 
@@ -414,7 +429,7 @@ export default function Fire() {
               Current Monthly Investment
             </p>
             <p className="text-2xl font-bold">
-              £{tempFormState.monthlyInvestment.toLocaleString()}
+              £{monthlyInvestment.toLocaleString()}
             </p>
           </div>
 
@@ -423,7 +438,7 @@ export default function Fire() {
               variant="outline"
               className="flex-1 py-2 px-3"
               onClick={() => handleAdjustInvestment(-100)}
-              disabled={tempFormState.monthlyInvestment <= 100}
+              disabled={monthlyInvestment <= 100}
             >
               -£100/month
             </Button>

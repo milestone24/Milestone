@@ -8,6 +8,7 @@ import {
   userProfiles,
 } from "@server/db/schema";
 import {
+  FireProjection,
   FIREProjectionConfig,
   MilestoneTarget,
   ProjectionConfigWithDateRange,
@@ -27,13 +28,14 @@ import {
 } from "@shared/utils/projection-milestone-tracker";
 import {
   projectToRetirement as hybridProjectToRetirement,
-  checkFIREFeasibility as hybridCheckFIREFeasibility,
+  projectRetirementWithAccountAssets as hybridCheckFIREFeasibility,
 } from "@shared/utils/projection-fire-calculator";
 import { and, eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import {
   calculatedAssetsQueryBuilder,
   calculatedAssetsWithContributionsQueryBuilder,
 } from "../assets/query";
+import { mapAssetsToContributors } from "@shared/utils/projection-utils";
 
 export type AssetWithRecurringContributions = UserAssetWithValue & {
   recurringContributions: RecurringContribution[];
@@ -143,7 +145,15 @@ export class ProjectionService {
     milestoneTarget?: MilestoneTarget
   ): Promise<ProjectionResult> {
     const dataSource = defineDataSource(this.db, accountId);
-    return hybridProjectPortfolio(config, dataSource, milestoneTarget);
+    const assets = await dataSource.getAssets();
+    const contributors = mapAssetsToContributors(assets);
+    return hybridProjectPortfolio(
+      config,
+      dataSource,
+      contributors,
+      milestoneTarget
+    );
+    //return hybridProjectPortfolio(config, dataSource, milestoneTarget);
   }
 
   async projectAssetById(
@@ -163,7 +173,10 @@ export class ProjectionService {
     config: ProjectionConfigWithDateRange
   ) {
     const dataSource = defineDataSource(this.db, accountId);
-    return hybridProjectToRetirement(fireConfig, config, dataSource);
+    const assets = await dataSource.getAssets();
+    const contributors = mapAssetsToContributors(assets);
+    return hybridProjectToRetirement(fireConfig, config, contributors);
+    //return hybridProjectToRetirement(fireConfig, config, dataSource);
   }
 
   async checkMilestoneProgress(
@@ -174,6 +187,9 @@ export class ProjectionService {
     const dataSource = defineDataSource(this.db, accountId);
 
     const milestone = await dataSource.getMilestoneById(milestoneId);
+
+    const assets = await dataSource.getAssets();
+    const contributors = mapAssetsToContributors(assets);
 
     if (!milestone) {
       throw new Error("Milestone not found");
@@ -187,7 +203,7 @@ export class ProjectionService {
       accountType: milestone.accountType,
     };
 
-    return hybridCheckMilestoneProgress(milestoneTarget, config, dataSource);
+    return hybridCheckMilestoneProgress(milestoneTarget, config, contributors);
   }
 
   async getAllMilestonesWithProgress(
@@ -203,7 +219,7 @@ export class ProjectionService {
     config: ProjectionConfigWithDateRange
     //Should this be passed through?
     //fireConfig: FIREProjectionConfig
-  ) {
+  ): Promise<FireProjection> {
     const dataSource = defineDataSource(this.db, accountId);
     return hybridCheckFIREFeasibility(config, dataSource);
   }

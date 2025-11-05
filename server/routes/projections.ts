@@ -155,29 +155,29 @@ export async function registerRoutes(
               milestoneTarget
             );
 
-            const includeFire = req.query.includeFire === "true";
+            //const includeFire = req.query.includeFire === "true";
 
             // Add FIRE progress if requested
             // Question this, why is this done here and not just given to the project portfolio function?
             // Or the project to retirement function does the the projectPortfolio internally?
-            result.fireProgress = includeFire
-              ? fireConfig
-                ? await projectionService.projectToRetirement(
-                    tenant.userAccountId,
-                    fireConfig,
-                    config
-                  )
-                : await projectionService.checkFIREFeasibility(
-                    tenant.userAccountId,
-                    config
-                  )
-              : fireConfig
-              ? await projectionService.projectToRetirement(
-                  tenant.userAccountId,
-                  fireConfig,
-                  config
-                )
-              : undefined;
+            // result.fireProgress = includeFire
+            //   ? fireConfig
+            //     ? await projectionService.projectToRetirement(
+            //         tenant.userAccountId,
+            //         fireConfig,
+            //         config
+            //       )
+            //     : await projectionService.checkFIREFeasibility(
+            //         tenant.userAccountId,
+            //         config
+            //       )
+            //   : fireConfig
+            //   ? await projectionService.projectToRetirement(
+            //       tenant.userAccountId,
+            //       fireConfig,
+            //       config
+            //     )
+            //   : undefined;
 
             return result;
           }

@@ -4,11 +4,18 @@ import {
   ProjectionConfig,
   ProjectionConfigWithDateRange,
   ProjectionDataSource,
+  Contributor,
 } from "@shared/schema/projections";
 //import { Database } from "@server/db";
 import { milestones, userAssets } from "@server/db/schema";
 //import { eq } from "drizzle-orm";
-import { projectPortfolio } from "./projection-orchestrator";
+import {
+  orchestrateProjection,
+  projectPortfolio,
+} from "./projection-orchestrator";
+import Decimal from "decimal.js";
+import { createDecimalValueString, DecimalValueString } from "@shared/schema";
+import { mapAssetsToContributors } from "./projection-utils";
 
 // ============================================================================
 // MILESTONE PROGRESS TRACKING
@@ -21,7 +28,8 @@ export async function checkMilestoneProgress(
   milestoneTarget: MilestoneTarget,
   //milestoneId: string,
   config: ProjectionConfigWithDateRange,
-  dataSource: ProjectionDataSource
+  contributors: Contributor[]
+  //dataSource: ProjectionDataSource
   //db: Database
 ): Promise<MilestoneProgress> {
   // Fetch milestone details
@@ -43,11 +51,14 @@ export async function checkMilestoneProgress(
   // };
 
   // Run projection for relevant assets
-  const projectionResult = await projectPortfolio(
+  const projectionResult = await orchestrateProjection(
     //milestone.userAccountId,
-    config,
-    dataSource,
-    milestoneTarget
+    {
+      contributors,
+      config,
+      milestoneTarget,
+      //dataSource,
+    }
   );
 
   // Extract milestone progress (orchestrator calculates it)
@@ -89,28 +100,52 @@ export function recommendContributionAdjustment(
   shortfall: number,
   monthsRemaining: number,
   annualGrowthRate: number
-): number {
+): DecimalValueString {
   if (monthsRemaining <= 0) {
-    return 0;
+    return createDecimalValueString("0");
   }
+
+  console.log("recommendContributionAdjustment shortfall", shortfall);
+  console.log(
+    "recommendContributionAdjustment monthsRemaining",
+    monthsRemaining
+  );
+  console.log(
+    "recommendContributionAdjustment annualGrowthRate",
+    annualGrowthRate
+  );
+  console.log(
+    "recommendContributionAdjustment currentMonthlyContribution",
+    currentMonthlyContribution
+  );
 
   // Calculate additional monthly contribution needed
   // Using future value of annuity formula solved for payment:
   // FV = PMT × [((1 + r)^n - 1) / r]
   // PMT = FV / [((1 + r)^n - 1) / r]
 
-  const monthlyRate = annualGrowthRate / 100 / 12;
+  const monthlyRate = Decimal(annualGrowthRate).div(100).div(12).toNumber();
 
   if (monthlyRate === 0) {
     // No growth, simple division
-    return shortfall / monthsRemaining;
+    return createDecimalValueString(
+      Decimal(shortfall).div(monthsRemaining).toString()
+    );
   }
 
-  const futureValueFactor =
-    (Math.pow(1 + monthlyRate, monthsRemaining) - 1) / monthlyRate;
-  const additionalMonthlyContribution = shortfall / futureValueFactor;
+  const futureValueFactor = Decimal(1)
+    .add(monthlyRate)
+    .pow(monthsRemaining)
+    .sub(1)
+    .div(monthlyRate)
+    .toNumber();
+  const additionalMonthlyContribution = Decimal(shortfall)
+    .div(futureValueFactor)
+    .toNumber();
 
-  return Math.max(0, additionalMonthlyContribution);
+  return createDecimalValueString(
+    Decimal(Math.max(0, additionalMonthlyContribution)).toFixed(2)
+  );
 }
 
 /**
@@ -153,6 +188,9 @@ export async function getAllMilestonesWithProgress(
 
   const userMilestones = await dataSource.getMilestones();
 
+  const assets = await dataSource.getAssets();
+  const contributors = mapAssetsToContributors(assets);
+
   const progressResults: MilestoneProgress[] = [];
 
   for (const milestone of userMilestones) {
@@ -169,7 +207,7 @@ export async function getAllMilestonesWithProgress(
       const progress = await checkMilestoneProgress(
         milestoneTarget,
         config,
-        dataSource
+        contributors
       );
       progressResults.push(progress);
     } catch (error) {
