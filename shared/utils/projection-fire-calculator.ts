@@ -282,6 +282,15 @@ export async function projectRetirementWithAccountAssets(
   const assets = await dataSource.getAssets();
   const contributors = mapAssetsToContributors(assets);
 
+  //If fire settings or other config has "include government pensions" set to true, then add the government pension to the contributors
+  //We need to find all the details for the specifics of UK state pension withdrawels etc and rules
+  // if (userFireSettings.includeGovernmentPensions) {
+  //   contributors.push({
+  //     name: "Government Pensions",
+  //     value: createDecimalValueString("0"),
+  //   });
+  // }
+
   //return projectToRetirement(fireConfig, projectionConfig, dataSource);
 
   //const contributors: Contributor[] = [];
