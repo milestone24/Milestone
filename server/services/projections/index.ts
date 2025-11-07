@@ -17,6 +17,7 @@ import {
   RecurringContribution,
   ResolvedUserAsset,
   UserAssetWithValue,
+  ProjectionConfig,
 } from "@shared/schema";
 import {
   projectPortfolio as hybridProjectPortfolio,
@@ -216,7 +217,7 @@ export class ProjectionService {
 
   async checkFIREFeasibility(
     accountId: string,
-    config: ProjectionConfigWithDateRange
+    config: ProjectionConfig
     //Should this be passed through?
     //fireConfig: FIREProjectionConfig
   ): Promise<FireProjection> {
