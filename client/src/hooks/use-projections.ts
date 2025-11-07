@@ -9,6 +9,11 @@ import {
   PortfolioProjectionRequest,
   FIREProjectionConfig,
   ProjectionConfigWithDateRange,
+  fireProjectionResultSchema,
+  FireProjectionResult,
+  FireProjectionData,
+  fireProjectionDataSchema,
+  fireProjectionSchema,
 } from "@shared/schema/projections";
 import {
   assetProjection,
@@ -219,8 +224,8 @@ export function useMilestoneProjectionMutation() {
  */
 export function useFIREProjection(
   config: Omit<ProjectionConfig, "startDate" | "endDate"> | null,
-  fireConfig?: FIREProjectionConfig | null,
-  options?: UseQueryOptions<FireProjection>
+  fireConfig?: FIREProjectionConfig | null
+  //options?: UseQueryOptions<FIREProjectionResult>
 ) {
   return useQuery<FireProjection>({
     queryKey: [...fireProjection, config],
@@ -229,12 +234,26 @@ export function useFIREProjection(
         throw new Error("Config is required");
       }
 
-      return apiRequest<FireProjection>("POST", `/api/projections/fire`, {
-        config,
-      });
+      const data = await apiRequest<FireProjection>(
+        "POST",
+        `/api/projections/fire`,
+        {
+          config,
+        }
+      );
+
+      const result = fireProjectionSchema.safeParse(data);
+      if (!result.success) {
+        console.log("result", result.error);
+        throw new Error("Invalid FIRE projection result");
+      }
+
+      console.log("result", result.data);
+
+      return result.data;
     },
-    enabled: !!config && (options?.enabled ?? true),
-    ...options,
+    // enabled: !!config && (options?.enabled ?? true),
+    // ...options,
   });
 }
 
@@ -527,4 +546,3 @@ export const useProjections = {
   defaultSimpleConfig: useDefaultSimpleProjectionConfig,
   defaultAdvancedConfig: useDefaultAdvancedProjectionConfig,
 };
-

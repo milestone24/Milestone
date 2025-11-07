@@ -6,6 +6,7 @@ import {
   portfolioProjectionRequestSchema,
   ProjectionSchemas,
   projectionConfigWithDateRangeSchema,
+  projectionConfigSchema,
 } from "@shared/schema/projections";
 import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
 import { ProjectionService } from "@server/services/projections";
@@ -302,8 +303,9 @@ export async function registerRoutes(
         req.tenant,
         async (tenant) => {
           // Validate config
-          const configValidation =
-            projectionConfigWithDateRangeSchema.safeParse(req.body.config);
+          const configValidation = projectionConfigSchema.safeParse(
+            req.body.config
+          );
 
           if (!configValidation.success) {
             throw new Error("Invalid projection config");
