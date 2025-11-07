@@ -27,6 +27,7 @@ import {
   convertToAgeBasedProjection,
   mapAssetsToContributors,
 } from "./projection-utils";
+import { createRRulePattern } from "./scheduling";
 
 // ============================================================================
 // FIRE PROJECTION CALCULATOR
@@ -284,12 +285,31 @@ export async function projectRetirementWithAccountAssets(
 
   //If fire settings or other config has "include government pensions" set to true, then add the government pension to the contributors
   //We need to find all the details for the specifics of UK state pension withdrawels etc and rules
-  // if (userFireSettings.includeGovernmentPensions) {
-  //   contributors.push({
-  //     name: "Government Pensions",
-  //     value: createDecimalValueString("0"),
-  //   });
-  // }
+  //if (userFireSettings.includeGovernmentPensions) {
+  if (true) {
+    contributors.push({
+      name: "State Pension",
+      type: "state_pension",
+      currentValue: createDecimalValueString("0"),
+      accountType: "SIPP",
+      schedules: [
+        {
+          patternConfig: {
+            type: "rrule",
+            expression: createRRulePattern(
+              "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1"
+            ).expression,
+          },
+          startDate: calculateRetirementDate(
+            fireConfig.dateOfBirth,
+            userFireSettings.statePensionAge
+          ),
+          endDate: null,
+          value: createDecimalValueString("0"),
+        },
+      ],
+    });
+  }
 
   //return projectToRetirement(fireConfig, projectionConfig, dataSource);
 
