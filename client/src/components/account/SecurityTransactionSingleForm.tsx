@@ -19,6 +19,7 @@ import type {
 } from "@shared/schema";
 import { securityTransactionInsertSchema } from "@shared/schema/transaction";
 import { Controller, useForm } from "react-hook-form";
+import { createDecimalValueString } from "@shared/schema";
 import {
   Select,
   SelectContent,
@@ -54,7 +55,7 @@ export const SecurityTransactionSingleForm = ({
     //       recordedAt: new Date(),
     //     },
     defaultValues: {
-      value: 0,
+      value: createDecimalValueString("0"),
       valueDate: new Date(),
       assetSecurityId: undefined,
     },
@@ -159,9 +160,9 @@ export const SecurityTransactionSingleForm = ({
                     type="number"
                     placeholder="Number of Shares"
                     {...field}
-                    value={field.value.toString()}
+                    value={field.value ?? createDecimalValueString("0")}
                     onChange={(e) => {
-                      field.onChange(+e.target.value);
+                      field.onChange(createDecimalValueString(e.target.value));
                     }}
                   />
                 </FormControl>
@@ -181,9 +182,13 @@ export const SecurityTransactionSingleForm = ({
                     type="number"
                     placeholder="Currency Payment"
                     {...field}
-                    value={field.value?.toString() ?? 0}
+                    value={
+                      typeof field.value === "string"
+                        ? field.value
+                        : createDecimalValueString("0")
+                    }
                     onChange={(e) => {
-                      field.onChange(+e.target.value);
+                      field.onChange(createDecimalValueString(e.target.value));
                     }}
                   />
                 </FormControl>

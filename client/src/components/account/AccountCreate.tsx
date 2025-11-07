@@ -4,7 +4,11 @@ import type {
   UserAssetOrphanInsert,
   UserAssetSecurityInsert,
 } from "@shared/schema";
-import { accountType, userAssetOrphanInsertSchema } from "@shared/schema";
+import {
+  accountType,
+  userAssetOrphanInsertSchema,
+  createDecimalValueString,
+} from "@shared/schema";
 import {
   useForm,
   useFormContext,
@@ -84,27 +88,35 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
         ...values,
         currentValue: values.currentValue
           ? typeof values.currentValue === "string"
-            ? parseFloat(values.currentValue)
-            : values.currentValue
-          : 0,
+            ? createDecimalValueString(values.currentValue)
+            : typeof values.currentValue === "number"
+            ? createDecimalValueString(String(values.currentValue))
+            : createDecimalValueString(String(values.currentValue))
+          : createDecimalValueString("0"),
         securities:
           values.securities?.map((security) => ({
             ...security,
             shareHolding: security.shareHolding
               ? typeof security.shareHolding === "string"
-                ? parseFloat(security.shareHolding)
-                : security.shareHolding
-              : 0,
+                ? createDecimalValueString(security.shareHolding)
+                : typeof security.shareHolding === "number"
+                ? createDecimalValueString(String(security.shareHolding))
+                : createDecimalValueString(String(security.shareHolding))
+              : createDecimalValueString("0"),
             currencyValue: security.currencyValue
               ? typeof security.currencyValue === "string"
-                ? parseFloat(security.currencyValue)
-                : security.currencyValue
-              : 0,
+                ? createDecimalValueString(security.currencyValue)
+                : typeof security.currencyValue === "number"
+                ? createDecimalValueString(String(security.currencyValue))
+                : createDecimalValueString(String(security.currencyValue))
+              : createDecimalValueString("0"),
             priorGainLoss: security.priorGainLoss
               ? typeof security.priorGainLoss === "string"
-                ? parseFloat(security.priorGainLoss)
-                : security.priorGainLoss
-              : 0,
+                ? createDecimalValueString(security.priorGainLoss)
+                : typeof security.priorGainLoss === "number"
+                ? createDecimalValueString(String(security.priorGainLoss))
+                : createDecimalValueString(String(security.priorGainLoss))
+              : createDecimalValueString("0"),
           })) ?? [],
         contributions: values.contributions
           ? values.contributions.type === "security"
@@ -113,8 +125,16 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
                 isActive: true,
                 process: values.contributions.process,
                 amount: values.contributions.amount
-                  ? parseFloat(values.contributions.amount as unknown as string)
-                  : 0,
+                  ? typeof values.contributions.amount === "string"
+                    ? createDecimalValueString(values.contributions.amount)
+                    : typeof values.contributions.amount === "number"
+                    ? createDecimalValueString(
+                        String(values.contributions.amount)
+                      )
+                    : createDecimalValueString(
+                        String(values.contributions.amount)
+                      )
+                  : createDecimalValueString("0"),
                 startDate: values.startDate,
                 // notificationPeriod:
                 //   values.contributions?.notificationPeriod ?? "weekly",
@@ -133,9 +153,15 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
                       ...security,
                       commitment: security.commitment
                         ? typeof security.commitment === "string"
-                          ? parseFloat(security.commitment)
-                          : security.commitment
-                        : 0,
+                          ? createDecimalValueString(security.commitment)
+                          : typeof security.commitment === "number"
+                          ? createDecimalValueString(
+                              String(security.commitment)
+                            )
+                          : createDecimalValueString(
+                              String(security.commitment)
+                            )
+                        : createDecimalValueString("0"),
                     })
                   ) ?? [],
               }
@@ -145,8 +171,16 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
                 isActive: true,
                 process: values.contributions.process,
                 amount: values.contributions.amount
-                  ? parseFloat(values.contributions.amount as unknown as string)
-                  : 0,
+                  ? typeof values.contributions.amount === "string"
+                    ? createDecimalValueString(values.contributions.amount)
+                    : typeof values.contributions.amount === "number"
+                    ? createDecimalValueString(
+                        String(values.contributions.amount)
+                      )
+                    : createDecimalValueString(
+                        String(values.contributions.amount)
+                      )
+                  : createDecimalValueString("0"),
                 startDate: values.startDate,
                 patternConfig: values.contributions?.patternConfig,
                 notificationEmail:
@@ -653,7 +687,7 @@ const useContributionSecurities = (securities: UserAssetSecurityInsert[]) => {
         .map((security) => ({
           securityTempId: security.tempId,
           securityName: security.security.name,
-          commitment: 0,
+          commitment: createDecimalValueString("0"),
         }))
         .forEach((security) => {
           if (
@@ -668,7 +702,12 @@ const useContributionSecurities = (securities: UserAssetSecurityInsert[]) => {
             securityId: security.securityTempId,
             isTempSecurityId: true,
             securityName: security.securityName,
-            commitment: security.commitment,
+            commitment:
+              typeof security.commitment === "string"
+                ? createDecimalValueString(security.commitment)
+                : typeof security.commitment === "number"
+                ? createDecimalValueString(String(security.commitment))
+                : security.commitment || createDecimalValueString("0"),
           });
         });
     }
@@ -711,7 +750,7 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
             notificationPush: false,
             isActive: true,
             startDate: startDate ?? new Date(),
-            amount: 0,
+            amount: createDecimalValueString("0"),
             process: "manual",
             patternConfig: {
               type: "rrule",

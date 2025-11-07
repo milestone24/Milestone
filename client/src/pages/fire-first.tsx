@@ -17,6 +17,8 @@ import {
   ProjectionModifier,
   ContributorSchedule,
   createDecimalValueString,
+  SimpleProjectionConfig,
+  Contributor,
 } from "@shared/schema";
 import { useSession } from "@/hooks/use-session";
 import { useFIREProjection } from "@/hooks/use-projections";
@@ -138,13 +140,21 @@ export default function Fire() {
       ]
     : [mod];
 
-  const { data: currentProjection } = useFIREProjection({
+  const projectionConfig: Omit<
+    SimpleProjectionConfig,
+    "startDate" | "endDate"
+  > = {
     mode: "simple",
     growthRate: 7.0,
     growthModel: "linear",
     interval: "yearly",
     modifiers,
-  });
+  };
+
+  const { data: currentProjection } = useFIREProjection(
+    projectionConfig,
+    undefined
+  );
 
   const {
     yearsAheadOrBehind,
@@ -164,53 +174,24 @@ export default function Fire() {
 
   //const fireNumber = fireProgress?.fireNumber ?? 0;
 
-  const contributionsForFire =
-    computationContext?.contributors?.reduce<ContributorSchedule[]>(
+  // Use full contributors array (not just schedules) for impact calculations
+  // This preserves bonuses, value releases, and account-specific logic
+  const contributionsForFire: Contributor[] =
+    computationContext?.contributors ?? [];
+
+  // Extract schedules for computeClientFireProjection (which expects ContributorSchedule[])
+  const schedulesForFire: ContributorSchedule[] =
+    contributionsForFire.reduce<ContributorSchedule[]>(
       (acc, c) => acc.concat(c.schedules),
       []
-    ) ?? [];
-
-  // // Calculate years to reach FIRE
-  // const yearsToFire = calculateYearsToTarget(
-  //   portfolioOverview?.value ?? 0,
-  //   formState.monthlyInvestment,
-  //   formState.expectedReturn,
-  //   fireNumber
-  // );
-
-  // Use recurring contributions from computationContext if available
-  // Otherwise fall back to mock based on FIRE settings
-  // const recurringContributions =
-  //   computationContext?.recurringContributions ?? [];
-
-  // const contributionsForFire =
-  //   recurringContributions.length > 0
-  //     ? recurringContributions
-  //     : tempFormState.monthlyInvestment
-  //     ? [
-  //         {
-  //           id: "mock",
-  //           assetId: "mock",
-  //           amount: tempFormState.monthlyInvestment,
-  //           isActive: true,
-  //           startDate: new Date(),
-  //           patternConfig: {
-  //             type: "rrule",
-  //             expression: "FREQ=MONTHLY",
-  //           },
-  //           process: "manual",
-  //           createdAt: new Date(),
-  //           updatedAt: new Date(),
-  //         },
-  //       ]
-  //     : [];
+    );
 
   const fireProjectionData = computeClientFireProjection(
-    projectionResult?.totalCurrentValue ?? createDecimalValueString(0),
+    projectionResult?.totalCurrentValue ?? createDecimalValueString("0"),
     //portfolioOverview?.value ?? 0,
-    contributionsForFire,
+    schedulesForFire,
     tempFormState.expectedReturn,
-    fireNumber,
+    createDecimalValueString(fireNumber.toString()),
     currentAge
   );
 
@@ -218,7 +199,7 @@ export default function Fire() {
 
   // Prepare config for FireChart component
   const fireConfig = {
-    currentAmount: portfolioOverview?.value ?? 0,
+    currentAmount: portfolioOverview?.value ? Number(portfolioOverview.value) : 0,
     monthlyInvestment: tempFormState.monthlyInvestment,
     expectedReturn: tempFormState.expectedReturn,
     targetAmount: fireNumber,
@@ -229,20 +210,20 @@ export default function Fire() {
 
   // Calculate the impact of changing monthly investment
   const increaseImpact = calculateContributionImpactWithProjections(
-    portfolioOverview?.value ?? 0,
+    portfolioOverview?.value ? portfolioOverview.value : createDecimalValueString("0"),
     contributionsForFire,
-    tempFormState.monthlyInvestment + 100,
+    createDecimalValueString((tempFormState.monthlyInvestment + 100).toString()),
     tempFormState.expectedReturn,
-    fireNumber,
+    createDecimalValueString(fireNumber.toString()),
     currentAge
   );
 
   const decreaseImpact = calculateContributionImpactWithProjections(
-    portfolioOverview?.value ?? 0,
+    portfolioOverview?.value ? portfolioOverview.value : createDecimalValueString("0"),
     contributionsForFire as any,
-    tempFormState.monthlyInvestment - 100,
+    createDecimalValueString((tempFormState.monthlyInvestment - 100).toString()),
     tempFormState.expectedReturn,
-    fireNumber,
+    createDecimalValueString(fireNumber.toString()),
     currentAge
   );
 
@@ -261,10 +242,10 @@ export default function Fire() {
     try {
       await updateFireSettings({
         ...watchedValues,
-        monthlyInvestment: newMonthlyInvestment.toString(),
+        monthlyInvestment: createDecimalValueString(newMonthlyInvestment.toString()),
       });
 
-      form.setValue("monthlyInvestment", newMonthlyInvestment.toString());
+      form.setValue("monthlyInvestment", createDecimalValueString(newMonthlyInvestment.toString()));
     } catch (error) {
       console.error("Error updating monthly investment:", error);
     }

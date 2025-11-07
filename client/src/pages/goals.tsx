@@ -46,7 +46,12 @@ import {
 import AISuggestedMilestones from "@/components/milestones/AISuggestedMilestones";
 import { useSession } from "@/context/SessionContext";
 import { EditMilestoneDialog } from "@/components/milestones/EditMilestoneDialog";
-import { Milestone, MilestoneOrphanInsert, AccountType } from "shared/schema";
+import {
+  Milestone,
+  MilestoneOrphanInsert,
+  AccountType,
+  createDecimalValueString,
+} from "@shared/schema";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
 
@@ -114,7 +119,7 @@ export default function Goals() {
           values.accountType === "ALL"
             ? null
             : (values.accountType as AccountType),
-        targetValue: values.targetValue,
+        targetValue: createDecimalValueString(values.targetValue),
       });
       setIsAddMilestoneOpen(false);
       form.reset();
@@ -152,7 +157,8 @@ export default function Goals() {
   };
 
   // Get progress percentage for a milestone
-  const calculateProgress = (milestone: any) => {
+  // Convert DecimalValueString to number for calculations
+  const calculateProgress = (milestone: Milestone) => {
     let currentValue = 0;
 
     if (milestone.accountType) {
@@ -166,18 +172,22 @@ export default function Goals() {
       );
     } else {
       // Use total portfolio value for general milestones
-      currentValue = portfolioOverview?.value ?? 0;
+      // portfolioOverview?.value is DecimalValueString | undefined
+      currentValue = portfolioOverview?.value
+        ? Number(portfolioOverview.value)
+        : 0;
     }
 
     const targetValue = Number(milestone.targetValue);
-    const percentage = (currentValue / targetValue) * 100;
+    const percentage = targetValue > 0 ? (currentValue / targetValue) * 100 : 0;
 
     // Cap at 100%
     return Math.min(percentage, 100);
   };
 
   // Format display for progress
-  const formatProgressDisplay = (milestone: any) => {
+  // Convert DecimalValueString to number for calculations
+  const formatProgressDisplay = (milestone: Milestone) => {
     let currentValue = 0;
 
     if (milestone.accountType) {
@@ -191,11 +201,14 @@ export default function Goals() {
       );
     } else {
       // Use total portfolio value for general milestones
-      currentValue = portfolioOverview?.value ?? 0;
+      // portfolioOverview?.value is DecimalValueString | undefined
+      currentValue = portfolioOverview?.value
+        ? Number(portfolioOverview.value)
+        : 0;
     }
 
     const targetValue = Number(milestone.targetValue);
-    const percentage = (currentValue / targetValue) * 100;
+    const percentage = targetValue > 0 ? (currentValue / targetValue) * 100 : 0;
 
     // Format the display based on progress
     if (percentage >= 100) {

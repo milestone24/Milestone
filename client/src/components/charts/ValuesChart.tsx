@@ -42,7 +42,7 @@ const getMaxYValue = (
   milestones: Milestone[]
 ) => {
   const maxPortfolioValue = Math.max(
-    ...assetValueChartData.map((d) => d.value)
+    ...assetValueChartData.map((d) => Number(d.value))
   );
   if (!showMilestonesLocal || !milestones) return maxPortfolioValue;
 
@@ -449,13 +449,13 @@ export default function ValuesChart({
                               </span>
                               <span
                                 className={
-                                  change.change >= 0
+                                  Number(change.change) >= 0
                                     ? "text-green-600"
                                     : "text-red-600"
                                 }
                               >
-                                {change.change >= 0 ? "+" : ""}£
-                                {Math.abs(change.change).toLocaleString()}
+                                {Number(change.change) >= 0 ? "+" : ""}£
+                                {Math.abs(Number(change.change)).toLocaleString()}
                               </span>
                             </div>
                           </div>

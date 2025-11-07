@@ -104,7 +104,8 @@ function Portfolio() {
               month: "short",
               day: "2-digit",
             }),
-            value: Number(item.value),
+            // Keep value as DecimalValueString (not converted to number)
+            value: item.value,
             changes: item.changes,
             // achievedMilestone: achievedMilestone
             //   ? {
@@ -174,9 +175,10 @@ function Portfolio() {
   };
 
   // Find next milestone for the portfolio if any
+  // Convert DecimalValueString to number for getNextMilestone
   const nextMilestone = getNextMilestone(
     milestones ?? [],
-    portfolioOverview?.value ?? 0
+    portfolioOverview?.value ? Number(portfolioOverview.value) : 0
   );
 
   const onSubmit = async (values: UserAssetOrphanInsert) => {
@@ -217,24 +219,24 @@ function Portfolio() {
         {portfolioOverview ? (
           <>
             <span className="text-2xl font-bold">
-              £{portfolioOverview?.value.toLocaleString()}
+              £{Number(portfolioOverview.value).toLocaleString()}
             </span>
             <p
               className={`text-sm font-medium ${
-                portfolioOverview.currentChangePercentage >= 0
+                Number(portfolioOverview.currentChangePercentage) >= 0
                   ? "text-green-600"
                   : "text-red-600"
               }`}
             >
               {displayInPercentage ? (
                 <>
-                  {portfolioOverview.currentChangePercentage >= 0 ? "+" : ""}
-                  {portfolioOverview.currentChangePercentage.toFixed(1)}%
+                  {Number(portfolioOverview.currentChangePercentage) >= 0 ? "+" : ""}
+                  {Number(portfolioOverview.currentChangePercentage).toFixed(1)}%
                 </>
               ) : (
                 <>
-                  {portfolioOverview.currentChange >= 0 ? "+" : ""}£
-                  {Math.abs(portfolioOverview.currentChange).toLocaleString()}
+                  {Number(portfolioOverview.currentChange) >= 0 ? "+" : ""}£
+                  {Math.abs(Number(portfolioOverview.currentChange)).toLocaleString()}
                 </>
               )}
             </p>
@@ -447,30 +449,30 @@ function Portfolio() {
                         <p
                           className={`text-sm font-medium ${
                             (displayInPercentage
-                              ? asset.accountChange.currentChangePercentage
-                              : asset.accountChange.currentChange) >= 0
+                              ? Number(asset.accountChange.currentChangePercentage)
+                              : Number(asset.accountChange.currentChange)) >= 0
                               ? "text-green-600"
                               : "text-red-600"
                           }`}
                         >
                           {displayInPercentage ? (
                             <>
-                              {asset.accountChange.currentChangePercentage >= 0
+                              {Number(asset.accountChange.currentChangePercentage) >= 0
                                 ? "+"
                                 : ""}
-                              {asset.accountChange.currentChangePercentage.toFixed(
+                              {Number(asset.accountChange.currentChangePercentage).toFixed(
                                 1
                               )}
                               %
                             </>
                           ) : (
                             <>
-                              {asset.accountChange.currentChange >= 0
+                              {Number(asset.accountChange.currentChange) >= 0
                                 ? "+"
                                 : ""}
                               £
                               {Math.abs(
-                                asset.accountChange.currentChange
+                                Number(asset.accountChange.currentChange)
                               ).toLocaleString()}
                             </>
                           )}

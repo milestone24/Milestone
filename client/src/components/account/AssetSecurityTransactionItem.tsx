@@ -77,10 +77,10 @@ export const AssetSecurityTransactionItem = ({
           <span
             className={cn(
               "font-medium",
-              transaction.value > 0 ? "text-green-600" : "text-red-600"
+              Number(transaction.value) > 0 ? "text-green-600" : "text-red-600"
             )}
           >
-            {transaction.value > 0 ? "+" : "-"}
+            {Number(transaction.value) > 0 ? "+" : "-"}
             {Number(transaction.value)} shares
           </span>
         </div>

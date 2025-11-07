@@ -45,6 +45,7 @@ import {
   ResolvedUserAsset,
   UserAsset,
   WithResolvedSecurities,
+  createDecimalValueString,
 } from "shared/schema";
 import {
   getBrokerAccountTypeFullName,
@@ -166,7 +167,8 @@ function AssetPage() {
               month: "short",
               day: "2-digit",
             }),
-            value: Number(item.value),
+            // Keep value as DecimalValueString (not converted to number)
+            value: item.value,
             changes: item.changes,
             // achievedMilestone: achievedMilestone
             //   ? {
@@ -238,7 +240,7 @@ function AssetPage() {
     try {
       await addAssetValue.mutateAsync({
         assetId: assetId,
-        value: Number(values.value),
+        value: createDecimalValueString(values.value),
         recordedAt: new Date(),
         valueDate: new Date(values.recordedAt),
       });
@@ -255,7 +257,7 @@ function AssetPage() {
       await updateAssetValue.mutateAsync({
         historyId: historyToEdit.id,
         assetId: assetId,
-        value: Number(values.value),
+        value: createDecimalValueString(values.value),
         valueDate: new Date(values.recordedAt),
         recordedAt: new Date(),
       });

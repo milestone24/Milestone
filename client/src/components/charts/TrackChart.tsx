@@ -1,13 +1,15 @@
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import type { FireProjectionData } from "@shared/schema/projections";
 
 type TrackChartProps = {
   targetAge: number;
   targetAmount: number;
   currentAge: number;
   currentAmount: number;
+  projectionData?: FireProjectionData[]; // Server-calculated projection data
   className?: string;
 };
 
@@ -16,11 +18,31 @@ export default function TrackChart({
   targetAmount,
   currentAge,
   currentAmount,
+  projectionData,
   className
 }: TrackChartProps) {
-  // Generate data points for projected growth path
-  const generateProjectedData = () => {
-    const data = [];
+  // ============================================================================
+  // SERVER AS SOURCE OF TRUTH
+  // ============================================================================
+  // If projectionData is provided, use server-calculated projection
+  // Otherwise, fall back to simple client-side calculation (for backwards compatibility)
+  // ============================================================================
+
+  const data = useMemo(() => {
+    // Use server projection data if available
+    if (projectionData && projectionData.length > 0) {
+      return projectionData.map((point) => ({
+        age: point.age.toString(),
+        projected: Number(point.portfolio),
+        target: Number(point.target),
+        actual: point.age === currentAge ? currentAmount : null,
+        accessibleValue: point.accessibleValue ? Number(point.accessibleValue) : undefined,
+        lockedValue: point.lockedValue ? Number(point.lockedValue) : undefined,
+      }));
+    }
+
+    // Fallback: Simple client-side calculation (for backwards compatibility)
+    const fallbackData = [];
     const years = targetAge - currentAge;
     const growthRate = Math.pow(targetAmount / currentAmount, 1 / years) - 1;
     
@@ -28,22 +50,16 @@ export default function TrackChart({
       const age = currentAge + i;
       const projected = currentAmount * Math.pow(1 + growthRate, i);
       
-      data.push({
+      fallbackData.push({
         age: age.toString(),
         projected: Math.round(projected),
+        target: targetAmount,
         actual: i === 0 ? currentAmount : null
       });
     }
     
-    return data;
-  };
-
-  const data = generateProjectedData();
-
-  // Format currency values
-  const formatCurrency = (value: number) => {
-    return `£${value.toLocaleString()}`;
-  };
+    return fallbackData;
+  }, [projectionData, targetAge, targetAmount, currentAge, currentAmount]);
 
   return (
     <Card className={cn("w-full", className)}>
@@ -66,8 +82,31 @@ export default function TrackChart({
                 tick={{ fontSize: 12 }}
               />
               <Tooltip 
-                formatter={(value: number) => [`£${value.toLocaleString()}`, value === currentAmount ? 'Your Progress' : 'Projected Growth']}
+                formatter={(value: number, name: string) => {
+                  if (name === 'Projected Growth' || name === 'Projected Portfolio') {
+                    return [`£${value.toLocaleString()}`, 'Projected Growth'];
+                  }
+                  if (name === 'Your Progress' || name === 'Current Value') {
+                    return [`£${value.toLocaleString()}`, 'Your Progress'];
+                  }
+                  if (name === 'Target') {
+                    return [`£${value.toLocaleString()}`, 'Target'];
+                  }
+                  return [`£${value.toLocaleString()}`, name];
+                }}
               />
+              {/* Target line */}
+              <Line 
+                type="monotone" 
+                dataKey="target" 
+                stroke="#EF4444" 
+                strokeWidth={2}
+                strokeDasharray="5 5"
+                dot={false}
+                activeDot={{ r: 5 }}
+                name="Target"
+              />
+              {/* Projected portfolio line (from server) */}
               <Line 
                 type="monotone" 
                 dataKey="projected" 
@@ -75,8 +114,9 @@ export default function TrackChart({
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 5 }}
-                name="Projected Growth"
+                name="Projected Portfolio"
               />
+              {/* Current value marker */}
               <Line 
                 type="monotone" 
                 dataKey="actual" 

@@ -1,7 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import type { RecurringContributionFormData } from "@shared/schema/transaction";
-import { recurringContributionOrphanInsertSchema } from "@shared/schema";
+import {
+  recurringContributionOrphanInsertSchema,
+  createDecimalValueString,
+} from "@shared/schema";
 import {
   Form,
   FormField,
@@ -23,7 +26,7 @@ type TransactionRecurringFormProps = {
 };
 
 const defaultValues: RecurringContributionFormData = {
-  amount: 0,
+  amount: createDecimalValueString("0"),
   startDate: new Date(),
   patternConfig: {
     type: "rrule",
@@ -101,9 +104,11 @@ export const TransactionRecurringForm = ({
                     <Input
                       type="number"
                       {...field}
-                      value={field.value.toString()}
+                      value={field.value ?? createDecimalValueString("0")}
                       onChange={(e) => {
-                        field.onChange(Number(e.target.value));
+                        field.onChange(
+                          createDecimalValueString(e.target.value)
+                        );
                       }}
                     />
                   </FormControl>

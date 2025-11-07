@@ -1,6 +1,6 @@
 import { useDebouncedCallback } from "@/hooks/use-debounce-callback";
 import { useFindSecurities } from "@/hooks/use-find-securities";
-import { SecuritySearchResult } from "@shared/schema";
+import { SecuritySearchResult, createDecimalValueString } from "@shared/schema";
 import { UserAssetSecurityInsert } from "@shared/schema/portfolio-assets";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -49,8 +49,8 @@ export const AssetSecurityForm = ({
 
     defaultValues: {
       security: undefined,
-      shareHolding: 0,
-      currencyValue: 0,
+      shareHolding: createDecimalValueString("0"),
+      currencyValue: createDecimalValueString("0"),
       startDate: startDate ?? new Date(),
     },
   });
@@ -104,7 +104,15 @@ export const AssetSecurityForm = ({
             <FormItem>
               <FormLabel>Share Holdings</FormLabel>
               <FormControl>
-                <Input type="number" placeholder="Share Holdings" {...field} />
+                <Input
+                  type="number"
+                  placeholder="Share Holdings"
+                  {...field}
+                  value={field.value ?? createDecimalValueString("0")}
+                  onChange={(e) => {
+                    field.onChange(createDecimalValueString(e.target.value));
+                  }}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -120,7 +128,15 @@ export const AssetSecurityForm = ({
                 The currency paid for the security to date.
               </FormDescription>
               <FormControl>
-                <Input type="number" placeholder="Currency Value" {...field} />
+                <Input
+                  type="number"
+                  placeholder="Currency Value"
+                  {...field}
+                  value={field.value ?? createDecimalValueString("0")}
+                  onChange={(e) => {
+                    field.onChange(createDecimalValueString(e.target.value));
+                  }}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -10,6 +10,8 @@ import {
 } from "@/lib/utils/milestones";
 import { useToast } from "@/hooks/use-toast";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
+import { createDecimalValueString } from "@shared/schema";
+import Decimal from "decimal.js";
 
 // Define AccountType directly here as well to avoid type issues
 type AccountType = "ISA" | "SIPP" | "LISA" | "GIA";
@@ -42,7 +44,7 @@ export default function AISuggestedMilestones() {
         // Fallback to local generation
         const localSuggestions = generateMilestoneSuggestions(
           assets,
-          portfolioOverview?.value ?? 0,
+          portfolioOverview?.value ? Number(portfolioOverview.value) : 0,
           milestones
         );
 
@@ -61,7 +63,7 @@ export default function AISuggestedMilestones() {
           // Fallback if AI returned empty results
           const localSuggestions = generateMilestoneSuggestions(
             assets,
-            portfolioOverview?.value ?? 0,
+            portfolioOverview?.value ? Number(portfolioOverview.value) : 0,
             milestones
           );
           setSuggestions(localSuggestions);
@@ -70,7 +72,7 @@ export default function AISuggestedMilestones() {
         // Use local generation as fallback
         const localSuggestions = generateMilestoneSuggestions(
           assets,
-          portfolioOverview?.value ?? 0,
+          portfolioOverview?.value ? Number(portfolioOverview.value) : 0,
           milestones
         );
         setSuggestions(localSuggestions);
@@ -83,7 +85,7 @@ export default function AISuggestedMilestones() {
       // Use local generation as fallback on error
       const localSuggestions = generateMilestoneSuggestions(
         assets,
-        portfolioOverview?.value ?? 0,
+        portfolioOverview?.value ? Number(portfolioOverview.value) : 0,
         milestones
       );
       setSuggestions(localSuggestions);
@@ -102,7 +104,12 @@ export default function AISuggestedMilestones() {
       await addMilestone.mutateAsync({
         name: suggestion.name,
         accountType: accountType,
-        targetValue: suggestion.targetValue,
+        targetValue:
+          typeof suggestion.targetValue === "string"
+            ? createDecimalValueString(suggestion.targetValue)
+            : createDecimalValueString(
+                Decimal(suggestion.targetValue).toString()
+              ),
       });
 
       // Remove from suggestions

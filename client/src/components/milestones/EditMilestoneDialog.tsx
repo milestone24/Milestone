@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { AccountType, Milestone } from "@shared/schema";
+import { AccountType, Milestone, createDecimalValueString } from "@shared/schema";
 import { usePortfolio } from "@/context/PortfolioContext";
 import {
   Dialog,
@@ -86,7 +86,7 @@ export function EditMilestoneDialog({
         id: milestone.id,
         name: values.name,
         accountType: values.accountType === "ALL" ? null : values.accountType,
-        targetValue: values.targetValue,
+        targetValue: createDecimalValueString(values.targetValue),
       });
       onClose();
     } catch (error) {

@@ -3,6 +3,7 @@ import {
   RecurringContributionOrphanInsert,
   UserAssetOrphanInsert,
   AssetSecurityLike,
+  createDecimalValueString,
 } from "@shared/schema";
 import { useFieldArray, useFormContext } from "react-hook-form";
 //import { useLens } from "@hookform/lenses";
@@ -19,6 +20,7 @@ import { RRuleScheduler } from "../schedule/RRuleScheduler";
 import { useCallback, useEffect, useState } from "react";
 import { Switch } from "../ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
+import Decimal from "decimal.js";
 
 /**
  * If it is a asset create form (Group) then we will be either
@@ -196,7 +198,7 @@ const useContributionSecurities = <T extends AssetSecurityLike>({
           id: security.id,
           securityName: security.security.name,
           isTempSecurityId: security.isTempSecurityId,
-          commitment: 0,
+          commitment: createDecimalValueString("0"),
         }))
         .forEach((security) => {
           if (
@@ -209,7 +211,14 @@ const useContributionSecurities = <T extends AssetSecurityLike>({
             securityId: security.id,
             isTempSecurityId: security.isTempSecurityId ?? false,
             securityName: security.securityName,
-            commitment: security.commitment,
+            commitment:
+              typeof security.commitment === "string"
+                ? createDecimalValueString(security.commitment)
+                : typeof security.commitment === "number"
+                ? createDecimalValueString(
+                    Decimal(security.commitment).toString()
+                  )
+                : security.commitment || createDecimalValueString("0"),
           });
         });
     }

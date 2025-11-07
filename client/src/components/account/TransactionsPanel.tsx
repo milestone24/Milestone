@@ -8,6 +8,7 @@ import {
   AssetTransaction,
   RecurringContribution,
   RecurringContributionInsert,
+  createDecimalValueString,
 } from "@shared/schema";
 import { TransactionsDialogue } from "./TransactionsDialogue";
 import { usePortfolio } from "@/context/PortfolioContext";
@@ -139,6 +140,7 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
       return addAssetContribution.mutateAsync({
         ...data,
         assetId: assetId,
+        value: typeof data.value === "string" ? createDecimalValueString(data.value) : data.value,
         valueDate: data.valueDate,
       });
     } catch (error) {
@@ -156,6 +158,7 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
         ...data,
         contributionId: contributionId,
         assetId: assetId,
+        value: typeof data.value === "string" ? createDecimalValueString(data.value) : data.value,
         valueDate: data.valueDate,
       });
     } catch (error) {

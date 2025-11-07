@@ -3,12 +3,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { calculateAge, calculateOnTrackStatus } from "@shared/utils/tracking";
+import {
+  calculateAge,
+  convertToAgeBasedProjection,
+} from "@shared/utils/projection-utils";
 import TrackChart from "@/components/charts/TrackChart";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
 import { useFireSettings } from "@/hooks/use-fire-settings";
 import { usePatchFireSettings } from "@/hooks/use-fire-settings-patch";
 import { useSession } from "@/hooks/use-session";
+import { useFIREProjection } from "@/hooks/use-projections";
+import type { SimpleProjectionConfig } from "@shared/schema/projections";
+import { ProjectionModifier, createDecimalValueString } from "@shared/schema";
 
 export default function Track() {
   const { data: portfolioOverview } = usePortfolioOverview();
@@ -42,17 +48,104 @@ export default function Track() {
       defaultSettings.expectedAnnualReturn,
   });
 
-  // Calculate on track status
-  const targetAmount = formState.targetAmount || 1200000;
+  // ============================================================================
+  // SERVER AS SOURCE OF TRUTH
+  // ============================================================================
+  // Use server-calculated FIRE projection for accurate on-track status
+  // This includes bonuses, value releases, modifiers, and proper compound growth
+  // ============================================================================
+
   const targetAge =
     formState.retirementAge || defaultSettings.targetRetirementAge;
+  const expectedReturn = Number(
+    formState.expectedReturn || defaultSettings.expectedAnnualReturn
+  );
+  const adjustInflation = fireSettings?.adjustInflation ?? true;
 
-  const onTrackStatus = calculateOnTrackStatus({
-    currentAge,
-    targetAge,
-    currentAmount: portfolioOverview?.value ?? 0,
-    targetAmount,
-  });
+  // Create projection config from form state
+  const modifiers: ProjectionModifier[] = adjustInflation
+    ? [
+        {
+          type: "inflation",
+          enabled: true,
+          rate: 2.8,
+          description: "Inflation",
+        },
+      ]
+    : [];
+
+  const projectionConfig: Omit<
+    SimpleProjectionConfig,
+    "startDate" | "endDate"
+  > = {
+    mode: "simple",
+    growthRate: expectedReturn,
+    growthModel: "compound",
+    interval: "yearly",
+    modifiers,
+  };
+
+  const { data: fireProjection } = useFIREProjection(
+    projectionConfig,
+    undefined
+  );
+
+  // Extract on-track status and projection data from server
+  const {
+    isOnTrack,
+    yearsAheadOrBehind,
+    monthlyShortfall,
+    projectedValueAtRetirement,
+    fireNumber = 0,
+    projectionResult,
+  } = fireProjection ?? {};
+
+  // Use server-calculated current value
+  const currentPortfolioValue = projectionResult?.totalCurrentValue
+    ? Number(projectionResult.totalCurrentValue)
+    : portfolioOverview?.value ?? 0;
+
+  // Calculate target amount (FIRE number from form or server)
+  const targetAmount = formState.targetAmount || fireNumber || 1200000;
+
+  // Calculate difference and on-track status (convert to numbers for calculations)
+  const currentValueNum =
+    typeof currentPortfolioValue === "number"
+      ? currentPortfolioValue
+      : Number(currentPortfolioValue);
+  const targetAmountNum =
+    typeof targetAmount === "number" ? targetAmount : Number(targetAmount || 0);
+
+  // Calculate expected current amount from projection timePoints at current age
+  // Find the timePoint closest to current age
+  let expectedCurrentAmount: number = currentValueNum;
+  if (projectionResult?.timePoints && user?.profile?.dob) {
+    const currentDate = new Date();
+    const closestPoint =
+      projectionResult.timePoints.find(
+        (point) =>
+          Math.abs(point.date.getTime() - currentDate.getTime()) <
+          30 * 24 * 60 * 60 * 1000 // Within 30 days
+      ) || projectionResult.timePoints[0];
+
+    if (closestPoint) {
+      // Linear interpolation: if we're not exactly at a timePoint, interpolate
+      // For simplicity, use the closest point's value
+      expectedCurrentAmount = Number(closestPoint.value);
+    }
+  }
+
+  const difference = currentValueNum - expectedCurrentAmount;
+  const percentageOfTarget =
+    targetAmountNum > 0 ? (currentValueNum / targetAmountNum) * 100 : 0;
+
+  // On-track status (use server calculation if available, otherwise calculate locally)
+  const onTrackStatus = {
+    isOnTrack: isOnTrack ?? difference >= 0,
+    expectedCurrentAmount,
+    difference,
+    percentageOfTarget: Math.min(100, Math.max(0, percentageOfTarget)),
+  };
 
   // Handle form submission
   const handleRecalculate = async () => {
@@ -62,13 +155,19 @@ export default function Track() {
       await updateFireSettings({
         targetRetirementAge: formState.retirementAge,
         // Calculate annual income goal based on target amount and withdrawal rate
-        annualIncomeGoal: (
-          formState.targetAmount *
-          (Number(fireSettings.safeWithdrawalRate) / 100)
-        ).toString(),
-        expectedAnnualReturn: formState.expectedReturn.toString(),
+        annualIncomeGoal: createDecimalValueString(
+          (
+            formState.targetAmount *
+            (Number(fireSettings.safeWithdrawalRate) / 100)
+          ).toString()
+        ),
+        expectedAnnualReturn: createDecimalValueString(
+          formState.expectedReturn.toString()
+        ),
         safeWithdrawalRate: fireSettings.safeWithdrawalRate,
         monthlyInvestment: fireSettings.monthlyInvestment,
+        adjustInflation: fireSettings.adjustInflation ?? true,
+        statePensionAge: fireSettings.statePensionAge ?? 66,
       });
     } catch (error) {
       console.error("Error updating FIRE settings:", error);
@@ -86,22 +185,32 @@ export default function Track() {
     }
   };
 
-  // Calculate monthly investment needed to get back on track
-  const calculateMonthlyAdjustment = () => {
-    if (onTrackStatus.isOnTrack) return 0;
+  // Monthly adjustment from server (properly calculated with growth rate)
+  // Use server's monthlyShortfall if available, otherwise calculate from difference
+  const monthlyAdjustment =
+    !onTrackStatus.isOnTrack && monthlyShortfall
+      ? Number(monthlyShortfall)
+      : !onTrackStatus.isOnTrack
+      ? Math.ceil(
+          Math.abs(onTrackStatus.difference) / ((targetAge - currentAge) * 12)
+        )
+      : 0;
 
-    // Simple approximation - actual calculation would be more complex
-    const yearsLeft = targetAge - currentAge;
-    const monthsLeft = yearsLeft * 12;
-
-    // How much extra total is needed
-    const shortfall = Math.abs(onTrackStatus.difference);
-
-    // Divide by months and add buffer
-    return Math.ceil(shortfall / monthsLeft) + 50; // Round up to nearest 10
-  };
-
-  const monthlyAdjustment = calculateMonthlyAdjustment();
+  // ============================================================================
+  // CONVERT SERVER PROJECTION TO AGE-BASED DATA FOR CHART
+  // ============================================================================
+  // Transform server timePoints to age-based format for chart display
+  // This ensures the chart shows the authoritative server projection
+  // including bonuses, value releases, and modifiers
+  // ============================================================================
+  const trackProjectionData =
+    user?.profile?.dob && projectionResult
+      ? convertToAgeBasedProjection(
+          projectionResult.timePoints,
+          user.profile.dob,
+          createDecimalValueString(targetAmountNum.toString())
+        )
+      : [];
 
   return (
     <div className="track-screen max-w-5xl mx-auto px-4 pb-20">
@@ -115,9 +224,10 @@ export default function Track() {
           {/* Chart */}
           <TrackChart
             targetAge={targetAge}
-            targetAmount={targetAmount}
+            targetAmount={targetAmountNum}
             currentAge={currentAge}
-            currentAmount={portfolioOverview?.value ?? 0}
+            currentAmount={currentValueNum}
+            projectionData={trackProjectionData}
             className="mb-6"
           />
 
@@ -128,8 +238,8 @@ export default function Track() {
                 <h3 className="font-medium">FIRE Goal Progress</h3>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-600">
-                    £{portfolioOverview?.value?.toLocaleString() ?? 0} of £
-                    {targetAmount.toLocaleString()}
+                    £{currentValueNum.toLocaleString()} of £
+                    {targetAmountNum.toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -151,7 +261,7 @@ export default function Track() {
             <div className="flex justify-between items-center mb-1">
               <span className="text-sm text-gray-600">Your current total:</span>
               <span className="font-medium">
-                £{portfolioOverview?.value?.toLocaleString() ?? 0}
+                £{currentValueNum.toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between items-center mb-1">
@@ -161,7 +271,7 @@ export default function Track() {
               <span className="font-medium">
                 £
                 {Math.round(
-                  onTrackStatus.expectedCurrentAmount
+                  Number(onTrackStatus.expectedCurrentAmount)
                 ).toLocaleString()}
               </span>
             </div>

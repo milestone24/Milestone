@@ -3,6 +3,7 @@ import {
   AssetContributionFormData,
   assetContributionOrphanInsertSchema,
 } from "@shared/schema/transaction";
+import { createDecimalValueString } from "@shared/schema";
 import {
   Form,
   FormControl,
@@ -16,6 +17,7 @@ import { Button } from "../ui/button";
 import { Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { withTransform } from "@/lib/utils/mappers";
+import Decimal from "decimal.js";
 
 type TransactionSingleFormProps = {
   onSubmit: (data: AssetContributionFormData) => Promise<void>;
@@ -33,9 +35,11 @@ export const TransactionSingleForm = ({
         ...values,
         value: values.value
           ? typeof values.value === "string"
-            ? parseFloat(values.value)
+            ? createDecimalValueString(values.value)
+            : typeof values.value === "number"
+            ? createDecimalValueString(Decimal(values.value).toString())
             : values.value
-          : 0,
+          : createDecimalValueString("0"),
         valueDate: values.valueDate
           ? typeof values.valueDate === "string"
             ? new Date(values.valueDate)
@@ -49,11 +53,11 @@ export const TransactionSingleForm = ({
           valueDate: new Date(data.valueDate),
         }
       : {
-          value: 0,
+          value: createDecimalValueString("0"),
           valueDate: new Date(),
         },
     defaultValues: {
-      value: 0,
+      value: createDecimalValueString("0"),
       valueDate: new Date(),
     },
   });
@@ -102,7 +106,14 @@ export const TransactionSingleForm = ({
               <FormItem>
                 <FormLabel>Amount (£)</FormLabel>
                 <FormControl>
-                  <Input {...field} type="number" />
+                  <Input
+                    type="number"
+                    {...field}
+                    value={field.value ?? createDecimalValueString("0")}
+                    onChange={(e) => {
+                      field.onChange(createDecimalValueString(e.target.value));
+                    }}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
