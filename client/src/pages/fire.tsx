@@ -28,6 +28,7 @@ import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
 import { useForm, FormProvider } from "react-hook-form";
 import { FireSettingsForm } from "@/components/fire/FireSettingsForm";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Link } from "lucide-react";
 
 // Calculate UK State Pension age based on date of birth
 const calculateStatePensionAge = (
@@ -303,6 +304,23 @@ export default function Fire() {
     }
   });
 
+  if (!user?.profile?.dob) {
+    return (
+      <div className="fire-screen max-w-5xl mx-auto px-4 pb-20">
+        <Card className="mt-4">
+          <CardContent className="p-4">
+            <h2 className="text-lg font-semibold mb-3">FIRE Calculator</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              You must set your date of birth before you can use the FIRE
+              calculator. This should be done in your profile setings.
+            </p>
+            <Link href="/profile">Go to Profile</Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // If no FIRE settings exist, show initial setup
   if (!fireSettings) {
     return (
@@ -329,22 +347,6 @@ export default function Fire() {
                 </Button>
               </form>
             </FormProvider>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!user?.profile?.dob) {
-    return (
-      <div className="fire-screen max-w-5xl mx-auto px-4 pb-20">
-        <Card className="mt-4">
-          <CardContent className="p-4">
-            <h2 className="text-lg font-semibold mb-3">FIRE Calculator</h2>
-            <p className="text-sm text-gray-600 mb-6">
-              You must set your date of birth before you can use the FIRE
-              calculator.
-            </p>
           </CardContent>
         </Card>
       </div>
