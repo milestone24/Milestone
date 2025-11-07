@@ -97,3 +97,7 @@ export function createDecimalValueString(value: string): DecimalValueString {
   }
   return value as DecimalValueString;
 }
+
+export const dateTransformedSchema = z.coerce
+  .date()
+  .transform((val) => (typeof val === "string" ? new Date(val) : val));
