@@ -5,7 +5,11 @@ import { Milestone } from "./portfolio-milestone";
 import { FireSettings } from "./portfolio-fire";
 import { UserProfile } from "./user-account";
 import { decimalValueSchema, schedulePatternType } from "@server/db/schema";
-import { DecimalValueString, isDecimalValueString } from "./utils";
+import {
+  dateTransformedSchema,
+  DecimalValueString,
+  isDecimalValueString,
+} from "./utils";
 
 // ============================================================================
 // PROJECTION CONFIGURATION
@@ -104,18 +108,15 @@ export type ProjectionModifier = z.infer<typeof projectionModifierSchema>;
 // ============================================================================
 
 export const configDateRangeSchema = z.object({
-  startDate: z.coerce.date(),
-  endDate: z.coerce.date(),
+  startDate: dateTransformedSchema,
+  endDate: dateTransformedSchema,
 });
 
 /**
  * Base configuration for all projections
  */
 export const baseProjectionConfigSchema = z.object({
-  //mode: projectionModeSchema,
   growthModel: growthModelSchema,
-  // startDate: z.coerce.date(),
-  // endDate: z.coerce.date(),
   interval: projectionIntervalSchema.default("monthly"),
   modifiers: z.array(projectionModifierSchema).default([]),
 });
@@ -209,7 +210,7 @@ export const milestoneTargetSchema = z.object({
   targetValue: z.string().refine(isDecimalValueString, {
     message: "Target value must be a valid decimal string",
   }),
-  targetDate: z.coerce.date().optional(), // When user wants to achieve milestone
+  targetDate: dateTransformedSchema.optional(), // When user wants to achieve milestone
   accountType: z.string().nullable(), // ISA, SIPP, LISA, GIA, or null for portfolio-wide
 });
 export type MilestoneTarget = z.infer<typeof milestoneTargetSchema>;
@@ -219,7 +220,7 @@ export type MilestoneTarget = z.infer<typeof milestoneTargetSchema>;
  * Calculates retirement date from user's DOB + target retirement age
  */
 export const fireProjectionConfigSchema = z.object({
-  dateOfBirth: z.coerce.date(),
+  dateOfBirth: dateTransformedSchema,
   targetRetirementAge: z.number().min(18).max(100),
   annualIncomeGoal: z.string().refine(isDecimalValueString, {
     message: "Annual income goal must be a valid decimal string",
@@ -239,16 +240,25 @@ export type FIREProjectionConfig = z.infer<typeof fireProjectionConfigSchema>;
  * Similar to AssetValueTimePoint but for projected future values
  */
 export const projectionTimePointSchema = z.object({
-  date: z.coerce.date(),
-  value: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Value must be a valid decimal string",
-  }),
-  contributions: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Contributions must be a valid decimal string",
-  }),
-  growth: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Growth must be a valid decimal string",
-  }), // Cumulative growth by this date
+  date: z.coerce
+    .date()
+    .transform((val) => (typeof val === "string" ? new Date(val) : val))
+    .describe("The date of the time point"),
+  value: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Value must be a valid decimal string",
+    })
+    .describe("The value of the time point"),
+  contributions: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Contributions must be a valid decimal string",
+    })
+    .describe("The contributions of the time point"),
+  growth: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Growth must be a valid decimal string",
+    })
+    .describe("The growth of the time point"), // Cumulative growth by this date
   bonuses: decimalValueSchema
     .refine(isDecimalValueString, {
       message: "Bonuses must be a valid decimal string",
@@ -397,8 +407,8 @@ export const contributorScheduleSchema = z.object({
   value: decimalValueSchema.refine(isDecimalValueString, {
     message: "Value must be a valid decimal string",
   }),
-  startDate: z.coerce.date(),
-  endDate: z.coerce.date().nullable(),
+  startDate: dateTransformedSchema,
+  endDate: dateTransformedSchema.nullable(),
 });
 
 export type ContributorSchedule = z.infer<typeof contributorScheduleSchema>;
@@ -419,35 +429,6 @@ export const contributorSchema = z.object({
 
 export type Contributor = z.infer<typeof contributorSchema>;
 
-/**
- * Computation context for client-side adjustments
- * Contains enough data to recompute projections without server round-trips
- */
-// export const computationContextSchema = z.object({
-//   // Assets used in the projection
-//   assets: z.array(
-//     z.object({
-//       id: z.string().uuid(),
-//       name: z.string(),
-//       accountType: z.string(),
-//       currentValue: z.number(),
-//     })
-//   ),
-//   // Snapshot of contributions at computation time
-//   recurringContributions: z.array(
-//     z.object({
-//       id: z.string(),
-//       assetId: z.string(),
-//       amount: z.number(),
-//       isActive: z.boolean(),
-//       startDate: z.coerce.date(),
-//       patternConfig: z.any(), // SchedulePattern
-//       process: z.string(),
-//     })
-//   ),
-// });
-// export type ComputationContext = z.infer<typeof computationContextSchema>;
-
 export const computationContextSchema = z.object({
   contributors: z.array(contributorSchema),
 });
@@ -462,7 +443,7 @@ export const milestoneProgressSchema = z.object({
   targetValue: decimalValueSchema.refine(isDecimalValueString, {
     message: "Target value must be a valid decimal string",
   }),
-  targetDate: z.coerce.date().optional(),
+  targetDate: dateTransformedSchema.optional(),
   projectedValueAtTarget: decimalValueSchema.refine(isDecimalValueString, {
     message: "Projected value at target must be a valid decimal string",
   }),
@@ -498,7 +479,7 @@ export const projectionResultSchema = z.object({
   contributorBreakdown: z.array(contributorProjectionSchema),
   milestoneProgress: z.array(milestoneProgressSchema).optional(),
   //fireProgress: fireProgressSchema.optional(),
-  computedAt: z.coerce.date(),
+  computedAt: dateTransformedSchema,
   warnings: z.array(z.string()).optional(), // E.g., "Insufficient historical data for asset X"
   // NEW: Context for client-side recomputation
   computationContext: computationContextSchema.optional(),
@@ -538,7 +519,7 @@ export type FireProjectionResult = z.infer<typeof fireProjectionResultSchema>;
  */
 export const fireProjectionSchema = z.object({
   fireNumber: z.number(), // Required portfolio value to retire
-  projectedRetirementDate: z.coerce.date(),
+  projectedRetirementDate: dateTransformedSchema,
   projectedRetirementAge: z.number(),
   targetRetirementAge: z.number(),
   projectedValueAtRetirement: decimalValueSchema.refine(isDecimalValueString, {
