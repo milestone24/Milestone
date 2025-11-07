@@ -147,6 +147,7 @@ export default function Fire() {
     growthModel: "linear",
     interval: "yearly",
     modifiers,
+    useContributorSpecificGrowthRates: false,
   };
 
   const { data: currentProjection } = useFIREProjection(

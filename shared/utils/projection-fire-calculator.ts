@@ -292,6 +292,7 @@ export async function projectRetirementWithAccountAssets(
       type: "state_pension",
       currentValue: createDecimalValueString("0"),
       accountType: "SIPP",
+      expectedGrowthRate: 0,
       schedules: [
         {
           patternConfig: {

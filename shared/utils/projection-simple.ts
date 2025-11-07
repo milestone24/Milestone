@@ -11,6 +11,7 @@ import {
   createProjectionTimePoint,
   getNextProjectionDate,
   getDateIncrement,
+  getEffectiveGrowthRate,
 } from "./projection-utils";
 import { createDecimalValueString, DecimalValueString } from "@shared/schema";
 import Decimal from "decimal.js";
@@ -173,11 +174,13 @@ export function generateLinearProjectionTimeSeries(
       currentProjectionDate
     );
 
-    // Apply linear growth to initial value only
-    const growthRate = config.growthRate / 100;
-    const growthValue = Decimal(currentValue)
-      .mul(growthRate)
-      .mul(yearsFromStart);
+    // Get effective growth rate for this contributor
+    const effectiveGrowthRate = getEffectiveGrowthRate(contributor, config);
+    const growthRate = effectiveGrowthRate / 100;
+    const growthValue =
+      effectiveGrowthRate === 0
+        ? Decimal(0) // No growth
+        : Decimal(currentValue).mul(growthRate).mul(yearsFromStart);
 
     // Calculate contributions in this period (with bonuses)
     const lastTimePoint = timePoints[timePoints.length - 1];
@@ -304,8 +307,12 @@ export function generateCompoundProjectionTimeSeries(
       currentProjectionDate
     );
 
-    // Apply compound growth to accumulated value
-    const growthFactor = Math.pow(1 + config.growthRate / 100, yearsInInterval);
+    // Get effective growth rate for this contributor
+    const effectiveGrowthRate = getEffectiveGrowthRate(contributor, config);
+    const growthFactor =
+      effectiveGrowthRate === 0
+        ? 1 // No growth
+        : Math.pow(1 + effectiveGrowthRate / 100, yearsInInterval);
     let projectedValue = Decimal(accumulatedValue).mul(growthFactor);
 
     // Calculate and add contributions in this period (with bonuses)

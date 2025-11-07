@@ -119,6 +119,7 @@ export const baseProjectionConfigSchema = z.object({
   growthModel: growthModelSchema,
   interval: projectionIntervalSchema.default("monthly"),
   modifiers: z.array(projectionModifierSchema).default([]),
+  useContributorSpecificGrowthRates: z.boolean().optional().default(false),
 });
 
 /**
@@ -193,6 +194,7 @@ const c: ProjectionConfigWithDateRange = {
   endDate: new Date(),
   interval: "yearly",
   modifiers: [],
+  useContributorSpecificGrowthRates: false,
 };
 
 // ============================================================================
@@ -418,6 +420,7 @@ export const contributorSchema = z.object({
   accountType: z.enum(accountType),
   name: z.string(),
   type: z.enum(contributionTypes),
+  expectedGrowthRate: z.number().min(-100).max(1000).optional(),
   valueReleases: z.array(valueReleasePointInTimeSchema).optional(),
   bonusValues: z.array(bonusValueSchema).optional(),
   currentValue: decimalValueSchema.refine(isDecimalValueString, {

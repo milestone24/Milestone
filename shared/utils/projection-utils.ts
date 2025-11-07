@@ -5,6 +5,7 @@ import type {
   ProjectionOrchestratorAssetInput,
   Contributor,
   ProjectionConfigWithDateRange,
+  SimpleProjectionConfigWithDateRange,
   ProjectionConfig,
   FireProjectionData,
   BonusValue,
@@ -186,6 +187,50 @@ export function calculatePeriodContributions(
     bonuses: createDecimalValueString(totalBonuses.toString()),
     updatedAnnualUsage: updatedUsage,
   };
+}
+
+// ============================================================================
+// GROWTH RATE RESOLUTION
+// ============================================================================
+
+/**
+ * Get effective growth rate for a contributor based on projection config
+ *
+ * Global Mode (useContributorSpecificGrowthRates = false):
+ * - All contributors use config.growthRate
+ * - Exception: If contributor.expectedGrowthRate is undefined or 0, that contributor gets 0% growth (opt-out)
+ * - Any other value on contributor.expectedGrowthRate is ignored
+ *
+ * Contributor Mode (useContributorSpecificGrowthRates = true):
+ * - Each contributor uses its own expectedGrowthRate
+ * - undefined = 0 (no growth)
+ *
+ * @param contributor - The contributor to get growth rate for
+ * @param config - The projection configuration
+ * @returns The effective growth rate to use (as percentage, e.g., 7 for 7%)
+ */
+export function getEffectiveGrowthRate(
+  contributor: Contributor,
+  config: SimpleProjectionConfigWithDateRange
+): number {
+  if (config.useContributorSpecificGrowthRates ?? false) {
+    // Contributor mode: use contributor's own rate
+    // undefined = 0 (no growth)
+    return contributor.expectedGrowthRate ?? 0;
+  }
+
+  // Non-contributor mode: use global rate
+  // BUT: undefined or 0 on contributor = opt-out flag (no growth)
+  if (
+    contributor.expectedGrowthRate === undefined ||
+    contributor.expectedGrowthRate === 0
+  ) {
+    return 0; // Excluded from growth
+  }
+
+  // Contributor has a non-zero rate set
+  // In non-contributor mode, IGNORE it and use global
+  return config.growthRate;
 }
 
 // ============================================================================
@@ -468,6 +513,8 @@ export function mapAssetToContributor(
     bonusValues: defineBonusValuesForAssetType(
       asset.accountType as AccountType
     ),
+    //A percentage value, should we convert to a decimal value string?
+    expectedGrowthRate: 7,
   };
 }
 

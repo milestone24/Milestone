@@ -159,6 +159,7 @@ export function computeClientFireProjection(
     startDate,
     endDate,
     modifiers: [],
+    useContributorSpecificGrowthRates: false,
   };
 
   // Create minimal contributor for client-side projection (no bonuses/releases)

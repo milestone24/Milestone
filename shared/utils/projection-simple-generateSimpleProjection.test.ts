@@ -44,6 +44,7 @@ describe("generateSimpleProjection and expect contributions to be correct", () =
         endDate: projectionEndDate,
         interval: "yearly",
         modifiers: [],
+        useContributorSpecificGrowthRates: false,
       },
       currentValue: createDecimalValueString("100000"),
       scheduledContributions: contributor.schedules,

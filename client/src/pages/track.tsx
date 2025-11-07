@@ -83,6 +83,7 @@ export default function Track() {
     growthModel: "compound",
     interval: "yearly",
     modifiers,
+    useContributorSpecificGrowthRates: false,
   };
 
   const { data: fireProjection } = useFIREProjection(

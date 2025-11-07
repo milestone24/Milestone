@@ -22,6 +22,7 @@ describe("projectToRetirement", () => {
     const projectionConfig: ProjectionConfig = {
       mode: "simple",
       growthRate: 7.0,
+      useContributorSpecificGrowthRates: false,
       growthModel: "linear",
       interval: "yearly",
       modifiers: [],

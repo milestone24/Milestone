@@ -493,6 +493,7 @@ export function useDefaultSimpleProjectionConfig(
     endDate,
     interval: "yearly",
     modifiers: [],
+    useContributorSpecificGrowthRates: false,
   };
 }
 
@@ -512,6 +513,7 @@ export function useDefaultAdvancedProjectionConfig(
     growthModel: "compound",
     historicalPeriodMonths: historicalMonths,
     blendRatio: 0.5,
+    useContributorSpecificGrowthRates: false,
     startDate,
     endDate,
     interval: "yearly",
