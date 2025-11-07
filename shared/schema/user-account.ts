@@ -25,6 +25,7 @@ import {
   maritalStatus,
   gender,
   employmentStatus,
+  decimalValueSchema,
 } from "@server/db/schema/index";
 
 export {
@@ -34,6 +35,7 @@ export {
 } from "@server/db/schema/index";
 
 import {
+  dateTransformedSchema,
   DecimalValueString,
   IfConstructorEquals,
   isDecimalValueString,
@@ -42,15 +44,10 @@ import {
 // Core schemas
 export const coreUserInsertSchema = z.object({
   status: z.enum(["active", "inactive", "suspended"]).optional(),
-});
+}) satisfies ZodType<DBInsertCoreUser>;
 
-type ZodCoreUser = z.infer<typeof coreUserInsertSchema>;
-export type InsertCoreUser = IfConstructorEquals<
-  ZodCoreUser,
-  DBInsertCoreUser,
-  never
->;
-coreUserInsertSchema satisfies ZodType<InsertCoreUser>;
+export type InsertCoreUser = z.infer<typeof coreUserInsertSchema>;
+
 export type CoreUser = DBCoreUser;
 
 export const userAccountInsertSchema = z.object({
@@ -61,60 +58,102 @@ export const userAccountInsertSchema = z.object({
   fullName: z.string(),
   isEmailVerified: z.boolean().optional(),
   isPhoneVerified: z.boolean().optional(),
+}) satisfies ZodType<Omit<DBInsertUserAccount, "id">>;
+
+export type UserAccountInsert = z.infer<typeof userAccountInsertSchema>;
+
+export const userAccountSchema = userAccountInsertSchema.extend({
+  id: z.string(),
+  createdAt: dateTransformedSchema.nullable().transform((val) => val ?? null),
+  updatedAt: dateTransformedSchema.nullable().transform((val) => val ?? null),
+}); // satisfies ZodType<Omit<DBUserAccount, "createdAt" | "updatedAt">>;
+
+//export type UserAccount = DBUserAccount;
+export type UserAccount = z.infer<typeof userAccountSchema>;
+
+export const updateProfileOrphanSchema = z.object({
+  //avatarUrl: z.string().nullable().optional(),
+  //.transform((val) => val ?? null),
+  dob: dateTransformedSchema.nullable().transform((val) => val ?? null),
+  avatarUrl: z
+    .string()
+    .nullable()
+    .transform((val) => val ?? null),
+  countryOrigin: z
+    .string()
+    .nullable()
+    .transform((val) => val ?? null),
+  countryResidence: z
+    .string()
+    .nullable()
+    .transform((val) => val ?? null),
+  gender: z
+    .enum(gender)
+    .nullable()
+    .transform((val) => val ?? null),
+  maritalStatus: z
+    .enum(maritalStatus)
+    .nullable()
+    .transform((val) => val ?? null),
+  employmentStatus: z
+    .enum(employmentStatus)
+    .nullable()
+    .transform((val) => val ?? null),
+  incomeLevel: z
+    .enum(["low", "medium", "high", "other"])
+    .nullable()
+    .transform((val) => val ?? null),
+  netWorth: decimalValueSchema.nullable().transform((val) => val ?? null),
 });
 
-type ZodUserAccount = z.infer<typeof userAccountInsertSchema>;
-export type UserAccountInsert = IfConstructorEquals<
-  ZodUserAccount,
-  DBInsertUserAccount,
-  never
->;
-userAccountInsertSchema satisfies ZodType<InsertUserAccount>;
-export type UserAccount = DBUserAccount;
-
-export const userProfileInsertSchema = z.object({
-  userAccountId: z.string(),
-  avatarUrl: z.string().nullable().optional(),
-});
-
-type ZodUserProfile = z.infer<typeof userProfileInsertSchema>;
-export type UserProfileInsert = IfConstructorEquals<
-  ZodUserProfile,
+updateProfileOrphanSchema._output satisfies Omit<
   DBInsertUserProfile,
-  never
+  "userAccountId"
 >;
-userProfileInsertSchema satisfies ZodType<UserProfileInsert>;
-export type UserProfile = DBUserProfile;
+
+export type UpdateProfileOrphanInput = z.infer<
+  typeof updateProfileOrphanSchema
+>;
+
+export const userProfileInsertSchema = updateProfileOrphanSchema.extend({
+  userAccountId: z.string(),
+});
+
+userProfileInsertSchema._output satisfies DBInsertUserProfile;
+
+export type UserProfileInsert = z.infer<typeof userProfileInsertSchema>;
+
+export const userProfileSchema = userProfileInsertSchema.extend({
+  id: z.string(),
+});
+
+userProfileSchema._output satisfies Omit<
+  DBUserProfile,
+  "createdAt" | "updatedAt"
+>;
+
+//export type UserProfile = DBUserProfile;
+export type UserProfile = z.infer<typeof userProfileSchema>;
+
 export const passwordResetInsertSchema = z.object({
   userAccountId: z.string(),
   token: z.string(),
   expiresAt: z.date(),
-});
+}) satisfies ZodType<DBInsertPasswordReset>;
 
-type ZodPasswordReset = z.infer<typeof passwordResetInsertSchema>;
-export type PasswordResetInsert = IfConstructorEquals<
-  ZodPasswordReset,
-  DBInsertPasswordReset,
-  never
->;
-passwordResetInsertSchema satisfies ZodType<PasswordResetInsert>;
+export type PasswordResetInsert = z.infer<typeof passwordResetInsertSchema>;
 export type PasswordReset = DBPasswordReset;
 
 export const passwordChangeHistoryInsertSchema = z.object({
   userAccountId: z.string(),
   passwordHash: z.string(),
   changedAt: z.date(),
-});
+}) satisfies ZodType<DBInsertPasswordChangeHistory>;
 
-type ZodPasswordChangeHistory = z.infer<
+export type PasswordChangeHistoryInsert = z.infer<
   typeof passwordChangeHistoryInsertSchema
 >;
-export type PasswordChangeHistoryInsert = IfConstructorEquals<
-  ZodPasswordChangeHistory,
-  DBInsertPasswordChangeHistory,
-  never
->;
-passwordChangeHistoryInsertSchema satisfies ZodType<PasswordChangeHistoryInsert>;
+
 export type PasswordChangeHistory = DBPasswordChangeHistory;
 
 export const userSubscriptionInsertSchema = z.object({
@@ -209,30 +248,17 @@ export const revokeFamilySchema = z.object({
 
 export type ZodRevokeFamily = z.infer<typeof revokeFamilySchema>;
 
-export const updateProfileOrphanSchema = z.object({
-  //avatarUrl: z.string().nullable().optional(),
-  //.transform((val) => val ?? null),
-  dob: z.coerce.date().nullable().optional(),
-  countryOrigin: z.string().nullable().optional(),
-  countryResidence: z.string().nullable().optional(),
-  gender: z.enum(gender).nullable().optional(),
-  maritalStatus: z.enum(maritalStatus).nullable().optional(),
-  employmentStatus: z.enum(employmentStatus).nullable().optional(),
-  incomeLevel: z.enum(["low", "medium", "high", "other"]).nullable().optional(),
-  netWorth: z
-    .string()
-    .refine(isDecimalValueString, {
-      message: "Net worth must be a valid decimal string",
-    })
-    .optional(),
-}) satisfies ZodType<Omit<DBInsertUserProfile, "userAccountId">>;
+export const userSessionSchema = z.object({
+  id: z.string(),
+  account: userAccountSchema,
+  profile: userProfileSchema,
+});
 
-export type UpdateProfileOrphanInput = z.infer<
-  typeof updateProfileOrphanSchema
->;
+export type SessionUser = z.infer<typeof userSessionSchema>;
 
-export type SessionUser = {
-  id: string;
-  account: DBUserAccount;
-  profile: DBUserProfile;
-};
+export const sessionResponseSchema = z.object({
+  user: userSessionSchema,
+  message: z.string(),
+});
+
+export type SessionResponse = z.infer<typeof sessionResponseSchema>;

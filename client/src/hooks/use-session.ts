@@ -2,7 +2,12 @@ import { useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { toast } from "./use-toast";
 import { useSessionState, useSessionDispatch } from "../context/SessionContext";
-import { SessionUser } from "@shared/schema/";
+import {
+  SessionResponse,
+  sessionResponseSchema,
+  SessionUser,
+  userSessionSchema,
+} from "@shared/schema/";
 import { apiRequest } from "@/lib/queryClient";
 
 interface LoginData {
@@ -18,33 +23,35 @@ interface RegisterData extends LoginData {
 export class AuthError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'AuthError';
+    this.name = "AuthError";
   }
 }
-
-export type SessionResponse = {
-  user: SessionUser;
-  message: string;
-};
 
 export function useSession() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
-  
+
   // Use auth context state and dispatch
   const sessionState = useSessionState();
   const dispatch = useSessionDispatch();
-  
+
   const setProfileImage = (image: string | null) => {
     if (image) {
-      localStorage.setItem('profileImage', image);
+      localStorage.setItem("profileImage", image);
     } else {
-      localStorage.removeItem('profileImage');
+      localStorage.removeItem("profileImage");
     }
     dispatch({ type: "UPDATE_PROFILE_IMAGE", payload: image });
   };
 
-  const { user, isLoginLoading: isLoginPending, isInitialUserLoading, isInitialUserLoadFailed, error, isAuthenticated } = sessionState;
+  const {
+    user,
+    isLoginLoading: isLoginPending,
+    isInitialUserLoading,
+    isInitialUserLoadFailed,
+    error,
+    isAuthenticated,
+  } = sessionState;
 
   useQuery<SessionResponse | null>({
     queryKey: ["user"],
@@ -58,14 +65,26 @@ export function useSession() {
           "/api/auth/me"
         );
 
-        queryClient.setQueryData(["user"], responseData.user);
-        dispatch({ type: "INITIAL_USER_LOADED", payload: responseData.user });
+        //USe parser to make sure all the likes of dates are parsed correctly
+        const userValidation = sessionResponseSchema.safeParse(responseData);
 
-        //console.log("Initial user load successful:", responseData.user);
+        if (!userValidation.success) {
+          throw new Error("Invalid user data");
+        }
 
-        return responseData;
+        if (!userValidation.success) {
+          throw new Error("Invalid user data");
+        }
+
+        queryClient.setQueryData(["user"], userValidation.data.user);
+
+        dispatch({
+          type: "INITIAL_USER_LOADED",
+          payload: userValidation.data.user,
+        });
+
+        return userValidation.data;
       } catch (error) {
-
         console.log("Initial user load failed:", error);
         // For other errors, also mark as failed
         dispatch({ type: "INITIAL_USER_LOAD_FAILED" });
@@ -85,25 +104,33 @@ export function useSession() {
     // Longer stale time since we manage updates manually
     staleTime: 10 * 60 * 1000, // 10 minutes
     enabled: isInitialUserLoadFailed === false,
-
   });
 
   // Extract user and loading state from auth context
 
   const { mutate: login } = useMutation<SessionResponse, Error, LoginData>({
     mutationFn: async (data: LoginData) => {
-      console.log("Attempting login...");
       dispatch({ type: "LOGIN_LOADING" });
-      
-      const responseData = await apiRequest<SessionResponse>("POST", "/api/auth/login", data);
-      console.log("Login successful, cookies should be set");
-      return responseData;
+
+      const responseData = await apiRequest<SessionResponse>(
+        "POST",
+        "/api/auth/login",
+        data
+      );
+
+      const userValidation = sessionResponseSchema.safeParse(responseData);
+
+      if (!userValidation.success) {
+        throw new Error("Invalid user data");
+      }
+
+      return userValidation.data;
     },
     onSuccess: (data) => {
       // Update both query cache and auth context
       queryClient.setQueryData(["user"], data.user);
       dispatch({ type: "AUTH_SUCCESS", payload: data.user });
-      
+
       toast({
         title: "Welcome back!",
         description: data.message,
@@ -111,11 +138,11 @@ export function useSession() {
     },
     onError: (error: Error) => {
       // Update auth context with error
-      dispatch({ 
-        type: "AUTH_ERROR", 
-        payload: error instanceof Error ? error : new Error("Login failed") 
+      dispatch({
+        type: "AUTH_ERROR",
+        payload: error instanceof Error ? error : new Error("Login failed"),
       });
-      
+
       toast({
         title: "Login failed",
         description: error.message,
@@ -127,8 +154,12 @@ export function useSession() {
   const { mutate: register, isPending: isRegisterPending } = useMutation({
     mutationFn: async (data: RegisterData) => {
       dispatch({ type: "LOGIN_LOADING" });
-      
-      const responseData = await apiRequest<SessionResponse>("POST", "/api/auth/register", data);
+
+      const responseData = await apiRequest<SessionResponse>(
+        "POST",
+        "/api/auth/register",
+        data
+      );
 
       return responseData;
     },
@@ -136,7 +167,7 @@ export function useSession() {
       // Update both query cache and auth context
       queryClient.setQueryData(["user"], data.user);
       dispatch({ type: "AUTH_SUCCESS", payload: data.user });
-      
+
       toast({
         title: "Welcome to Fifo Life!",
         description: data.message,
@@ -144,11 +175,12 @@ export function useSession() {
     },
     onError: (error: Error) => {
       // Update auth context with error
-      dispatch({ 
-        type: "AUTH_ERROR", 
-        payload: error instanceof Error ? error : new Error("Registration failed") 
+      dispatch({
+        type: "AUTH_ERROR",
+        payload:
+          error instanceof Error ? error : new Error("Registration failed"),
       });
-      
+
       toast({
         title: "Registration failed",
         description: error.message,
@@ -161,7 +193,7 @@ export function useSession() {
     mutationFn: async () => {
       dispatch({ type: "LOGIN_LOADING" });
       dispatch({ type: "INITIAL_USER_LOADING" });
-      
+
       const responseData = await apiRequest("POST", "/api/auth/logout");
 
       return responseData;
@@ -170,7 +202,7 @@ export function useSession() {
       // Update both query cache and auth context
       queryClient.setQueryData(["user"], null);
       dispatch({ type: "AUTH_LOGOUT" });
-      
+
       setLocation("/login");
       toast({
         title: "Goodbye!",
@@ -188,8 +220,11 @@ export function useSession() {
 
   const resendVerificationMutation = useMutation({
     mutationFn: async (data: { email: string }) => {
-      
-      const responseData = await apiRequest<SessionResponse>("POST", "/api/resend-verification", data);
+      const responseData = await apiRequest<SessionResponse>(
+        "POST",
+        "/api/resend-verification",
+        data
+      );
 
       return responseData;
     },
@@ -197,7 +232,7 @@ export function useSession() {
       // Update both query cache and auth context
       queryClient.setQueryData(["user"], data.user);
       dispatch({ type: "AUTH_SUCCESS", payload: data.user });
-      
+
       toast({
         title: "Verification email sent",
         description: data.message,
@@ -205,11 +240,14 @@ export function useSession() {
     },
     onError: (error: Error) => {
       // Update auth context with error
-      dispatch({ 
-        type: "AUTH_ERROR", 
-        payload: error instanceof Error ? error : new Error("Failed to resend verification email") 
+      dispatch({
+        type: "AUTH_ERROR",
+        payload:
+          error instanceof Error
+            ? error
+            : new Error("Failed to resend verification email"),
       });
-      
+
       toast({
         title: "Failed to resend verification email",
         description: error.message,
@@ -221,13 +259,19 @@ export function useSession() {
   // Password reset request mutation
   const requestPasswordResetMutation = useMutation({
     mutationFn: async (email: string) => {
-      const responseData = await apiRequest<SessionResponse>("POST", "/api/forgot-password", { email });
+      const responseData = await apiRequest<SessionResponse>(
+        "POST",
+        "/api/forgot-password",
+        { email }
+      );
       return responseData;
     },
     onSuccess: (data) => {
       toast({
         title: "Password Reset Email Sent",
-        description: data.message || "If your email is registered, you will receive password reset instructions.",
+        description:
+          data.message ||
+          "If your email is registered, you will receive password reset instructions.",
       });
     },
     onError: (error: Error) => {
@@ -242,7 +286,10 @@ export function useSession() {
   // Validate reset token mutation
   const validateResetTokenMutation = useMutation({
     mutationFn: async (token: string) => {
-      const responseData = await apiRequest<SessionResponse>("GET", `/api/validate-reset-token?token=${encodeURIComponent(token)}`);
+      const responseData = await apiRequest<SessionResponse>(
+        "GET",
+        `/api/validate-reset-token?token=${encodeURIComponent(token)}`
+      );
 
       return responseData;
     },
@@ -250,15 +297,27 @@ export function useSession() {
 
   // Reset password mutation
   const resetPasswordMutation = useMutation({
-    mutationFn: async ({ token, password }: { token: string; password: string }) => {
-      const responseData = await apiRequest<SessionResponse>("POST", "/api/reset-password", { token, password });
+    mutationFn: async ({
+      token,
+      password,
+    }: {
+      token: string;
+      password: string;
+    }) => {
+      const responseData = await apiRequest<SessionResponse>(
+        "POST",
+        "/api/reset-password",
+        { token, password }
+      );
 
       return responseData;
     },
     onSuccess: (data) => {
       toast({
         title: "Password Reset Successful",
-        description: data.message || "Your password has been reset successfully. You can now log in with your new password.",
+        description:
+          data.message ||
+          "Your password has been reset successfully. You can now log in with your new password.",
       });
     },
     onError: (error: Error) => {
@@ -270,7 +329,8 @@ export function useSession() {
     },
   });
 
-  const isSessionPending = isLoginPending || isInitialUserLoading || isRegisterPending;
+  const isSessionPending =
+    isLoginPending || isInitialUserLoading || isRegisterPending;
 
   return {
     // Return auth state from context and query
@@ -284,23 +344,29 @@ export function useSession() {
     isAuthenticated,
     profileImage: sessionState.profileImage,
     setProfileImage,
-    
+
     login,
     register,
     logout,
     resendVerification: (email: string | { email: string }) => {
       // Handle both string and object with email property
-      const emailData = typeof email === 'string' ? { email } : email;
+      const emailData = typeof email === "string" ? { email } : email;
       resendVerificationMutation.mutate(emailData);
     },
-    
+
     // Password reset methods
     requestPasswordReset: async (email: string) => {
       try {
         await requestPasswordResetMutation.mutateAsync(email);
         return { ok: true };
       } catch (error) {
-        return { ok: false, message: error instanceof Error ? error.message : "Failed to request password reset" };
+        return {
+          ok: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to request password reset",
+        };
       }
     },
     validateResetToken: async (token: string) => {
@@ -308,7 +374,11 @@ export function useSession() {
         const result = await validateResetTokenMutation.mutateAsync(token);
         return { ok: true, email: result.user.account.email };
       } catch (error) {
-        return { ok: false, message: error instanceof Error ? error.message : "Invalid or expired token" };
+        return {
+          ok: false,
+          message:
+            error instanceof Error ? error.message : "Invalid or expired token",
+        };
       }
     },
     resetPassword: async (token: string, password: string) => {
@@ -316,7 +386,11 @@ export function useSession() {
         await resetPasswordMutation.mutateAsync({ token, password });
         return { ok: true };
       } catch (error) {
-        return { ok: false, message: error instanceof Error ? error.message : "Failed to reset password" };
+        return {
+          ok: false,
+          message:
+            error instanceof Error ? error.message : "Failed to reset password",
+        };
       }
     },
   };

@@ -10,7 +10,11 @@ import {
 } from "drizzle-orm/pg-core";
 import { InferSelectModel, relations, sql } from "drizzle-orm";
 import { z } from "zod";
-import { InferInsertModelBasic, timestampColumns } from "./utils";
+import {
+  brandedDecimal,
+  InferInsertModelBasic,
+  timestampColumns,
+} from "./utils";
 import { userAssets } from "./portfolio-assets";
 
 // Core User table
@@ -174,7 +178,7 @@ export const userProfiles = pgTable("user_profiles", {
   maritalStatus: maritalStatusEnum("marital_status"),
   employmentStatus: employmentStatusEnum("employment_status"),
   incomeLevel: incomeLevelEnum("income_level"),
-  netWorth: decimal("net_worth", { precision: 18, scale: 2 }),
+  netWorth: brandedDecimal("net_worth"),
   // Add profile fields as needed
   ...timestampColumns(),
 });

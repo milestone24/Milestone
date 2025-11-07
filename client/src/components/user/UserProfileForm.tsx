@@ -23,6 +23,7 @@ import {
 } from "../ui/select";
 import { Button } from "../ui/button";
 import { countriesOptions } from "@shared/schema/countries";
+import { createDecimalValueString } from "@shared/schema";
 
 export type UserProfileFormProps = {
   onSubmit: (data: UpdateProfileOrphanInput) => void;
@@ -39,7 +40,14 @@ export const UserProfileForm = ({ onSubmit, data }: UserProfileFormProps) => {
         ...values,
       })
     ),
-    values: data,
+    values: data
+      ? {
+          ...data,
+          netWorth: data.netWorth
+            ? createDecimalValueString(data.netWorth)
+            : null,
+        }
+      : undefined,
     defaultValues: {},
   });
 
