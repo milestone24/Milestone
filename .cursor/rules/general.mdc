@@ -7,9 +7,10 @@ alwaysApply: true
 - all git hub commit message should be of a user story and follow a pattern of "[subject] should [action]".
 - Never leave unused imports
 - always check packages already installed in package.json or existing architecture and library usage before presuming something should be installed.
-- always presume I am a better and I am more of a knowlodgable developer than you.
+- always presume I am a better and I am more of a knowledgable developer than you.
 - Never presume anything.
 - Never make changes outside of the scope that you have been asked to work on
 - Never use toast for form errors
 - Always consider git commit best practices when making changes. Commits should be small and to the point with no uneccessary changes
 - Always avoid complicated loops and within a loop delegate to a function to handle one item
+- When the agent feels like it has completed a task it should always run `npm run check` to ensure types are still passing.
