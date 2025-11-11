@@ -1,7 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss" source(".");
 
+/* Question if this is still needed */
 :root {
   --radius: 0.65rem;
   --background: oklch(1 0 0);
@@ -72,13 +71,88 @@
 }
 
 
-@layer base {
-  * {
-    @apply border-border;
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  /* Color palette for UI components */
+  --color-background: #ffffff;
+  --color-foreground: #0f172a;
+  --color-card: #ffffff;
+  --color-card-foreground: #0f172a;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0f172a;
+  --color-primary: #0f172a;
+  --color-primary-foreground: #f8fafc;
+  --color-secondary: #f1f5f9;
+  --color-secondary-foreground: #0f172a;
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
+  --color-accent: #f1f5f9;
+  --color-accent-foreground: #0f172a;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #f8fafc;
+  --color-border: #e2e8f0;
+  --color-input: #e2e8f0;
+  --color-ring: #0f172a;
+}
+
+/*@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-background: #020617;
+    --color-foreground: #f8fafc;
+    --color-card: #020617;
+    --color-card-foreground: #f8fafc;
+    --color-popover: #020617;
+    --color-popover-foreground: #f8fafc;
+    --color-primary: #f8fafc;
+    --color-primary-foreground: #0f172a;
+    --color-secondary: #1e293b;
+    --color-secondary-foreground: #f8fafc;
+    --color-muted: #1e293b;
+    --color-muted-foreground: #94a3b8;
+    --color-accent: #1e293b;
+    --color-accent-foreground: #f8fafc;
+    --color-destructive: #7f1d1d;
+    --color-destructive-foreground: #f8fafc;
+    --color-border: #1e293b;
+    --color-input: #1e293b;
+    --color-ring: #f8fafc;
   }
+}*/
+/*
+html,
+body {
+  @apply bg-background text-foreground;
+
+  @media (prefers-color-scheme: dark) {
+    color-scheme: dark;
+  }
+}
+
+* {
+  border-color: theme(colors.border);
+}
+
+body {
+  font-feature-settings: "rlig" 1, "calt" 1;
+}*/
+
+
+
+
+@layer base {
+  /* * {
+    @apply border;
+  } */
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    /*font-feature-settings: "rlig" 1, "calt" 1;*/
+
+    /*@media (prefers-color-scheme: dark) {
+      color-scheme: dark;
+    }*/
   }
 }
 
