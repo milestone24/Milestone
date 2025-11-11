@@ -258,7 +258,7 @@ export type SessionUser = z.infer<typeof userSessionSchema>;
 
 export const sessionResponseSchema = z.object({
   user: userSessionSchema,
-  message: z.string(),
+  message: z.string().optional(),
 });
 
 export type SessionResponse = z.infer<typeof sessionResponseSchema>;
