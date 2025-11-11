@@ -46,7 +46,7 @@ import {
   UserAsset,
   WithResolvedSecurities,
   createDecimalValueString,
-} from "shared/schema";
+} from "@shared/schema";
 import {
   getBrokerAccountTypeFullName,
   getBrokerName,
