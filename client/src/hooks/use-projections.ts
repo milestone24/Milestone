@@ -224,8 +224,8 @@ export function useMilestoneProjectionMutation() {
  */
 export function useFIREProjection(
   config: Omit<ProjectionConfig, "startDate" | "endDate"> | null,
-  fireConfig?: FIREProjectionConfig | null
-  //options?: UseQueryOptions<FIREProjectionResult>
+  fireConfig?: FIREProjectionConfig | null,
+  options?: UseQueryOptions<FireProjection>
 ) {
   return useQuery<FireProjection>({
     queryKey: [...fireProjection, config],
@@ -252,8 +252,8 @@ export function useFIREProjection(
 
       return result.data;
     },
-    // enabled: !!config && (options?.enabled ?? true),
-    // ...options,
+    enabled: !!config && (options?.enabled ?? true),
+    ...options,
   });
 }
 

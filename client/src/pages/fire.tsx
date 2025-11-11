@@ -1,9 +1,5 @@
-import { useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { usePortfolio } from "@/context/PortfolioContext";
-import { calculateContributionImpactWithProjections } from "@shared/utils/projection-client";
-import FireChart from "@/components/charts/FireChart";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import {
   DEFAULT_STATE_PENSION_AGE,
@@ -11,24 +7,40 @@ import {
   FireSettingsInsert,
   fireSettingsInsertSchema,
   fireSettingsOrphanSchema,
-  ProjectionModifier,
   createDecimalValueString,
 } from "@shared/schema";
-import type { SimpleProjectionConfig } from "@shared/schema/projections";
+import type {
+  FIREProjectionConfig,
+  ProjectionConfig,
+} from "@shared/schema/projections";
 import { useSession } from "@/hooks/use-session";
-import { useFIREProjection } from "@/hooks/use-projections";
-import {
-  calculateAge,
-  convertToAgeBasedProjection,
-} from "@shared/utils/projection-utils";
+import { calculateAge } from "@shared/utils/projection-utils";
 import { useFireSettings } from "@/hooks/use-fire-settings";
 import { usePatchFireSettings } from "@/hooks/use-fire-settings-patch";
 import { useCreateFireSettings } from "@/hooks/use-fire-settings-create";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
-import { useForm, FormProvider } from "react-hook-form";
-import { FireSettingsForm } from "@/components/fire/FireSettingsForm";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link } from "lucide-react";
+import { FireSummarySection } from "@/components/fire/FireSummarySection";
+import { FireGrowthModeToggleCard } from "@/components/fire/FireGrowthModeToggleCard";
+import { FireProjectionChartCard } from "@/components/fire/FireProjectionChartCard";
+import { FireSettingsPanel } from "@/components/fire/FireSettingsPanel";
+import { FireSettingsSummaryCard } from "@/components/fire/FireSettingsSummaryCard";
+import { PreviewModifiersPanel } from "@/components/fire/PreviewModifiersPanel";
+import { StandaloneContributorsPanel } from "@/components/fire/StandaloneContributorsPanel";
+import { useFirePreferences } from "@/hooks/use-fire-preferences";
+import {
+  DEFAULT_PREVIEW_INFLATION_RATE,
+  useFirePreviewState,
+} from "@/hooks/use-fire-preview-state";
+import { useFireProjectionState } from "@/hooks/use-fire-projection-state";
+import { useFirePreviewProjection } from "@/hooks/use-fire-preview-projection";
+import { FirePageSkeleton } from "@/components/fire/FirePageSkeleton";
+import { FirePageError } from "@/components/fire/FirePageError";
+import { useStandaloneContributors } from "@/hooks/use-standalone-contributors";
+import { useQueryClient } from "@tanstack/react-query";
+import { fireProjection } from "@shared/api/queryKeys";
 
 // Calculate UK State Pension age based on date of birth
 const calculateStatePensionAge = (
@@ -47,11 +59,12 @@ export default function Fire() {
   const { toast } = useToast();
 
   const { user } = useSession();
+  const currentAge = user?.profile?.dob ? calculateAge(user.profile.dob) : NaN;
+  const statePensionAge = calculateStatePensionAge(user?.profile?.dob);
+  //const { data: portfolioOverview } = usePortfolioOverview();
+  const queryClient = useQueryClient();
 
-  const currentAge = user?.profile.dob ? calculateAge(user.profile.dob) : NaN;
-  const statePensionAge = calculateStatePensionAge(user?.profile.dob);
-
-  const { data: portfolioOverview } = usePortfolioOverview();
+  //console.log("portfolioOverview", portfolioOverview);
 
   const { data: fireSettings, isLoading: isLoadingFireSettings } =
     useFireSettings();
@@ -59,7 +72,7 @@ export default function Fire() {
   const { mutateAsync: createFireSettings } = useCreateFireSettings();
 
   // Single form instance for the entire page
-  const form = useForm<FireSettingsInsert>({
+  const fireSettingsForm = useForm<FireSettingsInsert>({
     resolver: zodResolver(fireSettingsOrphanSchema),
     defaultValues: {
       annualIncomeGoal: "",
@@ -72,35 +85,111 @@ export default function Fire() {
     },
   });
 
-  const { formState, handleSubmit } = form;
-
-  const errors = formState.errors;
-  //console.log("errors", errors);
-
-  const isValid = formState.isValid;
-  //console.log("isValid", isValid);
-
-  const isSubmitting = formState.isSubmitting;
-  //console.log("isSubmitting", isSubmitting);
+  const {
+    formState: { isSubmitting: isSubmittingFireSettings },
+    handleSubmit,
+  } = fireSettingsForm;
 
   // Watch values for calculations
-  const watchedValues = form.watch();
+  const fireSettingsValues = fireSettingsForm.watch();
 
   // Helper variables for numeric conversions (used in calculations and display)
   // These convert DecimalValueString form values to numbers where needed
-  const monthlyInvestment = Number(watchedValues.monthlyInvestment || 0);
-  const expectedReturn = Number(watchedValues.expectedAnnualReturn || 0);
-  const withdrawalRate = Number(watchedValues.safeWithdrawalRate || 0);
-  const annualIncomeGoal = Number(watchedValues.annualIncomeGoal || 0);
+  const monthlyInvestment = Number(fireSettingsValues.monthlyInvestment || 0);
+  const expectedReturn = Number(fireSettingsValues.expectedAnnualReturn || 0);
+  const withdrawalRate = Number(fireSettingsValues.safeWithdrawalRate || 0);
+  const annualIncomeGoal = Number(fireSettingsValues.annualIncomeGoal || 0);
   const targetRetirementAge = Number(
-    watchedValues.targetRetirementAge || DEFAULT_TARGET_RETIREMENT_AGE
+    fireSettingsValues.targetRetirementAge || DEFAULT_TARGET_RETIREMENT_AGE
   );
-  const adjustInflation = watchedValues.adjustInflation ?? true;
+  const adjustInflation = fireSettingsValues.adjustInflation ?? true;
+
+  const firePreviewConfig = useMemo<FIREProjectionConfig | null>(() => {
+    if (!user?.profile?.dob) return null;
+
+    const dob =
+      typeof user.profile.dob === "string"
+        ? new Date(user.profile.dob)
+        : user.profile.dob;
+
+    if (!dob || Number.isNaN(dob.getTime())) {
+      return null;
+    }
+
+    return {
+      dateOfBirth: dob,
+      targetRetirementAge,
+      annualIncomeGoal: createDecimalValueString(
+        (fireSettingsValues.annualIncomeGoal || "0").toString()
+      ),
+      safeWithdrawalRate: withdrawalRate,
+      adjustForInflation: adjustInflation,
+      statePensionAge,
+    } satisfies FIREProjectionConfig;
+  }, [
+    user?.profile?.dob,
+    targetRetirementAge,
+    fireSettingsValues.annualIncomeGoal,
+    withdrawalRate,
+    adjustInflation,
+    statePensionAge,
+  ]);
+
+  const baseModifiers = useMemo(() => {
+    if (!adjustInflation) {
+      return [];
+    }
+
+    return [
+      {
+        type: "inflation" as const,
+        enabled: true,
+        rate: DEFAULT_PREVIEW_INFLATION_RATE,
+        description: "Inflation",
+      },
+    ];
+  }, [adjustInflation]);
+
+  const { growthMode, setGrowthMode, showChart, toggleChart } =
+    useFirePreferences();
+
+  const {
+    previewState,
+    setPreviewState,
+    setInflation,
+    previewModifiers,
+    resetPreviewState,
+  } = useFirePreviewState();
+
+  const {
+    mode: contributionMode,
+    setMode: setContributionMode,
+    contributors: standaloneContributors,
+    addContributor,
+    updateContributor,
+    removeContributor,
+    resetContributors,
+    mappedContributors,
+    totalMonthlyAmount: standaloneMonthlyAmount,
+    hasCustomContributors,
+  } = useStandaloneContributors();
+
+  const [isSettingsEditorOpen, setIsSettingsEditorOpen] = useState(false);
+
+  const handleOpenPreviewModifiers = useCallback(() => {
+    const anchor =
+      typeof document !== "undefined"
+        ? document.getElementById("preview-modifiers")
+        : null;
+    if (anchor) {
+      anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
 
   // Update form when fireSettings loads
   useEffect(() => {
     if (fireSettings) {
-      form.reset({
+      fireSettingsForm.reset({
         ...fireSettings,
         // Money fields: strip trailing zeros for cleaner display
         annualIncomeGoal: parseFloat(fireSettings.annualIncomeGoal).toString(),
@@ -117,169 +206,210 @@ export default function Fire() {
         statePensionAge: statePensionAge, // Always use calculated value based on DOB
       });
     }
-  }, [fireSettings, form, statePensionAge]);
+  }, [fireSettings, fireSettingsForm, statePensionAge]);
 
-  const mod: ProjectionModifier = {
-    type: "contribution_scaler",
-    enabled: true,
-    scaleFactor: 10.0,
-    description: "Contribution Scaler",
-  };
-
-  const modifiers: ProjectionModifier[] = adjustInflation
-    ? [
-        {
-          type: "inflation",
-          enabled: true,
-          rate: 2.8,
-          description: "Inflation",
-        },
-        mod,
-      ]
-    : [mod];
-
-  const projectionConfig: Omit<
-    SimpleProjectionConfig,
-    "startDate" | "endDate"
-  > = {
-    mode: "simple",
-    growthRate: 7.0,
-    growthModel: "linear",
-    interval: "yearly",
-    modifiers,
-    useContributorSpecificGrowthRates: false,
-  };
-
-  const { data: currentProjection } = useFIREProjection(
-    projectionConfig,
-    undefined
-  );
+  useEffect(() => {
+    if (!adjustInflation && previewState.inflation.enabled) {
+      setInflation((prev) => ({
+        ...prev,
+        enabled: false,
+      }));
+    }
+  }, [adjustInflation, previewState.inflation.enabled, setInflation]);
 
   const {
-    yearsAheadOrBehind,
-    fireNumber = 0,
-    projectedRetirementDate,
+    projectionConfig,
+    fireProjectionData,
+    currentProjection,
+    isLoading,
+    error,
+    refetch,
+    yearsToFire,
+    contributorsForFire,
+    currentPortfolioValue,
+    fireChartConfig,
     projectedRetirementAge,
     monthlyShortfall,
-    projectionResult,
-  } = currentProjection ?? {};
-
-  const { computationContext } = projectionResult ?? {};
-
-  // ============================================================================
-  // SERVER AS SOURCE OF TRUTH
-  // ============================================================================
-  // The main projection data comes from the server, which includes:
-  // - Bonuses (e.g., LISA 25% government bonus)
-  // - Value releases (age/date-based access restrictions)
-  // - Account-specific modifiers (tax, fees, inflation)
-  // - Accurate compound growth calculations
-  //
-  // Client-side calculations are ONLY used for preview/what-if scenarios
-  // (e.g., "what if I increase contributions by £100/month")
-  // ============================================================================
-
-  // Convert server-calculated timePoints to age-based projection data
-  // This uses the server's projection which includes bonuses, value releases, and modifiers
-  const fireProjectionData =
-    user?.profile?.dob && projectionResult
-      ? convertToAgeBasedProjection(
-          projectionResult.timePoints,
-          user.profile.dob,
-          createDecimalValueString(fireNumber.toString())
-        )
-      : [];
-
-  const yearsToFire = yearsAheadOrBehind ?? 0;
-
-  // Get full contributors from computation context for impact calculations
-  // This preserves bonuses, value releases, and account-specific logic
-  const contributorsForFire = computationContext?.contributors ?? [];
-
-  // Prepare config for FireChart component
-  // Use projection result values instead of portfolio overview for consistency
-  const currentPortfolioValue: number = projectionResult?.totalCurrentValue
-    ? Number(projectionResult.totalCurrentValue)
-    : Number(portfolioOverview?.value ?? 0);
-
-  // FireChart expects number types for config
-  const fireConfig = {
-    currentAmount: currentPortfolioValue,
+    fireNumber,
+  } = useFireProjectionState({
+    expectedReturn,
+    baseModifiers,
+    growthMode,
     monthlyInvestment,
-    expectedReturn,
-    targetAmount: fireNumber,
     currentAge,
-  };
+    userDob: user?.profile?.dob,
+    portfolioFallbackValue: 0, //Number(portfolioOverview?.value ?? 0),
+  });
 
-  console.log("yearsToFire", yearsToFire);
+  console.log("fire page currentPortfolioValue", currentPortfolioValue);
 
-  // Calculate the impact of changing monthly investment
-  // Use current portfolio value from projection result for consistency
-  const currentPortfolioValueDecimal = projectionResult?.totalCurrentValue
-    ? projectionResult.totalCurrentValue
-    : createDecimalValueString(currentPortfolioValue.toString());
+  const isUsingCustomContributors =
+    contributionMode === "custom" && mappedContributors.length > 0;
 
-  // ============================================================================
-  // CLIENT-SIDE PREVIEW CALCULATIONS
-  // ============================================================================
-  // These calculations are for "what-if" scenarios only.
-  // They provide quick previews without server round-trips.
-  // For authoritative projections, always use server-calculated data.
-  // ============================================================================
+  const previewContributors = isUsingCustomContributors
+    ? mappedContributors
+    : contributorsForFire;
 
-  // Calculate impact using full contributor model
-  // This preserves bonuses and value releases in the calculation
-  const increaseImpact = calculateContributionImpactWithProjections(
-    currentPortfolioValueDecimal,
-    contributorsForFire,
-    createDecimalValueString((monthlyInvestment + 100).toString()),
-    expectedReturn,
-    createDecimalValueString(fireNumber.toString()),
-    currentAge
-  );
+  const previewModifiersActive =
+    previewState.contribution.scaleFactor !== 1 ||
+    previewState.contribution.enabled === false ||
+    previewState.inflation.enabled !== adjustInflation ||
+    Math.abs(previewState.inflation.rate - DEFAULT_PREVIEW_INFLATION_RATE) >
+      0.01;
 
-  const decreaseImpact = calculateContributionImpactWithProjections(
-    currentPortfolioValueDecimal,
-    contributorsForFire,
-    createDecimalValueString((monthlyInvestment - 100).toString()),
-    expectedReturn,
-    createDecimalValueString(fireNumber.toString()),
-    currentAge
-  );
+  const previewEnabled = previewModifiersActive || isUsingCustomContributors;
 
-  // Projected retirement age - use value from server if available, otherwise calculate
-  const calculatedProjectedRetirementAge = projectedRetirementAge
-    ? Math.round(projectedRetirementAge)
-    : Math.round(currentAge + yearsToFire);
-
-  // Handle adjusting the monthly investment
-  //This should not modify the fire settings imediately, it should show a preview
-  //of the potential change
-  const handleAdjustInvestment = async (adjustment: number) => {
-    if (!fireSettings) return;
-
-    const currentMonthlyInvestment = Number(watchedValues.monthlyInvestment);
-    const newMonthlyInvestment = currentMonthlyInvestment + adjustment;
-
-    try {
-      await updateFireSettings({
-        ...watchedValues,
-        monthlyInvestment: createDecimalValueString(
-          newMonthlyInvestment.toString()
-        ),
-      });
-
-      form.setValue(
-        "monthlyInvestment",
-        createDecimalValueString(newMonthlyInvestment.toString())
-      );
-    } catch (error) {
-      console.error("Error updating monthly investment:", error);
+  const previewProjectionConfig = useMemo<ProjectionConfig | null>(() => {
+    if (!projectionConfig) {
+      return null;
     }
-  };
+
+    return {
+      ...projectionConfig,
+      modifiers: previewState.contribution.enabled
+        ? previewModifiers
+        : previewModifiers.filter(
+            (modifier) => modifier.type !== "contribution_scaler"
+          ),
+    } as ProjectionConfig;
+  }, [projectionConfig, previewModifiers, previewState.contribution.enabled]);
+
+  const { projection: previewProjection } = useFirePreviewProjection({
+    baseProjection: currentProjection,
+    fireConfig: firePreviewConfig ?? undefined,
+    projectionConfig: previewProjectionConfig,
+    contributors: previewContributors,
+    enabled: previewEnabled,
+  });
+
+  const previewActive = !!previewProjection;
+
+  const activeProjection = previewActive
+    ? previewProjection
+    : currentProjection;
+
+  const activeFireProjectionData = previewActive
+    ? previewProjection!.fireProjection
+    : fireProjectionData;
+
+  const activeFireNumber = activeProjection?.fireNumber ?? fireNumber;
+
+  const activeYearsToFire = activeProjection?.yearsAheadOrBehind ?? yearsToFire;
+
+  const activeProjectedRetirementAge = activeProjection?.projectedRetirementAge
+    ? Math.round(activeProjection.projectedRetirementAge)
+    : projectedRetirementAge;
+
+  const activeMonthlyShortfall = previewActive
+    ? previewProjection?.monthlyShortfall
+      ? Number(previewProjection.monthlyShortfall)
+      : undefined
+    : monthlyShortfall;
+
+  const activeCurrentPortfolioValue = previewActive
+    ? Number(
+        previewProjection?.projectionResult.totalCurrentValue ??
+          currentPortfolioValue
+      )
+    : currentPortfolioValue;
+
+  const activeFireChartConfig = useMemo(() => {
+    if (!previewActive) {
+      return fireChartConfig;
+    }
+
+    return {
+      ...fireChartConfig,
+      currentAmount: activeCurrentPortfolioValue,
+      targetAmount: activeFireNumber,
+    };
+  }, [
+    activeCurrentPortfolioValue,
+    activeFireNumber,
+    fireChartConfig,
+    previewActive,
+  ]);
+
+  const activeCurrentPortfolioValueDecimal = previewActive
+    ? previewProjection?.projectionResult.totalCurrentValue
+    : currentProjection?.projectionResult?.totalCurrentValue;
+
+  const currentPortfolioValueDecimal =
+    activeCurrentPortfolioValueDecimal ??
+    createDecimalValueString(activeCurrentPortfolioValue.toString());
+
+  const summaryData = useMemo(() => {
+    const retirementPoint =
+      activeFireProjectionData.find(
+        (point) => point.age >= activeProjectedRetirementAge
+      ) ?? activeFireProjectionData[activeFireProjectionData.length - 1];
+
+    const firstAccessiblePoint = activeFireProjectionData.find(
+      (point) => point.accessibleValue && Number(point.accessibleValue) > 0
+    );
+
+    const accessibleValueAtRetirement = retirementPoint?.accessibleValue
+      ? Number(retirementPoint.accessibleValue)
+      : undefined;
+
+    const lockedValueAtRetirement = retirementPoint?.lockedValue
+      ? Number(retirementPoint.lockedValue)
+      : undefined;
+
+    const progressPercentage =
+      activeFireNumber > 0
+        ? Math.min(100, (activeCurrentPortfolioValue / activeFireNumber) * 100)
+        : 0;
+
+    const contributionTotals = new Map<string, number>();
+    previewContributors.forEach((contributor) => {
+      const total = contributor.schedules.reduce((sum, schedule) => {
+        const numeric = Number(schedule.value ?? 0);
+        return sum + (Number.isFinite(numeric) ? numeric : 0);
+      }, 0);
+      if (total > 0) {
+        contributionTotals.set(
+          contributor.accountType ?? "Unspecified",
+          (contributionTotals.get(contributor.accountType ?? "Unspecified") ??
+            0) + total
+        );
+      }
+    });
+
+    const contributionBreakdown = Array.from(contributionTotals.entries()).map(
+      ([accountType, amount]) => ({
+        accountType,
+        amount,
+      })
+    );
+
+    contributionBreakdown.sort((a, b) => b.amount - a.amount);
+
+    const statePensionIncluded = previewContributors.some(
+      (contributor) => contributor.type === "state_pension"
+    );
+
+    return {
+      accessibleValueAtRetirement,
+      lockedValueAtRetirement,
+      firstAccessibleAge: firstAccessiblePoint?.age,
+      progressPercentage,
+      previewActive: previewActive || previewEnabled,
+      contributionBreakdown,
+      statePensionIncluded,
+    };
+  }, [
+    activeCurrentPortfolioValue,
+    activeFireNumber,
+    activeFireProjectionData,
+    activeProjectedRetirementAge,
+    previewContributors,
+    previewActive,
+    previewEnabled,
+  ]);
 
   // Handle form submission
-  const handleSaveSettings = form.handleSubmit(async (data) => {
+  const handleSaveSettings = fireSettingsForm.handleSubmit(async (data) => {
     const settings: Omit<FireSettingsInsert, "id" | "userAccountId"> = {
       ...data,
     };
@@ -290,10 +420,13 @@ export default function Fire() {
       } else {
         await updateFireSettings(settings);
       }
+      fireSettingsForm.reset(data);
+      setIsSettingsEditorOpen(false);
       toast({
         title: "Settings saved",
         description: "Your FIRE settings have been saved successfully.",
       });
+      await queryClient.invalidateQueries({ queryKey: fireProjection });
     } catch (error) {
       console.error("Error saving FIRE settings:", error);
       toast({
@@ -307,13 +440,13 @@ export default function Fire() {
 
   if (!user?.profile?.dob) {
     return (
-      <div className="fire-screen max-w-5xl mx-auto px-4 pb-20">
+      <div className="fire-screen mx-auto max-w-5xl px-4 pb-20">
         <Card className="mt-4">
           <CardContent className="p-4">
-            <h2 className="text-lg font-semibold mb-3">FIRE Calculator</h2>
-            <p className="text-sm text-gray-600 mb-6">
+            <h2 className="mb-3 text-lg font-semibold">FIRE Calculator</h2>
+            <p className="mb-6 text-sm text-gray-600">
               You must set your date of birth before you can use the FIRE
-              calculator. This should be done in your profile setings.
+              calculator. This should be done in your profile settings.
             </p>
             <Link href="/profile">Go to Profile</Link>
           </CardContent>
@@ -325,168 +458,118 @@ export default function Fire() {
   // If no FIRE settings exist, show initial setup
   if (!fireSettings) {
     return (
-      <div className="fire-screen max-w-5xl mx-auto px-4 pb-20">
+      <div className="fire-screen mx-auto max-w-5xl px-4 pb-20">
         <Card className="mt-4">
           <CardContent className="p-4">
-            <h2 className="text-lg font-semibold mb-3">
+            <h2 className="mb-3 text-lg font-semibold">
               Welcome to FIRE Planning
             </h2>
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="mb-6 text-sm text-gray-600">
               Let's set up your Financial Independence and Retire Early (FIRE)
               goals. This will help you track your progress towards financial
               independence.
             </p>
 
-            <FormProvider {...form}>
-              <form onSubmit={handleSaveSettings} className="space-y-4">
-                <FireSettingsForm />
-                <Button
-                  type="submit"
-                  className="w-full bg-primary text-white py-2 rounded-lg font-medium mt-4"
-                >
-                  Save FIRE Settings
-                </Button>
-              </form>
-            </FormProvider>
+            <FireSettingsPanel
+              form={fireSettingsForm}
+              onSubmit={handleSaveSettings}
+              isSubmitting={isSubmittingFireSettings}
+            />
           </CardContent>
         </Card>
       </div>
     );
   }
 
+  if (isLoadingFireSettings || isLoading) {
+    return (
+      <div className="fire-screen mx-auto max-w-5xl px-4 pb-20">
+        <FirePageSkeleton />
+      </div>
+    );
+  }
+
   // Main FIRE calculator view
   return (
-    <div className="fire-screen max-w-5xl mx-auto px-2 md:px-4 pb-20">
-      <div className="w-full flex flex-col">
-        <h2 className="text-lg font-semibold mb-3">FIRE Calculator</h2>
-        <p className="text-sm text-gray-600 mb-6">
-          Plan your Financial Independence and Retire Early
-        </p>
+    <div className="fire-screen mx-auto max-w-5xl px-2 pb-20 md:px-4">
+      <div className="flex w-full flex-col space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold">FIRE Calculator</h2>
+          <p className="text-sm text-gray-600">
+            Plan your Financial Independence and Retire Early
+          </p>
+        </div>
 
-        {/* FIRE Summary */}
-        <div className="bg-gray-50 rounded-lg p-4 mb-6">
-          <h3 className="font-medium mb-3">Your FIRE Summary</h3>
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-sm text-gray-600">Current portfolio:</span>
-            <span className="font-medium">
-              £{currentPortfolioValue.toLocaleString()}
-            </span>
-          </div>
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-sm text-gray-600">
-              FIRE number (Retirement Target):
-            </span>
-            <span className="font-medium">£{fireNumber.toLocaleString()}</span>
-          </div>
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-sm text-gray-600">
-              Annual sustainable income ({withdrawalRate}%):
-            </span>
-            <span className="font-medium">
-              £{annualIncomeGoal.toLocaleString()}
-            </span>
-          </div>
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-sm text-gray-600">
-              Projected retirement age:
-            </span>
-            <span className="font-medium">
-              {calculatedProjectedRetirementAge} years
-            </span>
+        {error ? (
+          <FirePageError error={error as Error} onRetry={refetch} />
+        ) : (
+          <FireSummarySection
+            currentPortfolioValue={activeCurrentPortfolioValue}
+            fireNumber={activeFireNumber}
+            annualIncomeGoal={annualIncomeGoal}
+            withdrawalRate={withdrawalRate}
+            projectedRetirementAge={activeProjectedRetirementAge}
+            targetRetirementAge={targetRetirementAge}
+            yearsToFire={activeYearsToFire}
+            statePensionAge={statePensionAge}
+            firstAccessibleAge={summaryData.firstAccessibleAge}
+            accessibleValueAtRetirement={
+              summaryData.accessibleValueAtRetirement
+            }
+            lockedValueAtRetirement={summaryData.lockedValueAtRetirement}
+            monthlyShortfall={activeMonthlyShortfall}
+            progressPercentage={summaryData.progressPercentage}
+            previewActive={summaryData.previewActive}
+            customContributorsActive={isUsingCustomContributors}
+            contributionBreakdown={summaryData.contributionBreakdown}
+            statePensionIncluded={summaryData.statePensionIncluded}
+          />
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <FireGrowthModeToggleCard
+            growthMode={growthMode}
+            onChange={setGrowthMode}
+          />
+          <div id="preview-modifiers">
+            <PreviewModifiersPanel
+              value={previewState}
+              onChange={setPreviewState}
+              onReset={resetPreviewState}
+            />
           </div>
         </div>
 
-        {/* Chart */}
-        <FireChart
-          projectionData={fireProjectionData}
-          yearsToFire={yearsToFire}
-          config={fireConfig}
-          targetRetirementAge={targetRetirementAge}
-          projectedRetirementAge={calculatedProjectedRetirementAge}
-          className="mb-6"
+        <StandaloneContributorsPanel
+          mode={contributionMode}
+          onModeChange={setContributionMode}
+          contributors={standaloneContributors}
+          onAddContributor={addContributor}
+          onUpdateContributor={updateContributor}
+          onRemoveContributor={removeContributor}
+          onReset={resetContributors}
+          totalMonthlyAmount={standaloneMonthlyAmount}
         />
 
-        {/* FIRE Settings */}
-        <div className="bg-gray-50 rounded-lg p-4 mb-6">
-          <h3 className="font-medium mb-3">Your FIRE Settings</h3>
+        <FireProjectionChartCard
+          showChart={showChart}
+          onToggle={toggleChart}
+          projectionData={activeFireProjectionData}
+          yearsToFire={activeYearsToFire}
+          chartConfig={activeFireChartConfig}
+          targetRetirementAge={targetRetirementAge}
+          projectedRetirementAge={activeProjectedRetirementAge}
+        />
 
-          <FormProvider {...form}>
-            <form onSubmit={handleSaveSettings} className="space-y-4">
-              <FireSettingsForm />
-              <Button
-                type="submit"
-                className="w-full bg-primary text-white py-2 rounded-lg font-medium mt-4"
-              >
-                Save Settings
-              </Button>
-            </form>
-          </FormProvider>
-        </div>
-
-        {/* Adjust Investment */}
-        <div className="bg-gray-50 rounded-lg p-4">
-          <h3 className="font-medium mb-3">Adjust Your Investment</h3>
-
-          <div className="mb-4">
-            <p className="text-sm font-medium text-gray-700 mb-2">
-              Current Monthly Investment
-            </p>
-            <p className="text-2xl font-bold">
-              £{monthlyInvestment.toLocaleString()}
-            </p>
-          </div>
-
-          <div className="flex space-x-2 mb-4">
-            <Button
-              variant="outline"
-              className="flex-1 py-2 px-3"
-              onClick={() => handleAdjustInvestment(-100)}
-              disabled={monthlyInvestment <= 100}
-            >
-              -£100/month
-            </Button>
-            <Button
-              className="flex-1 py-2 px-3 bg-primary text-white"
-              onClick={() => handleAdjustInvestment(100)}
-            >
-              +£100/month
-            </Button>
-          </div>
-
-          <div className="px-3 py-2 bg-blue-50 rounded-lg text-blue-700 text-sm">
-            {increaseImpact.monthsDifference > 0 ? (
-              <p>
-                By increasing your monthly investment by £100, you could retire{" "}
-                <span className="font-medium">
-                  {increaseImpact.monthsDifference > 12
-                    ? `${Math.floor(
-                        increaseImpact.monthsDifference / 12
-                      )} years and ${
-                        increaseImpact.monthsDifference % 12
-                      } months`
-                    : `${increaseImpact.monthsDifference} months`}{" "}
-                  earlier
-                </span>
-                .
-              </p>
-            ) : (
-              <p>
-                By decreasing your monthly investment by £100, your retirement
-                would be delayed by{" "}
-                <span className="font-medium">
-                  {decreaseImpact.monthsDifference > 12
-                    ? `${Math.floor(
-                        Math.abs(decreaseImpact.monthsDifference) / 12
-                      )} years and ${
-                        Math.abs(decreaseImpact.monthsDifference) % 12
-                      } months`
-                    : `${Math.abs(decreaseImpact.monthsDifference)} months`}
-                </span>
-                .
-              </p>
-            )}
-          </div>
-        </div>
+        <FireSettingsSummaryCard
+          form={fireSettingsForm}
+          onSubmit={handleSaveSettings}
+          isSubmitting={isSubmittingFireSettings}
+          isDirty={fireSettingsForm.formState.isDirty}
+          open={isSettingsEditorOpen}
+          onOpenChange={setIsSettingsEditorOpen}
+          onOpenPreviewModifiers={handleOpenPreviewModifiers}
+        />
       </div>
     </div>
   );

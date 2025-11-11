@@ -69,7 +69,10 @@ export async function navigateToPage(
   await navButton.click();
 
   // Wait for page to load based on common element for each page
-  const waitSelectors: Record<string, string> = {
+  const waitSelectors: Record<
+    "portfolio" | "goals" | "record" | "track" | "fire",
+    string
+  > = {
     portfolio: "text=Accounts",
     goals: "text=Goals",
     record: "text=Record Account Updates",
@@ -77,7 +80,9 @@ export async function navigateToPage(
     fire: "text=FIRE",
   };
 
-  await page.waitForSelector(waitSelectors[pageName], {
+  const waitSelector = waitSelectors[pageName];
+
+  await page.waitForSelector(waitSelector, {
     timeout: TEST_TIMEOUT.medium,
   });
 }
