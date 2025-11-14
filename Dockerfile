@@ -20,27 +20,29 @@ COPY package.json package-lock.json ./
 COPY tsconfig.json ./
 COPY vite.config.ts ./
 COPY drizzle.config.ts ./
-COPY client/ ./client/
+
 COPY server/ ./server/
 COPY shared/ ./shared/
 COPY public/ ./public/
+
+COPY client/ ./client/
 
 # Build the application
 RUN npm run build
 
 # Stage 3: Production - Minimal runtime image
-#FROM node:22 AS production
-#WORKDIR /app
+# FROM node:22 AS production
+# WORKDIR /app
 
-# Copy package files for production dependencies only
-#OPY package.json package-lock.json ./
+# # Copy package files for production dependencies only
+# COPY package.json package-lock.json ./
 
-# Install only production dependencies
-#RUN npm ci --omit=dev
+# # Install only production dependencies
+# RUN npm ci --omit=dev
 
-# Copy built artifacts from build stage
-#COPY --from=build /app/dist ./dist`
-#COPY --from=build /app/public ./public
+# # Copy built artifacts from build stage
+# COPY --from=build /app/dist ./dist`
+# COPY --from=build /app/public ./public
 
 # Expose port (adjust if your app uses a different port)
 EXPOSE 5001

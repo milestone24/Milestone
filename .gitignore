@@ -13,3 +13,8 @@ client/dev-dist
 data/postgres
 
 migrations_before
+
+# CDK
+infrastructure/cdk.out
+infrastructure/*.js
+infrastructure/*.d.ts

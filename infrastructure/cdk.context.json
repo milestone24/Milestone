@@ -1,0 +1,15 @@
+{
+  "availability-zones:account=455519800680:region=ap-southeast-1": [
+    "ap-southeast-1a",
+    "ap-southeast-1b",
+    "ap-southeast-1c"
+  ],
+  "ssm:account=455519800680:parameterName=/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64:region=ap-southeast-1": "ami-0c56f26c1d3277bcb",
+  "ssm:account=455519800680:parameterName=/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64:region=ap-southeast-1": "ami-015b994979bf6246a",
+  "availability-zones:account=286110924651:region=eu-west-2": [
+    "eu-west-2a",
+    "eu-west-2b",
+    "eu-west-2c"
+  ],
+  "ssm:account=286110924651:parameterName=/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64:region=eu-west-2": "ami-0c461081592e3f69b"
+}
