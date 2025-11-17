@@ -524,6 +524,7 @@ export function mapAssetsToContributors(
   return assets.map(mapAssetToContributor);
 }
 
+//TODO Correct spelling of range
 export function addDateRengeToProjectionConfig(
   projectionConfig: ProjectionConfig,
   startDate: Date,
@@ -579,4 +580,16 @@ export function convertToAgeBasedProjection(
   }
 
   return projectionData;
+}
+
+export function calculateYearsAheadOrBehind(
+  shortfall: number,
+  targetRetirementAge: number,
+  currentAge: number,
+  projectedValueAtRetirement: DecimalValueString
+): number {
+  return Decimal(shortfall)
+    .div(Decimal(projectedValueAtRetirement))
+    .div(targetRetirementAge - currentAge)
+    .toNumber();
 }

@@ -43,8 +43,8 @@ type UseFireProjectionStateResult = {
     targetAmount: number;
     currentAge: number;
   };
-  projectedRetirementAge: number;
-  projectedRetirementDate?: Date;
+  projectedRetirementAge: number | null;
+  projectedRetirementDate?: Date | null;
   monthlyShortfall?: number;
   fireNumber: number;
 };

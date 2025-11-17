@@ -522,14 +522,14 @@ export type FireProjectionResult = z.infer<typeof fireProjectionResultSchema>;
  */
 export const fireProjectionSchema = z.object({
   fireNumber: z.number(), // Required portfolio value to retire
-  projectedRetirementDate: dateTransformedSchema,
-  projectedRetirementAge: z.number(),
+  projectedRetirementDate: dateTransformedSchema.nullable(),
+  projectedRetirementAge: z.number().nullable(),
   targetRetirementAge: z.number(),
   projectedValueAtRetirement: decimalValueSchema.refine(isDecimalValueString, {
     message: "Projected value at retirement must be a valid decimal string",
   }),
   isOnTrack: z.boolean(),
-  yearsAheadOrBehind: z.number(), // Negative if ahead, positive if behind
+  yearsAheadOrBehind: z.number().nullable(), // Negative if ahead, positive if behind
   monthlyShortfall: decimalValueSchema
     .refine(isDecimalValueString, {
       message: "Monthly shortfall must be a valid decimal string",
@@ -537,6 +537,7 @@ export const fireProjectionSchema = z.object({
     .optional(), // Additional monthly contribution needed if behind
   projectionResult: projectionResultSchema,
   fireProjection: z.array(fireProjectionDataSchema),
+  warnings: z.array(z.string()).optional(),
 });
 export type FireProjection = z.infer<typeof fireProjectionSchema>;
 

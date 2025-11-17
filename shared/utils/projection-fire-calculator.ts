@@ -24,6 +24,7 @@ import Decimal from "decimal.js";
 import { createDecimalValueString } from "@shared/schema/utils";
 import {
   addDateRengeToProjectionConfig,
+  calculateYearsAheadOrBehind,
   convertToAgeBasedProjection,
   mapAssetsToContributors,
 } from "./projection-utils";
@@ -73,6 +74,8 @@ export async function projectToRetirement(
   //db: Database
   //dataSource: ProjectionDataSource
 ): Promise<FireProjection> {
+  const warnings: string[] = [];
+
   // Calculate retirement date
   const retirementDate = calculateRetirementDate(
     fireConfig.dateOfBirth,
@@ -114,8 +117,16 @@ export async function projectToRetirement(
     //dataSource,
   });
 
+  //console.log("projectionResult : ", projectionResult);
+
   // Get projected value at retirement
   const projectedValueAtRetirement = projectionResult.totalProjectedValue;
+
+  if (projectedValueAtRetirement === createDecimalValueString("0")) {
+    warnings.push(`Projected value at retirement is zero.
+This is probably due to having no contributors.
+This will cause the projection to be infinite years ahead of retirement.`);
+  }
 
   // Check if on track
   const isOnTrack = Decimal(projectedValueAtRetirement).gte(fireNumber);
@@ -125,13 +136,19 @@ export async function projectToRetirement(
 
   // Calculate years until retirement
   const currentAge = calculateAge(fireConfig.dateOfBirth);
-  const yearsAheadOrBehind = isOnTrack
-    ? 0 // Calculate actual years if ahead
-    : Math.ceil(
-        shortfall /
-          (Decimal(projectedValueAtRetirement).toNumber() /
-            (fireConfig.targetRetirementAge - currentAge))
-      );
+
+  const yearsAheadOrBehind = calculateYearsAheadOrBehind(
+    shortfall,
+    fireConfig.targetRetirementAge,
+    currentAge,
+    projectedValueAtRetirement
+  );
+
+  if (yearsAheadOrBehind === Infinity) {
+    warnings.push(
+      "Projected retirement age is not achievable with the current settings."
+    );
+  }
 
   // Calculate monthly shortfall if behind
   let monthlyShortfall: DecimalValueString | undefined;
@@ -158,13 +175,18 @@ export async function projectToRetirement(
   }
 
   // Calculate projected retirement date based on trajectory
-  const projectedRetirementDate = isOnTrack
-    ? retirementDate
-    : addYears(retirementDate, Math.abs(yearsAheadOrBehind));
+  const projectedRetirementDate =
+    yearsAheadOrBehind === Infinity
+      ? null
+      : isOnTrack
+      ? retirementDate
+      : addYears(retirementDate, Math.abs(yearsAheadOrBehind));
 
   const projectedRetirementAge =
-    calculateAge(fireConfig.dateOfBirth) +
-    differenceInYears(projectedRetirementDate, new Date());
+    projectedRetirementDate === null
+      ? null
+      : calculateAge(fireConfig.dateOfBirth) +
+        differenceInYears(projectedRetirementDate, new Date());
 
   const fireProjection = convertToAgeBasedProjection(
     projectionResult.timePoints,
@@ -183,6 +205,7 @@ export async function projectToRetirement(
     monthlyShortfall,
     fireProjection,
     projectionResult,
+    warnings,
   };
 }
 

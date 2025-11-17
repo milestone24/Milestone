@@ -21,7 +21,7 @@ import { useCreateFireSettings } from "@/hooks/use-fire-settings-create";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link } from "lucide-react";
+import { Link } from "wouter";
 import { FireSummarySection } from "@/components/fire/FireSummarySection";
 import { FireGrowthModeToggleCard } from "@/components/fire/FireGrowthModeToggleCard";
 import { FireProjectionChartCard } from "@/components/fire/FireProjectionChartCard";
@@ -340,9 +340,11 @@ export default function Fire() {
 
   const summaryData = useMemo(() => {
     const retirementPoint =
-      activeFireProjectionData.find(
-        (point) => point.age >= activeProjectedRetirementAge
-      ) ?? activeFireProjectionData[activeFireProjectionData.length - 1];
+      activeProjectedRetirementAge === null
+        ? undefined
+        : activeFireProjectionData.find(
+            (point) => point.age >= activeProjectedRetirementAge
+          ) ?? activeFireProjectionData[activeFireProjectionData.length - 1];
 
     const firstAccessiblePoint = activeFireProjectionData.find(
       (point) => point.accessibleValue && Number(point.accessibleValue) > 0
@@ -488,6 +490,8 @@ export default function Fire() {
       </div>
     );
   }
+
+  console.log("error", error);
 
   // Main FIRE calculator view
   return (
