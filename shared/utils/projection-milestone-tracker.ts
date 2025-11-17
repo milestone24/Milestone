@@ -105,20 +105,6 @@ export function recommendContributionAdjustment(
     return createDecimalValueString("0");
   }
 
-  console.log("recommendContributionAdjustment shortfall", shortfall);
-  console.log(
-    "recommendContributionAdjustment monthsRemaining",
-    monthsRemaining
-  );
-  console.log(
-    "recommendContributionAdjustment annualGrowthRate",
-    annualGrowthRate
-  );
-  console.log(
-    "recommendContributionAdjustment currentMonthlyContribution",
-    currentMonthlyContribution
-  );
-
   // Calculate additional monthly contribution needed
   // Using future value of annuity formula solved for payment:
   // FV = PMT × [((1 + r)^n - 1) / r]
