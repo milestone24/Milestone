@@ -27,11 +27,14 @@ import { FireGrowthModeToggleCard } from "@/components/fire/FireGrowthModeToggle
 import { FireProjectionChartCard } from "@/components/fire/FireProjectionChartCard";
 import { FireSettingsPanel } from "@/components/fire/FireSettingsPanel";
 import { FireSettingsSummaryCard } from "@/components/fire/FireSettingsSummaryCard";
-import { PreviewModifiersPanel } from "@/components/fire/PreviewModifiersPanel";
+import { FireInflationCard } from "@/components/fire/FireInflationCard";
 import { StandaloneContributorsPanel } from "@/components/fire/StandaloneContributorsPanel";
 import { useFirePreferences } from "@/hooks/use-fire-preferences";
 import {
+  ContributionPreviewState,
   DEFAULT_PREVIEW_INFLATION_RATE,
+  DEFAULT_PREVIEW_STATE,
+  InflationPreviewState,
   useFirePreviewState,
 } from "@/hooks/use-fire-preview-state";
 import { useFireProjectionState } from "@/hooks/use-fire-projection-state";
@@ -41,6 +44,8 @@ import { FirePageError } from "@/components/fire/FirePageError";
 import { useStandaloneContributors } from "@/hooks/use-standalone-contributors";
 import { useQueryClient } from "@tanstack/react-query";
 import { fireProjection } from "@shared/api/queryKeys";
+import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
+import { FireContributionsCard } from "@/components/fire/FireContributionsCard";
 
 // Calculate UK State Pension age based on date of birth
 const calculateStatePensionAge = (
@@ -410,6 +415,34 @@ export default function Fire() {
     previewEnabled,
   ]);
 
+  const setContributionPreviewState = useCallback(
+    (state: ContributionPreviewState) => {
+      setPreviewState((prev) => ({
+        ...prev,
+        contribution: state,
+      }));
+    },
+    [setPreviewState]
+  );
+
+  const resetContributionPreviewState = useCallback(() => {
+    resetPreviewState();
+  }, [resetPreviewState]);
+
+  const setInflationPreviewState = useCallback(
+    (state: InflationPreviewState) => {
+      setPreviewState((prev) => ({
+        ...prev,
+        inflation: state,
+      }));
+    },
+    [setPreviewState]
+  );
+
+  const resetInflationPreviewState = useCallback(() => {
+    resetPreviewState();
+  }, [resetPreviewState]);
+
   // Handle form submission
   const handleSaveSettings = fireSettingsForm.handleSubmit(async (data) => {
     const settings: Omit<FireSettingsInsert, "id" | "userAccountId"> = {
@@ -457,6 +490,14 @@ export default function Fire() {
     );
   }
 
+  if (isLoadingFireSettings || isLoading) {
+    return (
+      <div className="fire-screen mx-auto max-w-5xl px-4 pb-20">
+        <FirePageSkeleton />
+      </div>
+    );
+  }
+
   // If no FIRE settings exist, show initial setup
   if (!fireSettings) {
     return (
@@ -483,14 +524,6 @@ export default function Fire() {
     );
   }
 
-  if (isLoadingFireSettings || isLoading) {
-    return (
-      <div className="fire-screen mx-auto max-w-5xl px-4 pb-20">
-        <FirePageSkeleton />
-      </div>
-    );
-  }
-
   console.log("error", error);
 
   // Main FIRE calculator view
@@ -503,6 +536,57 @@ export default function Fire() {
             Plan your Financial Independence and Retire Early
           </p>
         </div>
+
+        <FireOverviewCard
+          projectedRetirementAge={activeProjectedRetirementAge}
+          valueAtRetirement={
+            activeProjection?.projectedValueAtRetirement
+              ? Number(activeProjection.projectedValueAtRetirement)
+              : 0
+          }
+          fireNumber={activeFireNumber}
+          showChart={showChart}
+          onToggleChart={toggleChart}
+          currentPortfolioValue={activeCurrentPortfolioValue}
+          currentPortfolioValueGrowth={0}
+        />
+        {showChart ? (
+          <FireProjectionChartCard
+            showChart={showChart}
+            onToggle={toggleChart}
+            projectionData={activeFireProjectionData}
+            yearsToFire={activeYearsToFire}
+            chartConfig={activeFireChartConfig}
+            targetRetirementAge={targetRetirementAge}
+            projectedRetirementAge={activeProjectedRetirementAge}
+          />
+        ) : null}
+
+        <FireContributionsCard
+          contributionBreakdown={summaryData.contributionBreakdown}
+          //StandalonePanelProps (Tochange)
+          mode={contributionMode}
+          onModeChange={setContributionMode}
+          contributors={standaloneContributors}
+          onAddContributor={addContributor}
+          onUpdateContributor={updateContributor}
+          onRemoveContributor={removeContributor}
+          onReset={resetContributors}
+          totalMonthlyAmount={standaloneMonthlyAmount}
+          contributionPreviewState={previewState.contribution}
+          onChangeContributionPreviewState={setContributionPreviewState}
+          onResetContributionPreviewState={resetContributionPreviewState}
+        />
+
+        <FireSettingsSummaryCard
+          form={fireSettingsForm}
+          onSubmit={handleSaveSettings}
+          isSubmitting={isSubmittingFireSettings}
+          isDirty={fireSettingsForm.formState.isDirty}
+          open={isSettingsEditorOpen}
+          onOpenChange={setIsSettingsEditorOpen}
+          onOpenPreviewModifiers={handleOpenPreviewModifiers}
+        />
 
         {error ? (
           <FirePageError error={error as Error} onRetry={refetch} />
@@ -536,15 +620,15 @@ export default function Fire() {
             onChange={setGrowthMode}
           />
           <div id="preview-modifiers">
-            <PreviewModifiersPanel
-              value={previewState}
-              onChange={setPreviewState}
+            <FireInflationCard
+              inflationPreviewState={previewState.inflation}
+              onChange={setInflationPreviewState}
               onReset={resetPreviewState}
             />
           </div>
         </div>
 
-        <StandaloneContributorsPanel
+        {/* <StandaloneContributorsPanel
           mode={contributionMode}
           onModeChange={setContributionMode}
           contributors={standaloneContributors}
@@ -553,27 +637,7 @@ export default function Fire() {
           onRemoveContributor={removeContributor}
           onReset={resetContributors}
           totalMonthlyAmount={standaloneMonthlyAmount}
-        />
-
-        <FireProjectionChartCard
-          showChart={showChart}
-          onToggle={toggleChart}
-          projectionData={activeFireProjectionData}
-          yearsToFire={activeYearsToFire}
-          chartConfig={activeFireChartConfig}
-          targetRetirementAge={targetRetirementAge}
-          projectedRetirementAge={activeProjectedRetirementAge}
-        />
-
-        <FireSettingsSummaryCard
-          form={fireSettingsForm}
-          onSubmit={handleSaveSettings}
-          isSubmitting={isSubmittingFireSettings}
-          isDirty={fireSettingsForm.formState.isDirty}
-          open={isSettingsEditorOpen}
-          onOpenChange={setIsSettingsEditorOpen}
-          onOpenPreviewModifiers={handleOpenPreviewModifiers}
-        />
+        /> */}
       </div>
     </div>
   );

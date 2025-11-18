@@ -193,7 +193,7 @@ export function FireSummarySection({
         </CardContent>
       </Card>
 
-      <Card>
+      {/* <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="text-base font-medium">
@@ -236,7 +236,7 @@ export function FireSummarySection({
             </ul>
           )}
         </CardContent>
-      </Card>
+      </Card> */}
 
       <Card>
         <CardHeader className="pb-2">

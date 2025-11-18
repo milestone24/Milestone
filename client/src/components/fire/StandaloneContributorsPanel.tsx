@@ -23,7 +23,7 @@ import type { AccountType } from "@shared/schema";
 import { contributionTypes } from "@shared/schema/projections";
 import type { ContributionTypes } from "@shared/schema/projections";
 
-type StandaloneContributorsPanelProps = {
+export type StandaloneContributorsPanelProps = {
   mode: ContributionMode;
   onModeChange: (mode: ContributionMode) => void;
   contributors: StandaloneContributor[];

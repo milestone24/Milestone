@@ -4,7 +4,7 @@ import type { AccountType } from "@shared/schema";
 import type { Contributor, ContributionTypes } from "@shared/schema/projections";
 import { contributionTypes } from "@shared/schema/projections";
 
-export type ContributionMode = "portfolio" | "custom";
+export type ContributionMode = "portfolio" | "custom" | "settings";
 
 export type StandaloneContributor = {
   id: string;
