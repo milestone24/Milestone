@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { DecimalValueString } from "@shared/schema";
 
 type FireSummarySectionProps = {
   currentPortfolioValue: number;
@@ -14,7 +15,7 @@ type FireSummarySectionProps = {
   firstAccessibleAge?: number;
   accessibleValueAtRetirement?: number;
   lockedValueAtRetirement?: number;
-  monthlyShortfall?: number;
+  monthlyContributionDifference?: DecimalValueString;
   progressPercentage: number;
   previewActive: boolean;
   customContributorsActive: boolean;
@@ -39,7 +40,7 @@ export function FireSummarySection({
   firstAccessibleAge,
   accessibleValueAtRetirement,
   lockedValueAtRetirement,
-  monthlyShortfall,
+  monthlyContributionDifference,
   progressPercentage,
   previewActive,
   customContributorsActive,
@@ -64,9 +65,11 @@ export function FireSummarySection({
     : "secondary";
 
   const shortfallBadge =
-    monthlyShortfall && monthlyShortfall > 0
+    monthlyContributionDifference && Number(monthlyContributionDifference) > 0
       ? {
-          label: `Shortfall £${monthlyShortfall.toLocaleString()}/mo`,
+          label: `Contribution difference £${Number(
+            monthlyContributionDifference
+          ).toLocaleString()}/mo`,
           variant: "destructive" as const,
         }
       : null;

@@ -19,7 +19,6 @@ import {
   projectPortfolio,
 } from "./projection-orchestrator";
 import { differenceInYears, addYears } from "date-fns";
-import { recommendContributionAdjustment } from "./projection-milestone-tracker";
 import Decimal from "decimal.js";
 import { createDecimalValueString } from "@shared/schema/utils";
 import {
@@ -27,6 +26,7 @@ import {
   calculateYearsAheadOrBehind,
   convertToAgeBasedProjection,
   mapAssetsToContributors,
+  calculateMonthlyContributionDifference,
 } from "./projection-utils";
 import { createRRulePattern } from "./scheduling";
 
@@ -117,8 +117,6 @@ export async function projectToRetirement(
     //dataSource,
   });
 
-  //console.log("projectionResult : ", projectionResult);
-
   // Get projected value at retirement
   const projectedValueAtRetirement = projectionResult.totalProjectedValue;
 
@@ -129,16 +127,19 @@ This will cause the projection to be infinite years ahead of retirement.`);
   }
 
   // Check if on track
-  const isOnTrack = Decimal(projectedValueAtRetirement).gte(fireNumber);
-  const shortfall = Decimal(fireNumber)
-    .sub(projectedValueAtRetirement)
+
+  // This could be a positive or negative number
+  const targetDifference = Decimal(fireNumber)
+    .sub(Decimal(projectedValueAtRetirement))
     .toNumber();
+
+  const isOnTrack = targetDifference <= 0;
 
   // Calculate years until retirement
   const currentAge = calculateAge(fireConfig.dateOfBirth);
 
   const yearsAheadOrBehind = calculateYearsAheadOrBehind(
-    shortfall,
+    targetDifference,
     fireConfig.targetRetirementAge,
     currentAge,
     projectedValueAtRetirement
@@ -151,28 +152,23 @@ This will cause the projection to be infinite years ahead of retirement.`);
   }
 
   // Calculate monthly shortfall if behind
-  let monthlyShortfall: DecimalValueString | undefined;
-  if (!isOnTrack) {
-    const monthsRemaining = (fireConfig.targetRetirementAge - currentAge) * 12;
-    const currentMonthlyContribution = Decimal(
-      projectionResult.totalContributions
-    )
-      .div(monthsRemaining)
-      .toNumber();
+  let monthlyContributionDifference: DecimalValueString | undefined;
 
-    // Use growth rate from config
-    const growthRate =
-      projectionConfig.mode === "simple"
-        ? (projectionConfig as SimpleProjectionConfig).growthRate
-        : 7; // Default 7% if advanced mode
+  const monthsRemaining = (fireConfig.targetRetirementAge - currentAge) * 12;
 
-    monthlyShortfall = recommendContributionAdjustment(
-      currentMonthlyContribution,
-      shortfall,
-      monthsRemaining,
-      growthRate
-    );
-  }
+  // Use growth rate from config
+  const growthRate =
+    projectionConfig.mode === "simple"
+      ? (projectionConfig as SimpleProjectionConfig).growthRate
+      : 7; // Default 7% if advanced mode
+
+  //Question if we should apply a growth rate to the target difference
+  monthlyContributionDifference = calculateMonthlyContributionDifference(
+    //currentMonthlyContribution,
+    targetDifference,
+    monthsRemaining,
+    growthRate
+  );
 
   // Calculate projected retirement date based on trajectory
   const projectedRetirementDate =
@@ -202,7 +198,7 @@ This will cause the projection to be infinite years ahead of retirement.`);
     projectedValueAtRetirement,
     isOnTrack,
     yearsAheadOrBehind,
-    monthlyShortfall,
+    monthlyContributionDifference,
     fireProjection,
     projectionResult,
     warnings,
@@ -345,23 +341,23 @@ export async function projectRetirementWithAccountAssets(
 /**
  * Calculate monthly contribution needed to achieve FIRE by target age
  */
-export function calculateMonthlyShortfallToFIRE(
-  currentPortfolioValue: number,
-  fireNumber: number,
-  yearsUntilRetirement: number,
-  annualGrowthRate: number
-): DecimalValueString {
-  const monthsRemaining = yearsUntilRetirement * 12;
-  const shortfall = fireNumber - currentPortfolioValue;
+// export function calculateMonthlyShortfallToFIRE(
+//   currentPortfolioValue: number,
+//   fireNumber: number,
+//   yearsUntilRetirement: number,
+//   annualGrowthRate: number
+// ): DecimalValueString {
+//   const monthsRemaining = yearsUntilRetirement * 12;
+//   const shortfall = fireNumber - currentPortfolioValue;
 
-  if (shortfall <= 0) {
-    return createDecimalValueString("0"); // Already at or above FIRE number
-  }
+//   if (shortfall <= 0) {
+//     return createDecimalValueString("0"); // Already at or above FIRE number
+//   }
 
-  return recommendContributionAdjustment(
-    0, // No current contribution
-    shortfall,
-    monthsRemaining,
-    annualGrowthRate
-  );
-}
+//   return calculateMonthlyContributionDifference(
+//     0, // No current contribution
+//     shortfall,
+//     monthsRemaining,
+//     annualGrowthRate
+//   );
+// }

@@ -582,6 +582,52 @@ export function convertToAgeBasedProjection(
   return projectionData;
 }
 
+/**
+ * Calculate additional monthly contribution needed to reach milestone
+ * TODO: This method should now return a positive or negative number depending on whether the user is ahead or behind the target
+ */
+export function calculateMonthlyContributionDifference(
+  //currentMonthlyContribution: number,
+  totalTargetDifference: number,
+  monthsRemaining: number,
+  annualGrowthRate: number
+): DecimalValueString {
+  
+  if (monthsRemaining <= 0) {
+    return createDecimalValueString("0");
+  }
+
+  // Calculate additional monthly contribution needed
+  // Using future value of annuity formula solved for payment:
+  // FV = PMT × [((1 + r)^n - 1) / r]
+  // PMT = FV / [((1 + r)^n - 1) / r]
+
+  const monthlyRate = Decimal(annualGrowthRate).div(100).div(12).toNumber();
+
+  if (monthlyRate === 0) {
+    // No growth, simple division
+    return createDecimalValueString(
+      Decimal(totalTargetDifference).div(monthsRemaining).neg().toString()
+    );
+  }
+
+  const futureValueFactor = Decimal(1)
+    .add(monthlyRate)
+    .pow(monthsRemaining)
+    .sub(1)
+    .div(monthlyRate)
+    .toNumber();
+
+  const additionalMonthlyContribution = Decimal(totalTargetDifference)
+    .div(futureValueFactor)
+    .toNumber();
+
+  return createDecimalValueString(
+    Decimal(additionalMonthlyContribution).neg().toFixed(2)
+  );
+}
+
+
 export function calculateYearsAheadOrBehind(
   shortfall: number,
   targetRetirementAge: number,

@@ -93,48 +93,6 @@ export function calculateShortfall(
 }
 
 /**
- * Calculate additional monthly contribution needed to reach milestone
- */
-export function recommendContributionAdjustment(
-  currentMonthlyContribution: number,
-  shortfall: number,
-  monthsRemaining: number,
-  annualGrowthRate: number
-): DecimalValueString {
-  if (monthsRemaining <= 0) {
-    return createDecimalValueString("0");
-  }
-
-  // Calculate additional monthly contribution needed
-  // Using future value of annuity formula solved for payment:
-  // FV = PMT × [((1 + r)^n - 1) / r]
-  // PMT = FV / [((1 + r)^n - 1) / r]
-
-  const monthlyRate = Decimal(annualGrowthRate).div(100).div(12).toNumber();
-
-  if (monthlyRate === 0) {
-    // No growth, simple division
-    return createDecimalValueString(
-      Decimal(shortfall).div(monthsRemaining).toString()
-    );
-  }
-
-  const futureValueFactor = Decimal(1)
-    .add(monthlyRate)
-    .pow(monthsRemaining)
-    .sub(1)
-    .div(monthlyRate)
-    .toNumber();
-  const additionalMonthlyContribution = Decimal(shortfall)
-    .div(futureValueFactor)
-    .toNumber();
-
-  return createDecimalValueString(
-    Decimal(Math.max(0, additionalMonthlyContribution)).toFixed(2)
-  );
-}
-
-/**
  * Filter assets by milestone account type
  * Seems to be obsolete, to check
  */

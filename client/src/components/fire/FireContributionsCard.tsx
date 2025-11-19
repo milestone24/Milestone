@@ -23,6 +23,7 @@ import {
   accountType,
   ContributionTypes,
   contributionTypes,
+  DecimalValueString,
 } from "@shared/schema";
 import { Label } from "../ui/label";
 import {
@@ -35,6 +36,7 @@ import {
 } from "../ui/select";
 import { Slider } from "../ui/slider";
 import { ContributionPreviewState } from "@/hooks/use-fire-preview-state";
+import { PosNegNumber } from "./PosNegNumber";
 
 type DraftContributor = {
   name: string;
@@ -99,6 +101,7 @@ type StandaloneContributorsPanelProps = {
 
 type FireContributionsCardProps = StandaloneContributorsPanelProps & {
   contributionBreakdown: Array<{ accountType: string; amount: number }>;
+  monthlyContributionDifference: DecimalValueString | null;
   contributionPreviewState: ContributionPreviewState;
   onChangeContributionPreviewState: (state: ContributionPreviewState) => void;
   onResetContributionPreviewState: () => void;
@@ -106,6 +109,7 @@ type FireContributionsCardProps = StandaloneContributorsPanelProps & {
 
 export function FireContributionsCard({
   contributionBreakdown,
+  monthlyContributionDifference,
   mode,
   onModeChange,
   contributors,
@@ -175,6 +179,12 @@ export function FireContributionsCard({
     { label: "200%", scale: 2 },
   ];
 
+  const monthlyContributionDifferenceNumber = useMemo(() => {
+    return monthlyContributionDifference
+      ? Number(monthlyContributionDifference)
+      : null;
+  }, [monthlyContributionDifference]);
+
   return (
     <>
       <Card className="flex flex-col gap-2 w-full">
@@ -212,6 +222,19 @@ export function FireContributionsCard({
               FIRE Setting
             </Button>
           </div>
+          {monthlyContributionDifferenceNumber !== null ? (
+            monthlyContributionDifferenceNumber < 0 ? (
+              <div className="text-sm text-muted-foreground">
+                <span>You are under contributing per month by </span>
+                <PosNegNumber value={Number(monthlyContributionDifference)} />
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                <span>Your are over contributing per month by </span>
+                <PosNegNumber value={Number(monthlyContributionDifference)} />
+              </div>
+            )
+          ) : null}
         </CardHeader>
         <CardContent className="space-y-3">
           <>

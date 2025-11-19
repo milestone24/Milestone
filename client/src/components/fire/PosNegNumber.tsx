@@ -1,15 +1,28 @@
 import { cn } from "@/lib/utils";
 
-export function PosNegNumber({ value }: { value: number | null }) {
+export function PosNegNumber({
+  value,
+  className,
+}: {
+  value: number | null;
+  className?: string;
+}) {
+  const defaultClassName = "text-sm text-muted-foreground";
+
+  const classNameToApply = cn(
+    defaultClassName,
+    value !== null
+      ? value > 0
+        ? "text-green-500"
+        : "text-red-500"
+      : "text-muted-foreground",
+    className
+  );
+
   return (
     <>
       {value !== null ? (
-        <span
-          className={cn(
-            "text-sm text-muted-foreground block",
-            value > 0 ? "text-green-500" : "text-red-500"
-          )}
-        >
+        <span className={classNameToApply}>
           {value > 0 ? "+" : ""}
           {Intl.NumberFormat("en-GB", {
             style: "currency",
@@ -17,7 +30,7 @@ export function PosNegNumber({ value }: { value: number | null }) {
           }).format(value)}
         </span>
       ) : (
-        <span className="text-sm text-muted-foreground block">—</span>
+        <span className={classNameToApply}>—</span>
       )}
     </>
   );

@@ -95,7 +95,7 @@ export default function Track() {
   const {
     isOnTrack,
     yearsAheadOrBehind,
-    monthlyShortfall,
+    monthlyContributionDifference,
     projectedValueAtRetirement,
     fireNumber = 0,
     projectionResult,
@@ -189,8 +189,8 @@ export default function Track() {
   // Monthly adjustment from server (properly calculated with growth rate)
   // Use server's monthlyShortfall if available, otherwise calculate from difference
   const monthlyAdjustment =
-    !onTrackStatus.isOnTrack && monthlyShortfall
-      ? Number(monthlyShortfall)
+    !onTrackStatus.isOnTrack && monthlyContributionDifference
+      ? Number(monthlyContributionDifference)
       : !onTrackStatus.isOnTrack
       ? Math.ceil(
           Math.abs(onTrackStatus.difference) / ((targetAge - currentAge) * 12)

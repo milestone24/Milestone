@@ -234,7 +234,7 @@ export default function Fire() {
     currentPortfolioValue,
     fireChartConfig,
     projectedRetirementAge,
-    monthlyShortfall,
+    monthlyContributionDifference,
     fireNumber,
   } = useFireProjectionState({
     expectedReturn,
@@ -304,12 +304,13 @@ export default function Fire() {
   const activeProjectedRetirementAge = activeProjection?.projectedRetirementAge
     ? Math.round(activeProjection.projectedRetirementAge)
     : projectedRetirementAge;
-
-  const activeMonthlyShortfall = previewActive
-    ? previewProjection?.monthlyShortfall
-      ? Number(previewProjection.monthlyShortfall)
-      : undefined
-    : monthlyShortfall;
+  const activeMonthlyContributionDifference = previewActive
+    ? previewProjection?.monthlyContributionDifference
+      ? createDecimalValueString(
+          previewProjection.monthlyContributionDifference
+        )
+      : null
+    : monthlyContributionDifference;
 
   const activeCurrentPortfolioValue = previewActive
     ? Number(
@@ -564,6 +565,9 @@ export default function Fire() {
 
         <FireContributionsCard
           contributionBreakdown={summaryData.contributionBreakdown}
+          monthlyContributionDifference={
+            activeMonthlyContributionDifference ?? null
+          }
           //StandalonePanelProps (Tochange)
           mode={contributionMode}
           onModeChange={setContributionMode}
@@ -605,7 +609,9 @@ export default function Fire() {
               summaryData.accessibleValueAtRetirement
             }
             lockedValueAtRetirement={summaryData.lockedValueAtRetirement}
-            monthlyShortfall={activeMonthlyShortfall}
+            monthlyContributionDifference={
+              activeMonthlyContributionDifference ?? undefined
+            }
             progressPercentage={summaryData.progressPercentage}
             previewActive={summaryData.previewActive}
             customContributorsActive={isUsingCustomContributors}

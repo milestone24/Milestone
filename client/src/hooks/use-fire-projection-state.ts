@@ -1,5 +1,9 @@
 import { useMemo } from "react";
-import { createDecimalValueString, type ProjectionModifier } from "@shared/schema";
+import {
+  createDecimalValueString,
+  DecimalValueString,
+  type ProjectionModifier,
+} from "@shared/schema";
 import type {
   Contributor,
   FireProjection,
@@ -45,7 +49,7 @@ type UseFireProjectionStateResult = {
   };
   projectedRetirementAge: number | null;
   projectedRetirementDate?: Date | null;
-  monthlyShortfall?: number;
+  monthlyContributionDifference?: DecimalValueString | null;
   fireNumber: number;
 };
 
@@ -166,9 +170,12 @@ export function useFireProjectionState({
     fireChartConfig,
     projectedRetirementAge,
     projectedRetirementDate: currentProjection?.projectedRetirementDate,
-    monthlyShortfall: currentProjection?.monthlyShortfall
-      ? Number(currentProjection.monthlyShortfall)
-      : undefined,
+    monthlyContributionDifference:
+      currentProjection?.monthlyContributionDifference
+        ? createDecimalValueString(
+            currentProjection.monthlyContributionDifference
+          )
+        : null,
     fireNumber,
   };
 }
