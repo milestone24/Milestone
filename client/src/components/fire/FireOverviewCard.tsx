@@ -6,7 +6,7 @@ import { ChartBar, ChartLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type FireOverviewPrimaryCardProps = {
-  projectedRetirementAge: number | null;
+  targetRetirementAge: number | null;
   valueAtRetirement: number | null;
   fireNumber: number | null;
   showChart: boolean;
@@ -14,7 +14,7 @@ type FireOverviewPrimaryCardProps = {
 };
 
 function FireOverviewPrimaryCard({
-  projectedRetirementAge,
+  targetRetirementAge,
   valueAtRetirement,
   fireNumber,
   showChart,
@@ -33,9 +33,7 @@ function FireOverviewPrimaryCard({
           Portfolio Projection
         </CardTitle>
         <CardContent>
-          {valueAtRetirement &&
-          projectedRetirementAge &&
-          difference !== null ? (
+          {valueAtRetirement && targetRetirementAge && difference !== null ? (
             <>
               <div className="flex items-start justify-start gap-10">
                 <div className="flex flex-col gap-2 flex-1">
@@ -47,8 +45,8 @@ function FireOverviewPrimaryCard({
                   </span>
                   <div className="flex items-center justify-between">
                     <span className="text-medium text-muted-foreground block">
-                      {projectedRetirementAge
-                        ? `By age: ${projectedRetirementAge}`
+                      {targetRetirementAge
+                        ? `By age: ${targetRetirementAge}`
                         : "—"}
                     </span>
                     <span className="text-medium text-muted-foreground block">
@@ -153,30 +151,111 @@ function FireOverviewFireNumberCard({
   );
 }
 
+type FireOverviewProgressCardProps = {
+  progressPercentage: number | null;
+};
+
+function FireOverviewProgressCard({
+  progressPercentage,
+}: FireOverviewProgressCardProps) {
+  return (
+    <Card className="flex-1">
+      <CardHeader>
+        <CardTitle className="text-base font-medium">Progress</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-start justify-start gap-10">
+          <div className="flex flex-col gap-2 flex-1">
+            <span className="text-4xl font-bold block">
+              {progressPercentage !== null ? `${progressPercentage}%` : "—"}
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+type FireOverviewCurrentAgeCardProps = {
+  currentAge: number | null;
+};
+
+function FireOverviewCurrentAgeCard({
+  currentAge,
+}: FireOverviewCurrentAgeCardProps) {
+  return (
+    <Card className="flex-1">
+      <CardHeader>
+        <CardTitle className="text-base font-medium">Current Age</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-start justify-start gap-10">
+          <div className="flex flex-col gap-2 flex-1">
+            <span className="text-4xl font-bold block">
+              {currentAge !== null ? `${currentAge}` : "—"}
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+type FireOverviewYearsToFireCardProps = {
+  yearsToFire: number | null;
+};
+
+function FireOverviewYearsToFireCard({
+  yearsToFire,
+}: FireOverviewYearsToFireCardProps) {
+  return (
+    <Card className="flex-1">
+      <CardHeader>
+        <CardTitle className="text-base font-medium">Years to FIRE</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-start justify-start gap-10">
+          <div className="flex flex-col gap-2 flex-1">
+            <span className="text-4xl font-bold block">
+              {yearsToFire !== null ? `${yearsToFire}` : "—"}
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 type FireOverviewCardProps = {
-  projectedRetirementAge: number | null;
+  targetRetirementAge: number | null;
   valueAtRetirement: number | null;
   fireNumber: number | null;
   showChart: boolean;
   onToggleChart: () => void;
   currentPortfolioValue: number | null;
   currentPortfolioValueGrowth: number | null;
+  progressPercentage: number | null;
+  currentAge: number | null;
+  yearsToFire: number | null;
 };
 
 export function FireOverviewCard({
-  projectedRetirementAge,
+  targetRetirementAge,
   valueAtRetirement,
   fireNumber,
   showChart,
   onToggleChart,
   currentPortfolioValue,
   currentPortfolioValueGrowth,
+  progressPercentage,
+  currentAge,
+  yearsToFire,
 }: FireOverviewCardProps) {
   return (
     <>
       <div className="flex flex-col gap-2">
         <FireOverviewPrimaryCard
-          projectedRetirementAge={projectedRetirementAge}
+          targetRetirementAge={targetRetirementAge}
           valueAtRetirement={valueAtRetirement}
           fireNumber={fireNumber}
           showChart={showChart}
@@ -188,6 +267,11 @@ export function FireOverviewCard({
             currentPortfolioValueGrowth={currentPortfolioValueGrowth}
           />
           <FireOverviewFireNumberCard fireNumber={fireNumber} />
+        </div>
+        <div className="flex flex-row gap-2">
+          <FireOverviewProgressCard progressPercentage={progressPercentage} />
+          <FireOverviewCurrentAgeCard currentAge={currentAge} />
+          <FireOverviewYearsToFireCard yearsToFire={yearsToFire} />
         </div>
       </div>
     </>

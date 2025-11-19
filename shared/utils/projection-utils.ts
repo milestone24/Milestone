@@ -628,14 +628,117 @@ export function calculateMonthlyContributionDifference(
 }
 
 
+/**
+ * Calculate years ahead or behind target retirement age
+ * Uses calculateYearsToTarget to determine when portfolio will reach target,
+ * then compares to target retirement age
+ * 
+ * @param currentPortfolioValue - Current portfolio value
+ * @param targetValue - Target value (FIRE number)
+ * @param scheduledContributions - Array of contribution schedules
+ * @param annualGrowthRate - Annual growth rate as percentage (e.g., 7 for 7%)
+ * @param targetRetirementAge - Target retirement age
+ * @param currentAge - Current age
+ * @returns Negative if ahead of schedule, positive if behind, 0 if on track, Infinity if unreachable
+ */
 export function calculateYearsAheadOrBehind(
-  shortfall: number,
+  currentPortfolioValue: DecimalValueString,
+  targetValue: DecimalValueString,
+  scheduledContributions: ContributorSchedule[],
+  annualGrowthRate: number,
   targetRetirementAge: number,
-  currentAge: number,
-  projectedValueAtRetirement: DecimalValueString
+  currentAge: number
 ): number {
-  return Decimal(shortfall)
-    .div(Decimal(projectedValueAtRetirement))
-    .div(targetRetirementAge - currentAge)
-    .toNumber();
+  // Calculate how many years it will take to reach the target
+  const yearsToReachTarget = calculateYearsToTarget(
+    currentPortfolioValue,
+    scheduledContributions,
+    annualGrowthRate,
+    targetValue,
+    {
+      startDate: new Date(),
+      maxYears: 100, // Reasonable max for retirement planning
+    }
+  );
+
+  // If it's impossible to reach the target, return Infinity
+  if (yearsToReachTarget === Infinity) {
+    return Infinity;
+  }
+
+  // Calculate years until target retirement age
+  const yearsUntilTargetRetirement = targetRetirementAge - currentAge;
+
+  // Calculate difference: negative = ahead, positive = behind, 0 = on track
+  return yearsToReachTarget - yearsUntilTargetRetirement;
+}
+
+// ============================================================================
+// FIRE PROJECTION CONVERSION
+// ============================================================================
+
+/**
+ * Calculate years to reach target using client-side computation
+ * Similar to tracking.ts calculateYearsToTarget but uses projection system
+ */
+export function calculateYearsToTarget(
+  presentValue: DecimalValueString,
+  scheduledContributions: ContributorSchedule[],
+  annualRate: number,
+  targetValue: DecimalValueString,
+  config: {
+    startDate: Date;
+    maxYears?: number;
+  }
+): number {
+  const monthlyRate = annualRate / 100 / 12;
+  const maxYears = config.maxYears || 100;
+  const maxMonths = maxYears * 12;
+
+  // Handle edge cases
+  if (presentValue >= targetValue) return 0;
+  if (monthlyRate === 0) {
+    // No growth, calculate based on contributions only
+    const totalContributionAmount = scheduledContributions.reduce(
+      (sum, c) => Decimal(c.value).add(sum).toNumber(),
+      0
+    );
+    if (totalContributionAmount === 0) return Infinity;
+    return Decimal(targetValue)
+      .sub(presentValue)
+      .div(totalContributionAmount)
+      .mul(12)
+      .toNumber();
+  }
+
+  // Use iterative approach similar to tracking.ts
+  let months = 0;
+  let currentValue = presentValue;
+  let currentDate = new Date(config.startDate);
+
+  while (currentValue < targetValue && months < maxMonths) {
+    // Apply growth
+    currentValue = createDecimalValueString(
+      Decimal(currentValue).mul(Decimal(1).add(monthlyRate)).toString()
+    );
+
+    // Add contributions for this month
+    const nextMonth = addMonths(currentDate, 1);
+    for (const contribution of scheduledContributions) {
+      for (const { amount } of projectRecurringContributions(
+        contribution,
+        currentDate,
+        nextMonth
+      )) {
+        currentValue = createDecimalValueString(
+          Decimal(currentValue).add(amount).toString()
+        );
+      }
+    }
+
+    currentDate = nextMonth;
+    months++;
+  }
+
+  return months / 12;
 }

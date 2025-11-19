@@ -46,6 +46,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { fireProjection } from "@shared/api/queryKeys";
 import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
 import { FireContributionsCard } from "@/components/fire/FireContributionsCard";
+import Decimal from "decimal.js";
 
 // Calculate UK State Pension age based on date of birth
 const calculateStatePensionAge = (
@@ -230,6 +231,7 @@ export default function Fire() {
     error,
     refetch,
     yearsToFire,
+    yearsRemainingToFireTarget,
     contributorsForFire,
     currentPortfolioValue,
     fireChartConfig,
@@ -245,8 +247,6 @@ export default function Fire() {
     userDob: user?.profile?.dob,
     portfolioFallbackValue: 0, //Number(portfolioOverview?.value ?? 0),
   });
-
-  console.log("fire page currentPortfolioValue", currentPortfolioValue);
 
   const isUsingCustomContributors =
     contributionMode === "custom" && mappedContributors.length > 0;
@@ -299,7 +299,11 @@ export default function Fire() {
 
   const activeFireNumber = activeProjection?.fireNumber ?? fireNumber;
 
-  const activeYearsToFire = activeProjection?.yearsAheadOrBehind ?? yearsToFire;
+  //TODO
+  //TODO
+  const activeYearsToFire = Math.abs(23); //activeProjection?.yearsRemainingToFireTarget
+  //? Math.abs(activeProjection.yearsRemainingToFireTarget)
+  //: yearsRemainingToFireTarget;
 
   const activeProjectedRetirementAge = activeProjection?.projectedRetirementAge
     ? Math.round(activeProjection.projectedRetirementAge)
@@ -336,13 +340,10 @@ export default function Fire() {
     previewActive,
   ]);
 
-  const activeCurrentPortfolioValueDecimal = previewActive
-    ? previewProjection?.projectionResult.totalCurrentValue
-    : currentProjection?.projectionResult?.totalCurrentValue;
-
-  const currentPortfolioValueDecimal =
-    activeCurrentPortfolioValueDecimal ??
-    createDecimalValueString(activeCurrentPortfolioValue.toString());
+  const activeCurrentProjectedPortfolioValueDecimal =
+    activeProjection?.projectedValueAtRetirement
+      ? createDecimalValueString(activeProjection.projectedValueAtRetirement)
+      : null;
 
   const summaryData = useMemo(() => {
     const retirementPoint =
@@ -365,8 +366,13 @@ export default function Fire() {
       : undefined;
 
     const progressPercentage =
-      activeFireNumber > 0
-        ? Math.min(100, (activeCurrentPortfolioValue / activeFireNumber) * 100)
+      activeCurrentProjectedPortfolioValueDecimal && activeFireNumber > 0
+        ? Decimal(activeCurrentProjectedPortfolioValueDecimal)
+            .div(activeFireNumber)
+            .mul(10000)
+            .round()
+            .div(100)
+            .toNumber()
         : 0;
 
     const contributionTotals = new Map<string, number>();
@@ -539,7 +545,8 @@ export default function Fire() {
         </div>
 
         <FireOverviewCard
-          projectedRetirementAge={activeProjectedRetirementAge}
+          //projectedRetirementAge={activeProjectedRetirementAge}
+          targetRetirementAge={activeProjection?.targetRetirementAge ?? null}
           valueAtRetirement={
             activeProjection?.projectedValueAtRetirement
               ? Number(activeProjection.projectedValueAtRetirement)
@@ -550,6 +557,11 @@ export default function Fire() {
           onToggleChart={toggleChart}
           currentPortfolioValue={activeCurrentPortfolioValue}
           currentPortfolioValueGrowth={0}
+          progressPercentage={summaryData.progressPercentage}
+          currentAge={currentAge}
+          yearsToFire={
+            activeProjection?.yearsRemainingToFireTarget ?? activeYearsToFire
+          }
         />
         {showChart ? (
           <FireProjectionChartCard

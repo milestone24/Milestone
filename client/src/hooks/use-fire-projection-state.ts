@@ -38,6 +38,7 @@ type UseFireProjectionStateResult = {
   error: ReturnType<typeof useFireServerProjection>["error"];
   refetch: ReturnType<typeof useFireServerProjection>["refetch"];
   yearsToFire: number;
+  yearsRemainingToFireTarget: number;
   contributorsForFire: Contributor[];
   currentPortfolioValue: number;
   fireChartConfig: {
@@ -97,6 +98,8 @@ export function useFireProjectionState({
   });
 
   const yearsToFire = currentProjection?.yearsAheadOrBehind ?? 0;
+  const yearsRemainingToFireTarget =
+    currentProjection?.yearsRemainingToFireTarget ?? 0;
   const projectedRetirementAge = currentProjection?.projectedRetirementAge
     ? Math.round(currentProjection.projectedRetirementAge)
     : Math.round(currentAge + yearsToFire);
@@ -105,11 +108,6 @@ export function useFireProjectionState({
 
   const contributorsForFire: Contributor[] =
     currentProjection?.projectionResult?.computationContext?.contributors ?? [];
-
-  console.log(
-    "useFireProjectionState currentPortfolioValue",
-    currentProjection?.projectionResult?.totalCurrentValue
-  );
 
   const currentPortfolioValue = useMemo(() => {
     if (currentProjection?.projectionResult?.totalCurrentValue) {
@@ -165,6 +163,7 @@ export function useFireProjectionState({
     error,
     refetch,
     yearsToFire,
+    yearsRemainingToFireTarget,
     contributorsForFire,
     currentPortfolioValue,
     fireChartConfig,

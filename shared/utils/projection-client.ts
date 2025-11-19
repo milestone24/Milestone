@@ -43,6 +43,7 @@ import {
 import { ContributorSchedule } from "../schema/projections";
 import Decimal from "decimal.js";
 import { createDecimalValueString, DecimalValueString } from "@shared/schema";
+import { calculateYearsToTarget } from "./projection-utils";
 
 // ============================================================================
 // CLIENT-SIDE PROJECTION CALCULATION
@@ -51,76 +52,6 @@ import { createDecimalValueString, DecimalValueString } from "@shared/schema";
 // the SimpleProjectionInput interface to avoid code duplication.
 // This file focuses on client-specific utilities such as age-based
 // conversions, FIRE calculations, and the ProjectionClient wrapper.
-
-// ============================================================================
-// FIRE PROJECTION CONVERSION
-// ============================================================================
-
-/**
- * Calculate years to reach target using client-side computation
- * Similar to tracking.ts calculateYearsToTarget but uses projection system
- */
-export function calculateYearsToTarget(
-  presentValue: DecimalValueString,
-  scheduledContributions: ContributorSchedule[],
-  annualRate: number,
-  targetValue: DecimalValueString,
-  config: {
-    startDate: Date;
-    maxYears?: number;
-  }
-): number {
-  const monthlyRate = annualRate / 100 / 12;
-  const maxYears = config.maxYears || 100;
-  const maxMonths = maxYears * 12;
-
-  // Handle edge cases
-  if (presentValue >= targetValue) return 0;
-  if (monthlyRate === 0) {
-    // No growth, calculate based on contributions only
-    const totalContributionAmount = scheduledContributions.reduce(
-      (sum, c) => Decimal(c.value).add(sum).toNumber(),
-      0
-    );
-    if (totalContributionAmount === 0) return Infinity;
-    return Decimal(targetValue)
-      .sub(presentValue)
-      .div(totalContributionAmount)
-      .mul(12)
-      .toNumber();
-  }
-
-  // Use iterative approach similar to tracking.ts
-  let months = 0;
-  let currentValue = presentValue;
-  let currentDate = new Date(config.startDate);
-
-  while (currentValue < targetValue && months < maxMonths) {
-    // Apply growth
-    currentValue = createDecimalValueString(
-      Decimal(currentValue).mul(Decimal(1).add(monthlyRate)).toString()
-    );
-
-    // Add contributions for this month
-    const nextMonth = addMonths(currentDate, 1);
-    for (const contribution of scheduledContributions) {
-      for (const { amount } of projectRecurringContributions(
-        contribution,
-        currentDate,
-        nextMonth
-      )) {
-        currentValue = createDecimalValueString(
-          Decimal(currentValue).add(amount).toString()
-        );
-      }
-    }
-
-    currentDate = nextMonth;
-    months++;
-  }
-
-  return months / 12;
-}
 
 // ============================================================================
 // CLIENT-SIDE FIRE PROJECTION
@@ -222,7 +153,7 @@ export function computeClientFireProjection(
 /**
  * Calculate the impact of changing contribution amounts
  * Replaces tracking.ts calculateContributionImpact with projection system
- * 
+ *
  * Accepts Contributor[] to preserve bonuses and value releases,
  * but extracts schedules for impact calculation.
  * For preview calculations, bonuses and value releases are already
@@ -243,7 +174,9 @@ export function calculateContributionImpactWithProjections(
 } {
   // Extract schedules from contributors (preserving bonuses and value releases in the model)
   // For impact calculations, we adjust the user contribution amounts
-  const currentScheduledContributions = contributors.flatMap((c) => c.schedules);
+  const currentScheduledContributions = contributors.flatMap(
+    (c) => c.schedules
+  );
 
   // Create adjusted contributions list with new monthly contribution
   // Note: Bonuses will still apply to the adjusted amount (if configured in contributors)
@@ -281,28 +214,6 @@ export function calculateContributionImpactWithProjections(
     yearsDifference,
     monthsDifference,
   };
-}
-
-// ============================================================================
-// UTILITY: GET YEARS TO FIRE
-// ============================================================================
-
-/**
- * Calculate years until reaching FIRE target
- */
-export function calculateYearsToFire(
-  currentAmount: DecimalValueString,
-  scheduledContributions: ContributorSchedule[],
-  expectedReturn: number,
-  fireNumber: DecimalValueString
-): number {
-  return calculateYearsToTarget(
-    currentAmount,
-    scheduledContributions,
-    expectedReturn,
-    fireNumber,
-    { startDate: new Date() }
-  );
 }
 
 // ============================================================================

@@ -138,11 +138,26 @@ This will cause the projection to be infinite years ahead of retirement.`);
   // Calculate years until retirement
   const currentAge = calculateAge(fireConfig.dateOfBirth);
 
+  // Get current portfolio value
+  const currentPortfolioValue = projectionResult.totalCurrentValue;
+
+  // Extract schedules from contributors
+  const scheduledContributions = contributors.flatMap((c) => c.schedules);
+
+  // Use growth rate from config
+  const growthRate =
+    projectionConfig.mode === "simple"
+      ? (projectionConfig as SimpleProjectionConfig).growthRate
+      : 7; // Default 7% if advanced mode
+
+  // Calculate years ahead or behind using the new implementation
   const yearsAheadOrBehind = calculateYearsAheadOrBehind(
-    targetDifference,
+    currentPortfolioValue,
+    createDecimalValueString(fireNumber.toString()),
+    scheduledContributions,
+    growthRate,
     fireConfig.targetRetirementAge,
-    currentAge,
-    projectedValueAtRetirement
+    currentAge
   );
 
   if (yearsAheadOrBehind === Infinity) {
@@ -154,19 +169,14 @@ This will cause the projection to be infinite years ahead of retirement.`);
   // Calculate monthly shortfall if behind
   let monthlyContributionDifference: DecimalValueString | undefined;
 
-  const monthsRemaining = (fireConfig.targetRetirementAge - currentAge) * 12;
-
-  // Use growth rate from config
-  const growthRate =
-    projectionConfig.mode === "simple"
-      ? (projectionConfig as SimpleProjectionConfig).growthRate
-      : 7; // Default 7% if advanced mode
+  const yearsRemainingToTargetAge = fireConfig.targetRetirementAge - currentAge;
+  const monthsRemainingToTargetAge = yearsRemainingToTargetAge * 12;
 
   //Question if we should apply a growth rate to the target difference
   monthlyContributionDifference = calculateMonthlyContributionDifference(
     //currentMonthlyContribution,
     targetDifference,
-    monthsRemaining,
+    monthsRemainingToTargetAge,
     growthRate
   );
 
@@ -184,6 +194,10 @@ This will cause the projection to be infinite years ahead of retirement.`);
       : calculateAge(fireConfig.dateOfBirth) +
         differenceInYears(projectedRetirementDate, new Date());
 
+  const yearsRemainingToFireTarget =
+    //We ise mius here because if the yearsAheadOrBehind is behind it would be a negative number and we want to show that as a positive number
+    yearsRemainingToTargetAge - yearsAheadOrBehind;
+
   const fireProjection = convertToAgeBasedProjection(
     projectionResult.timePoints,
     fireConfig.dateOfBirth,
@@ -198,6 +212,7 @@ This will cause the projection to be infinite years ahead of retirement.`);
     projectedValueAtRetirement,
     isOnTrack,
     yearsAheadOrBehind,
+    yearsRemainingToFireTarget,
     monthlyContributionDifference,
     fireProjection,
     projectionResult,

@@ -127,7 +127,7 @@ export function FireSummarySection({
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>Time to FIRE</span>
             <span className="font-medium text-foreground">
-              {yearsToFire > 0
+              {yearsToFire < 0
                 ? `${Math.round(yearsToFire)} years remaining`
                 : yearsToFire < 0
                 ? `Ahead by ${Math.abs(Math.round(yearsToFire))} years`
