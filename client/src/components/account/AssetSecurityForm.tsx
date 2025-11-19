@@ -108,9 +108,13 @@ export const AssetSecurityForm = ({
                   type="number"
                   placeholder="Share Holdings"
                   {...field}
-                  value={field.value ?? createDecimalValueString("0")}
+                  value={field.value ?? ""}
                   onChange={(e) => {
-                    field.onChange(createDecimalValueString(e.target.value));
+                    field.onChange(
+                      e.target.value == ""
+                        ? ""
+                        : createDecimalValueString(e.target.value)
+                    );
                   }}
                 />
               </FormControl>
@@ -132,9 +136,13 @@ export const AssetSecurityForm = ({
                   type="number"
                   placeholder="Currency Value"
                   {...field}
-                  value={field.value ?? createDecimalValueString("0")}
+                  value={field.value ?? ""}
                   onChange={(e) => {
-                    field.onChange(createDecimalValueString(e.target.value));
+                    field.onChange(
+                      e.target.value == ""
+                        ? ""
+                        : createDecimalValueString(e.target.value)
+                    );
                   }}
                 />
               </FormControl>
