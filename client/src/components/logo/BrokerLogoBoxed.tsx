@@ -7,7 +7,7 @@ export default function BrokerLogoBoxed({
   size,
 }: BrokerLogoBoxedProps) {
   return (
-    <div className="w-200 h-30 bg-gray-100 rounded-md flex items-center justify-center p-2">
+    <div className="w-32 h-32 bg-gray-100 rounded-md flex items-center justify-center p-2">
       <BrokerLogo broker={broker} size={size} />
     </div>
   );
