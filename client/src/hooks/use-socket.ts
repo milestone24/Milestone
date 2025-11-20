@@ -5,9 +5,12 @@ import { toast } from "./use-toast";
 
 export const useSocket = () => {
   useEffect(() => {
-    const websocket = new WebSocket("ws://localhost:5001/");
+
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const websocketUrl = `${protocol}://${window.location.host}/`;
+    const websocket = new WebSocket(websocketUrl);
     websocket.onopen = () => {
-      console.log("connected");
+      console.log("websocket connected");
     };
     websocket.onmessage = (event) => {
       const data = JSON.parse(event.data);

@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import { validateAuthEnvVars } from "./utils/time";
 import authService from "./services/auth";
 import { ping } from "./db";
+import http from "http";
 import helmet from "helmet";
 import { applyWebsocket } from "./sockets/primary";
 
@@ -108,6 +109,18 @@ app.use(express.static(path.join(process.cwd(), "public")));
         log(`serving on port ${port}`);
       }
     );
+
+    // Create a new HTTP server (wsServer) for websockets only
+    //const wsServer = http.createServer();
+
+    // Start listening on a separate port for websocket clients (e.g., 5002)
+    // const wsPort = process.env.WS_PORT || 5002;
+    // wsServer.listen(Number(wsPort), "0.0.0.0", () => {
+    //   log(`WebSocket server listening on port ${wsPort}`);
+    // });
+
+    // Attach the websocket handler to the new HTTP server
+    //applyWebsocket(wsServer, authService);
 
     applyWebsocket(server, authService);
   } catch (error) {
