@@ -101,6 +101,20 @@ export const RecurringContributionForm = <T extends B = B>({
     setValue("contributions.type", type);
   }, [type]);
 
+  useEffect(() => {
+    if (securities && securities.length === 1) {
+      const security = securities[0]!;
+      setValue("contributions.securityDistribution", [
+        {
+          securityId: security.id,
+          securityName: security.security.name,
+          isTempSecurityId: security.isTempSecurityId ?? false,
+          commitment: createDecimalValueString("100"),
+        },
+      ]);
+    }
+  }, [securities]);
+
   const schedulePattern = watch("contributions.patternConfig");
 
   return (
