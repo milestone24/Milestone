@@ -10,7 +10,7 @@ import {
   securityDailyHistory,
   SchedulePattern,
   processes,
-} from "server/db/schema";
+} from "@server/db/schema";
 import { Database } from "../../db";
 import {
   and,
