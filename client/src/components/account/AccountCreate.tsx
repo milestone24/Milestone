@@ -48,6 +48,7 @@ import {
   RecurringContributionForm,
   RecurringContributionFormProps,
 } from "./RecurringContributionForm";
+import { createRRulePattern } from "@shared/utils/scheduling";
 
 const contributionsDefaultValues: Partial<RecurringContributionGroupInsert> = {
   process: "manual",
@@ -754,7 +755,9 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
             process: "manual",
             patternConfig: {
               type: "rrule",
-              expression: "",
+              expression: createRRulePattern(
+                "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1"
+              ).expression,
             },
             securityDistribution: [],
           }
