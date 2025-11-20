@@ -1,7 +1,7 @@
 import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
 import { drizzle as drizzleNodePostgres } from "drizzle-orm/node-postgres";
 import ws from "ws";
-import * as schema from "server/db/schema/index";
+import * as schema from "./schema/index";
 import { sql } from "drizzle-orm";
 import { log, error, warn, info, debug } from "../log";
 export { Client as PgClient } from "pg";
