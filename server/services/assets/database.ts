@@ -169,57 +169,63 @@ const recurringContributionsQueryBuilder = new ResourceQueryBuilder({
 export class DatabaseAssetService {
   constructor(private db: Database) {}
 
-  private async updateAssetValues(accountId: string, assetId: string) {
-    console.log(
-      "Updating asset values for accountId",
-      accountId,
-      "and assetId",
-      assetId
-    );
+  async updateAssetValues(accountId: string, assetId: string): Promise<void> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        //TODO job needs some kind of identifier for what resources are affected
+        const [job] = await this.db
+          .insert(processes)
+          .values({
+            key: "update-asset-values",
+            status: "running",
+            startedAt: new Date(),
+            payload: {
+              accountId,
+              assetId,
+            },
+          })
+          .returning();
 
-    //TODO job needs some kind of identifier for what resources are affected
-    const [job] = await this.db
-      .insert(processes)
-      .values({
-        key: "update-asset-values",
-        status: "running",
-        startedAt: new Date(),
-        payload: {
-          accountId,
-          assetId,
-        },
-      })
-      .returning();
+        const assetPersistence = assetPersistenceFactory(this, assetId);
 
-    const assetPersistence = assetPersistenceFactory(this, assetId);
+        securitiesService.updateAssetValuesSync(assetPersistence, async () => {
+          console.log(
+            "Finished updating asset values for accountId",
+            accountId,
+            "and assetId",
+            assetId
+          );
 
-    securitiesService.updateAssetValuesSync(assetPersistence, async () => {
-      console.log(
-        "Finished updating asset values for accountId",
-        accountId,
-        "and assetId",
-        assetId
-      );
-      console.log("Job", job);
-
-      if (job) {
-        await this.db
-          .update(processes)
-          .set({ status: "completed", completedAt: new Date() })
-          .where(eq(processes.id, job.id));
+          if (job) {
+            await this.db
+              .update(processes)
+              .set({ status: "completed", completedAt: new Date() })
+              .where(eq(processes.id, job.id));
+          }
+          sendNotification(accountId, {
+            type: "query",
+            queryKeys: [
+              portfolioGraphValues,
+              portfolioGraphTransactions,
+              processesKey,
+            ],
+          });
+          sendNotification(accountId, {
+            type: "notification",
+            message: "Asset values updated",
+          });
+          resolve();
+        });
+      } catch (error) {
+        console.error("Error updating asset values", error);
+        reject(error);
+        // if (job) {
+        //   await this.db
+        //     .update(processes)
+        //     .set({ status: "failed", completedAt: new Date() })
+        //     .where(eq(processes.id, job.id));
+        // }
       }
-      sendNotification(accountId, {
-        type: "query",
-        queryKeys: [
-          portfolioGraphValues,
-          portfolioGraphTransactions,
-          processesKey,
-        ],
-      });
-      sendNotification(accountId, {
-        type: "notification",
-        message: "Asset values updated",
-      });
     });
   }
 
