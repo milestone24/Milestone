@@ -22,7 +22,14 @@ import { relations, InferSelectModel, sql } from "drizzle-orm";
 import { IncludeRelation } from "../types/utils";
 import { InferResultType } from "../types/utils";
 import { securities, securityDailyHistory } from "./securities";
-export const accountType = ["ISA", "CISA", "SIPP", "LISA", "GIA"] as const;
+export const accountType = [
+  "ISA",
+  "CISA",
+  "SIPP",
+  "LISA",
+  "GIA",
+  "NONE",
+] as const;
 export const accountTypeEnum = pgEnum("account_type", accountType);
 export const valueEntryMethod = ["manual", "calculated"] as const;
 export const valueEntryMethodEnum = pgEnum(
