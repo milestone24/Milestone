@@ -5,3 +5,4 @@ export * from "./portfolio-fire";
 export * from "./user-account";
 export * from "./utils";
 export * from "./processes";
+export * from "./contributor";

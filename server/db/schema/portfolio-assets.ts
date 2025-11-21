@@ -22,15 +22,10 @@ import { relations, InferSelectModel, sql } from "drizzle-orm";
 import { IncludeRelation } from "../types/utils";
 import { InferResultType } from "../types/utils";
 import { securities, securityDailyHistory } from "./securities";
-export const accountType = [
-  "ISA",
-  "CISA",
-  "SIPP",
-  "LISA",
-  "GIA",
-  "NONE",
-] as const;
-export const accountTypeEnum = pgEnum("account_type", accountType);
+import { accountTypeEnum } from "./contributor";
+//TODO reconsider naming here.
+//Maybe Investment Type?
+
 export const valueEntryMethod = ["manual", "calculated"] as const;
 export const valueEntryMethodEnum = pgEnum(
   "value_entry_method",
@@ -61,7 +56,6 @@ export type RRulePattern = {
 
 export type SchedulePattern = CronPattern | RRulePattern;
 
-export type AccountType = (typeof accountType)[number];
 export type ValueEntryMethod = (typeof valueEntryMethod)[number];
 export type ValueMethod = (typeof valueMethod)[number];
 
