@@ -8,6 +8,7 @@ import {
   uuid,
   jsonb,
   index,
+  unique,
 } from "drizzle-orm/pg-core";
 import { userAccounts } from "./user-account";
 import {
@@ -220,7 +221,7 @@ export const userAssets = pgTable(
     id: uuid("id")
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    name: text("name").notNull().unique(),
+    name: text("name").notNull(),
     startDate: timestamp("start_date").notNull(),
     valueMethod: valueMethodEnum("value_method")
       .notNull()
@@ -234,6 +235,10 @@ export const userAssets = pgTable(
     ...timestampColumns(),
   },
   (t) => [
+    unique("user_assets_name_user_account_id_unique").on(
+      t.name,
+      t.userAccountId
+    ),
     //Ensure asset type is broker
     //check("asset_type_check", sql`${t.assetType} = 'broker'`)
   ]
