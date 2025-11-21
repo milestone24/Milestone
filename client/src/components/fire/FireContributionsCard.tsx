@@ -37,6 +37,7 @@ import {
 import { Slider } from "../ui/slider";
 import { ContributionPreviewState } from "@/hooks/use-fire-preview-state";
 import { PosNegNumber } from "./PosNegNumber";
+import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 
 type DraftContributor = {
   name: string;
@@ -85,6 +86,43 @@ const contributionPresets: Array<{ label: string; scale: number }> = [
   { label: "200%", scale: 2 },
 ];
 
+function ContributionsBreakDownDisplay({
+  contributionBreakdown,
+}: {
+  contributionBreakdown: Array<{ accountType: string; amount: number }>;
+}) {
+  const contributionsCount = useMemo(() => {
+    return contributionBreakdown.length;
+  }, [contributionBreakdown]);
+
+  return (
+    <>
+      {contributionsCount === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No contributor data available. Add assets or custom preview
+          contributors to see the breakdown.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {contributionBreakdown.map((item) => (
+            <li
+              key={item.accountType}
+              className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground"
+            >
+              <span className="font-medium text-foreground">
+                {item.accountType}
+              </span>
+              <span className="font-semibold text-foreground">
+                £{item.amount.toLocaleString()}/mo
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
 type StandaloneContributorsPanelProps = {
   mode: ContributionMode;
   onModeChange: (mode: ContributionMode) => void;
@@ -105,6 +143,8 @@ type FireContributionsCardProps = StandaloneContributorsPanelProps & {
   contributionPreviewState: ContributionPreviewState;
   onChangeContributionPreviewState: (state: ContributionPreviewState) => void;
   onResetContributionPreviewState: () => void;
+  customStartingValue: number;
+  onCustomStartingValueChange: (value: number) => void;
 };
 
 export function FireContributionsCard({
@@ -120,7 +160,14 @@ export function FireContributionsCard({
   totalMonthlyAmount,
   contributionPreviewState,
   onChangeContributionPreviewState,
+  customStartingValue,
+  onCustomStartingValueChange,
 }: FireContributionsCardProps) {
+  console.log(
+    "Contributions Card contributionBreakdown",
+    contributionBreakdown
+  );
+
   const contributionsCount = useMemo(() => {
     return contributionBreakdown.length;
   }, [contributionBreakdown]);
@@ -185,6 +232,10 @@ export function FireContributionsCard({
       : null;
   }, [monthlyContributionDifference]);
 
+  const [customValueType, setCustomValueType] = useState<
+    "custom" | "portfolio"
+  >("portfolio");
+
   return (
     <>
       <Card className="flex flex-col gap-2 w-full">
@@ -212,14 +263,14 @@ export function FireContributionsCard({
               size="sm"
               onClick={() => onModeChange("custom")}
             >
-              Custom scenario
+              Use Custom scenario
             </Button>
             <Button
               variant={mode === "settings" ? "default" : "ghost"}
               size="sm"
               onClick={() => onModeChange("settings")}
             >
-              FIRE Setting
+              Use FIRE Setting
             </Button>
           </div>
           {monthlyContributionDifferenceNumber !== null ? (
@@ -238,28 +289,6 @@ export function FireContributionsCard({
         </CardHeader>
         <CardContent className="space-y-3">
           <>
-            {contributionsCount === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No contributor data available. Add assets or custom preview
-                contributors to see the breakdown.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {contributionBreakdown.map((item) => (
-                  <li
-                    key={item.accountType}
-                    className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground"
-                  >
-                    <span className="font-medium text-foreground">
-                      {item.accountType}
-                    </span>
-                    <span className="font-semibold text-foreground">
-                      £{item.amount.toLocaleString()}/mo
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
             {isCustomMode ? (
               <>
                 <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-sm text-muted-foreground">
@@ -269,6 +298,70 @@ export function FireContributionsCard({
                   <span className="font-medium text-primary">preview-only</span>{" "}
                   and do not modify your saved settings.
                 </div>
+
+                <div>
+                  <p>
+                    What initial value do you want to use for the custom
+                    scenario?
+                  </p>
+                  <Label htmlFor="custom-value-type">Custom value type</Label>
+                  <RadioGroup
+                    value={customValueType}
+                    onValueChange={(value) =>
+                      setCustomValueType(value as "custom" | "portfolio")
+                    }
+                    className="flex flex-row gap-2"
+                  >
+                    <div className="flex flex-row gap-2 items-start">
+                      <div className="flex flex-col gap-2 pt-2">
+                        <RadioGroupItem
+                          value="portfolio"
+                          id="portfolio"
+                          className="flex-shrink-0"
+                        />
+                      </div>
+                      <div className="flex flex-col pt-1">
+                        <label htmlFor="portfolio">Portfolio</label>
+                      </div>
+                    </div>
+                    <div className="flex flex-row gap-2 items-start">
+                      <div className="flex flex-col gap-2 pt-2">
+                        <RadioGroupItem
+                          value="custom"
+                          id="custom"
+                          className="flex-shrink-0"
+                        />
+                      </div>
+                      <div className="flex flex-col pt-1">
+                        <label htmlFor="custom">Custom</label>
+                      </div>
+                    </div>
+                  </RadioGroup>
+                  {customValueType === "portfolio" ? (
+                    <p>
+                      The initial value will be the current value of your
+                      portfolio.
+                    </p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="custom-value">Custom value</Label>
+                      <Input
+                        id="custom-value"
+                        type="number"
+                        value={customStartingValue.toString()}
+                        onChange={(event) =>
+                          onCustomStartingValueChange(
+                            Number(event.target.value ?? "")
+                          )
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <ContributionsBreakDownDisplay
+                  contributionBreakdown={contributionBreakdown}
+                />
 
                 <div className="space-y-3 rounded-lg border bg-background p-3">
                   <h3 className="text-sm font-medium text-foreground">
@@ -469,15 +562,23 @@ export function FireContributionsCard({
               </>
             ) : null}
             {isPortfolioMode ? (
-              <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-                Your projection uses the recurring contributions saved against
-                your portfolio assets. Switch to{" "}
-                <span className="font-medium text-foreground">
-                  Custom scenario
-                </span>{" "}
-                to explore what-if contributions without updating your live
-                settings.
-              </div>
+              <>
+                <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+                  Your projection uses the recurring contributions saved against
+                  your portfolio assets. Switch to{" "}
+                  <span className="font-medium text-foreground">
+                    Custom scenario
+                  </span>{" "}
+                  to explore what-if contributions without updating your live
+                  settings.
+                </div>
+                <ContributionsBreakDownDisplay
+                  contributionBreakdown={contributionBreakdown}
+                />
+                <span className="text-sm text-muted-foreground block">
+                  TODO: Allow adding preview contributors to the portfolio
+                </span>
+              </>
             ) : null}
             {isSettingsMode ? (
               <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">

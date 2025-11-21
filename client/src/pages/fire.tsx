@@ -110,6 +110,8 @@ export default function Fire() {
   );
   const adjustInflation = fireSettingsValues.adjustInflation ?? true;
 
+  const [customStartingValue, setCustomStartingValue] = useState(0);
+
   const firePreviewConfig = useMemo<FIREProjectionConfig | null>(() => {
     if (!user?.profile?.dob) return null;
 
@@ -375,6 +377,8 @@ export default function Fire() {
             .toNumber()
         : 0;
 
+    console.log("previewContributors", previewContributors);
+
     const contributionTotals = new Map<string, number>();
     previewContributors.forEach((contributor) => {
       const total = contributor.schedules.reduce((sum, schedule) => {
@@ -592,6 +596,8 @@ export default function Fire() {
           contributionPreviewState={previewState.contribution}
           onChangeContributionPreviewState={setContributionPreviewState}
           onResetContributionPreviewState={resetContributionPreviewState}
+          customStartingValue={customStartingValue}
+          onCustomStartingValueChange={setCustomStartingValue}
         />
 
         <FireSettingsSummaryCard
