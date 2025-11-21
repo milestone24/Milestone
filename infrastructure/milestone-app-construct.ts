@@ -167,7 +167,7 @@ EOF`
       vpc,
       instanceType: ec2.InstanceType.of(
         ec2.InstanceClass.T4G,
-        ec2.InstanceSize.MICRO
+        ec2.InstanceSize.MEDIUM
       ),
       machineImage: ec2.MachineImage.latestAmazonLinux2023({
         cachedInContext: true,
