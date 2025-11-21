@@ -118,7 +118,7 @@ export default function ValuesChart({
   const { processes } = useProcesses({
     filters: {
       keys: ["update-asset-values"],
-      status: ["running"],
+      //status: ["running"],
     },
   });
 
