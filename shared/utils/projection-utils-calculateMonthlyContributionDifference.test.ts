@@ -1,0 +1,41 @@
+import { calculateMonthlyContributionDifference } from "./projection-utils";
+import { describe, it, expect } from "vitest";
+import { Contributor } from "@shared/schema/projections";
+import { createDecimalValueString } from "@shared/schema/utils";
+
+describe("calculateMonthlyContributionDifference", () => {
+  it("should return 0 if the current portfolio value is equal to the target value", () => {
+    const contributors: Contributor[] = [
+      {
+        name: "Test Contributor",
+        type: "asset",
+        currentValue: createDecimalValueString("100000.00"),
+        accountType: "LISA",
+        schedules: [
+          {
+            patternConfig: {
+              type: "rrule",
+              expression: "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1",
+            },
+            value: createDecimalValueString("1000.00"),
+            startDate: new Date(),
+            endDate: new Date(
+              new Date().setFullYear(new Date().getFullYear() + 1)
+            ),
+          },
+        ],
+      },
+    ];
+    const totalTargetDifference = 100000;
+    const monthsRemaining = 12;
+    const annualGrowthRate = 7;
+    const result = calculateMonthlyContributionDifference(
+      contributors,
+      totalTargetDifference,
+      monthsRemaining,
+      annualGrowthRate
+    );
+    console.log("monthlyContributionDifference", result);
+    expect(result.monthlyContributionDifference).toBe("0");
+  });
+});
