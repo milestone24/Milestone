@@ -306,6 +306,7 @@ export const contributionTypes = [
   "asset",
   "state_pension",
   "workplace_pension",
+  "custom",
 ] as const;
 
 export const contributorProjectionSchema = z.object({
@@ -517,6 +518,25 @@ export const fireProjectionResultSchema = z.object({
 
 export type FireProjectionResult = z.infer<typeof fireProjectionResultSchema>;
 
+export const monthlyContributionDifferenceSchema = z.object({
+  approximateMonthlyContribution: decimalValueSchema.refine(
+    isDecimalValueString,
+    {
+      message:
+        "Approximate monthly contribution must be a valid decimal string",
+    }
+  ),
+  monthlyContributionDifference: decimalValueSchema.refine(
+    isDecimalValueString,
+    {
+      message: "Monthly contribution difference must be a valid decimal string",
+    }
+  ),
+});
+export type MonthlyContributionDifference = z.infer<
+  typeof monthlyContributionDifferenceSchema
+>;
+
 /**
  * FIRE progress result - retirement feasibility
  */
@@ -531,11 +551,7 @@ export const fireProjectionSchema = z.object({
   isOnTrack: z.boolean(),
   yearsAheadOrBehind: z.number().nullable(),
   yearsRemainingToFireTarget: z.number().nullable(), // Negative if ahead, positive if behind
-  monthlyContributionDifference: decimalValueSchema
-    .refine(isDecimalValueString, {
-      message: "Monthly shortfall must be a valid decimal string",
-    })
-    .optional(), // Additional monthly contribution needed if behind
+  monthlyContributionDifference: monthlyContributionDifferenceSchema,
   projectionResult: projectionResultSchema,
   fireProjection: z.array(fireProjectionDataSchema),
   warnings: z.array(z.string()).optional(),

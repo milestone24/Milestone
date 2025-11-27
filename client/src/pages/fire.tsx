@@ -310,13 +310,10 @@ export default function Fire() {
   const activeProjectedRetirementAge = activeProjection?.projectedRetirementAge
     ? Math.round(activeProjection.projectedRetirementAge)
     : projectedRetirementAge;
-  const activeMonthlyContributionDifference = previewActive
-    ? previewProjection?.monthlyContributionDifference
-      ? createDecimalValueString(
-          previewProjection.monthlyContributionDifference
-        )
-      : null
-    : monthlyContributionDifference;
+  const activeMonthlyContributionDifference =
+    activeProjection?.monthlyContributionDifference
+      ? activeProjection.monthlyContributionDifference
+      : monthlyContributionDifference;
 
   const activeCurrentPortfolioValue = previewActive
     ? Number(
@@ -628,7 +625,9 @@ export default function Fire() {
             }
             lockedValueAtRetirement={summaryData.lockedValueAtRetirement}
             monthlyContributionDifference={
-              activeMonthlyContributionDifference ?? undefined
+              activeMonthlyContributionDifference
+                ? activeMonthlyContributionDifference.monthlyContributionDifference
+                : undefined
             }
             progressPercentage={summaryData.progressPercentage}
             previewActive={summaryData.previewActive}

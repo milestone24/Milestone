@@ -128,9 +128,15 @@ This will cause the projection to be infinite years ahead of retirement.`);
 
   // Check if on track
 
+  const currentPortfolioValue = projectionResult.totalCurrentValue;
+
+  const currentDifference = Decimal(fireNumber)
+    .sub(currentPortfolioValue)
+    .toNumber();
+
   // This could be a positive or negative number
-  const targetDifference = Decimal(fireNumber)
-    .sub(Decimal(projectedValueAtRetirement))
+  const targetDifference = Decimal(projectedValueAtRetirement)
+    .sub(Decimal(fireNumber))
     .toNumber();
 
   const isOnTrack = targetDifference <= 0;
@@ -139,7 +145,6 @@ This will cause the projection to be infinite years ahead of retirement.`);
   const currentAge = calculateAge(fireConfig.dateOfBirth);
 
   // Get current portfolio value
-  const currentPortfolioValue = projectionResult.totalCurrentValue;
 
   // Extract schedules from contributors
   const scheduledContributions = contributors.flatMap((c) => c.schedules);
@@ -166,18 +171,20 @@ This will cause the projection to be infinite years ahead of retirement.`);
     );
   }
 
-  // Calculate monthly shortfall if behind
-  let monthlyContributionDifference: DecimalValueString | undefined;
-
   const yearsRemainingToTargetAge = fireConfig.targetRetirementAge - currentAge;
   const monthsRemainingToTargetAge = yearsRemainingToTargetAge * 12;
 
   //Question if we should apply a growth rate to the target difference
-  monthlyContributionDifference = calculateMonthlyContributionDifference(
-    //currentMonthlyContribution,
+  const monthlyContributionDifference = calculateMonthlyContributionDifference(
+    contributors,
     targetDifference,
     monthsRemainingToTargetAge,
     growthRate
+  );
+
+  console.log(
+    "monthlyContributionDifference SSS",
+    monthlyContributionDifference
   );
 
   // Calculate projected retirement date based on trajectory
@@ -315,6 +322,7 @@ export async function projectRetirementWithAccountAssets(
   };
 
   const assets = await dataSource.getAssets();
+
   const contributors = mapAssetsToContributors(assets);
 
   //If fire settings or other config has "include government pensions" set to true, then add the government pension to the contributors

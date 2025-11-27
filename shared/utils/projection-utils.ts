@@ -10,6 +10,7 @@ import type {
   FireProjectionData,
   BonusValue,
   ValueReleasePointInTime,
+  MonthlyContributionDifference,
 } from "@shared/schema/projections";
 import { ModifierChain, createModifierContext } from "./projection-modifiers";
 import { getNextExecutionDate } from "./scheduling";
@@ -498,6 +499,8 @@ function defineValueReleasePointsForAssetType(
 export function mapAssetToContributor(
   asset: ProjectionOrchestratorAssetInput
 ): Contributor {
+  console.log("mapAssetToContributor asset", JSON.stringify(asset, null, 2));
+
   return {
     referenceId: asset.id,
     accountType: asset.accountType as AccountType,
@@ -583,48 +586,180 @@ export function convertToAgeBasedProjection(
 }
 
 /**
- * Calculate additional monthly contribution needed to reach milestone
- * TODO: This method should now return a positive or negative number depending on whether the user is ahead or behind the target
+ * Calculate additional monthly contribution needed to reach milestone* TODO: This method should now return a positive or negative number depending on whether the user is ahead or behind the target
+ * TODO: This method should consider if the current value exceeds the target.
  */
 export function calculateMonthlyContributionDifference(
-  //currentMonthlyContribution: number,
+  contributors: Contributor[],
   totalTargetDifference: number,
   monthsRemaining: number,
   annualGrowthRate: number
-): DecimalValueString {
-  
-  if (monthsRemaining <= 0) {
-    return createDecimalValueString("0");
+): MonthlyContributionDifference {
+  console.log(
+    "calculateMonthlyContributionDifference totalTargetDifference",
+    totalTargetDifference
+  );
+  console.log(
+    "calculateMonthlyContributionDifference monthsRemaining",
+    monthsRemaining
+  );
+  console.log(
+    "calculateMonthlyContributionDifference annualGrowthRate",
+    annualGrowthRate
+  );
+
+  console.log(
+    "calculateMonthlyContributionDifference contributors",
+    JSON.stringify(contributors, null, 2)
+  );
+
+  //First get an average monthly contribution from the contributors
+  //Contributors can have random schedules of any freqquncy.
+  //So we should first calculate an estimate of what they would contribute in a year
+  //And then divide by 12 to get a monthly contribution
+  //What happens for contributors with a limited duration, say only twice a month for 6 months?
+  const startDate = new Date();
+  const oneYearFromNow = addYears(startDate, 1);
+
+  let totalAnnualUserContributions = Decimal(0);
+  let totalAnnualBonuses = Decimal(0);
+
+  // Calculate total annual contributions from all contributors
+  // This estimates monthly average by projecting one year ahead
+  for (const contributor of contributors) {
+    const periodResult = calculatePeriodContributions(
+      contributor,
+      startDate,
+      oneYearFromNow
+    );
+    console.log(
+      "calculateMonthlyContributionDifference contributor",
+      contributor.accountType
+    );
+    console.log(
+      "calculateMonthlyContributionDifference periodResult",
+      JSON.stringify(periodResult, null, 2)
+    );
+    totalAnnualUserContributions = totalAnnualUserContributions.add(
+      periodResult.contributions
+    );
+    totalAnnualBonuses = totalAnnualBonuses.add(periodResult.bonuses);
   }
 
-  // Calculate additional monthly contribution needed
+  // Calculate existing monthly contributions
+  // approximateMonthlyContribution should be user contributions only (no bonuses)
+  const approximateMonthlyContribution = totalAnnualUserContributions.div(12);
+
+  // Calculate existing total monthly contribution (user + bonuses) for adjustment calculation
+  // Bonuses are considered when calculating what's needed, but not included in returned values
+  const existingTotalMonthlyContribution = totalAnnualUserContributions
+    .add(totalAnnualBonuses)
+    .div(12);
+
+  // Handle edge cases: if no months remaining or target already reached,
+  // all contributions are excess (over-investing)
+  if (monthsRemaining <= 0) {
+    // If we still have contributions but no months left to target,
+    // all contributions are excess (positive difference = over-investing)
+    return {
+      approximateMonthlyContribution: createDecimalValueString(
+        approximateMonthlyContribution.toFixed(2)
+      ),
+      monthlyContributionDifference: createDecimalValueString(
+        approximateMonthlyContribution.toFixed(2)
+      ),
+    };
+  }
+
+  // If we have already reached the target, all contributions are excess
+  if (totalTargetDifference === 0) {
+    return {
+      approximateMonthlyContribution: createDecimalValueString(
+        approximateMonthlyContribution.toFixed(2)
+      ),
+      monthlyContributionDifference: createDecimalValueString(
+        approximateMonthlyContribution.toFixed(2)
+      ),
+    };
+  }
+
+  console.log(
+    "calculateMonthlyContributionDifference totalTargetDifference",
+    totalTargetDifference
+  );
+
+  // Calculate what monthly contribution is needed to close the gap
   // Using future value of annuity formula solved for payment:
   // FV = PMT × [((1 + r)^n - 1) / r]
   // PMT = FV / [((1 + r)^n - 1) / r]
+  //
+  // totalTargetDifference = projectedValueAtRetirement - fireNumber
+  // Negative totalTargetDifference = below target (shortfall) = need more contributions
+  // Positive totalTargetDifference = exceeds target (over-invested) = can reduce contributions
+  //
+  // To close the gap, we need monthly contributions that will grow to equal -totalTargetDifference
+  // (negate to close the gap, not create it)
 
-  const monthlyRate = Decimal(annualGrowthRate).div(100).div(12).toNumber();
+  const monthlyRate = Decimal(annualGrowthRate).div(100).div(12);
 
-  if (monthlyRate === 0) {
+  let adjustmentMonthlyContribution: Decimal;
+
+  if (monthlyRate.eq(0)) {
     // No growth, simple division
-    return createDecimalValueString(
-      Decimal(totalTargetDifference).div(monthsRemaining).neg().toString()
-    );
+    // To close gap: negative totalTargetDifference (shortfall) needs positive adjustment
+    //              positive totalTargetDifference (overage) needs negative adjustment
+    adjustmentMonthlyContribution = Decimal(totalTargetDifference)
+      .neg()
+      .div(monthsRemaining);
+  } else {
+    const futureValueFactor = Decimal(1)
+      .add(monthlyRate)
+      .pow(monthsRemaining)
+      .sub(1)
+      .div(monthlyRate);
+
+    // Calculate what monthly contribution adjustment is needed to close the gap
+    // Negate totalTargetDifference because we want to close the gap, not create it
+    // Negative totalTargetDifference (shortfall) → positive adjustment (need more)
+    // Positive totalTargetDifference (overage) → negative adjustment (can reduce)
+    adjustmentMonthlyContribution = Decimal(totalTargetDifference)
+      .neg()
+      .div(futureValueFactor);
   }
 
-  const futureValueFactor = Decimal(1)
-    .add(monthlyRate)
-    .pow(monthsRemaining)
-    .sub(1)
-    .div(monthlyRate)
-    .toNumber();
-
-  const additionalMonthlyContribution = Decimal(totalTargetDifference)
-    .div(futureValueFactor)
-    .toNumber();
-
-  return createDecimalValueString(
-    Decimal(additionalMonthlyContribution).neg().toFixed(2)
+  // Calculate the total monthly contribution needed to reach the target (including bonuses)
+  // Total needed = existing total (user + bonuses) + adjustment
+  const totalNeededMonthlyContribution = existingTotalMonthlyContribution.add(
+    adjustmentMonthlyContribution
   );
+
+  // Calculate the ratio of user contributions to total (user + bonuses)
+  // This helps us determine what user contribution portion is needed
+  const userContributionRatio = existingTotalMonthlyContribution.eq(0)
+    ? Decimal(1) // If no existing contributions, assume 100% user (no bonuses)
+    : approximateMonthlyContribution.div(existingTotalMonthlyContribution);
+
+  // Calculate needed user contribution (excluding bonuses)
+  // Apply the same ratio to the total needed
+  const neededUserMonthlyContribution = totalNeededMonthlyContribution.mul(
+    userContributionRatio
+  );
+
+  // Calculate the difference: existing user contributions - needed user contributions
+  // Positive = contributing more than needed (over-investing)
+  // Negative = contributing less than needed (under-investing)
+  const monthlyContributionDifference = approximateMonthlyContribution.sub(
+    neededUserMonthlyContribution
+  );
+
+  return {
+    approximateMonthlyContribution: createDecimalValueString(
+      approximateMonthlyContribution.toFixed(2)
+    ),
+    monthlyContributionDifference: createDecimalValueString(
+      monthlyContributionDifference.toFixed(2)
+    ),
+  };
 }
 
 

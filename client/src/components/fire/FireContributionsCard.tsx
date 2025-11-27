@@ -24,6 +24,7 @@ import {
   ContributionTypes,
   contributionTypes,
   DecimalValueString,
+  MonthlyContributionDifference,
 } from "@shared/schema";
 import { Label } from "../ui/label";
 import {
@@ -139,7 +140,7 @@ type StandaloneContributorsPanelProps = {
 
 type FireContributionsCardProps = StandaloneContributorsPanelProps & {
   contributionBreakdown: Array<{ accountType: string; amount: number }>;
-  monthlyContributionDifference: DecimalValueString | null;
+  monthlyContributionDifference: MonthlyContributionDifference | null;
   contributionPreviewState: ContributionPreviewState;
   onChangeContributionPreviewState: (state: ContributionPreviewState) => void;
   onResetContributionPreviewState: () => void;
@@ -228,7 +229,13 @@ export function FireContributionsCard({
 
   const monthlyContributionDifferenceNumber = useMemo(() => {
     return monthlyContributionDifference
-      ? Number(monthlyContributionDifference)
+      ? Number(monthlyContributionDifference.monthlyContributionDifference)
+      : null;
+  }, [monthlyContributionDifference]);
+
+  const approximateMonthlyContributionNumber = useMemo(() => {
+    return monthlyContributionDifference
+      ? Number(monthlyContributionDifference.approximateMonthlyContribution)
       : null;
   }, [monthlyContributionDifference]);
 
@@ -273,19 +280,35 @@ export function FireContributionsCard({
               Use FIRE Setting
             </Button>
           </div>
+          <span className="text-sm text-muted-foreground block">
+            Approximate monthly contribution:
+            {approximateMonthlyContributionNumber}
+          </span>
           {monthlyContributionDifferenceNumber !== null ? (
             monthlyContributionDifferenceNumber < 0 ? (
               <div className="text-sm text-muted-foreground">
-                <span>You are under contributing per month by </span>
-                <PosNegNumber value={Number(monthlyContributionDifference)} />
+                <span>
+                  It is estimated that you are under contributing per month by{" "}
+                </span>
+                <PosNegNumber
+                  value={Number(monthlyContributionDifferenceNumber)}
+                />
               </div>
             ) : (
               <div className="text-sm text-muted-foreground">
-                <span>Your are over contributing per month by </span>
-                <PosNegNumber value={Number(monthlyContributionDifference)} />
+                <span>
+                  It is estimated that you are over contributing per month by{" "}
+                </span>
+                <PosNegNumber
+                  value={Number(monthlyContributionDifferenceNumber)}
+                />
               </div>
             )
           ) : null}
+          <span className="text-sm text-muted-foreground block">
+            * This is an estimate. Different investment types will have
+            different effects on the projected total value of your portfolio.
+          </span>
         </CardHeader>
         <CardContent className="space-y-3">
           <>

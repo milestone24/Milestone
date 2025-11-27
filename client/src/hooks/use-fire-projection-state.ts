@@ -8,6 +8,7 @@ import type {
   Contributor,
   FireProjection,
   FireProjectionData,
+  MonthlyContributionDifference,
   SimpleProjectionConfig,
 } from "@shared/schema/projections";
 import { convertToAgeBasedProjection } from "@shared/utils/projection-utils";
@@ -50,7 +51,7 @@ type UseFireProjectionStateResult = {
   };
   projectedRetirementAge: number | null;
   projectedRetirementDate?: Date | null;
-  monthlyContributionDifference?: DecimalValueString | null;
+  monthlyContributionDifference?: MonthlyContributionDifference | null;
   fireNumber: number;
 };
 
@@ -171,9 +172,7 @@ export function useFireProjectionState({
     projectedRetirementDate: currentProjection?.projectedRetirementDate,
     monthlyContributionDifference:
       currentProjection?.monthlyContributionDifference
-        ? createDecimalValueString(
-            currentProjection.monthlyContributionDifference
-          )
+        ? currentProjection.monthlyContributionDifference
         : null,
     fireNumber,
   };
