@@ -16,7 +16,9 @@
     "cdk:deploy": "cd infrastructure && cdk deploy",
     "cdk:diff": "cd infrastructure && cdk diff",
     "cdk:bootstrap": "cd infrastructure && cdk bootstrap",
-    "deploy": "tools/container/deploy.sh && tools/aws/deploy.sh"
+    "deploy:container": "tools/container/deploy.sh",
+    "deploy:aws": "tools/aws/deploy.sh",
+    "deploy": "npm run deploy:container && npm run deploy:aws"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.37.0",
