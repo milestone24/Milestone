@@ -1,8 +1,7 @@
 import { FC, useState } from "react";
 import { ResolvedSecurity } from "shared/schema";
-import { twMerge } from "tailwind-merge";
 import { Button } from "../ui/button";
-import { Pencil, Trash } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
 
 type SecurityCardProps = {
@@ -24,32 +23,41 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
   };
 
   return (
-    <div className="flex flex-row gap-2 w-full">
+    <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
       <div
-        className={"flex flex-1 flex-row justify-between cursor-pointer"}
+        className="flex flex-1 flex-row justify-between cursor-pointer"
         onClick={() => onClick(security)}
       >
         <div className="flex flex-col items-start">
-          <div className="text-sm font-medium">{security.security.name}</div>
-          <div className="text-sm text-gray-500">
-            {security.security.symbol}
-          </div>
+          <p className="font-medium">{security.security.name}</p>
+          <p className="text-sm text-gray-600">{security.security.symbol}</p>
         </div>
         <div className="flex flex-col items-end">
-          <div className="text-sm font-medium">
-            {security.calculatedValue.value}
-          </div>
-          <div className="text-sm text-gray-500">
-            {security.calculatedValue.currentChange}
-          </div>
+          <p className="font-medium">
+            £{Number(security.calculatedValue.value).toLocaleString()}
+          </p>
+          <p className="text-sm text-gray-600">
+            {Number(security.calculatedValue.currentChange) >= 0 ? "+" : ""}
+            {Number(security.calculatedValue.currentChange).toLocaleString()}
+          </p>
         </div>
       </div>
-      <div className="flex flex-0 flex-row gap-2">
-        <Button variant="outline" size="sm">
-          <Pencil className="w-4 h-4" />
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={handleEdit}
+        >
+          <Pencil className="h-4 w-4" />
         </Button>
-        <Button variant="outline" size="sm" onClick={handleDelete}>
-          <Trash className="w-4 h-4" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+          onClick={handleDelete}
+        >
+          <Trash2 className="h-4 w-4" />
         </Button>
       </div>
     </div>

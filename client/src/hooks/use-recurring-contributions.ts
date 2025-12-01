@@ -1,8 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { toast } from "@/hooks/use-toast";
 import type {
   RecurringContribution,
-  RecurringContributionInsert,
   RecurringContributionOrphanInsert,
   RecurringContributionBulkInsert,
 } from "@shared/schema";
@@ -40,6 +40,18 @@ export function useRecurringContributions(assetId: string | undefined) {
       queryClient.invalidateQueries({
         queryKey: getRecurringContributionsQueryKey(assetId ?? ""),
       });
+      toast({
+        title: "Recurring contribution created",
+        description: "Recurring contribution has been created successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error creating recurring contribution",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
     },
   });
 
@@ -61,6 +73,18 @@ export function useRecurringContributions(assetId: string | undefined) {
       queryClient.invalidateQueries({
         queryKey: getRecurringContributionsQueryKey(assetId ?? ""),
       });
+      toast({
+        title: "Recurring contribution updated",
+        description: "Recurring contribution has been updated successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error updating recurring contribution",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
     },
   });
 
@@ -77,6 +101,18 @@ export function useRecurringContributions(assetId: string | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: getRecurringContributionsQueryKey(assetId ?? ""),
+      });
+      toast({
+        title: "Recurring contribution deleted",
+        description: "Recurring contribution has been deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error deleting recurring contribution",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
       });
     },
   });
@@ -97,6 +133,19 @@ export function useRecurringContributions(assetId: string | undefined) {
       queryClient.invalidateQueries({
         queryKey: getRecurringContributionsQueryKey(assetId ?? ""),
       });
+      toast({
+        title: "Recurring contributions created",
+        description:
+          "Distributed recurring contributions have been created successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error creating recurring contributions",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
     },
   });
 
@@ -111,4 +160,3 @@ export function useRecurringContributions(assetId: string | undefined) {
     deleteRecurringContribution: deleteMutation,
   };
 }
-

@@ -12,7 +12,7 @@ import type {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "./use-toast";
 
-export type SecurityTransactionCreateRequest<> = {
+export type SecurityTransactionCreateRequest = {
   securityId: string;
   data: SecurityTransactionOrphanInsert;
 };
@@ -36,13 +36,24 @@ export const useSecurityTransactions = (assetId: string) => {
       ),
   });
 
+  const invalidateRelatedQueries = () => {
+    queryClient.invalidateQueries({
+      queryKey: [...assetSecuritiesTransactions, assetId],
+    });
+    queryClient.invalidateQueries({
+      queryKey: [...assetGraphValues, assetId],
+    });
+    queryClient.invalidateQueries({
+      queryKey: [...assetGraphTransactions, assetId],
+    });
+  };
+
   const addSecurityTransaction = useMutation<
     SecurityTransactionSelect,
     Error,
     SecurityTransactionCreateRequest
   >({
     mutationFn: ({ securityId, data }) => {
-      console.log("addSecurityTransaction data", data);
       return apiRequest(
         "POST",
         `/api/assets/${assetId}/securities/${securityId}/transactions`,
@@ -50,14 +61,18 @@ export const useSecurityTransactions = (assetId: string) => {
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: [...assetSecuritiesTransactions, assetId],
+      invalidateRelatedQueries();
+      toast({
+        title: "Transaction added",
+        description: "Security transaction has been added successfully.",
       });
-      queryClient.invalidateQueries({
-        queryKey: [...assetGraphValues, assetId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: [...assetGraphTransactions, assetId],
+    },
+    onError: (error) => {
+      toast({
+        title: "Error adding transaction",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
       });
     },
   });
@@ -73,6 +88,21 @@ export const useSecurityTransactions = (assetId: string) => {
         `/api/assets/${assetId}/securities/${securityId}/transactions/${transactionId}`,
         data
       );
+    },
+    onSuccess: () => {
+      invalidateRelatedQueries();
+      toast({
+        title: "Transaction updated",
+        description: "Security transaction has been updated successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error updating transaction",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
     },
   });
 
@@ -97,17 +127,18 @@ export const useSecurityTransactions = (assetId: string) => {
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: [...assetSecuritiesTransactions, assetId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: [...assetGraphValues, assetId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: [...assetGraphTransactions, assetId],
-      });
+      invalidateRelatedQueries();
       toast({
-        title: "Transaction deleted successfully",
+        title: "Transaction deleted",
+        description: "Security transaction has been deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error deleting transaction",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
       });
     },
   });

@@ -4,16 +4,11 @@ import { Coins, Pencil, Trash2, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
-import {
-  AssetTransaction,
-  createDecimalValueString,
-} from "@shared/schema";
-import { TransactionsDialogue } from "./TransactionsDialogue";
+import { AssetTransaction, createDecimalValueString } from "@shared/schema";
 import { usePortfolio } from "@/context/PortfolioContext";
 import {
   RecurringContributionFormData,
   AssetContributionFormData,
-  isSingleContributionFormData,
 } from "@shared/schema/transaction";
 import {
   AlertDialogAction,
@@ -31,6 +26,7 @@ import {
   RecurringContributionTriggerButton,
 } from "./RecurringContributionDialog";
 import { RecurringContributionsList } from "./RecurringContributionsList";
+import { TransactionsDialogue } from "./TransactionsDialogue";
 
 type TransactionsPanelProps = {
   assetId: string;
@@ -143,24 +139,17 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
     setIsCreateRecurringOpen(false);
   };
 
-  // Combined handler for TransactionsDialogue (single contributions only)
-  const handleContributionSubmit = async <
-    T extends AssetContributionFormData | RecurringContributionFormData =
-      | AssetContributionFormData
-      | RecurringContributionFormData,
-    R = T extends AssetContributionFormData
-      ? AssetTransaction
-      : never
-  >(
-    data: T,
+  // Handler for single contributions dialog
+  const handleSingleContributionSubmit = async (
+    data: AssetContributionFormData,
     contributionId?: string
-  ): Promise<R> => {
-    if (isSingleContributionFormData(data)) {
-      return contributionId
-        ? ((await handleEditContribution(contributionId, data)) as R)
-        : ((await handleCreateContribution(data)) as R);
+  ): Promise<void> => {
+    if (contributionId) {
+      await handleEditContribution(contributionId, data);
+    } else {
+      await handleCreateContribution(data);
     }
-    throw new Error("Recurring contributions should use the dedicated dialog");
+    setContributionDialogData(undefined);
   };
 
   return (
@@ -321,18 +310,14 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
 
       {/* Single Contribution Dialog */}
       <TransactionsDialogue
+        isOpen={contributionDialogData !== undefined}
         onOpenChange={(open) => {
-          setContributionDialogData(open ? { data: null } : undefined);
+          if (!open) {
+            setContributionDialogData(undefined);
+          }
         }}
-        {...(contributionDialogData
-          ? {
-              isOpen: true,
-              onSubmit: handleContributionSubmit,
-              data: contributionDialogData.data,
-            }
-          : {
-              isOpen: false,
-            })}
+        onSubmit={handleSingleContributionSubmit}
+        data={contributionDialogData?.data}
       />
 
       {/* Delete Single Contribution Confirmation Dialog */}

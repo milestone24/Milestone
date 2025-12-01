@@ -70,7 +70,7 @@ export const SecurityTransactionSingleForm = ({
 
   const values = getValues();
 
-  console.log("values", values);
+  console.log("values sjjsjsj", values);
 
   const securityId = watch("assetSecurityId");
 
@@ -149,6 +149,16 @@ export const SecurityTransactionSingleForm = ({
           <FormField
             control={control}
             name="value"
+            rules={{
+              required: true,
+              validate: (value) => {
+                console.log("validatettetet", value);
+                if (!value || value === "") {
+                  return "Value is required";
+                }
+                return true;
+              },
+            }}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Number of Shares</FormLabel>
@@ -157,9 +167,13 @@ export const SecurityTransactionSingleForm = ({
                     type="number"
                     placeholder="Number of Shares"
                     {...field}
-                    value={field.value ?? createDecimalValueString("0")}
+                    value={field.value ?? ""}
                     onChange={(e) => {
-                      field.onChange(createDecimalValueString(e.target.value));
+                      field.onChange(
+                        e.target.value == ""
+                          ? ""
+                          : createDecimalValueString(e.target.value)
+                      );
                     }}
                   />
                 </FormControl>

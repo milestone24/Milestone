@@ -25,9 +25,9 @@ export const SecuritiesList: FC<SecuritiesListProps> = ({
   };
 
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
+    <div className={cn("flex flex-col", className)}>
       {canAddSecurity && (
-        <div className="flex justify-end">
+        <div className="flex justify-end mb-4">
           <AssetSecurityUpsertDialog
             isOpen={isAddSecurityOpen}
             onOpenChange={setIsAddSecurityOpen}
@@ -37,9 +37,20 @@ export const SecuritiesList: FC<SecuritiesListProps> = ({
           />
         </div>
       )}
-      <div>
+      <div className="space-y-4">
         {isSecuritiesLoading ? (
-          <div>Loading...</div>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="p-4 bg-gray-50 rounded-lg animate-pulse">
+                <div className="h-5 bg-gray-200 rounded w-1/4 mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+              </div>
+            ))}
+          </div>
+        ) : securities.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            No securities in this account.
+          </div>
         ) : (
           securities.map((security) => (
             <SecurityCard
