@@ -32,28 +32,25 @@ type SecurityTransactionSingleFormProps = {
   onSubmit: (data: SecurityTransactionInsert) => Promise<void>;
   data?: SecurityTransactionInsert;
   securities: UserAssetSecuritySelect[];
+  CancelButton?: React.ReactNode;
 };
 
 export const SecurityTransactionSingleForm = ({
   onSubmit,
   data,
   securities,
+  CancelButton,
 }: SecurityTransactionSingleFormProps) => {
   const form = useForm<SecurityTransactionUpsert>({
     resolver: zodResolver(securityTransactionInsertSchema),
-    // values: data
-    //   ? {
-    //       securityId: data.securityId,
-    //       value: data.value,
-    //       valueDate: data.valueDate,
-    //       recordedAt: new Date(data.recordedAt),
-    //     }
-    //   : {
-    //       securityId: "",
-    //       value: 0,
-    //       valueDate: new Date(),
-    //       recordedAt: new Date(),
-    //     },
+    values: data
+      ? {
+          value: data.value,
+          currencyValue: data.currencyValue,
+          valueDate: data.valueDate,
+          assetSecurityId: data.assetSecurityId,
+        }
+      : undefined,
     defaultValues: {
       value: createDecimalValueString("0"),
       valueDate: new Date(),
@@ -197,15 +194,13 @@ export const SecurityTransactionSingleForm = ({
             )}
           />
         </div>
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {CancelButton}
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? (
-              <Loader2 className="w-4 h-4 ml-2" />
-            ) : data ? (
-              "Update Contribution"
-            ) : (
-              "Add Contribution"
-            )}
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : null}
+            {data ? "Update Contribution" : "Add Contribution"}
           </Button>
         </div>
       </form>

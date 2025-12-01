@@ -1592,6 +1592,93 @@ export class DatabaseAssetService {
     return insertedRecurringContribution;
   }
 
+  /**
+   * Creates a group of recurring contributions distributed across multiple securities.
+   * All contributions share the same groupId and are created in a single transaction.
+   */
+  async createRecurringContributionGroup(
+    assetId: UserAsset["id"],
+    data: {
+      amount: DecimalValueString;
+      process: "automatic" | "manual";
+      startDate: Date;
+      patternConfig: { type: "rrule" | "cron"; expression: string; timezone?: string };
+      notificationEmail?: boolean;
+      notificationPush?: boolean;
+      isActive?: boolean;
+      securityDistribution: Array<{
+        securityId: string;
+        commitment: DecimalValueString; // Percentage (0-100)
+      }>;
+    }
+  ): Promise<RecurringContribution[]> {
+    // Make sure the asset exists
+    const asset = await this.getUserAsset(assetId);
+    if (!asset) {
+      throw new Error(`Asset with ID ${assetId} not found`);
+    }
+
+    // Validate that all securities belong to this asset
+    const assetSecurities = await this.db.query.userAssetSecurities.findMany({
+      where: eq(userAssetSecurities.userAssetId, assetId),
+    });
+
+    const assetSecurityIds = new Set(assetSecurities.map((s) => s.id));
+    for (const dist of data.securityDistribution) {
+      if (!assetSecurityIds.has(dist.securityId)) {
+        throw new Error(
+          `Security ${dist.securityId} does not belong to asset ${assetId}`
+        );
+      }
+    }
+
+    // Generate a shared groupId for all contributions
+    const groupId = crypto.randomUUID();
+
+    // Calculate total commitment to validate it sums to 100
+    const totalCommitment = data.securityDistribution.reduce(
+      (sum, dist) => sum + Number(dist.commitment),
+      0
+    );
+
+    // Create all contributions in a transaction
+    const insertedContributions = await this.db.transaction(async (tx) => {
+      const contributions: RecurringContribution[] = [];
+
+      for (const dist of data.securityDistribution) {
+        // Calculate the amount for this security based on its commitment percentage
+        const securityAmount = createDecimalValueString(
+          ((Number(data.amount) * Number(dist.commitment)) / totalCommitment).toFixed(2)
+        );
+
+        const [inserted] = await tx
+          .insert(recurringContributions)
+          .values({
+            assetId,
+            securityId: dist.securityId,
+            groupId,
+            type: "security",
+            amount: securityAmount,
+            process: data.process,
+            startDate: data.startDate,
+            patternConfig: data.patternConfig,
+            notificationEmail: data.notificationEmail ?? false,
+            notificationPush: data.notificationPush ?? false,
+            isActive: data.isActive ?? true,
+          })
+          .returning();
+
+        if (inserted) {
+          contributions.push(inserted);
+        }
+      }
+
+      return contributions;
+    });
+
+    return insertedContributions;
+  }
+
   async updateRecurringContribution(
     assetId: UserAsset["id"],
     contributionId: RecurringContribution["id"],

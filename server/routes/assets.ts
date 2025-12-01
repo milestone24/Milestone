@@ -10,6 +10,7 @@ import {
   assetContributionOrphanInsertSchema,
   userAssetInsertSchema,
   recurringContributionOrphanInsertSchema,
+  recurringContributionBulkInsertSchema,
   securityTransactionOrphanInsertSchema,
   userAssetSecurityInsertSchema,
   userAssetOrphanInsertSchema,
@@ -607,6 +608,24 @@ export async function registerRoutes(
           data
         );
       res.json(recurringContribution);
+    }
+  );
+
+  // Bulk create recurring contributions distributed across multiple securities
+  router.post(
+    regExpPath(`/${uuidRouteParam("assetId")}/recurring-contributions/group`),
+    requireUser,
+    async (req: AuthRequest, res) => {
+      if (!req.params.assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+      const data = recurringContributionBulkInsertSchema.parse(req.body);
+      const recurringContributions =
+        await assetService.createRecurringContributionGroup(
+          req.params.assetId,
+          data
+        );
+      res.json(recurringContributions);
     }
   );
 

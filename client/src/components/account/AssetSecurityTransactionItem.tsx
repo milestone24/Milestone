@@ -1,5 +1,7 @@
 import {
   SecurityTransactionSelect,
+  SecurityTransactionUpsert,
+  UserAssetSecuritySelect,
   UserAssetSecurityTransactionResolved,
 } from "@shared/schema";
 import { cn } from "@/lib/utils";
@@ -19,18 +21,23 @@ import { useCallback, useState } from "react";
 import { useSecurityTransactions } from "@/hooks/use-security-transactions";
 import { useAsset } from "@/hooks/use-asset";
 import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
+import { SecurityTransactionSingleForm } from "./SecurityTransactionSingleForm";
+import { SecurityTransactionUpsertDialogue } from "./SecurityTransactionUpsertDialogue";
 
 type AssetSecurityTransactionItemProps = {
   transaction: UserAssetSecurityTransactionResolved;
+  securities: UserAssetSecuritySelect[];
 };
 
 export const AssetSecurityTransactionItem = ({
   transaction,
+  securities,
 }: AssetSecurityTransactionItemProps) => {
   const [isInProcess, setIsInProcess] = useState(false);
 
   const { assetId } = useAssetSecurities();
   const { deleteSecurityTransaction } = useSecurityTransactions(assetId);
+  const { updateSecurityTransaction } = useSecurityTransactions(assetId);
   const [error, setError] = useState<Error | null>(null);
 
   const handleDeleteTransaction = useCallback(
@@ -61,87 +68,108 @@ export const AssetSecurityTransactionItem = ({
     [deleteSecurityTransaction, setIsInProcess]
   );
 
+  const handleTransactionSubmit = useCallback(
+    async (data: SecurityTransactionUpsert) => {
+      const response = await updateSecurityTransaction.mutateAsync({
+        securityId: transaction.assetSecurityId,
+        transactionId: transaction.id,
+        data,
+      });
+      console.log("handleTransactionSubmit", data);
+      return Promise.resolve(transaction);
+    },
+    [transaction]
+  );
+
   return (
     <div
       key={transaction.id}
-      className="flex flex-row justify-between items-center p-2 md:p-4 bg-gray-50"
+      className={cn(
+        "flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 bg-gray-50 rounded-lg transition-opacity",
+        isInProcess && "opacity-50 pointer-events-none"
+      )}
     >
-      <div>
-        <div className="flex items-center">
-          {/* Replace this with icon for security shares */}
-          <Layers2 className="h-4 w-4 mr-1 text-green-600" />
-          {/* <Coins className="h-4 w-4 mr-1 text-green-600" /> */}
-          <span className="text-sm text-gray-600 pl-1">
-            {transaction.securityName}&nbsp;-&nbsp;
+      {/* Content Section */}
+      <div className="flex flex-col gap-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-1">
+          <Layers2 className="h-4 w-4 text-green-600" />
+          <span className="text-sm text-muted-foreground">
+            {transaction.securityName}
           </span>
+          <span className="text-muted-foreground">·</span>
           <span
             className={cn(
-              "font-medium",
+              "font-semibold",
               Number(transaction.value) > 0 ? "text-green-600" : "text-red-600"
             )}
           >
-            {Number(transaction.value) > 0 ? "+" : "-"}
+            {Number(transaction.value) > 0 ? "+" : ""}
             {Number(transaction.value)} shares
           </span>
+          {isInProcess && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
         </div>
-        <p className="text-sm text-gray-600">
-          <span>
-            {new Date(transaction.valueDate).toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })}
-          </span>
-          <span>&nbsp;-&nbsp;</span>
-          <span>£{transaction.currencyValue.toLocaleString()}</span>
+        <p className="text-sm text-muted-foreground">
+          {new Date(transaction.valueDate).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}
+          {" · "}
+          £{transaction.currencyValue.toLocaleString()}
         </p>
       </div>
-      <div>
-        {isInProcess ? (
-          <Loader2 className="h-5 w-5 animate-spin" />
-        ) : (
-          <Dialog>
-            <DialogTrigger>
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="mr-2 text-red-600 hover:text-red-800 hover:bg-red-50"
-              >
-                <Trash2 className="h-5 w-5" />
-              </Button>
-            </DialogTrigger>
 
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Delete Transaction</DialogTitle>
-                <DialogDescription>
-                  Are you sure you want to delete this transaction? If you
-                  continue please be aware it may take a few minutes to update
-                  the history
-                </DialogDescription>
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button variant="outline">Cancel</Button>
-                  </DialogClose>
-                  <Button
-                    variant="destructive"
-                    onClick={() =>
-                      handleDeleteTransaction({
-                        assetSecurityId: transaction.assetSecurityId,
-                        transactionId: transaction.id,
-                      })
-                    }
-                  >
-                    Delete
-                  </Button>
-                </DialogFooter>
-              </DialogHeader>
-            </DialogContent>
-          </Dialog>
-        )}
+      {/* Actions Section */}
+      <div className="flex items-center gap-2 self-end sm:self-center">
+        <SecurityTransactionUpsertDialogue
+          onSubmit={handleTransactionSubmit}
+          data={transaction}
+          securities={securities}
+          display="inline"
+        />
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+              disabled={isInProcess}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </DialogTrigger>
+
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Transaction</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this transaction? If you
+                continue please be aware it may take a few minutes to update the
+                history.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button
+                variant="destructive"
+                onClick={() =>
+                  handleDeleteTransaction({
+                    assetSecurityId: transaction.assetSecurityId,
+                    transactionId: transaction.id,
+                  })
+                }
+              >
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-      {error && <p className="text-red-500">{error.message}</p>}
+      {error && <p className="text-red-500 text-sm mt-2">{error.message}</p>}
     </div>
   );
 };

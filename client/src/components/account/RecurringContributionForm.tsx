@@ -1,12 +1,10 @@
 import {
-  RecurringContributionGroupInsert,
-  RecurringContributionOrphanInsert,
   UserAssetOrphanInsert,
   AssetSecurityLike,
   createDecimalValueString,
 } from "@shared/schema";
 import { useFieldArray, useFormContext } from "react-hook-form";
-//import { useLens } from "@hookform/lenses";
+import { useLens } from "@hookform/lenses";
 import {
   FormControl,
   FormDescription,
@@ -16,11 +14,11 @@ import {
   FormMessage,
 } from "../ui/form";
 import { Input } from "../ui/input";
-import { RRuleScheduler } from "../schedule/RRuleScheduler";
-import { useCallback, useEffect, useState } from "react";
-import { Switch } from "../ui/switch";
-import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
+import { useEffect } from "react";
 import Decimal from "decimal.js";
+import { RecurringContributionFields } from "./RecurringContributionFields";
+import type { RecurringContributionFormData } from "@shared/schema/transaction";
+import type { Lens } from "@hookform/lenses";
 
 /**
  * If it is a asset create form (Group) then we will be either
@@ -32,23 +30,6 @@ import Decimal from "decimal.js";
  * 2) A single "security" contribution (with a security association)
  */
 
-type B =
-  | {
-      contributions: RecurringContributionGroupInsert;
-    }
-  | RecurringContributionGroupInsert
-  | RecurringContributionOrphanInsert;
-
-// type B = {
-//   contributions: RecurringContributionGroupInsert;
-// };
-
-const isNestedContributions = (
-  data: B
-): data is { contributions: RecurringContributionGroupInsert } => {
-  return "contributions" in data;
-};
-
 export type RecurringContributionFormProps =
   | {
       type: "security";
@@ -59,48 +40,28 @@ export type RecurringContributionFormProps =
       securities?: undefined;
     };
 
-export const RecurringContributionForm = <T extends B = B>({
+export const RecurringContributionForm = ({
   type,
   securities,
 }: RecurringContributionFormProps) => {
-  const form = useFormContext<B>();
+  const form = useFormContext<UserAssetOrphanInsert>();
 
-  const {
-    control,
-    watch,
-    formState: { isSubmitting },
-    setValue,
-  } = form;
+  const { control, setValue } = form;
 
-  /**
-   * An Attempt to use lenses to accurately use
-   * variations of the parent form structure
-   * Defferred until this form is used in upserts
-   */
-  // const l = useLens({ control });
-  // const lens = isNestedContributions(data)
-  //   ? l.reflect((v) => v.contributions)
-  //   : l;
-  // // const lens = l.reflect((v) => v.contributions);
-  // const l2 = l.focus("");
-  // // const {} = l2;
+  // Create lens from the parent form's control
+  const lens = useLens({ control });
 
-  const process = watch("contributions.process");
+  // Focus on the contributions path and cast to the expected type
+  // The contributions field has the same shape as RecurringContributionFormData
+  // plus type and securityDistribution fields
+  const contributionsLens = lens.focus("contributions") as unknown as Lens<RecurringContributionFormData>;
 
-  const handleSchedulePatternChange = useCallback(
-    (value: string) => {
-      setValue("contributions.patternConfig", {
-        type: "rrule",
-        expression: value,
-      });
-    },
-    [setValue]
-  );
-
+  // Set the type when component mounts or type changes
   useEffect(() => {
     setValue("contributions.type", type);
-  }, [type]);
+  }, [type, setValue]);
 
+  // Set security distribution when there's only one security
   useEffect(() => {
     if (securities && securities.length === 1) {
       const security = securities[0]!;
@@ -113,71 +74,16 @@ export const RecurringContributionForm = <T extends B = B>({
         },
       ]);
     }
-  }, [securities]);
-
-  const schedulePattern = watch("contributions.patternConfig");
+  }, [securities, setValue]);
 
   return (
     <>
-      <FormField
-        control={form.control}
-        name="contributions.amount"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Contribution Amount</FormLabel>
-            <FormDescription>
-              How much do you invest at the scheduled time?
-            </FormDescription>
-            <FormControl>
-              <Input
-                type="number"
-                placeholder="Contribution Amount"
-                {...field}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <RRuleScheduler
-        value={schedulePattern?.expression}
-        onChange={handleSchedulePatternChange}
+      <RecurringContributionFields
+        lens={contributionsLens}
+        showStartDate={false}
       />
 
       {type === "security" ? <GroupSecurities securities={securities} /> : null}
-
-      <div className="flex flex-col gap-3 items-start">
-        <FormField
-          control={form.control}
-          name="contributions.process"
-          render={({ field }) => (
-            <FormItem className="items-start justify-start">
-              <FormLabel>
-                Would you like use to add your contributions automatically?
-              </FormLabel>
-              <FormControl className="items-start justify-start">
-                <ToggleGroup
-                  type="single"
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  className="mb-4"
-                >
-                  <ToggleGroupItem value="automatic">Yes</ToggleGroupItem>
-                  <ToggleGroupItem value="manual">No</ToggleGroupItem>
-                </ToggleGroup>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </div>
-      {process !== "automatic" ? (
-        <div className="flex flex-row gap-2 items-center">
-          <p>We'll remind you to manually add your contributions.</p>
-        </div>
-      ) : null}
-      <Notifications />
     </>
   );
 };
@@ -236,7 +142,7 @@ const useContributionSecurities = <T extends AssetSecurityLike>({
           });
         });
     }
-  }, [securities, append]);
+  }, [securities, append, securitiesFields]);
 
   return { securitiesFields };
 };
@@ -309,39 +215,6 @@ const GroupSecurities = <T extends AssetSecurityLike>({
           )}
         </FormItem>
       ) : null}
-    </>
-  );
-};
-
-const Notifications = () => {
-  const form = useFormContext<UserAssetOrphanInsert>();
-
-  return (
-    <>
-      <FormField
-        control={form.control}
-        name="contributions.notificationEmail"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Email Notifications</FormLabel>
-            <FormControl>
-              <Switch checked={field.value} onCheckedChange={field.onChange} />
-            </FormControl>
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
-        name="contributions.notificationPush"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Push Notifications</FormLabel>
-            <FormControl>
-              <Switch checked={field.value} onCheckedChange={field.onChange} />
-            </FormControl>
-          </FormItem>
-        )}
-      />
     </>
   );
 };

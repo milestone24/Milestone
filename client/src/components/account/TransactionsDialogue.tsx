@@ -116,23 +116,27 @@ export const TransactionsDialogue = ({
             <TabsContent value="single">
               <TransactionSingleForm
                 onSubmit={handleSingleContributionSubmit}
+                onCancel={() => onOpenChange?.(false)}
               />
             </TabsContent>
 
             <TabsContent value="recurring">
               <TransactionRecurringForm
                 onSubmit={handleRecurringContributionSubmit}
+                onCancel={() => onOpenChange?.(false)}
               />
             </TabsContent>
           </Tabs>
         ) : isAssetContribution(data) ? (
           <TransactionSingleForm
             onSubmit={handleSingleContributionSubmit}
+            onCancel={() => onOpenChange?.(false)}
             data={data}
           />
         ) : isRecurringContribution(data) ? (
           <TransactionRecurringForm
             onSubmit={handleRecurringContributionSubmit}
+            onCancel={() => onOpenChange?.(false)}
             data={data}
           />
         ) : null}

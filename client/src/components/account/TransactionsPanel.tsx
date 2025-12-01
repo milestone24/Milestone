@@ -1,13 +1,11 @@
 import { BsPiggyBank } from "react-icons/bs";
 import { Button } from "@/components/ui/button";
-import { Coins, Pencil, Trash2 } from "lucide-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Coins, Pencil, Trash2, Plus } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
 import {
   AssetTransaction,
-  RecurringContribution,
-  RecurringContributionInsert,
   createDecimalValueString,
 } from "@shared/schema";
 import { TransactionsDialogue } from "./TransactionsDialogue";
@@ -27,6 +25,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../ui/alert-dialog";
+import { useRecurringContributions } from "@/hooks/use-recurring-contributions";
+import {
+  RecurringContributionDialog,
+  RecurringContributionTriggerButton,
+} from "./RecurringContributionDialog";
+import { RecurringContributionsList } from "./RecurringContributionsList";
 
 type TransactionsPanelProps = {
   assetId: string;
@@ -51,87 +55,30 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
       ),
   });
 
-  // // Query for recurring contributions
-  // TODO: Add recurring contributions
-  // const { data: recurringContributionsData, isLoading: isRecurringLoading } =
-  //   useQuery<RecurringContribution[]>({
-  //     queryKey: ["broker-asset-recurring-contributions", assetId],
-  //     queryFn: () =>
-  //       apiRequest<RecurringContribution[]>(
-  //         "GET",
-  //         `/api/assets/broker/${assetId}/recurring-contributions`
-  //       ),
-  //     enabled: !!assetId,
-  //   });
+  // Query and mutations for recurring contributions (create only - edit/delete handled by items)
+  const {
+    recurringContributions,
+    isLoading: isRecurringLoading,
+    createRecurringContribution,
+  } = useRecurringContributions(assetId);
 
-  // Mutations for recurring contributions
-  const addRecurringContribution = useMutation<
-    RecurringContribution,
-    Error,
-    RecurringContributionInsert
-  >({
-    mutationFn: (data: RecurringContributionInsert) =>
-      apiRequest<RecurringContribution>(
-        "POST",
-        `/api/assets/${assetId}/recurring-contributions`,
-        data
-      ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["broker-asset-recurring-contributions", assetId],
-      });
-    },
-  });
-
-  const updateRecurringContribution = useMutation<
-    RecurringContribution,
-    Error,
-    RecurringContributionInsert & { contributionId: string }
-  >({
-    mutationFn: (
-      data: RecurringContributionInsert & { contributionId: string }
-    ) =>
-      apiRequest(
-        "PUT",
-        `/api/assets/${assetId}/recurring-contributions/${data.contributionId}`,
-        data
-      ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["broker-asset-recurring-contributions", assetId],
-      });
-    },
-  });
-
-  const deleteRecurringContribution = useMutation<
-    RecurringContribution,
-    Error,
-    { assetId: string; contributionId: string }
-  >({
-    mutationFn: (data: { assetId: string; contributionId: string }) =>
-      apiRequest(
-        "DELETE",
-        `/api/assets/broker/${data.assetId}/recurring-contributions/${data.contributionId}`
-      ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["broker-asset-recurring-contributions", assetId],
-      });
-    },
-  });
-  // State for contributions t
-  const [contributionToDelete, setContributionToDelete] = useState<
-    string | null
-  >(null);
-
+  // State for single contribution dialog
   const [contributionDialogData, setContributionDialogData] = useState<
     | {
-        data: AssetTransaction | RecurringContribution | null;
+        data: AssetTransaction | null;
       }
     | undefined
   >(undefined);
 
-  // Handlers for contributions
+  // State for create recurring contribution dialog
+  const [isCreateRecurringOpen, setIsCreateRecurringOpen] = useState(false);
+
+  // State for delete confirmation dialog (single contributions only)
+  const [contributionToDelete, setContributionToDelete] = useState<
+    string | null
+  >(null);
+
+  // Handlers for single contributions
   const handleCreateContribution = async (
     data: AssetContributionFormData
   ): Promise<AssetTransaction> => {
@@ -140,7 +87,10 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
       return addAssetContribution.mutateAsync({
         ...data,
         assetId: assetId,
-        value: typeof data.value === "string" ? createDecimalValueString(data.value) : data.value,
+        value:
+          typeof data.value === "string"
+            ? createDecimalValueString(data.value)
+            : data.value,
         valueDate: data.valueDate,
       });
     } catch (error) {
@@ -158,7 +108,10 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
         ...data,
         contributionId: contributionId,
         assetId: assetId,
-        value: typeof data.value === "string" ? createDecimalValueString(data.value) : data.value,
+        value:
+          typeof data.value === "string"
+            ? createDecimalValueString(data.value)
+            : data.value,
         valueDate: data.valueDate,
       });
     } catch (error) {
@@ -173,53 +126,30 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
         assetId: assetId,
         contributionId: contributionId,
       });
+      setContributionToDelete(null);
     } catch (error) {
       console.error("Error deleting contribution:", error);
     }
   };
 
-  // Handlers for recurring contributions
+  // Handler for creating recurring contributions
   const handleCreateRecurringContribution = async (
     data: RecurringContributionFormData
   ) => {
-    if (!assetId) return;
-
-    try {
-      await addRecurringContribution.mutateAsync({
-        assetId: assetId,
-        type: "asset",
-        ...data,
-      });
-    } catch (error) {
-      console.error("Error creating recurring contribution:", error);
-      throw error;
-    }
+    await createRecurringContribution.mutateAsync({
+      ...data,
+      type: "asset",
+    });
+    setIsCreateRecurringOpen(false);
   };
 
-  const handleEditRecurringContribution = async (
-    contributionId: string,
-    data: RecurringContributionFormData
-  ) => {
-    try {
-      return updateRecurringContribution.mutateAsync({
-        assetId: assetId,
-        type: "asset",
-        ...data,
-        contributionId: contributionId,
-      });
-    } catch (error) {
-      console.error("Error updating recurring contribution:", error);
-    }
-  };
-
+  // Combined handler for TransactionsDialogue (single contributions only)
   const handleContributionSubmit = async <
     T extends AssetContributionFormData | RecurringContributionFormData =
       | AssetContributionFormData
       | RecurringContributionFormData,
     R = T extends AssetContributionFormData
       ? AssetTransaction
-      : T extends RecurringContributionFormData
-      ? RecurringContribution
       : never
   >(
     data: T,
@@ -229,11 +159,8 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
       return contributionId
         ? ((await handleEditContribution(contributionId, data)) as R)
         : ((await handleCreateContribution(data)) as R);
-    } else {
-      return contributionId
-        ? ((await handleEditRecurringContribution(contributionId, data)) as R)
-        : ((await handleCreateRecurringContribution(data)) as R);
     }
+    throw new Error("Recurring contributions should use the dedicated dialog");
   };
 
   return (
@@ -245,7 +172,7 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
             <BsPiggyBank className="h-5 w-5 mr-2 text-green-600" />
             Contribution Summary
           </h3>
-          <div className="grid grid-cols-2 gap-4 mt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
             <div>
               <p className="text-sm text-gray-600">Total Contributed</p>
               <p className="text-xl font-semibold">
@@ -302,28 +229,45 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
         <h2 className="text-lg font-medium">Contributions</h2>
-        <TransactionsDialogue
-          onOpenChange={(open) => {
-            setContributionDialogData((prev) =>
-              open ? { data: null } : undefined
-            );
-          }}
-          {...(contributionDialogData
-            ? {
-                isOpen: true,
-                onSubmit: handleContributionSubmit,
-                data: contributionDialogData.data,
-              }
-            : {
-                isOpen: false,
-              })}
-        />
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <RecurringContributionTriggerButton
+            onClick={() => setIsCreateRecurringOpen(true)}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center"
+            onClick={() => setContributionDialogData({ data: null })}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Contribution
+          </Button>
+        </div>
       </div>
 
-      {/* Contributions List */}
+      {/* Create Recurring Contribution Dialog */}
+      <RecurringContributionDialog
+        isOpen={isCreateRecurringOpen}
+        onOpenChange={setIsCreateRecurringOpen}
+        onSubmit={handleCreateRecurringContribution}
+        data={null}
+      />
+
+      {/* Recurring Contributions List - each item handles its own edit/delete */}
+      <RecurringContributionsList
+        contributions={recurringContributions}
+        assetId={assetId}
+        isLoading={isRecurringLoading}
+      />
+
+      {/* Single Contributions List */}
       <div className="space-y-4">
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+          <Coins className="h-4 w-4" />
+          Contribution History
+        </h3>
         {contributions?.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             No contributions recorded for this account.
@@ -332,16 +276,16 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
         {contributions?.map((contribution) => (
           <div
             key={contribution.id}
-            className="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
+            className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 bg-gray-50 rounded-lg"
           >
-            <div>
-              <div className="flex items-center">
-                <Coins className="h-4 w-4 mr-1 text-green-600" />
-                <p className="font-medium">
+            <div className="flex flex-col gap-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-1">
+                <Coins className="h-4 w-4 text-green-600" />
+                <span className="font-semibold">
                   £{Number(contribution.value).toLocaleString()}
-                </p>
+                </span>
               </div>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 {new Date(contribution.recordedAt).toLocaleDateString("en-GB", {
                   day: "2-digit",
                   month: "short",
@@ -349,9 +293,9 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
                 })}
               </p>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2 self-end sm:self-center">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="icon"
                 className="h-8 w-8"
                 onClick={() => {
@@ -363,7 +307,7 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
                 <Pencil className="h-4 w-4" />
               </Button>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                 onClick={() => setContributionToDelete(contribution.id)}
@@ -375,7 +319,23 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
         ))}
       </div>
 
-      {/* Delete Contribution Confirmation Dialog */}
+      {/* Single Contribution Dialog */}
+      <TransactionsDialogue
+        onOpenChange={(open) => {
+          setContributionDialogData(open ? { data: null } : undefined);
+        }}
+        {...(contributionDialogData
+          ? {
+              isOpen: true,
+              onSubmit: handleContributionSubmit,
+              data: contributionDialogData.data,
+            }
+          : {
+              isOpen: false,
+            })}
+      />
+
+      {/* Delete Single Contribution Confirmation Dialog */}
       <AlertDialog
         open={!!contributionToDelete}
         onOpenChange={() => setContributionToDelete(null)}

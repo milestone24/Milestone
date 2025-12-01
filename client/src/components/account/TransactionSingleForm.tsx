@@ -21,11 +21,13 @@ import Decimal from "decimal.js";
 
 type TransactionSingleFormProps = {
   onSubmit: (data: AssetContributionFormData) => Promise<void>;
+  onCancel?: () => void;
   data?: AssetContributionFormData;
 };
 
 export const TransactionSingleForm = ({
   onSubmit,
+  onCancel,
   data,
 }: TransactionSingleFormProps) => {
   const form = useForm<AssetContributionFormData>({
@@ -120,15 +122,22 @@ export const TransactionSingleForm = ({
             )}
           />
         </div>
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {onCancel && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+          )}
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? (
-              <Loader2 className="w-4 h-4 ml-2" />
-            ) : data ? (
-              "Update Contribution"
-            ) : (
-              "Add Contribution"
-            )}
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : null}
+            {data ? "Update Contribution" : "Add Contribution"}
           </Button>
         </div>
       </form>

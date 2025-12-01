@@ -1,30 +1,24 @@
 import { BsPiggyBank } from "react-icons/bs";
-import { Coins, Layers2, Loader2, Plus, Share, Trash2 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
-  SecurityTransactionInsert,
   SecurityTransactionOrphanInsert,
   SecurityTransactionSelect,
   SecurityTransactionUpsert,
+  RecurringContributionOrphanInsert,
+  RecurringContributionBulkInsert,
 } from "@shared/schema";
 import { useSecurityTransactions } from "@/hooks/use-security-transactions";
-import { cn } from "@/lib/utils";
-import { useAsset } from "@/hooks/use-asset";
+import { useRecurringContributions } from "@/hooks/use-recurring-contributions";
 import { SecurityTransactionUpsertDialogue } from "./SecurityTransactionUpsertDialogue";
-import { Skeleton } from "../ui/skeleton";
-import { Button } from "../ui/button";
-import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "../ui/dialog";
+  RecurringContributionSecurityDialog,
+  RecurringContributionSecurityTriggerButton,
+} from "./RecurringContributionSecurityDialog";
+import { RecurringContributionsList } from "./RecurringContributionsList";
+import { Skeleton } from "../ui/skeleton";
+import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
 import { AssetSecurityTransactionItem } from "./AssetSecurityTransactionItem";
+import { Coins } from "lucide-react";
 
 type SecuritiesTransactionsPanelProps = {
   assetId: string;
@@ -33,7 +27,7 @@ type SecuritiesTransactionsPanelProps = {
 export const SecuritiesTransactionsPanel = ({
   assetId,
 }: SecuritiesTransactionsPanelProps) => {
-  const { securities, addSecurity, isSecuritiesLoading } = useAssetSecurities();
+  const { securities, isSecuritiesLoading } = useAssetSecurities();
 
   const {
     transactions,
@@ -42,9 +36,18 @@ export const SecuritiesTransactionsPanel = ({
     updateSecurityTransaction,
   } = useSecurityTransactions(assetId);
 
-  const [dialogueOpen, setDialogueOpen] = useState(false);
+  // Recurring contributions (create only - edit/delete handled by items)
+  const {
+    recurringContributions,
+    isLoading: isRecurringLoading,
+    createRecurringContribution,
+    createRecurringContributionGroup,
+  } = useRecurringContributions(assetId);
 
-  // Handlers for contributions
+  const [dialogueOpen, setDialogueOpen] = useState(false);
+  const [recurringDialogOpen, setRecurringDialogOpen] = useState(false);
+
+  // Handlers for single transactions
   const handleCreateTransaction = async (
     securityId: string,
     data: SecurityTransactionOrphanInsert
@@ -82,10 +85,6 @@ export const SecuritiesTransactionsPanel = ({
     }
   };
 
-  const [transactionsInProcess, setTransactionsInProcess] = useState<string[]>(
-    []
-  );
-
   const handleTransactionSubmit = async (
     data: SecurityTransactionUpsert
   ): Promise<SecurityTransactionSelect> => {
@@ -94,6 +93,23 @@ export const SecuritiesTransactionsPanel = ({
     return id
       ? handleEditTransaction(id, assetSecurityId, rest)
       : handleCreateTransaction(assetSecurityId, rest);
+  };
+
+  // Handlers for creating recurring contributions
+  const handleCreateRecurringSingle = async (
+    data: RecurringContributionOrphanInsert
+  ) => {
+    const result = await createRecurringContribution.mutateAsync(data);
+    setRecurringDialogOpen(false);
+    return result;
+  };
+
+  const handleCreateRecurringDistributed = async (
+    data: RecurringContributionBulkInsert
+  ) => {
+    const result = await createRecurringContributionGroup.mutateAsync(data);
+    setRecurringDialogOpen(false);
+    return result;
   };
 
   const firstTransactionDate = useMemo(
@@ -126,7 +142,7 @@ export const SecuritiesTransactionsPanel = ({
     [transactions]
   );
 
-  const isLoading = isTransactionsLoading;
+  const isLoading = isTransactionsLoading || isSecuritiesLoading;
 
   return (
     <>
@@ -141,7 +157,7 @@ export const SecuritiesTransactionsPanel = ({
                 <BsPiggyBank className="h-5 w-5 mr-2 text-green-600" />
                 Contribution Summary
               </h3>
-              <div className="grid grid-cols-3 gap-4 mt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
                 <div>
                   <p className="text-sm text-gray-600">
                     Number of Contributions
@@ -175,32 +191,64 @@ export const SecuritiesTransactionsPanel = ({
               </div>
             </div>
           )}
-          <div className="space-y-4">
-            {transactions?.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No contributions recorded for this account.
-              </div>
-            )}
-            <div className="flex justify-end">
+
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+            <h2 className="text-lg font-medium">Contributions</h2>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <RecurringContributionSecurityTriggerButton
+                onClick={() => setRecurringDialogOpen(true)}
+              />
               <SecurityTransactionUpsertDialogue
                 isOpen={dialogueOpen}
                 onOpenChange={setDialogueOpen}
                 onSubmit={handleTransactionSubmit}
                 securities={securities}
                 data={undefined}
+                display="block"
               />
             </div>
+          </div>
+
+          {/* Recurring Contributions List - each item handles its own edit/delete */}
+          <RecurringContributionsList
+            contributions={recurringContributions}
+            assetId={assetId}
+            isLoading={isRecurringLoading}
+          />
+
+          {/* Single Transactions List */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+              <Coins className="h-4 w-4" />
+              Transaction History
+            </h3>
+            {transactions?.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No contributions recorded for this account.
+              </div>
+            )}
             {transactions?.map((transaction) => {
               return (
                 <AssetSecurityTransactionItem
                   key={transaction.id}
                   transaction={transaction}
+                  securities={securities}
                 />
               );
             })}
           </div>
         </div>
       )}
+
+      {/* Create Recurring Contribution Dialog */}
+      <RecurringContributionSecurityDialog
+        isOpen={recurringDialogOpen}
+        onOpenChange={setRecurringDialogOpen}
+        onSubmitSingle={handleCreateRecurringSingle}
+        onSubmitDistributed={handleCreateRecurringDistributed}
+        securities={securities}
+        data={null}
+      />
     </>
   );
 };

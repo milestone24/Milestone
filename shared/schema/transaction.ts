@@ -315,6 +315,24 @@ export const securityDistributionInsertSchema = z.object({
   groupId: z.string().optional(),
 });
 
+/**
+ * Schema for bulk creating distributed recurring contributions
+ * for an existing asset's securities (not during asset creation)
+ */
+export const recurringContributionBulkInsertSchema =
+  recurringContributionOrphanInsertSchemaBase.extend({
+    securityDistribution: z.array(
+      z.object({
+        securityId: z.string(),
+        commitment: decimalValueSchema, // Percentage (0-100)
+      })
+    ),
+  });
+
+export type RecurringContributionBulkInsert = z.infer<
+  typeof recurringContributionBulkInsertSchema
+>;
+
 export const recurringContributionGroupInsertSchemaSecurityDistribution =
   recurringContributionOrphanInsertSchemaBase.extend({
     type: z.literal("security"),
