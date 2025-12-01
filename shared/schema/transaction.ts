@@ -148,14 +148,7 @@ export type SecurityTransactionOrphanInsert = z.infer<
   typeof securityTransactionOrphanInsertSchema
 >;
 
-export type SecurityTransactionSelect = Omit<
-  DBSecurityTransactionSelect,
-  "value" | "currencyValue" | "accumulativeAssetCurrencyValue"
-> & {
-  value: DecimalValueString;
-  currencyValue: DecimalValueString;
-  accumulativeAssetCurrencyValue: DecimalValueString;
-};
+export type SecurityTransactionSelect = DBSecurityTransactionSelect;
 
 export const securityTransactionInsertSchema =
   securityTransactionOrphanInsertSchema.extend({
@@ -175,15 +168,8 @@ export type SecurityTransactionUpsert = SecurityTransactionInsert & {
   id?: string;
 };
 
-export type UserAssetSecurityTransactionResolved = {
-  id: string;
-  assetSecurityId: string;
+export type UserAssetSecurityTransactionResolved = SecurityTransactionSelect & {
   securityName: string;
-  value: DecimalValueString;
-  currency: string;
-  currencyValue: DecimalValueString;
-  valueDate: Date;
-  recordedAt: Date;
 };
 
 export type BrandedUserAssetSecurityTransactionResolved = BrandedValue<

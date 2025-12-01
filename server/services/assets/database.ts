@@ -1095,7 +1095,7 @@ export class DatabaseAssetService {
           transactionType: sql<TransactionType>`'security'`,
           transactionId: securityTransactions.id,
           currentValue: sql<number>`cast(sum(${securityTransactions.value}) over (partition by ${securityTransactions.assetSecurityId} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 2))`,
-          currentCurrencyValue: sql<number>`cast(sum(${securityTransactions.currencyValue}) over (partition by ${securityTransactions.assetSecurityId} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 2))`,
+          accumulativeCurrencyValue: sql<number>`cast(sum(${securityTransactions.currencyValue}) over (partition by ${securityTransactions.assetSecurityId} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 2))`,
         },
         securities: securities,
       })
