@@ -210,6 +210,14 @@ const updateAssetValues = async (assetPersistence: AssetPersistence) => {
   const todayMinusOne = new Date();
   todayMinusOne.setDate(todayMinusOne.getDate() - 1);
 
+  /*
+      Instead of the while loop,
+      we should create a set of groups of dates.
+      So a group wold be 7 days or less.
+      There would be a parent group representing one month or closest to one month.
+      Then we can run batches with concurrency.
+  */
+
   while (currentDate < todayMinusOne) {
     const assetSecurityShareHoldings =
       await assetPersistence.getAssetSecurityShareHoldingsForDate(currentDate);
