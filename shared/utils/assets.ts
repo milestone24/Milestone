@@ -203,6 +203,7 @@ const defineAssetValuesForDateRange = (
             assetValue: Omit<PossibleDummyAssetValue, "recordedAt">,
             slicePoint: number
           ): PossibleDummyAssetValue[] => [
+            //@ts-expect-error
             {
               ...assetValue,
               id: null,
