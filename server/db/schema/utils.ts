@@ -54,6 +54,13 @@ export type DecimalValueStringBrand = BRAND<"DecimalValueString">;
 //export type DecimalValueString = z.infer<typeof decimalValueSchema>;
 export type DecimalValueString = string & DecimalValueStringBrand;
 export const decimalValueSchema = z.string().brand<"DecimalValueString">();
+export const decimalValueSchemaRequiredGreaterThanZero =
+  decimalValueSchema.refine(
+    (value) => value !== "" && value !== null && Number(value) > 0,
+    {
+      message: "Value is required and must be greater than 0",
+    }
+  );
 
 //Create a custom type for Drizzle
 //NOT USED ANYMORE, used as simple approach using the $type<DecimalValueString> approach

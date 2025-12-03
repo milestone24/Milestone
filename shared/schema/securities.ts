@@ -1,6 +1,7 @@
 import { z, ZodType } from "zod";
 import type {
   SecuritySelect as DBSecuritySelect,
+  SecurityInsert as DBSecurityInsert,
   SecurityTransactionSelect as DBSecurityTransactionSelect,
   SecurityTransactionInsert as DBSecurityTransactionInsert,
 } from "@server/db/schema/index";
@@ -23,11 +24,9 @@ export const securityInsertSchema = z.object({
   figi: z.string().optional().nullable(),
 });
 
-type ZodSecurityInsert = z.infer<typeof securityInsertSchema>;
-export type SecurityInsert = ZodSecurityInsert;
-export type SecuritySelect = DBSecuritySelect;
-// export type SecurityInsert = IfConstructorEquals<ZodSecurityInsert, DBSecurityInsert, never>;
-// securityInsertSchema satisfies ZodType<SecurityInsert>;
+export type SecurityInsert = z.infer<typeof securityInsertSchema>;
+
+securityInsertSchema._input satisfies DBSecurityInsert;
 
 // Security Search Response Types
 export const securitySearchResultSchema = z.object({
@@ -45,3 +44,31 @@ export const securitySearchResultSchema = z.object({
 });
 
 export type SecuritySearchResult = z.infer<typeof securitySearchResultSchema>;
+
+export type SecuritySelect = DBSecuritySelect;
+
+export const securitySelectSchema = z.object({
+  id: z.string(),
+  sourceIdentifier: z.string(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+  symbol: z.string(),
+  name: z.string(),
+  exchange: z.string().nullable(),
+  country: z.string().nullable(),
+  currency: z.string().nullable(),
+  type: z.string().nullable(),
+  isin: z.string().nullable(),
+  cusip: z.string().nullable(),
+  figi: z.string().nullable(),
+  fromCache: z.boolean().optional(),
+})
+
+securitySelectSchema._input satisfies DBSecuritySelect;
+
+
+
+
+// export type SecurityInsert = IfConstructorEquals<ZodSecurityInsert, DBSecurityInsert, never>;
+// securityInsertSchema satisfies ZodType<SecurityInsert>;
+

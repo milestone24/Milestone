@@ -90,9 +90,13 @@ export const RecurringContributionFields = ({
           <Input
             type="number"
             placeholder="Contribution Amount"
-            value={amountField.value ?? createDecimalValueString("0")}
+            value={amountField.value ?? ""}
             onChange={(e) => {
-              amountField.onChange(createDecimalValueString(e.target.value));
+              amountField.onChange(
+                e.target.value == ""
+                  ? ""
+                  : createDecimalValueString(e.target.value)
+              );
             }}
           />
         </FormControl>

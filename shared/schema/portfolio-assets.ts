@@ -5,6 +5,7 @@ import type {
   AssetValueInsert as DBAssetValueInsert,
   AssetValueSelect as DBAssetValueSelect,
   UserAssetSecuritySelect as DBUserAssetSecurity,
+  UserAssetSecurityInsert as DBUserAssetSecurityInsert,
   UserAssetAPIKeyConnectionSelect as DBUserAssetAPIKeyConnection,
   BrokerProviderSelect as DBBrokerProvider,
   BrokerPlatformSelect as DBBrokerPlatform,
@@ -12,13 +13,21 @@ import type {
   AssetValueMetadata as DBAssetValueMetadata,
   AssetValueMetadataSecurity as DBAssetValueMetadataSecurity,
 } from "@server/db/schema/index";
-import { accountType, decimalValueSchema } from "@server/db/schema/index";
+import {
+  accountType,
+  decimalValueSchema,
+  decimalValueSchemaRequiredGreaterThanZero,
+} from "@server/db/schema/index";
 import {
   DecimalValueString,
   IfConstructorEquals,
   isDecimalValueString,
 } from "./utils";
-import { securityInsertSchema, SecuritySelect } from "./securities";
+import {
+  securityInsertSchema,
+  SecuritySelect,
+  securitySelectSchema,
+} from "./securities";
 
 import {
   BrandedAbstractTransactionValue,
@@ -60,24 +69,113 @@ export type BrandedAssetValue = BrandedValue<
 
 //export { accountType } from "@server/db/schema";
 
-export const userAssetSecurityInsertSchema = z.object({
-  tempId: z.string(),
-  security: securityInsertSchema,
-  shareHolding: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Share holding must be a valid decimal string",
-  }),
-  currencyValue: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Currency value must be a valid decimal string",
-  }),
+export const userAssetSecurityBaseSchema = z.object({
   startDate: z.coerce.date(),
-  priorGainLoss: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Prior gain/loss must be a valid decimal string",
-  }),
-  recordedAt: z.coerce.date().optional(),
+  priorGainLoss: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Prior gain/loss must be a valid decimal string",
+    })
+    .transform((val) => (val === "" ? undefined : val))
+    .optional(),
+  //TODO Remove this, this is backend only
+  //recordedAt: z.coerce.date().optional(),
 });
+
+export type UserAssetSecurityBase = z.infer<typeof userAssetSecurityBaseSchema>;
+
+export const userAssetSecurityInsertSchema = z.discriminatedUnion("type", [
+  userAssetSecurityBaseSchema.extend({
+    type: z.literal("link"),
+    //tempId: z.string(),
+    //security: securityInsertSchema,
+    userAssetId: z.string(),
+    securityId: z.string(),
+  }),
+  userAssetSecurityBaseSchema.extend({
+    type: z.literal("new"),
+    //tempId: z.string(),
+    //security: securityInsertSchema,
+    userAssetId: z.string(),
+    security: securityInsertSchema,
+  }),
+]);
 
 export type UserAssetSecurityInsert = z.infer<
   typeof userAssetSecurityInsertSchema
+>;
+
+export type UserAssetSecurityInsertLink = Omit<
+  Extract<UserAssetSecurityInsert, { type: "link" }>,
+  "type"
+>;
+export type UserAssetSecurityInsertNew = Omit<
+  Extract<UserAssetSecurityInsert, { type: "new" }>,
+  "type"
+>;
+
+//export const userAssetSecurityInsertSchema
+
+// export type UserAssetSecurityInsert = z.input<
+//   typeof userAssetSecurityInsertSchema
+// >;
+
+/**
+ * This is only for the use in the schema for the user asset orphan insert.
+ * The shareholding and currency value will be translated to an initial transaction.
+ * lid is a temporary id for the security, it is used to identify the security
+ * primarily for recurring contribution mappings.
+ */
+// export const userAssetOrphanSecurityInsertSchema = userAssetSecurityBaseSchema.extend({
+//   lid: z.string(),
+//   security: securityInsertSchema,
+//   shareHolding: decimalValueSchemaRequiredGreaterThanZero.refine(
+//     isDecimalValueString,
+//     {
+//       message: "Share holding must be a valid decimal string",
+//     }
+//   ),
+//   currencyValue: decimalValueSchemaRequiredGreaterThanZero.refine(
+//     isDecimalValueString,
+//     {
+//       message: "Currency value must be a valid decimal string",
+//     }
+//   ),
+// });
+
+// export type UserAssetOrphanSecurityInsert = z.infer<
+//   typeof userAssetOrphanSecurityInsertSchema
+// >;
+
+/**
+ * This is used only when an initial security is added to an asset,
+ * either via the create asset (account)
+ * The shareholding and currency value will be translated to an initial transaction.
+ * lid is a temporary id for the security, it is used to identify the security
+ * primarily for recurring contribution mappings.
+ */
+export const userAssetSecurityWithInitialValuesInsertSchema =
+  userAssetSecurityBaseSchema.extend({
+    tid: z.string(), //Temporary Id so the new asset security can be identified within a group.
+    security: securityInsertSchema,
+    /**
+     * Share holding and teh currency Value will be used to record an initial transaction.
+     */
+    shareHolding: decimalValueSchemaRequiredGreaterThanZero.refine(
+      isDecimalValueString,
+      {
+        message: "Share holding must be a valid decimal string",
+      }
+    ),
+    currencyValue: decimalValueSchemaRequiredGreaterThanZero.refine(
+      isDecimalValueString,
+      {
+        message: "Currency value must be a valid decimal string",
+      }
+    ),
+  });
+
+export type UserAssetSecurityWithInitialValuesInsert = z.infer<
+  typeof userAssetSecurityWithInitialValuesInsertSchema
 >;
 
 export const userAssetOrphanInsertSchema = z.object({
@@ -109,25 +207,11 @@ export const userAssetOrphanInsertSchema = z.object({
       message: "Current value must be a valid decimal string",
     })
     .optional(),
-  securities: z.array(userAssetSecurityInsertSchema),
+  securities: z.array(
+    userAssetSecurityWithInitialValuesInsertSchema.extend({ lid: z.string() })
+  ),
   //Contibutions here should be in unison with the recurringContributionOrphanInsertSchema and recurringContributionInsertSchema
   contributions: recurringContributionGroupInsertSchema.optional(),
-  // contributions: z
-  //   .object({
-  //     type: z.enum(["asset", "security"]),
-  //     isScheduled: z.boolean(),
-  //     process: z.enum(["automatic", "manual"]),
-  //     amount: z.coerce.number(),
-  //     startDate: z.coerce.date(),
-  //     //date: z.coerce.date(),
-  //     securityDistribution: z.array(
-  //       z.object({
-  //         securityTempId: z.string(),
-  //         securityName: z.string(),
-  //         commitment: z.number(),
-  //       })
-  //     ),
-  //     patternConfig: patternSchema,
   //     // notificationPeriod: z.enum([
   //     //   "daily",
   //     //   "weekly",
@@ -220,11 +304,25 @@ export type UserAssetSecuritySelect = DBUserAssetSecurity & {
   security: SecuritySelect;
 };
 
-export type CalculatedValue = {
-  value: DecimalValueString;
-  currentChange: DecimalValueString;
-  currentChangePercentage: DecimalValueString;
-};
+// export type CalculatedValue = {
+//   value: DecimalValueString;
+//   currentChange: DecimalValueString;
+//   currentChangePercentage: DecimalValueString;
+// };
+
+export const calculatedValueSchema = z.object({
+  value: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Value must be a valid decimal string",
+  }),
+  currentChange: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Current change must be a valid decimal string",
+  }),
+  currentChangePercentage: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Current change percentage must be a valid decimal string",
+  }),
+});
+
+export type CalculatedValue = z.infer<typeof calculatedValueSchema>;
 
 export type AssetsChange = CalculatedValue & {
   startDate: Date;
@@ -271,12 +369,34 @@ export type WithSecurities<T extends { id: string }> = T & {
 };
 
 export type WithResolvedSecurities<T extends { id: string }> = T & {
-  securities: ResolvedSecurity[];
+  securities: ResolvedAssetSecurity[];
 };
 
-export type ResolvedSecurity = WithSecurity<
-  WithCalculatedValue<UserAssetSecuritySelect>
->;
+export type ResolvedAssetSecurity =
+  WithCalculatedValue<UserAssetSecuritySelect>;
+
+/**
+ * Used to parse and validate the response from the API for a resolved asset security
+ */
+export const resolvedAssetSecuritySchema = z.object({
+  id: z.string(),
+  updatedAt: z.coerce.date(),
+  createdAt: z.coerce.date(),
+  startDate: z.coerce.date(),
+  userAssetId: z.string(),
+  securityId: z.string(),
+  archived: z.boolean(),
+  priorGainLoss: decimalValueSchema.nullable(),
+  calculatedValue: calculatedValueSchema,
+  security: securitySelectSchema,
+});
+
+resolvedAssetSecuritySchema._output satisfies ResolvedAssetSecurity;
+
+export const resolvedAssetSecuritiesSchema = z.array(
+  resolvedAssetSecuritySchema
+);
+
 
 export type WithPlatform<T extends { id: string }> = T & {
   platform?: BrokerPlatform;

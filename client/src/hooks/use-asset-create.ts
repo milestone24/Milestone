@@ -17,7 +17,6 @@ export const useAssetCreate = () => {
         //userAccountId: user?.account.id,
         securities: newAsset.securities.map((security) => ({
           ...security,
-          recordedAt: security.recordedAt ?? new Date(),
         })),
       }),
     onSuccess: () => {

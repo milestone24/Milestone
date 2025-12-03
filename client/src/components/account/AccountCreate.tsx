@@ -2,7 +2,10 @@ import type {
   AssetSecurityLike,
   RecurringContributionGroupInsert,
   UserAssetOrphanInsert,
+  UserAssetSecurityWithInitialValuesInsert,
   UserAssetSecurityInsert,
+  DecimalValueString,
+  SecuritySelect,
 } from "@shared/schema";
 import {
   accountType,
@@ -43,7 +46,7 @@ import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import { RRuleScheduler } from "../schedule/RRuleScheduler";
-import { AssetSecurityForm } from "./AssetSecurityForm";
+import { AssetSecurityNewForm } from "./AssetSecurityForm";
 import {
   RecurringContributionForm,
   RecurringContributionFormProps,
@@ -522,117 +525,147 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
     formState: { isSubmitting },
   } = form;
 
+  const handleAddSecurity = (
+    security: UserAssetSecurityWithInitialValuesInsert
+  ) => {
+    append({
+      ...security,
+      lid: crypto.randomUUID(),
+    });
+    setAddingSecurity(false);
+  };
+
   return (
     <>
-      <FormField
-        control={form.control}
-        name="valueMethod"
-        rules={{ required: true }}
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Select Control</FormLabel>
-            <FormDescription>
-              How do you want to control this account?
-            </FormDescription>
-            <FormControl>
-              <RadioGroup value={field.value} onValueChange={field.onChange}>
-                <div className="flex flex-row gap-2 items-start">
-                  <div className="flex flex-col gap-2 pt-2">
-                    <RadioGroupItem
-                      value="calculated"
-                      id="calculated"
-                      className="flex-shrink-0"
-                    />
-                  </div>
-                  <div className="flex flex-col pt-1">
-                    <label htmlFor="calculated">Calculated</label>
-                    <span className="text-xs block">
-                      We will calculate the value of your account based on the
-                      securities you tell us are held in the account
-                    </span>
-                  </div>
-                </div>
-                <div className="flex flex-row gap-2 items-start">
-                  <div className="flex flex-col gap-2 pt-2">
-                    <RadioGroupItem
-                      value="manual"
-                      id="manual"
-                      className="flex-shrink-0"
-                    />
-                  </div>
-                  <div className="flex flex-col pt-1">
-                    <label htmlFor="manual">Manual</label>
-                    <span className="text-xs block">
-                      You will need to manually enter the value of your account
-                      each time
-                    </span>
-                  </div>
-                </div>
-              </RadioGroup>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      {valueMethod === "calculated" ? (
+      {addingSecurity ? (
+        <AssetSecurityNewForm
+          onCancel={() => setAddingSecurity(false)}
+          onSubmit={handleAddSecurity}
+          startDate={startDate}
+          startDateMin={startDate}
+          startDateIsEditable={false}
+        />
+      ) : (
         <>
-          <div>
-            <FormLabel>Add Securities</FormLabel>
-            <FormDescription>
-              In order to calculate the value of your account, we need to know
-              which securities are held in the account
-            </FormDescription>
-          </div>
-          <div className="space-y-2 flex flex-col gap-2">
-            {fields.map((field, index) => (
-              <div key={field.id} className="flex flex-row gap-2 items-start">
-                <div className="flex-1">
-                  <SecurityCard security={field} />
-                </div>
-                <Button variant="outline" onClick={() => remove(index)}>
-                  <Trash2 className="w-4 h-4" />
+          <FormField
+            control={form.control}
+            name="valueMethod"
+            rules={{ required: true }}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Select Control</FormLabel>
+                <FormDescription>
+                  How do you want to control this account?
+                </FormDescription>
+                <FormControl>
+                  <RadioGroup
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <div className="flex flex-row gap-2 items-start">
+                      <div className="flex flex-col gap-2 pt-2">
+                        <RadioGroupItem
+                          value="calculated"
+                          id="calculated"
+                          className="flex-shrink-0"
+                        />
+                      </div>
+                      <div className="flex flex-col pt-1">
+                        <label htmlFor="calculated">Calculated</label>
+                        <span className="text-xs block">
+                          We will calculate the value of your account based on
+                          the securities you tell us are held in the account
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-row gap-2 items-start">
+                      <div className="flex flex-col gap-2 pt-2">
+                        <RadioGroupItem
+                          value="manual"
+                          id="manual"
+                          className="flex-shrink-0"
+                        />
+                      </div>
+                      <div className="flex flex-col pt-1">
+                        <label htmlFor="manual">Manual</label>
+                        <span className="text-xs block">
+                          You will need to manually enter the value of your
+                          account each time
+                        </span>
+                      </div>
+                    </div>
+                  </RadioGroup>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          {valueMethod === "calculated" ? (
+            <>
+              <div>
+                <FormLabel>Add Securities</FormLabel>
+                <FormDescription>
+                  In order to calculate the value of your account, we need to
+                  know which securities are held in the account
+                </FormDescription>
+              </div>
+              <div className="space-y-2 flex flex-col gap-2">
+                {fields.map((field, index) => (
+                  <div
+                    key={field.id}
+                    className="flex flex-row gap-2 items-start"
+                  >
+                    <div className="flex-1">
+                      <SecurityCard security={field} />
+                    </div>
+                    <Button variant="outline" onClick={() => remove(index)}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button onClick={() => setAddingSecurity(true)}>
+                  Add Security
                 </Button>
               </div>
-            ))}
-            {addingSecurity ? (
-              <AssetSecurityForm
-                onCancel={() => setAddingSecurity(false)}
-                onSubmit={(security) => {
-                  setAddingSecurity(false);
-                  append(security);
-                }}
-                startDate={startDate}
-              />
-            ) : (
-              <Button onClick={() => setAddingSecurity(true)}>
-                Add Security
-              </Button>
-            )}
-          </div>
+            </>
+          ) : null}
+          {valueMethod === "manual" ? (
+            <FormField
+              control={form.control}
+              name="currentValue"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Initial Value</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="Initial Value"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ) : null}
+          <ActionsBar {...props} isProcessing={isSubmitting} />
         </>
-      ) : null}
-      {valueMethod === "manual" ? (
-        <FormField
-          control={form.control}
-          name="currentValue"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Initial Value</FormLabel>
-              <FormControl>
-                <Input type="number" placeholder="Initial Value" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      ) : null}
-      <ActionsBar {...props} isProcessing={isSubmitting} />
+      )}
     </>
   );
 };
 
 type SecurityCardProps = {
-  security: UserAssetSecurityInsert & { id: string };
+  security: {
+    id: string;
+    security: {
+      symbol: string;
+      name: string;
+    };
+    shareHolding: DecimalValueString;
+    currencyValue: DecimalValueString;
+    startDate: Date;
+  };
 };
 
 const SecurityCard = ({ security }: SecurityCardProps) => {
@@ -670,55 +703,6 @@ const SecurityCard = ({ security }: SecurityCardProps) => {
   );
 };
 
-const useContributionSecurities = (securities: UserAssetSecurityInsert[]) => {
-  const form = useFormContext<UserAssetOrphanInsert>();
-
-  const { fields: securitiesFields, append } = useFieldArray<
-    UserAssetOrphanInsert,
-    "contributions.securityDistribution",
-    "id"
-  >({
-    control: form.control,
-    name: "contributions.securityDistribution",
-  });
-
-  useEffect(() => {
-    if (securities && securities.length > 0) {
-      securities
-        .map((security) => ({
-          securityTempId: security.tempId,
-          securityName: security.security.name,
-          commitment: createDecimalValueString("0"),
-        }))
-        .forEach((security) => {
-          if (
-            securitiesFields.find(
-              (field) => field.securityId === security.securityTempId
-            )
-          ) {
-            return;
-          }
-
-          append({
-            securityId: security.securityTempId,
-            isTempSecurityId: true,
-            securityName: security.securityName,
-            commitment:
-              typeof security.commitment === "string"
-                ? createDecimalValueString(security.commitment)
-                : typeof security.commitment === "number"
-                ? createDecimalValueString(String(security.commitment))
-                : security.commitment || createDecimalValueString("0"),
-          });
-        });
-    }
-  }, [securities, append]);
-
-  return { securitiesFields };
-
-  //return contributionSecurities;
-};
-
 const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
   const form = useFormContext<UserAssetOrphanInsert>();
 
@@ -733,7 +717,8 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
   const securitiesForGroup: AssetSecurityLike[] =
     securities?.map((security) => ({
       ...security,
-      id: security.tempId,
+      //We add a temp id here purely for identity mapping in proceeding creation steps
+      id: security.lid,
       isTempSecurityId: true,
     })) ?? [];
 

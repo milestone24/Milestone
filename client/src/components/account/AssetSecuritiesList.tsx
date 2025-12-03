@@ -1,26 +1,35 @@
-import { UserAssetSecurityInsert } from "shared/schema";
+import {
+  UserAssetSecurityInsert,
+  UserAssetSecurityWithInitialValuesInsert,
+} from "shared/schema";
 import { FC, useState } from "react";
 import { SecurityCard } from "./SecurityCard";
 import { cn } from "@/lib/utils";
 import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
 import { AssetSecurityUpsertDialog } from "./AssetSecurityUpsertDialog";
+import { Plus } from "lucide-react";
+import { Button } from "../ui/button";
 
-type SecuritiesListProps = {
+type AssetSecuritiesListProps = {
   onItemClick?: (item: { id: string }) => void;
   className?: string;
   canAddSecurity?: boolean;
 };
 
-export const SecuritiesList: FC<SecuritiesListProps> = ({
+export const AssetSecuritiesList: FC<AssetSecuritiesListProps> = ({
   onItemClick,
   className,
   canAddSecurity = true,
 }) => {
   const [isAddSecurityOpen, setIsAddSecurityOpen] = useState(false);
 
-  const { securities, addSecurity, isSecuritiesLoading } = useAssetSecurities();
+  const { securities, addSecurity, isSecuritiesLoading, assetStartDate } =
+    useAssetSecurities();
 
-  const handleAddAssetSecurity = (securityInsert: UserAssetSecurityInsert) => {
+  const handleAddAssetSecurity = (
+    securityInsert: UserAssetSecurityWithInitialValuesInsert
+  ) => {
+    console.log("securityInsert List", securityInsert);
     return addSecurity.mutateAsync(securityInsert);
   };
 
@@ -28,13 +37,15 @@ export const SecuritiesList: FC<SecuritiesListProps> = ({
     <div className={cn("flex flex-col", className)}>
       {canAddSecurity && (
         <div className="flex justify-end mb-4">
-          <AssetSecurityUpsertDialog
-            isOpen={isAddSecurityOpen}
-            onOpenChange={setIsAddSecurityOpen}
-            onSubmit={handleAddAssetSecurity}
-            data={null}
-            securities={securities}
-          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center"
+            onClick={() => setIsAddSecurityOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            {"Add Security"}
+          </Button>
         </div>
       )}
       <div className="space-y-4">
@@ -61,6 +72,16 @@ export const SecuritiesList: FC<SecuritiesListProps> = ({
           ))
         )}
       </div>
+      <AssetSecurityUpsertDialog
+        isOpen={isAddSecurityOpen}
+        onOpenChange={setIsAddSecurityOpen}
+        onSubmit={handleAddAssetSecurity}
+        data={undefined}
+        startDate={assetStartDate}
+        startDateIsEditable={true}
+        startDateMin={assetStartDate}
+        securities={securities}
+      />
     </div>
   );
 };

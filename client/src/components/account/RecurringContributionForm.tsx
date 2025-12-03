@@ -191,6 +191,14 @@ const GroupSecurities = <T extends AssetSecurityLike>({
                             type="number"
                             placeholder="Commitment"
                             {...field}
+                            value={field.value ?? ""}
+                            onChange={(e) => {
+                              field.onChange(
+                                e.target.value == ""
+                                  ? ""
+                                  : createDecimalValueString(e.target.value)
+                              );
+                            }}
                           />
                         </FormControl>
                         <FormMessage />

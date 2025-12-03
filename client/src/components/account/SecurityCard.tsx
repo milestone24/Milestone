@@ -1,25 +1,42 @@
 import { FC, useState } from "react";
-import { ResolvedSecurity } from "shared/schema";
+import {
+  ResolvedAssetSecurity,
+  UserAssetSecurityInsert,
+  UserAssetSecurityInsertLink,
+} from "shared/schema";
 import { Button } from "../ui/button";
 import { Pencil, Trash2 } from "lucide-react";
 import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
+import { AssetSecurityUpsertDialog } from "./AssetSecurityUpsertDialog";
 
 type SecurityCardProps = {
-  security: ResolvedSecurity;
+  security: ResolvedAssetSecurity;
   onClick: (item: { id: string }) => void;
 };
 
 export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
 
-  const { deleteSecurity } = useAssetSecurities();
+  console.log("security", security);
+
+  const { deleteSecurity, updateSecurity, assetStartDate } =
+    useAssetSecurities();
 
   const handleDelete = () => {
     console.log("delete", security);
+    return deleteSecurity.mutateAsync(security.id);
   };
 
   const handleEdit = () => {
+    setIsEditOpen(true);
+  };
+
+  const handleEditSubmit = (securityInsert: UserAssetSecurityInsertLink) => {
     console.log("edit", security);
+    return updateSecurity.mutateAsync({
+      id: security.id,
+      security: securityInsert,
+    });
   };
 
   return (
@@ -60,6 +77,16 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
+      <AssetSecurityUpsertDialog
+        isOpen={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        onSubmit={handleEditSubmit}
+        data={security}
+        securities={undefined}
+        startDate={assetStartDate}
+        startDateIsEditable={true}
+        startDateMin={assetStartDate}
+      />
     </div>
   );
 };

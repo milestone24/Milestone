@@ -223,6 +223,7 @@ export async function registerRoutes(
       if (!req.params.assetId) {
         return res.status(400).json({ error: "Asset ID is required" });
       }
+      console.log("POST req.body", JSON.stringify(req.body, null, 2));
       const data = userAssetSecurityInsertSchema.parse(req.body);
       const valueItem = await assetService.createUserAssetSecurity(
         req.params.assetId,

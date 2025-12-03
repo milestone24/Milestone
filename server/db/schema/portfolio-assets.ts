@@ -298,9 +298,9 @@ export const userAssetSecurities = pgTable("user_asset_securities", {
     .references(() => securities.id),
   //shareHolding: real("share_holding").notNull(),
   archived: boolean("archived").notNull().default(false),
-  priorGainLoss: brandedDecimal("prior_gain_loss").notNull(),
+  priorGainLoss: brandedDecimal("prior_gain_loss"),
   startDate: timestamp("start_date").notNull(),
-  recordedAt: timestamp("recorded_at").notNull(),
+  //recordedAt: timestamp("recorded_at").notNull(),
   ...timestampColumns(),
 });
 

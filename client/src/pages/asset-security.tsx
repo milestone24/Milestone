@@ -38,7 +38,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { usePortfolio } from "@/context/PortfolioContext";
-import { AssetValue, ResolvedSecurity } from "shared/schema";
+import { AssetValue, ResolvedAssetSecurity } from "shared/schema";
 import { useBrokerProviders } from "@/hooks/use-broker-providers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TransactionsPanel } from "@/components/account/TransactionsPanel";
@@ -81,10 +81,10 @@ export default function AssetSecurityPage() {
     isLoading: isAssetLoading,
     isError: isAssetError,
     error: assetError,
-  } = useQuery<ResolvedSecurity>({
+  } = useQuery<ResolvedAssetSecurity>({
     queryKey: ["asset", assetId, "security", nestedId],
     queryFn: () =>
-      apiRequest<ResolvedSecurity>(
+      apiRequest<ResolvedAssetSecurity>(
         "GET",
         `/api/assets/${assetId}/securities/${nestedId}`
       ),

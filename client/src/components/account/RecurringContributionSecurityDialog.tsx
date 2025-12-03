@@ -141,6 +141,7 @@ export const RecurringContributionSecurityDialog = ({
   const form = useForm<RecurringContributionSecurityFormData>({
     resolver: zodResolver(formSchema),
     defaultValues: getDefaultValues(securities),
+    mode: "onBlur",
   });
 
   const {

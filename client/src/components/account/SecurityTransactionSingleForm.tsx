@@ -53,28 +53,18 @@ export const SecurityTransactionSingleForm = ({
       : undefined,
     defaultValues: {
       value: createDecimalValueString("0"),
+      currencyValue: createDecimalValueString("0"),
       valueDate: new Date(),
       assetSecurityId: undefined,
     },
+    mode: "onBlur",
   });
 
   const {
     handleSubmit,
     control,
-    formState: { isSubmitting, errors, isValid },
-    getValues,
-    watch,
+    formState: { isSubmitting },
   } = form;
-
-  console.log("errors", errors);
-
-  const values = getValues();
-
-  console.log("values sjjsjsj", values);
-
-  const securityId = watch("assetSecurityId");
-
-  console.log("securityId", securityId);
 
   return (
     <Form {...form}>
@@ -149,16 +139,6 @@ export const SecurityTransactionSingleForm = ({
           <FormField
             control={control}
             name="value"
-            rules={{
-              required: true,
-              validate: (value) => {
-                console.log("validatettetet", value);
-                if (!value || value === "") {
-                  return "Value is required";
-                }
-                return true;
-              },
-            }}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Number of Shares</FormLabel>
@@ -193,13 +173,13 @@ export const SecurityTransactionSingleForm = ({
                     type="number"
                     placeholder="Currency Payment"
                     {...field}
-                    value={
-                      typeof field.value === "string"
-                        ? field.value
-                        : createDecimalValueString("0")
-                    }
+                    value={field.value ?? ""}
                     onChange={(e) => {
-                      field.onChange(createDecimalValueString(e.target.value));
+                      field.onChange(
+                        e.target.value == ""
+                          ? ""
+                          : createDecimalValueString(e.target.value)
+                      );
                     }}
                   />
                 </FormControl>

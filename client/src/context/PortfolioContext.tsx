@@ -173,7 +173,6 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
         userAccountId: user?.account.id,
         securities: newAsset.securities.map((security) => ({
           ...security,
-          recordedAt: security.recordedAt ?? new Date(),
         })),
       }),
     onSuccess: () => {

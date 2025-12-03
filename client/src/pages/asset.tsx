@@ -17,7 +17,7 @@ import {
 import { useBrokerProviders } from "@/hooks/use-broker-providers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BrokerLogoBoxed from "@/components/logo/BrokerLogoBoxed";
-import { SecuritiesList } from "@/components/account/SecuritiesList";
+import { AssetSecuritiesList } from "@/components/account/AssetSecuritiesList";
 import AssetHistoryChart, { ChartData } from "@/components/charts/ValuesChart";
 import DateRangeBar from "@/components/layout/DateRangeBar";
 import { TransactionsPanel } from "@/components/account/TransactionsPanel";
@@ -288,7 +288,7 @@ function AssetPage() {
           {isSecuritiesAsset && (
             <div className="">
               <h2 className="text-lg font-medium my-2 md:my-4">Holdings</h2>
-              <SecuritiesList
+              <AssetSecuritiesList
                 className="my-4"
                 //onItemClick={handleSecurityClick}
               />

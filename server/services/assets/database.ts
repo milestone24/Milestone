@@ -41,7 +41,7 @@ import {
   DataRangeQuery,
   UserAssetSecuritySelect,
   UserAssetSecurityInsert,
-  ResolvedSecurity,
+  ResolvedAssetSecurity,
   BrokerPlatform,
   UserAssetWithHistoryAndAccountChange,
   UserAssetInsert,
@@ -66,6 +66,7 @@ import {
   UserAssetWithValue,
   createDecimalValueString,
   DecimalValueString,
+  UserAssetSecurityInsertLink,
 } from "@shared/schema";
 import { NodePgTransaction } from "drizzle-orm/node-postgres";
 import { Schema, TSchema } from "server/db/types/utils";
@@ -138,9 +139,9 @@ const assetValuesQueryBuilder = new ResourceQueryBuilder({
 
 const userAssetSecuritiesQueryBuilder = new ResourceQueryBuilder({
   table: userAssetSecurities,
-  allowedSortFields: ["recordedAt"],
+  allowedSortFields: ["createdAt"],
   allowedFilterFields: [],
-  defaultSort: { field: "recordedAt", direction: "desc" },
+  defaultSort: { field: "createdAt", direction: "desc" },
   maxLimit: 50,
 });
 
@@ -618,14 +619,14 @@ export class DatabaseAssetService {
   async getResolvedUserAssetSecurities(
     assetId: UserAsset["id"],
     query: QueryParams
-  ): Promise<ResolvedSecurity[]> {
+  ): Promise<ResolvedAssetSecurity[]> {
     const securities = await this.db.query.userAssetSecurities.findMany({
       where: eq(userAssetSecurities.userAssetId, assetId),
       with: {
         security: true,
       },
     });
-    const securitiesWithValue: ResolvedSecurity[] = await Promise.all(
+    const securitiesWithValue: ResolvedAssetSecurity[] = await Promise.all(
       securities.map(async (security) => {
         const lastValue = await this.db.query.securityDailyHistory.findFirst({
           where: eq(securityDailyHistory.securityId, security.securityId),
@@ -784,15 +785,11 @@ export class DatabaseAssetService {
               await securitiesService.createOrFindCachedSecurity(
                 security.security
               );
-            const assetSecurityData = {
+            const assetSecurityData: UserAssetSecurityInsertLink = {
               securityId: persistedSecurity.id,
               userAssetId: insertedUserAsset.id,
-              recordedAt: security.recordedAt ?? new Date(),
-              shareHolding: security.shareHolding,
-              currencyValue: security.currencyValue,
               startDate: security.startDate,
               priorGainLoss: security.priorGainLoss,
-              currency: persistedSecurity.currency ?? "GBP",
             };
 
             const [assetSecurity] = await tx
@@ -808,9 +805,9 @@ export class DatabaseAssetService {
               .insert(securityTransactions)
               .values({
                 assetSecurityId: assetSecurity.id,
-                value: assetSecurityData.shareHolding,
+                value: security.shareHolding,
                 currency: persistedSecurity.currency ?? "GBP",
-                currencyValue: assetSecurityData.currencyValue,
+                currencyValue: security.currencyValue,
                 recordedAt: new Date(),
                 valueDate: insertedUserAsset.startDate,
               })
@@ -830,7 +827,7 @@ export class DatabaseAssetService {
                 data.contributions.securityDistribution.find(
                   (securityDistribution) =>
                     securityDistribution.isTempSecurityId === true &&
-                    securityDistribution.securityId === security.tempId
+                    securityDistribution.securityId === security.lid
                 );
 
               if (securityDictribution) {
@@ -1602,7 +1599,11 @@ export class DatabaseAssetService {
       amount: DecimalValueString;
       process: "automatic" | "manual";
       startDate: Date;
-      patternConfig: { type: "rrule" | "cron"; expression: string; timezone?: string };
+      patternConfig: {
+        type: "rrule" | "cron";
+        expression: string;
+        timezone?: string;
+      };
       notificationEmail?: boolean;
       notificationPush?: boolean;
       isActive?: boolean;
@@ -1648,7 +1649,10 @@ export class DatabaseAssetService {
       for (const dist of data.securityDistribution) {
         // Calculate the amount for this security based on its commitment percentage
         const securityAmount = createDecimalValueString(
-          ((Number(data.amount) * Number(dist.commitment)) / totalCommitment).toFixed(2)
+          (
+            (Number(data.amount) * Number(dist.commitment)) /
+            totalCommitment
+          ).toFixed(2)
         );
 
         const [inserted] = await tx
@@ -1816,7 +1820,7 @@ export class DatabaseAssetService {
     return this.db.query.userAssetSecurities.findMany({
       with: { security: true },
       where: and(eq(userAssetSecurities.userAssetId, assetId), where),
-      orderBy: orderBy || [desc(userAssetSecurities.recordedAt)],
+      orderBy: orderBy || [desc(userAssetSecurities.createdAt)],
       limit,
       offset,
     });
@@ -1825,7 +1829,7 @@ export class DatabaseAssetService {
   async getUserAssetSecurity(
     assetId: UserAsset["id"],
     securityId: UserAssetSecuritySelect["id"]
-  ): Promise<ResolvedSecurity> {
+  ): Promise<ResolvedAssetSecurity> {
     const security = await this.db.query.userAssetSecurities.findFirst({
       where: and(
         eq(userAssetSecurities.userAssetId, assetId),
@@ -1838,7 +1842,7 @@ export class DatabaseAssetService {
         `User asset security with ID ${securityId} not found for asset ${assetId}`
       );
     }
-    return security as ResolvedSecurity;
+    return security as ResolvedAssetSecurity;
   }
 
   async createUserAssetSecurity(
@@ -1851,30 +1855,38 @@ export class DatabaseAssetService {
       throw new Error(`User asset with ID ${assetId} not found`);
     }
 
-    // Make sure the security exists
-    const security = await securitiesService.createOrFindCachedSecurity(
-      data.security
-    );
+    const securityId =
+      data.type === "new"
+        ? await(async () => {
+            const security = await securitiesService.createOrFindCachedSecurity(
+              data.security
+            );
+            if (!security) {
+              throw new Error(
+                `Security with ID ${data.security.name} not found`
+              );
+            }
+            return security.id;
+          })()
+        : data.securityId;
 
-    if (!security) {
-      throw new Error(`Security with ID ${data.security.name} not found`);
-    }
+    const values: UserAssetSecurityInsertLink = {
+      userAssetId: assetId,
+      securityId: securityId,
+      startDate: data.startDate,
+      priorGainLoss: data.priorGainLoss,
+    };
 
     const value = await this.db.transaction(async (tx) => {
       const [insertedValueItem] = await tx
         .insert(userAssetSecurities)
-        .values({
-          ...data,
-          userAssetId: assetId,
-          securityId: security.id,
-          recordedAt: new Date(),
-        })
+        .values(values)
         .returning();
 
       const value = await tx.query.userAssetSecurities.findFirst({
         where: and(
           eq(userAssetSecurities.userAssetId, assetId),
-          eq(userAssetSecurities.securityId, security.id)
+          eq(userAssetSecurities.securityId, securityId)
         ),
         with: { security: true },
       });

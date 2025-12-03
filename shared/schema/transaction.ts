@@ -1,6 +1,7 @@
 import { z, ZodType } from "zod";
 import {
   decimalValueSchema,
+  decimalValueSchemaRequiredGreaterThanZero,
   recurringContributionProcessTypes,
 } from "@server/db/schema";
 import type {
@@ -131,8 +132,8 @@ SecurityTransaction
 export type SecurityTransaction = DBSecurityTransactionSelect;
 
 export const securityTransactionOrphanInsertSchema = z.object({
-  value: decimalValueSchema,
-  currencyValue: decimalValueSchema,
+  value: decimalValueSchemaRequiredGreaterThanZero,
+  currencyValue: decimalValueSchemaRequiredGreaterThanZero,
   fees: decimalValueSchema.optional(),
   currency: z.string().optional(),
   valueDate: z.coerce.date(),
@@ -152,7 +153,9 @@ export type SecurityTransactionSelect = DBSecurityTransactionSelect;
 
 export const securityTransactionInsertSchema =
   securityTransactionOrphanInsertSchema.extend({
-    assetSecurityId: z.string(),
+    assetSecurityId: z.string().refine((value) => value !== "", {
+      message: "Security is required",
+    }),
   });
 
 securityTransactionInsertSchema._output satisfies Omit<
@@ -210,7 +213,7 @@ export type BrandedUserAssetSecurityTransactionResolved = BrandedValue<
 // >;
 
 export const recurringContributionOrphanInsertSchemaBase = z.object({
-  amount: decimalValueSchema,
+  amount: decimalValueSchemaRequiredGreaterThanZero,
   process: z.enum(recurringContributionProcessTypes),
   startDate: z.coerce.date(),
   patternConfig: patternSchema,
