@@ -40,7 +40,6 @@ import {
   WithAssetHistory,
   DataRangeQuery,
   UserAssetSecuritySelect,
-  UserAssetSecurityInsert,
   ResolvedAssetSecurity,
   BrokerPlatform,
   UserAssetWithHistoryAndAccountChange,
@@ -66,7 +65,9 @@ import {
   UserAssetWithValue,
   createDecimalValueString,
   DecimalValueString,
-  UserAssetSecurityInsertLink,
+  UserAssetSecurityLinkInsert,
+  UserAssetSecurityOrphanCreate,
+  UserAssetSecurityOrphanLinkInsert,
 } from "@shared/schema";
 import { NodePgTransaction } from "drizzle-orm/node-postgres";
 import { Schema, TSchema } from "server/db/types/utils";
@@ -783,44 +784,13 @@ export class DatabaseAssetService {
       if (data.valueMethod === "calculated") {
         const groupId = randomUUID();
 
-        const assetSecurities = await Promise.all(
+        await Promise.all(
           data.securities.map(async (security) => {
-            const persistedSecurity =
-              await securitiesService.createOrFindCachedSecurity(
-                security.security
-              );
-            const assetSecurityData: UserAssetSecurityInsertLink = {
-              securityId: persistedSecurity.id,
-              userAssetId: insertedUserAsset.id,
-              startDate: security.startDate,
-              priorGainLoss: security.priorGainLoss,
-            };
-
-            const [assetSecurity] = await tx
-              .insert(userAssetSecurities)
-              .values(assetSecurityData)
-              .returning();
-
-            if (!assetSecurity) {
-              throw new Error("Failed to create user asset security");
-            }
-
-            const [transaction] = await tx
-              .insert(securityTransactions)
-              .values({
-                assetSecurityId: assetSecurity.id,
-                value: security.shareHolding,
-                currency: persistedSecurity.currency ?? "GBP",
-                currencyValue: security.currencyValue,
-                recordedAt: new Date(),
-                valueDate: insertedUserAsset.startDate,
-              })
-              .returning();
-
-            if (!transaction) {
-              tx.rollback();
-              throw new Error("Failed to create security transaction");
-            }
+            const value = await this.createUserAssetSecurity(
+              insertedUserAsset.id,
+              security,
+              tx
+            );
 
             if (
               data.contributions &&
@@ -837,7 +807,7 @@ export class DatabaseAssetService {
               if (securityDictribution) {
                 await tx.insert(recurringContributions).values({
                   assetId: insertedUserAsset.id,
-                  securityId: assetSecurity.id,
+                  securityId: value.id,
                   groupId,
                   amount:
                     data.contributions.securityDistribution.length === 1
@@ -859,7 +829,12 @@ export class DatabaseAssetService {
               }
             }
           })
-        );
+        ).catch((error) => {
+          console.error("Failed to create user asset security");
+          console.error("Error", error);
+          tx.rollback();
+          throw new Error("Failed to create user asset security");
+        });
       }
 
       if (data.valueMethod === "manual") {
@@ -1851,37 +1826,57 @@ export class DatabaseAssetService {
 
   async createUserAssetSecurity(
     assetId: UserAsset["id"],
-    data: UserAssetSecurityInsert
+    data: UserAssetSecurityOrphanCreate,
+    tx?: Transaction
   ): Promise<UserAssetSecuritySelect> {
     // Make sure the asset exists
-    const asset = await this.getUserAsset(assetId);
-    if (!asset) {
-      throw new Error(`User asset with ID ${assetId} not found`);
-    }
 
-    const securityId =
-      data.type === "new"
-        ? await(async () => {
-            const security = await securitiesService.createOrFindCachedSecurity(
-              data.security
-            );
-            if (!security) {
-              throw new Error(
-                `Security with ID ${data.security.name} not found`
-              );
-            }
-            return security.id;
-          })()
-        : data.securityId;
 
-    const values: UserAssetSecurityInsertLink = {
-      userAssetId: assetId,
-      securityId: securityId,
-      startDate: data.startDate,
-      priorGainLoss: data.priorGainLoss,
-    };
+    const exec = async (
+      tx: Transaction
+    ): Promise<{
+      asset: UserAsset;
+      value: UserAssetSecuritySelect;
+      transaction: SecurityTransaction;
+    }> => {
+      /**
+       * We must use the transactions here and not the internal getUserAsset method.
+       * Maybe later the getUserAsset could also use the transactions.
+       * We have to use the transaction here because this function may have been called\
+       * as a sub process to createUserAsset and therefor the created user asset
+       * is a part of the transaction and not yet committed.
+       */
+      const asset = await tx.query.userAssets.findFirst({
+        where: eq(userAssets.id, assetId),
+      });
 
-    const value = await this.db.transaction(async (tx) => {
+      if (!asset) {
+        throw new Error(`User asset with ID ${assetId} not found`);
+      }
+
+      const securityId =
+        data.type === "new"
+          ? await(async () => {
+              const security =
+                await securitiesService.createOrFindCachedSecurity(
+                  data.security
+                );
+              if (!security) {
+                throw new Error(
+                  `Security with ID ${data.security.name} not found`
+                );
+              }
+              return security.id;
+            })()
+          : data.securityId;
+
+      const values: UserAssetSecurityLinkInsert = {
+        userAssetId: assetId,
+        securityId: securityId,
+        startDate: data.startDate,
+        priorGainLoss: data.priorGainLoss,
+      };
+
       const [insertedValueItem] = await tx
         .insert(userAssetSecurities)
         .values(values)
@@ -1895,14 +1890,38 @@ export class DatabaseAssetService {
         with: { security: true },
       });
 
-      return value;
-    });
+      if (!value) {
+        throw new Error("Failed to create user asset security");
+      }
 
-    if (!value) {
-      throw new Error("Failed to create user asset security");
+      const [transaction] = await tx
+        .insert(securityTransactions)
+        .values({
+          assetSecurityId: value.id,
+          value: data.initialHolding.shareHolding,
+          currency: value.security.currency ?? "GBP",
+          currencyValue: data.initialHolding.currencyValue,
+          recordedAt: new Date(),
+          valueDate: data.startDate,
+        })
+        .returning();
+
+      if (!transaction) {
+        tx.rollback();
+        throw new Error("Failed to create security transaction");
+      }
+
+      return { asset, value, transaction };
+      //});
+    };
+
+    const { asset, value } = tx
+      ? await exec(tx)
+      : await this.db.transaction(async (tx) => exec(tx));
+
+    if (asset) {
+      this.updateAssetValues(asset.userAccountId, assetId);
     }
-
-    this.updateAssetValues(asset.userAccountId, assetId);
 
     return value;
   }
