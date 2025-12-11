@@ -14,10 +14,11 @@ import { getExchanges, getOpenPositions } from '../server/services/intergration/
 
 // console.log(exchanges);
 
-const openPositions = await getOpenPositions()
-.catch(err => {
-  console.log("Error fetching open positions");
-  console.error(err);
-});
+(async () => {
+  const openPositions = await getOpenPositions().catch((err) => {
+    console.log("Error fetching open positions");
+    console.error(err);
+  });
 
-console.log(openPositions);
+  console.log(JSON.stringify(openPositions, null, 2));
+})();
