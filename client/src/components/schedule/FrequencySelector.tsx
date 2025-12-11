@@ -18,6 +18,30 @@ export interface FrequencySelectorProps {
   onIntervalChange: (interval: number) => void;
 }
 
+const periodPlural = (period: "daily" | "weekly" | "monthly" | "yearly") => {
+  return period === "daily"
+    ? "days"
+    : period === "weekly"
+    ? "weeks"
+    : period === "monthly"
+    ? "months"
+    : period === "yearly"
+    ? "years"
+    : "invalid";
+};
+
+const periodSingular = (period: "daily" | "weekly" | "monthly" | "yearly") => {
+  return period === "daily"
+    ? "day"
+    : period === "weekly"
+    ? "week"
+    : period === "monthly"
+    ? "month"
+    : period === "yearly"
+    ? "year"
+    : "invalid";
+};
+
 export const FrequencySelector: React.FC<FrequencySelectorProps> = ({
   frequency,
   interval,
@@ -63,7 +87,9 @@ export const FrequencySelector: React.FC<FrequencySelectorProps> = ({
               className="w-20"
             />
             <span className="text-sm text-muted-foreground">
-              {interval === 1 ? frequency : `${frequency}s`}
+              {interval === 1
+                ? periodSingular(frequency)
+                : periodPlural(frequency)}
             </span>
           </div>
         </div>
