@@ -2,10 +2,8 @@ import type {
   AssetSecurityLike,
   RecurringContributionGroupInsert,
   UserAssetOrphanInsert,
-  UserAssetSecurityWithInitialValuesInsert,
-  UserAssetSecurityInsert,
   DecimalValueString,
-  SecuritySelect,
+  UserAssetSecurityOrphanNewCreateInsert,
 } from "@shared/schema";
 import {
   accountType,
@@ -46,7 +44,11 @@ import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import { RRuleScheduler } from "../schedule/RRuleScheduler";
-import { AssetSecurityNewForm } from "./AssetSecurityForm";
+import {
+  AssetSecurityNewFormData,
+  AssetSecurityNewFormFields,
+} from "./AssetSecurityForm";
+import { userAssetSecurityOrphanNewCreateInsertSchema } from "@shared/schema/portfolio-assets";
 import {
   RecurringContributionForm,
   RecurringContributionFormProps,
@@ -86,120 +88,121 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
   onCancel,
 }) => {
   const form = useForm<UserAssetOrphanInsert>({
-    resolver: withTransform(
-      zodResolver(userAssetOrphanInsertSchema),
-      (values) => ({
-        ...values,
-        currentValue: values.currentValue
-          ? typeof values.currentValue === "string"
-            ? createDecimalValueString(values.currentValue)
-            : typeof values.currentValue === "number"
-            ? createDecimalValueString(String(values.currentValue))
-            : createDecimalValueString(String(values.currentValue))
-          : createDecimalValueString("0"),
-        securities:
-          values.securities?.map((security) => ({
-            ...security,
-            shareHolding: security.shareHolding
-              ? typeof security.shareHolding === "string"
-                ? createDecimalValueString(security.shareHolding)
-                : typeof security.shareHolding === "number"
-                ? createDecimalValueString(String(security.shareHolding))
-                : createDecimalValueString(String(security.shareHolding))
-              : createDecimalValueString("0"),
-            currencyValue: security.currencyValue
-              ? typeof security.currencyValue === "string"
-                ? createDecimalValueString(security.currencyValue)
-                : typeof security.currencyValue === "number"
-                ? createDecimalValueString(String(security.currencyValue))
-                : createDecimalValueString(String(security.currencyValue))
-              : createDecimalValueString("0"),
-            priorGainLoss: security.priorGainLoss
-              ? typeof security.priorGainLoss === "string"
-                ? createDecimalValueString(security.priorGainLoss)
-                : typeof security.priorGainLoss === "number"
-                ? createDecimalValueString(String(security.priorGainLoss))
-                : createDecimalValueString(String(security.priorGainLoss))
-              : createDecimalValueString("0"),
-          })) ?? [],
-        contributions: values.contributions
-          ? values.contributions.type === "security"
-            ? {
-                type: "security",
-                isActive: true,
-                process: values.contributions.process,
-                amount: values.contributions.amount
-                  ? typeof values.contributions.amount === "string"
-                    ? createDecimalValueString(values.contributions.amount)
-                    : typeof values.contributions.amount === "number"
-                    ? createDecimalValueString(
-                        String(values.contributions.amount)
-                      )
-                    : createDecimalValueString(
-                        String(values.contributions.amount)
-                      )
-                  : createDecimalValueString("0"),
-                startDate: values.startDate,
-                // notificationPeriod:
-                //   values.contributions?.notificationPeriod ?? "weekly",
-                patternConfig: values.contributions?.patternConfig,
-                notificationEmail:
-                  values.contributions?.notificationEmail === true
-                    ? true
-                    : false,
-                notificationPush:
-                  values.contributions?.notificationPush === true
-                    ? true
-                    : false,
-                securityDistribution:
-                  values.contributions?.securityDistribution?.map(
-                    (security) => ({
-                      ...security,
-                      commitment: security.commitment
-                        ? typeof security.commitment === "string"
-                          ? createDecimalValueString(security.commitment)
-                          : typeof security.commitment === "number"
-                          ? createDecimalValueString(
-                              String(security.commitment)
-                            )
-                          : createDecimalValueString(
-                              String(security.commitment)
-                            )
-                        : createDecimalValueString("0"),
-                    })
-                  ) ?? [],
-              }
-            : values.contributions.type === "asset"
-            ? {
-                type: "asset",
-                isActive: true,
-                process: values.contributions.process,
-                amount: values.contributions.amount
-                  ? typeof values.contributions.amount === "string"
-                    ? createDecimalValueString(values.contributions.amount)
-                    : typeof values.contributions.amount === "number"
-                    ? createDecimalValueString(
-                        String(values.contributions.amount)
-                      )
-                    : createDecimalValueString(
-                        String(values.contributions.amount)
-                      )
-                  : createDecimalValueString("0"),
-                startDate: values.startDate,
-                patternConfig: values.contributions?.patternConfig,
-                notificationEmail:
-                  values.contributions?.notificationEmail === true
-                    ? true
-                    : false,
-                notificationPush:
-                  values.contributions?.notificationPush === true
-                    ? true
-                    : false,
-              }
-            : undefined
-          : undefined,
-      })
-    ),
+    resolver: zodResolver(userAssetOrphanInsertSchema),
+    // resolver: withTransform(
+    //   zodResolver(userAssetOrphanInsertSchema),
+    //   (values) => ({
+    //     ...values,
+    //     currentValue: values.currentValue
+    //       ? typeof values.currentValue === "string"
+    //         ? createDecimalValueString(values.currentValue)
+    //         : typeof values.currentValue === "number"
+    //         ? createDecimalValueString(String(values.currentValue))
+    //         : createDecimalValueString(String(values.currentValue))
+    //       : createDecimalValueString("0"),
+    //     securities:
+    //       values.securities?.map((security) => ({
+    //         ...security,
+    //         shareHolding: security.shareHolding
+    //           ? typeof security.shareHolding === "string"
+    //             ? createDecimalValueString(security.shareHolding)
+    //             : typeof security.shareHolding === "number"
+    //             ? createDecimalValueString(String(security.shareHolding))
+    //             : createDecimalValueString(String(security.shareHolding))
+    //           : createDecimalValueString("0"),
+    //         currencyValue: security.currencyValue
+    //           ? typeof security.currencyValue === "string"
+    //             ? createDecimalValueString(security.currencyValue)
+    //             : typeof security.currencyValue === "number"
+    //             ? createDecimalValueString(String(security.currencyValue))
+    //             : createDecimalValueString(String(security.currencyValue))
+    //           : createDecimalValueString("0"),
+    //         priorGainLoss: security.priorGainLoss
+    //           ? typeof security.priorGainLoss === "string"
+    //             ? createDecimalValueString(security.priorGainLoss)
+    //             : typeof security.priorGainLoss === "number"
+    //             ? createDecimalValueString(String(security.priorGainLoss))
+    //             : createDecimalValueString(String(security.priorGainLoss))
+    //           : createDecimalValueString("0"),
+    //       })) ?? [],
+    //     contributions: values.contributions
+    //       ? values.contributions.type === "security"
+    //         ? {
+    //             type: "security",
+    //             isActive: true,
+    //             process: values.contributions.process,
+    //             amount: values.contributions.amount
+    //               ? typeof values.contributions.amount === "string"
+    //                 ? createDecimalValueString(values.contributions.amount)
+    //                 : typeof values.contributions.amount === "number"
+    //                 ? createDecimalValueString(
+    //                     String(values.contributions.amount)
+    //                   )
+    //                 : createDecimalValueString(
+    //                     String(values.contributions.amount)
+    //                   )
+    //               : createDecimalValueString("0"),
+    //             startDate: values.startDate,
+    //             // notificationPeriod:
+    //             //   values.contributions?.notificationPeriod ?? "weekly",
+    //             patternConfig: values.contributions?.patternConfig,
+    //             notificationEmail:
+    //               values.contributions?.notificationEmail === true
+    //                 ? true
+    //                 : false,
+    //             notificationPush:
+    //               values.contributions?.notificationPush === true
+    //                 ? true
+    //                 : false,
+    //             securityDistribution:
+    //               values.contributions?.securityDistribution?.map(
+    //                 (security) => ({
+    //                   ...security,
+    //                   commitment: security.commitment
+    //                     ? typeof security.commitment === "string"
+    //                       ? createDecimalValueString(security.commitment)
+    //                       : typeof security.commitment === "number"
+    //                       ? createDecimalValueString(
+    //                           String(security.commitment)
+    //                         )
+    //                       : createDecimalValueString(
+    //                           String(security.commitment)
+    //                         )
+    //                     : createDecimalValueString("0"),
+    //                 })
+    //               ) ?? [],
+    //           }
+    //         : values.contributions.type === "asset"
+    //         ? {
+    //             type: "asset",
+    //             isActive: true,
+    //             process: values.contributions.process,
+    //             amount: values.contributions.amount
+    //               ? typeof values.contributions.amount === "string"
+    //                 ? createDecimalValueString(values.contributions.amount)
+    //                 : typeof values.contributions.amount === "number"
+    //                 ? createDecimalValueString(
+    //                     String(values.contributions.amount)
+    //                   )
+    //                 : createDecimalValueString(
+    //                     String(values.contributions.amount)
+    //                   )
+    //               : createDecimalValueString("0"),
+    //             startDate: values.startDate,
+    //             patternConfig: values.contributions?.patternConfig,
+    //             notificationEmail:
+    //               values.contributions?.notificationEmail === true
+    //                 ? true
+    //                 : false,
+    //             notificationPush:
+    //               values.contributions?.notificationPush === true
+    //                 ? true
+    //                 : false,
+    //           }
+    //         : undefined
+    //       : undefined,
+    //   })
+    // ),
     mode: "onChange",
     // defaultValues: {
     //   securities: [],
@@ -292,7 +295,7 @@ const ActionsBar = ({
   isProcessing,
   canSubmit,
 }: ActionsBarProps) => {
-  console.log("isProcessing", isProcessing);
+  console.log("actions bar isProcessing", isProcessing);
 
   return (
     <section className="mt-4 flex justify-end flex-row gap-2">
@@ -505,6 +508,68 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
   );
 };
 
+type AssetSecurityFormProps = {
+  onSubmit: (value: AssetSecurityNewFormData) => Promise<void>;
+  onCancel: () => void;
+  startDate: Date | undefined;
+  startDateMin: Date | undefined;
+  startDateIsEditable: boolean;
+};
+
+const AssetSecurityForm = ({
+  onSubmit,
+  onCancel,
+  startDate,
+  startDateMin,
+  startDateIsEditable,
+}: AssetSecurityFormProps) => {
+  const form = useForm<AssetSecurityNewFormData>({
+    resolver: zodResolver(userAssetSecurityOrphanNewCreateInsertSchema),
+    defaultValues: {
+      type: "new",
+      priorGainLoss: createDecimalValueString("0"),
+      startDate: startDate ?? new Date(),
+      initialHolding: {
+        shareHolding: createDecimalValueString("0"),
+        currencyValue: createDecimalValueString("0"),
+      },
+    },
+    mode: "all",
+  });
+
+  const {
+    formState: { isValid, isSubmitting },
+  } = form;
+
+  const handleAdd = async () => {
+    const valid = await form.trigger();
+    if (!valid) return;
+    await onSubmit(form.getValues());
+  };
+
+  return (
+    <Form {...form}>
+      <AssetSecurityNewFormFields
+        startDate={startDate}
+        startDateMin={startDateMin}
+        startDateIsEditable={startDateIsEditable}
+      />
+      <div className="flex flex-row justify-end gap-2 mt-8">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          onClick={handleAdd}
+          disabled={!isValid || isSubmitting}
+        >
+          {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add"}
+        </Button>
+      </div>
+    </Form>
+  );
+};
+
 const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
   const form = useFormContext<UserAssetOrphanInsert>();
 
@@ -526,25 +591,30 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
   } = form;
 
   const handleAddSecurity = (
-    security: UserAssetSecurityWithInitialValuesInsert
+    security: UserAssetSecurityOrphanNewCreateInsert
   ) => {
     append({
       ...security,
       lid: crypto.randomUUID(),
     });
     setAddingSecurity(false);
+    //We add this to satisfy the API of the form.
+    return Promise.resolve();
   };
 
   return (
     <>
       {addingSecurity ? (
-        <AssetSecurityNewForm
-          onCancel={() => setAddingSecurity(false)}
-          onSubmit={handleAddSecurity}
-          startDate={startDate}
-          startDateMin={startDate}
-          startDateIsEditable={false}
-        />
+        <>
+          <span className="text-md">Adding Security</span>
+          <AssetSecurityForm
+            onCancel={() => setAddingSecurity(false)}
+            onSubmit={handleAddSecurity}
+            startDate={startDate}
+            startDateMin={startDate}
+            startDateIsEditable={false}
+          />
+        </>
       ) : (
         <>
           <FormField
@@ -662,8 +732,10 @@ type SecurityCardProps = {
       symbol: string;
       name: string;
     };
-    shareHolding: DecimalValueString;
-    currencyValue: DecimalValueString;
+    initialHolding: {
+      shareHolding: DecimalValueString;
+      currencyValue: DecimalValueString;
+    };
     startDate: Date;
   };
 };
@@ -677,11 +749,11 @@ const SecurityCard = ({ security }: SecurityCardProps) => {
       </div>
       <div className="flex flex-row gap-2 text-sm">
         <span>Share Holdings:</span>
-        <span>{security.shareHolding}</span>
+        <span>{security.initialHolding.shareHolding}</span>
       </div>
       <div className="flex flex-row gap-2 text-sm">
         <span>Currency Value:</span>
-        <span>{security.currencyValue}</span>
+        <span>{security.initialHolding.currencyValue}</span>
       </div>
       <div className="flex flex-row gap-2 text-sm">
         <span>Start Date:</span>

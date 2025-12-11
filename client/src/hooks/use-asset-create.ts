@@ -12,13 +12,7 @@ import {
 export const useAssetCreate = () => {
   return useMutation<UserAsset, Error, UserAssetOrphanInsert>({
     mutationFn: (newAsset) =>
-      apiRequest<UserAsset>("POST", "/api/assets/", {
-        ...newAsset,
-        //userAccountId: user?.account.id,
-        securities: newAsset.securities.map((security) => ({
-          ...security,
-        })),
-      }),
+      apiRequest<UserAsset>("POST", "/api/assets/", newAsset),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: portfolioAssets });
       queryClient.invalidateQueries({ queryKey: portfolioGraphValues });
