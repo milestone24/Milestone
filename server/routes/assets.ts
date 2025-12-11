@@ -12,8 +12,8 @@ import {
   recurringContributionOrphanInsertSchema,
   recurringContributionBulkInsertSchema,
   securityTransactionOrphanInsertSchema,
-  userAssetSecurityInsertSchema,
   userAssetOrphanInsertSchema,
+  userAssetSecurityOrphanCreateSchema,
   userAssetSecurityOrphanLinkInsertSchema,
 } from "@shared/schema";
 import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
@@ -224,13 +224,18 @@ export async function registerRoutes(
       if (!req.params.assetId) {
         return res.status(400).json({ error: "Asset ID is required" });
       }
-      console.log("POST req.body", JSON.stringify(req.body, null, 2));
-      const data = userAssetSecurityInsertSchema.parse(req.body);
-      const valueItem = await assetService.createUserAssetSecurity(
+      const validation = userAssetSecurityOrphanCreateSchema.safeParse(
+        req.body
+      );
+      if (!validation.success) {
+        return res.status(400).json({ error: validation.error.message });
+      }
+      const data = validation.data;
+      const security = await assetService.createUserAssetSecurity(
         req.params.assetId,
         data
       );
-      res.json(valueItem);
+      res.json(security);
     }
   );
 
