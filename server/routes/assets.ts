@@ -14,6 +14,7 @@ import {
   securityTransactionOrphanInsertSchema,
   userAssetSecurityInsertSchema,
   userAssetOrphanInsertSchema,
+  userAssetSecurityOrphanLinkInsertSchema,
 } from "@shared/schema";
 import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
 import { db } from "@server/db";
@@ -250,6 +251,36 @@ export async function registerRoutes(
         req.params.securityId
       );
       res.json(valueItems);
+    }
+  );
+
+  router.put(
+    regExpPath(
+      `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam("securityId")}`
+    ),
+    requireUser,
+    async (req: AuthRequest, res) => {
+      console.log("PUT req.params", JSON.stringify(req.params, null, 2));
+      console.log("PUT req.body", JSON.stringify(req.body, null, 2));
+      if (!req.params.assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+      if (!req.params.securityId) {
+        return res.status(400).json({ error: "Security ID is required" });
+      }
+      const validation = userAssetSecurityOrphanLinkInsertSchema.safeParse(
+        req.body
+      );
+      if (!validation.success) {
+        return res.status(400).json({ error: validation.error.message });
+      }
+      const data = validation.data;
+      const valueItem = await assetService.updateUserAssetSecurity(
+        req.params.assetId,
+        req.params.securityId,
+        data
+      );
+      res.json(valueItem);
     }
   );
 
