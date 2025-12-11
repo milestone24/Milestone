@@ -83,35 +83,139 @@ export const userAssetSecurityBaseSchema = z.object({
 
 export type UserAssetSecurityBase = z.infer<typeof userAssetSecurityBaseSchema>;
 
-export const userAssetSecurityInsertSchema = z.discriminatedUnion("type", [
+export const userAssetSecurityInitialHoldingSchema = z.object({
+  shareHolding: decimalValueSchemaRequiredGreaterThanZero.refine(
+    isDecimalValueString,
+    {
+      message: "Share holding must be a valid decimal string",
+    }
+  ),
+  currencyValue: decimalValueSchemaRequiredGreaterThanZero.refine(
+    isDecimalValueString,
+    {
+      message: "Currency value must be a valid decimal string",
+    }
+  ),
+});
+
+export type UserAssetSecurityInitialHolding = z.infer<
+  typeof userAssetSecurityInitialHoldingSchema
+>;
+
+export const userAssetSecurityOrphanLinkInsertSchema =
   userAssetSecurityBaseSchema.extend({
     type: z.literal("link"),
-    //tempId: z.string(),
-    //security: securityInsertSchema,
-    userAssetId: z.string(),
     securityId: z.string(),
-  }),
+  });
+
+export type UserAssetSecurityOrphanLinkInsert = z.infer<
+  typeof userAssetSecurityOrphanLinkInsertSchema
+>;
+
+export const userAssetSecurityOrphanNewInsertSchema =
   userAssetSecurityBaseSchema.extend({
     type: z.literal("new"),
-    //tempId: z.string(),
-    //security: securityInsertSchema,
+    security: securityInsertSchema
+      .required()
+      .refine((val) => val !== null && val !== undefined, {
+        message: "Security is required",
+      }),
+  });
+
+export type UserAssetSecurityOrphanNewInsert = z.infer<
+  typeof userAssetSecurityOrphanNewInsertSchema
+>;
+
+export const userAssetSecurityOrphanNewCreateInsertSchema =
+  userAssetSecurityOrphanNewInsertSchema.extend({
+    initialHolding: userAssetSecurityInitialHoldingSchema,
+  });
+
+export type UserAssetSecurityOrphanNewCreateInsert = z.infer<
+  typeof userAssetSecurityOrphanNewCreateInsertSchema
+>;
+
+export const userAssetSecurityOrphanLinkCreateInsertSchema =
+  userAssetSecurityOrphanLinkInsertSchema.extend({
+    initialHolding: userAssetSecurityInitialHoldingSchema,
+  });
+
+export type UserAssetSecurityOrphanLinkCreateInsert = z.infer<
+  typeof userAssetSecurityOrphanLinkCreateInsertSchema
+>;
+
+export const userAssetSecurityOrphanCreateSchema = z.discriminatedUnion(
+  "type",
+  [
+    userAssetSecurityOrphanNewCreateInsertSchema,
+    userAssetSecurityOrphanLinkCreateInsertSchema,
+  ]
+);
+
+export type UserAssetSecurityOrphanCreate = z.infer<
+  typeof userAssetSecurityOrphanCreateSchema
+>;
+
+export const userAssetSecurityLinkInsertSchema =
+  userAssetSecurityBaseSchema.extend({
     userAssetId: z.string(),
-    security: securityInsertSchema,
-  }),
-]);
+    securityId: z.string(),
+  });
 
-export type UserAssetSecurityInsert = z.infer<
-  typeof userAssetSecurityInsertSchema
+export type UserAssetSecurityLinkInsert = z.infer<
+  typeof userAssetSecurityLinkInsertSchema
 >;
 
-export type UserAssetSecurityInsertLink = Omit<
-  Extract<UserAssetSecurityInsert, { type: "link" }>,
-  "type"
->;
-export type UserAssetSecurityInsertNew = Omit<
-  Extract<UserAssetSecurityInsert, { type: "new" }>,
-  "type"
->;
+// export const userAssetSecurityNewInsertSchema =
+//   userAssetSecurityBaseSchema.extend({
+//     userAssetId: z.string(),
+//     security: securityInsertSchema
+//       .required()
+//       .refine((val) => val !== null && val !== undefined, {
+//         message: "Security is required",
+//       }),
+//     /**
+//      * Share holding and teh currency Value will be used to record an initial transaction.
+//      */
+//     shareHolding: decimalValueSchemaRequiredGreaterThanZero.refine(
+//       isDecimalValueString,
+//       {
+//         message: "Share holding must be a valid decimal string",
+//       }
+//     ),
+//     currencyValue: decimalValueSchemaRequiredGreaterThanZero.refine(
+//       isDecimalValueString,
+//       {
+//         message: "Currency value must be a valid decimal string",
+//       }
+//     ),
+//   });
+
+// export type UserAssetSecurityNewInsert = z.infer<
+//   typeof userAssetSecurityNewInsertSchema
+// >;
+
+// export const userAssetSecurityInsertSchema = z.discriminatedUnion("type", [
+//   userAssetSecurityLinkInsertSchema.extend({
+//     type: z.literal("link"),
+//   }),
+//   userAssetSecurityNewInsertSchema.extend({
+//     type: z.literal("new"),
+//   }),
+// ]);
+
+// export type UserAssetSecurityInsert = z.infer<
+//   typeof userAssetSecurityInsertSchema
+// >;
+
+// export type UserAssetSecurityInsertLink = Omit<
+//   Extract<UserAssetSecurityInsert, { type: "link" }>,
+//   "type"
+// >;
+// export type UserAssetSecurityInsertNew = Omit<
+//   Extract<UserAssetSecurityInsert, { type: "new" }>,
+//   "type"
+// >;
 
 //export const userAssetSecurityInsertSchema
 
@@ -153,30 +257,35 @@ export type UserAssetSecurityInsertNew = Omit<
  * lid is a temporary id for the security, it is used to identify the security
  * primarily for recurring contribution mappings.
  */
-export const userAssetSecurityWithInitialValuesInsertSchema =
-  userAssetSecurityBaseSchema.extend({
-    tid: z.string(), //Temporary Id so the new asset security can be identified within a group.
-    security: securityInsertSchema,
-    /**
-     * Share holding and teh currency Value will be used to record an initial transaction.
-     */
-    shareHolding: decimalValueSchemaRequiredGreaterThanZero.refine(
-      isDecimalValueString,
-      {
-        message: "Share holding must be a valid decimal string",
-      }
-    ),
-    currencyValue: decimalValueSchemaRequiredGreaterThanZero.refine(
-      isDecimalValueString,
-      {
-        message: "Currency value must be a valid decimal string",
-      }
-    ),
-  });
+// export const userAssetSecurityWithInitialValuesInsertSchema =
+//   userAssetSecurityBaseSchema.extend({
+//     //tid needs removing, this is not a responsibility here, only when the security is in a security group.
+//     //tid: z.string(), //Temporary Id so the new asset security can be identified within a group.
+//     security: securityInsertSchema
+//       .required()
+//       .refine((val) => val !== null && val !== undefined, {
+//         message: "Security is required",
+//       }),
+//     /**
+//      * Share holding and teh currency Value will be used to record an initial transaction.
+//      */
+//     shareHolding: decimalValueSchemaRequiredGreaterThanZero.refine(
+//       isDecimalValueString,
+//       {
+//         message: "Share holding must be a valid decimal string",
+//       }
+//     ),
+//     currencyValue: decimalValueSchemaRequiredGreaterThanZero.refine(
+//       isDecimalValueString,
+//       {
+//         message: "Currency value must be a valid decimal string",
+//       }
+//     ),
+//   });
 
-export type UserAssetSecurityWithInitialValuesInsert = z.infer<
-  typeof userAssetSecurityWithInitialValuesInsertSchema
->;
+// export type UserAssetSecurityWithInitialValuesInsert = z.infer<
+//   typeof userAssetSecurityWithInitialValuesInsertSchema
+// >;
 
 export const userAssetOrphanInsertSchema = z.object({
   name: z
@@ -208,7 +317,7 @@ export const userAssetOrphanInsertSchema = z.object({
     })
     .optional(),
   securities: z.array(
-    userAssetSecurityWithInitialValuesInsertSchema.extend({ lid: z.string() })
+    userAssetSecurityOrphanNewCreateInsertSchema.extend({ lid: z.string() })
   ),
   //Contibutions here should be in unison with the recurringContributionOrphanInsertSchema and recurringContributionInsertSchema
   contributions: recurringContributionGroupInsertSchema.optional(),
@@ -225,11 +334,12 @@ export const userAssetOrphanInsertSchema = z.object({
   //   .optional(),
 });
 
-type ZodUserAssetOrphan = z.infer<typeof userAssetOrphanInsertSchema>;
 userAssetOrphanInsertSchema satisfies ZodType<
   Omit<DBUserAssetInsert, "userAccountId">
 >;
-export type UserAssetOrphanInsert = ZodUserAssetOrphan;
+
+export type UserAssetOrphanInsert = z.infer<typeof userAssetOrphanInsertSchema>;
+
 //export type BrokerProviderAssetOrphanInsert = IfConstructorEquals<ZodBrokerProviderAssetOrphan, Orphan<DBBrokerProviderAssetInsert>, never>;
 //brokerProviderAssetOrphanInsertSchema satisfies ZodType<BrokerProviderAssetOrphanInsert>;
 
