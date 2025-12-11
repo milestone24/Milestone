@@ -105,7 +105,8 @@ import Decimal from "decimal.js";
 
 const securitiesService = securitiesFactory();
 
-type Transaction = NodePgTransaction<Schema, TSchema>;
+//type Transaction = NodePgTransaction<Schema, TSchema>;
+type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 const sendNotification = (accountId: string, message: SocketMessage) => {
   const sockets = connections.get(accountId);
