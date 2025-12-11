@@ -173,6 +173,10 @@ export class DatabaseAssetService {
 
   async updateAssetValues(accountId: string, assetId: string): Promise<void> {
     return new Promise(async (resolve, reject) => {
+      sendNotification(accountId, {
+        type: "notification",
+        message: "Updating asset values...",
+      });
       try {
         //TODO job needs some kind of identifier for what resources are affected
         const [job] = await this.db
