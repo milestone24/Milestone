@@ -4,15 +4,12 @@ import {
   assetSecurities,
 } from "@shared/api/queryKeys";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { SecurityTransactionUpsert } from "@shared/schema";
 import {
   resolvedAssetSecuritiesSchema,
   ResolvedAssetSecurity,
-  resolvedAssetSecuritySchema,
-  UserAssetSecurityInsert,
-  UserAssetSecurityInsertLink,
+  UserAssetSecurityLinkInsert,
+  UserAssetSecurityOrphanNewCreateInsert,
   UserAssetSecuritySelect,
-  UserAssetSecurityWithInitialValuesInsert,
 } from "@shared/schema/portfolio-assets";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createContext, ReactNode, useContext, useState } from "react";
@@ -72,10 +69,9 @@ export const useAssetSecurities = () => {
   const addSecurity = useMutation<
     UserAssetSecuritySelect,
     Error,
-    UserAssetSecurityWithInitialValuesInsert
+    UserAssetSecurityOrphanNewCreateInsert
   >({
     mutationFn: (security) => {
-      console.log("addSecurity security", security);
       return apiRequest("POST", `/api/assets/${assetId}/securities`, security);
     },
     onSuccess: () => {
@@ -110,7 +106,7 @@ export const useAssetSecurities = () => {
   const updateSecurity = useMutation<
     UserAssetSecuritySelect,
     Error,
-    { id: string; security: UserAssetSecurityInsertLink }
+    { id: string; security: UserAssetSecurityLinkInsert }
   >({
     mutationFn: ({ id, security }) => {
       return apiRequest(
@@ -118,6 +114,18 @@ export const useAssetSecurities = () => {
         `/api/assets/${assetId}/securities/${id}`,
         security
       );
+    },
+    onSuccess: () => {
+      console.log("updateSecurity onSuccess");
+      queryClient.invalidateQueries({
+        queryKey: [...assetSecurities, assetId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...assetGraphValues, assetId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...assetGraphTransactions, assetId],
+      });
     },
   });
 
