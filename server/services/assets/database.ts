@@ -1929,7 +1929,7 @@ export class DatabaseAssetService {
   async updateUserAssetSecurity(
     assetId: UserAsset["id"],
     securityId: UserAssetSecuritySelect["id"],
-    data: UserAssetSecurityInsert
+    data: UserAssetSecurityOrphanLinkInsert
   ): Promise<UserAssetSecuritySelect> {
     // Make sure the value item exists and belongs to the asset
     const existingValueItem = await this.db.query.userAssetSecurities.findFirst(
