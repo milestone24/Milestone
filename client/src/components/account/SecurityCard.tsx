@@ -1,8 +1,7 @@
-import { FC, useState } from "react";
+import { FC, useCallback, useState } from "react";
 import {
   ResolvedAssetSecurity,
-  UserAssetSecurityInsert,
-  UserAssetSecurityInsertLink,
+  UserAssetSecurityOrphanLinkInsert,
 } from "shared/schema";
 import { Button } from "../ui/button";
 import { Pencil, Trash2 } from "lucide-react";
@@ -17,13 +16,10 @@ type SecurityCardProps = {
 export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
 
-  console.log("security", security);
-
   const { deleteSecurity, updateSecurity, assetStartDate } =
     useAssetSecurities();
 
   const handleDelete = () => {
-    console.log("delete", security);
     return deleteSecurity.mutateAsync(security.id);
   };
 
@@ -31,13 +27,26 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
     setIsEditOpen(true);
   };
 
-  const handleEditSubmit = (securityInsert: UserAssetSecurityInsertLink) => {
-    console.log("edit", security);
-    return updateSecurity.mutateAsync({
-      id: security.id,
-      security: securityInsert,
-    });
-  };
+  const handleEditSubmit = useCallback(
+    async (securityInsert: UserAssetSecurityOrphanLinkInsert) => {
+      return updateSecurity
+        .mutateAsync({
+          id: security.id,
+          security: {
+            ...securityInsert,
+            userAssetId: security.id,
+          },
+        })
+        .then(() => {
+          //Temporrary to return void to match expected return type
+          return Promise.resolve();
+        })
+        .catch((error) => {
+          return Promise.reject(error);
+        });
+    },
+    [updateSecurity, security]
+  );
 
   return (
     <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">

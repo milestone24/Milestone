@@ -1,23 +1,15 @@
 import { useDebouncedCallback } from "@/hooks/use-debounce-callback";
 import { useFindSecurities } from "@/hooks/use-find-securities";
-import {
-  DecimalValueString,
-  SecurityInsert,
-  SecuritySearchResult,
-  createDecimalValueString,
-} from "@shared/schema";
+import { SecurityInsert, createDecimalValueString } from "@shared/schema";
 import {
   ResolvedAssetSecurity,
   UserAssetSecurityBase,
-  UserAssetSecurityInsert,
-  UserAssetSecurityInsertLink,
-  UserAssetSecurityInsertNew,
-  userAssetSecurityInsertSchema,
-  UserAssetSecuritySelect,
-  UserAssetSecurityWithInitialValuesInsert,
-  userAssetSecurityWithInitialValuesInsertSchema,
+  UserAssetSecurityOrphanLinkInsert,
+  userAssetSecurityOrphanLinkInsertSchema,
+  UserAssetSecurityOrphanNewCreateInsert,
+  userAssetSecurityOrphanNewCreateInsertSchema,
 } from "@shared/schema/portfolio-assets";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Controller, useForm, useFormContext } from "react-hook-form";
 import {
   FormDescription,
@@ -32,6 +24,7 @@ import RSelect from "react-select";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
 
 /*
  * See https://react-select.com/components
@@ -50,13 +43,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 //   return <div {...innerProps}>{data.label}</div>;
 // };
 
+export type AssetSecurityNewFormData = UserAssetSecurityOrphanNewCreateInsert;
+
 type AssetSecurityNewFormProps = {
-  onSubmit: (value: UserAssetSecurityWithInitialValuesInsert) => void;
+  onSubmit: (value: AssetSecurityNewFormData) => Promise<void>;
   onCancel: () => void;
   startDate: Date | undefined;
   startDateMin: Date | undefined;
   startDateIsEditable: boolean;
 };
+
+// type AssetSecurityNewFormData = Omit<UserAssetSecurityWithInitialValuesInsert, "security"> & {
+//   security: SecurityInsert | null;
+// };
 
 export const AssetSecurityNewForm = ({
   onSubmit,
@@ -65,56 +64,100 @@ export const AssetSecurityNewForm = ({
   startDateMin,
   startDateIsEditable,
 }: AssetSecurityNewFormProps) => {
-  const form = useForm<UserAssetSecurityWithInitialValuesInsert>({
-    resolver: zodResolver(userAssetSecurityWithInitialValuesInsertSchema),
+  const form = useForm<AssetSecurityNewFormData>({
+    resolver: zodResolver(userAssetSecurityOrphanNewCreateInsertSchema),
     defaultValues: {
-      security: undefined,
-      shareHolding: createDecimalValueString("0"),
-      currencyValue: createDecimalValueString("0"),
-      priorGainLoss: "",
+      type: "new",
+      priorGainLoss: createDecimalValueString("0"),
       startDate: startDate ?? new Date(),
+      initialHolding: {
+        shareHolding: createDecimalValueString("0"),
+        currencyValue: createDecimalValueString("0"),
+      },
     },
-    mode: "onBlur",
+    mode: "all",
   });
 
   const {
-    control,
-    watch,
-    formState: { errors, isValid },
-    getValues,
+    formState: { isValid, isSubmitting },
   } = form;
+
+  const [error, setError] = useState<string | undefined>(undefined);
 
   const baseFieldProps: AssetSecurityBaseFieldsProps =
     startDate && startDateIsEditable
       ? { startDateIsEditable: true, startDateMin: startDateMin }
       : { startDateIsEditable: false, startDateMin: undefined };
 
+  const submit = useCallback(
+    async (formData: AssetSecurityNewFormData) => {
+      return onSubmit(formData).catch((error) => {
+        console.error("AssetSecurityNewForm submit error", error);
+        setError(
+          error instanceof Error ? error.message : "An unknown error occurred"
+        );
+      });
+    },
+    [onSubmit]
+  );
+
   return (
     <Form {...form}>
-      <AssetSecurityNewFields />
-      <AssetSecurityBaseFields {...baseFieldProps} />
-      <div className="flex flex-row gap-2">
-        <Button variant="outline" onClick={() => onCancel()}>
-          Cancel
-        </Button>
-        <Button
-          onClick={() => {
-            if (isValid) {
-              onSubmit(getValues());
-            }
-          }}
-          disabled={!isValid}
-        >
-          Add
-        </Button>
-      </div>
+      {error && <p className="text-red-500">{error}</p>}
+      <form
+        onSubmit={form.handleSubmit(submit)}
+        className="flex flex-col gap-4"
+      >
+        <AssetSecurityNewFormFields
+          startDate={startDate}
+          startDateMin={startDateMin}
+          startDateIsEditable={startDateIsEditable}
+        />
+        <div className="flex flex-row justify-end gap-2 mt-8">
+          <Button
+            variant="outline"
+            onClick={() => onCancel()}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" disabled={!isValid || isSubmitting}>
+            Add
+          </Button>
+        </div>
+      </form>
     </Form>
   );
 };
-type FormData = UserAssetSecurityInsertLink;
+
+export type AssetSecurityNewFormFieldsProps = {
+  startDate: Date | undefined;
+  startDateMin: Date | undefined;
+  startDateIsEditable: boolean;
+};
+
+export const AssetSecurityNewFormFields = ({
+  startDate,
+  startDateMin,
+  startDateIsEditable,
+}: AssetSecurityNewFormFieldsProps) => {
+  const baseFieldProps: AssetSecurityBaseFieldsProps =
+    startDate && startDateIsEditable
+      ? { startDateIsEditable: true, startDateMin: startDateMin }
+      : { startDateIsEditable: false, startDateMin: undefined };
+
+  return (
+    <>
+      <AssetSecurityNewFields />
+      <AssetSecurityBaseFields {...baseFieldProps} />
+    </>
+  );
+};
+
+type AssetSecurityEditFormData = UserAssetSecurityOrphanLinkInsert;
 
 type AssetSecurityEditFormProps = {
-  onSubmit: (value: FormData) => void;
+  onSubmit: (value: AssetSecurityEditFormData) => Promise<void>;
   onCancel: () => void;
   startDateMin: Date | undefined;
   startDateIsEditable: boolean;
@@ -128,149 +171,93 @@ export const AssetSecurityEditForm = ({
   startDateIsEditable,
   data,
 }: AssetSecurityEditFormProps) => {
-  const form = useForm<FormData>({
-    resolver: zodResolver(userAssetSecurityWithInitialValuesInsertSchema),
+  const form = useForm<AssetSecurityEditFormData>({
+    resolver: zodResolver(userAssetSecurityOrphanLinkInsertSchema),
     values: {
+      type: "link",
       securityId: data.security.id,
-      priorGainLoss: data.priorGainLoss ?? undefined,
+      priorGainLoss: data.priorGainLoss ?? createDecimalValueString("0"),
       startDate: data.startDate,
-      userAssetId: data.userAssetId,
     },
     defaultValues: {
+      type: "link",
       securityId: data.security.id,
-      priorGainLoss: data.priorGainLoss ?? undefined,
+      priorGainLoss: data.priorGainLoss ?? createDecimalValueString("0"),
       startDate: data.startDate,
-      userAssetId: data.userAssetId,
     },
-    mode: "onBlur",
+    mode: "all",
   });
 
+  const [error, setError] = useState<string | undefined>(undefined);
+
   const {
-    control,
-    watch,
-    formState: { errors, isValid },
-    getValues,
+    formState: { isValid, isSubmitting },
+    handleSubmit,
   } = form;
+
+  const submit = useCallback(
+    async (formData: UserAssetSecurityOrphanLinkInsert) => {
+      return onSubmit({
+        ...formData,
+      }).catch((error) => {
+        setError(
+          error instanceof Error ? error.message : "An unknown error occurred"
+        );
+      });
+    },
+    [onSubmit, data]
+  );
 
   const baseFieldProps: AssetSecurityBaseFieldsProps = startDateIsEditable
     ? { startDateIsEditable: true, startDateMin }
     : { startDateIsEditable: false, startDateMin: undefined };
 
   return (
-    <Form {...form}>
-      <AssetSecurityBaseFields {...baseFieldProps} />
-      <p>
-        When editing a security, you can only change the start date and prior
-        gain/loss.
-      </p>
-      <div className="flex flex-row gap-2">
-        <Button variant="outline" onClick={() => onCancel()}>
-          Cancel
-        </Button>
-        <Button
-          onClick={() => {
-            if (isValid) {
-              onSubmit(getValues());
-            }
-          }}
-          disabled={!isValid}
-        >
-          Add
-        </Button>
+    <>
+      <div>
+        <h2>Security Details</h2>
+        <p>Name: {data.security.name}</p>
+        <p>Symbol: {data.security.symbol}</p>
+        <p>ISIN: {data.security.isin}</p>
       </div>
-    </Form>
+      <Form {...form}>
+        {error && <p className="text-red-500">{error}</p>}
+        <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4">
+          <AssetSecurityBaseFields {...baseFieldProps} />
+          <p>
+            <em className="text-sm text-gray-500">
+              *Note: When editing a security, you can only change the start date
+              and prior gain/loss.
+              <br />
+              If you need to change the initial values you will need to change
+              the transaction history.
+            </em>
+          </p>
+          <div className="flex flex-row justify-end gap-2 mt-8">
+            <Button
+              variant="outline"
+              onClick={() => onCancel()}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!isValid || isSubmitting}>
+              {isSubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Apply"
+              )}
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </>
   );
 };
 
-// export const AssetSecurityForm = ({
-//   onSubmit,
-//   onCancel,
-//   startDate,
-//   data,
-// }: AssetSecurityFormProps) => {
-//   return { data };
-
-//   const form = useForm<FormData>({
-//     resolver: zodResolver(schema),
-//     values: data
-//       ? {
-//           security: {
-//             symbol: data?.security.symbol,
-//             name: data?.security.name,
-//             sourceIdentifier: data?.security.sourceIdentifier,
-//             exchange: data?.security.exchange ?? undefined,
-//             country: data?.security.country ?? undefined,
-//             currency: data?.security.currency ?? undefined,
-//             type: data?.security.type ?? undefined,
-//             isin: data?.security.isin,
-//             cusip: data?.security.cusip ?? undefined,
-//             figi: data?.security.figi ?? undefined,
-//           },
-//           shareHolding: data?.calculatedValue.value,
-//           currencyValue: data?.calculatedValue.value,
-//           priorGainLoss: createDecimalValueString("0"),
-//           startDate: data?.startDate,
-//         }
-//       : undefined,
-
-//     defaultValues: {
-//       security: undefined,
-//       shareHolding: createDecimalValueString("0"),
-//       currencyValue: createDecimalValueString("0"),
-//       priorGainLoss: "",
-//       startDate: startDate ?? new Date(),
-//     },
-//     mode: "onBlur",
-//   });
-
-//   const {
-//     control,
-//     watch,
-//     formState: { errors, isValid },
-//     getValues,
-//   } = form;
-
-//   const gl = watch("priorGainLoss");
-//   console.log("priorGainLoss", gl);
-//   console.log("priorGainLoss", typeof gl);
-
-//   const security = watch("security");
-
-//   return (
-//     <>
-//       <Form {...form}>
-//         <FormDescription>Search by Name / Ticker / ISIN</FormDescription>
-//         {data ? (
-//           <span>Security: {data.security.name}</span>
-//         ) : (
-//           <AssetSecurityNewFields />
-//         )}
-
-//         <AssetSecurityBaseFields startDate={startDate} />
-
-//         <div className="flex flex-row gap-2">
-//           <Button variant="outline" onClick={() => onCancel()}>
-//             Cancel
-//           </Button>
-//           <Button
-//             onClick={() => {
-//               if (isValid) {
-//                 onSubmit(getValues());
-//               }
-//             }}
-//             disabled={!isValid}
-//           >
-//             Add
-//           </Button>
-//         </div>
-//       </Form>
-//     </>
-//   );
-// };
-
 type AssetSecurityNewFields = Pick<
-  UserAssetSecurityWithInitialValuesInsert,
-  "shareHolding" | "currencyValue"
+  UserAssetSecurityOrphanNewCreateInsert,
+  "initialHolding"
 > & {
   security: SecurityInsert | undefined;
 };
@@ -279,15 +266,6 @@ const AssetSecurityNewFields = () => {
   const { control, watch, setValue } = useFormContext<AssetSecurityNewFields>();
 
   const [searchInput, setSearchInput] = useState("");
-
-  const security = watch("security");
-
-  const setSelectedSecurity = (security: SecurityInsert | null) => {
-    setValue("security", security ?? undefined);
-  };
-
-  // const [selectedSecurity, setSelectedSecurity] =
-  //   useState<SecuritySearchResult | null>(null);
 
   const debouncedSearch = useDebouncedCallback(
     (input: string) => {
@@ -302,26 +280,49 @@ const AssetSecurityNewFields = () => {
 
   return (
     <>
-      <RSelect
-        options={securities ?? []}
-        getOptionLabel={(security) => `${security.symbol} - ${security.name}`}
-        value={security}
-        onChange={(security) => {
-          setSelectedSecurity(security);
+      <FormField
+        control={control}
+        name="security"
+        rules={{ required: true }}
+        render={({ field }) => {
+          const { onChange, ...fieldProps } = field;
+          return (
+            <FormItem>
+              <FormLabel>Security</FormLabel>
+              <FormDescription>
+                Search for a security by name, ticker or ISIN.
+                <br />
+                You must enter at least three characters to search.
+              </FormDescription>
+              <FormControl>
+                <RSelect
+                  {...fieldProps}
+                  tabIndex={0}
+                  tabSelectsValue={false}
+                  options={securities ?? []}
+                  getOptionLabel={(security) =>
+                    `${security.symbol} - ${security.name}`
+                  }
+                  onChange={(security) => {
+                    field.onChange(security == null ? {} : security);
+                  }}
+                  onInputChange={(input) => {
+                    debouncedSearch(input);
+                  }}
+                  isClearable={true}
+                  inputValue={searchInput}
+                  isLoading={isLoadingSecurities}
+                  placeholder="Search securities..."
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          );
         }}
-        onInputChange={(input) => {
-          debouncedSearch(input);
-        }}
-        inputValue={searchInput}
-        isLoading={isLoadingSecurities}
-        placeholder="Search securities..."
-        // components={{
-        //   Option: SecurityOptions,
-        // }}
       />
       <FormField
         control={control}
-        name="shareHolding"
+        name="initialHolding.shareHolding"
         render={({ field }) => (
           <FormItem>
             <FormLabel>Share Holdings</FormLabel>
@@ -346,7 +347,7 @@ const AssetSecurityNewFields = () => {
       />
       <FormField
         control={control}
-        name="currencyValue"
+        name="initialHolding.currencyValue"
         render={({ field }) => (
           <FormItem>
             <FormLabel>Currency Value</FormLabel>
@@ -392,7 +393,6 @@ const AssetSecurityBaseFields = ({
 }: AssetSecurityBaseFieldsProps) => {
   const { control, watch } = useFormContext<UserAssetSecurityBase>();
   const startDate = watch("startDate");
-  console.log("AssetSecurityBaseFields startDate", startDate, typeof startDate);
   return (
     <>
       {startDate && !startDateIsEditable ? (

@@ -1,24 +1,20 @@
-import { securities, UserAssetSecuritySelect } from "@server/db/schema";
-import { SecurityTransactionUpsert } from "@shared/schema";
 import {
   ResolvedAssetSecurity,
-  UserAssetSecurityInsertLink,
-  UserAssetSecurityWithInitialValuesInsert,
+  UserAssetSecurityOrphanNewCreateInsert,
+  UserAssetSecurityOrphanLinkInsert,
 } from "@shared/schema/portfolio-assets";
-import { Button } from "../ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "../ui/dialog";
-import { Plus } from "lucide-react";
 import {
   AssetSecurityEditForm,
   AssetSecurityNewForm,
 } from "./AssetSecurityForm";
+import { useCallback } from "react";
 
 type AssetSecurityUpsertDialogProps = {
   isOpen: boolean;
@@ -30,15 +26,15 @@ type AssetSecurityUpsertDialogProps = {
   | {
       data: undefined;
       onSubmit: (
-        securityInsert: UserAssetSecurityWithInitialValuesInsert
-      ) => Promise<UserAssetSecuritySelect>;
+        securityInsert: UserAssetSecurityOrphanNewCreateInsert
+      ) => Promise<void>;
       securities: ResolvedAssetSecurity[];
     }
   | {
       data: ResolvedAssetSecurity;
       onSubmit: (
-        securityInsert: UserAssetSecurityInsertLink
-      ) => Promise<UserAssetSecuritySelect>;
+        securityInsert: UserAssetSecurityOrphanLinkInsert
+      ) => Promise<void>;
       securities: undefined;
     }
 );
@@ -52,14 +48,24 @@ export const AssetSecurityUpsertDialog = ({
   onSubmit,
   data,
 }: AssetSecurityUpsertDialogProps) => {
+  const handleSubmit = useCallback(
+    async <T extends (...args: any[]) => Promise<any>>(
+      func: T,
+      ...args: Parameters<T>
+    ) => {
+      return func(...args)
+        .then(() => {
+          onOpenChange(false);
+        })
+        .catch((error) => {
+          return Promise.reject(error);
+        });
+    },
+    [onSubmit, onOpenChange]
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      {/* <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="flex items-center">
-          <Plus className="w-4 h-4 mr-2" />
-          {"Add Security"}
-        </Button>
-      </DialogTrigger> */}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{data ? "Edit Security" : "Add Security"}</DialogTitle>
@@ -71,7 +77,7 @@ export const AssetSecurityUpsertDialog = ({
         </DialogHeader>
         {data ? (
           <AssetSecurityEditForm
-            onSubmit={onSubmit}
+            onSubmit={(value) => handleSubmit(onSubmit, value)}
             onCancel={() => onOpenChange(false)}
             startDateIsEditable={startDateIsEditable}
             startDateMin={startDateMin}
@@ -79,7 +85,7 @@ export const AssetSecurityUpsertDialog = ({
           />
         ) : (
           <AssetSecurityNewForm
-            onSubmit={onSubmit}
+            onSubmit={(value) => handleSubmit(onSubmit, value)}
             onCancel={() => onOpenChange(false)}
             startDate={startDate}
             startDateMin={startDateMin}

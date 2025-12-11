@@ -282,7 +282,10 @@ function AssetPage() {
         />
       ) : null}
 
-      <AssetSecuritiesProvider assetId={assetId}>
+      <AssetSecuritiesProvider
+        assetId={assetId}
+        assetStartDate={new Date(asset.startDate)}
+      >
         <div>
           {/* Holdings Section - only visible for calculated/securities assets */}
           {isSecuritiesAsset && (

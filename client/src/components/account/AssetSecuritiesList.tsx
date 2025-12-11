@@ -1,7 +1,4 @@
-import {
-  UserAssetSecurityInsert,
-  UserAssetSecurityWithInitialValuesInsert,
-} from "shared/schema";
+import { UserAssetSecurityOrphanNewCreateInsert } from "shared/schema";
 import { FC, useState } from "react";
 import { SecurityCard } from "./SecurityCard";
 import { cn } from "@/lib/utils";
@@ -26,11 +23,11 @@ export const AssetSecuritiesList: FC<AssetSecuritiesListProps> = ({
   const { securities, addSecurity, isSecuritiesLoading, assetStartDate } =
     useAssetSecurities();
 
-  const handleAddAssetSecurity = (
-    securityInsert: UserAssetSecurityWithInitialValuesInsert
+  const handleAddAssetSecurity = async (
+    securityInsert: UserAssetSecurityOrphanNewCreateInsert
   ) => {
-    console.log("securityInsert List", securityInsert);
-    return addSecurity.mutateAsync(securityInsert);
+    await addSecurity.mutateAsync(securityInsert);
+    return;
   };
 
   return (
