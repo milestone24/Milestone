@@ -8,7 +8,7 @@ import {
   CartesianGrid,
   ReferenceLine,
 } from "recharts";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   AssetValueTimePoint,
@@ -18,6 +18,7 @@ import {
   TransactionTimePoint,
 } from "shared/schema";
 import { useProcesses } from "@/hooks/use-processes";
+import numabbr from "numabbr";
 
 type ChartDataBase = CombinedDayTimePointBase;
 
@@ -37,19 +38,22 @@ type TransactionChartData = TransactionTimePoint & {
 
 // Calculate the maximum Y-axis value
 const getMaxYValue = (
-  assetValueChartData: ChartDataBase[],
-  showMilestonesLocal: boolean,
-  milestones: Milestone[]
+  chartData: ChartData,
+  showMilestonesLocal?: boolean,
+  milestones?: Milestone[]
 ) => {
-  const maxPortfolioValue = Math.max(
-    ...assetValueChartData.map((d) => Number(d.value))
+  const maximums = chartData.map((s) =>
+    Math.max(...s.data.map((d) => Number(d.value)))
   );
-  if (!showMilestonesLocal || !milestones) return maxPortfolioValue;
 
-  const maxMilestoneValue = Math.max(
-    ...milestones.map((m) => Number(m.targetValue))
-  );
-  return Math.max(maxPortfolioValue, maxMilestoneValue) * 1.1; // Add 10% padding
+  return Math.max(...maximums);
+
+  // if (!showMilestonesLocal || !milestones) return maxPortfolioValue;
+
+  // const maxMilestoneValue = Math.max(
+  //   ...milestones.map((m) => Number(m.targetValue))
+  // );
+  // return Math.max(maxPortfolioValue, maxMilestoneValue) * 1.1; // Add 10% padding
 };
 
 const valueDateFormatter = (value: string | Date) => {
@@ -111,18 +115,14 @@ export default function ValuesChart({
 }: ValuesChartProps) {
   const [chartVisible, setChartVisible] = useState(true);
   const [showMilestonesLocal, setShowMilestonesLocal] = useState(true);
-  const [selectedPoints, setSelectedPoints] = useState<ChartDataBase[] | null>(
-    null
+  const [selectedPoints, setSelectedPoints] = useState<
+    CombinedDayTimePointBase[] | null
+  >(null);
+
+  const maxValue = useMemo(
+    () => getMaxYValue(data),
+    [data, showMilestonesLocal, milestones]
   );
-
-  const { processes } = useProcesses({
-    filters: {
-      keys: ["update-asset-values"],
-      //status: ["running"],
-    },
-  });
-
-  console.log("processes", processes);
 
   return (
     <div
@@ -195,7 +195,7 @@ export default function ValuesChart({
                     if (data && data.activePayload) {
                       setSelectedPoints(
                         data.activePayload.map(
-                          (p) => p.payload as ChartDataBase
+                          (p) => p.payload as CombinedDayTimePointBase
                         )
                       );
                     }
@@ -259,7 +259,11 @@ export default function ValuesChart({
                     //domain={["auto", "auto"]}
                     //allowDuplicatedCategory={false}
                   /> */}
-                  <YAxis dataKey="value" />
+                  <YAxis
+                    dataKey="value"
+                    tickFormatter={(value) => `£${numabbr(value)}`}
+                    domain={[0, maxValue]}
+                  />
                   <Tooltip
                     formatter={(value: number, name: string, props: any) => {
                       const data = props.payload as ChartDataBase;
@@ -455,7 +459,9 @@ export default function ValuesChart({
                                 }
                               >
                                 {Number(change.change) >= 0 ? "+" : ""}£
-                                {Math.abs(Number(change.change)).toLocaleString()}
+                                {Math.abs(
+                                  Number(change.change)
+                                ).toLocaleString()}
                               </span>
                             </div>
                           </div>
