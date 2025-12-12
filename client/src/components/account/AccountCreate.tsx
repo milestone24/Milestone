@@ -36,14 +36,11 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Button } from "../ui/button";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
-import { withTransform } from "@/lib/utils/mappers";
-import { Switch } from "../ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
-import { RRuleScheduler } from "../schedule/RRuleScheduler";
 import {
   AssetSecurityNewFormData,
   AssetSecurityNewFormFields,
@@ -54,14 +51,6 @@ import {
   RecurringContributionFormProps,
 } from "./RecurringContributionForm";
 import { createRRulePattern } from "@shared/utils/scheduling";
-
-const contributionsDefaultValues: Partial<RecurringContributionGroupInsert> = {
-  process: "manual",
-  patternConfig: {
-    type: "rrule",
-    expression: "",
-  },
-};
 
 type AccountCreateProps = {
   onSubmit: (data: UserAssetOrphanInsert) => Promise<void>;
@@ -89,152 +78,9 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
 }) => {
   const form = useForm<UserAssetOrphanInsert>({
     resolver: zodResolver(userAssetOrphanInsertSchema),
-    // resolver: withTransform(
-    //   zodResolver(userAssetOrphanInsertSchema),
-    //   (values) => ({
-    //     ...values,
-    //     currentValue: values.currentValue
-    //       ? typeof values.currentValue === "string"
-    //         ? createDecimalValueString(values.currentValue)
-    //         : typeof values.currentValue === "number"
-    //         ? createDecimalValueString(String(values.currentValue))
-    //         : createDecimalValueString(String(values.currentValue))
-    //       : createDecimalValueString("0"),
-    //     securities:
-    //       values.securities?.map((security) => ({
-    //         ...security,
-    //         shareHolding: security.shareHolding
-    //           ? typeof security.shareHolding === "string"
-    //             ? createDecimalValueString(security.shareHolding)
-    //             : typeof security.shareHolding === "number"
-    //             ? createDecimalValueString(String(security.shareHolding))
-    //             : createDecimalValueString(String(security.shareHolding))
-    //           : createDecimalValueString("0"),
-    //         currencyValue: security.currencyValue
-    //           ? typeof security.currencyValue === "string"
-    //             ? createDecimalValueString(security.currencyValue)
-    //             : typeof security.currencyValue === "number"
-    //             ? createDecimalValueString(String(security.currencyValue))
-    //             : createDecimalValueString(String(security.currencyValue))
-    //           : createDecimalValueString("0"),
-    //         priorGainLoss: security.priorGainLoss
-    //           ? typeof security.priorGainLoss === "string"
-    //             ? createDecimalValueString(security.priorGainLoss)
-    //             : typeof security.priorGainLoss === "number"
-    //             ? createDecimalValueString(String(security.priorGainLoss))
-    //             : createDecimalValueString(String(security.priorGainLoss))
-    //           : createDecimalValueString("0"),
-    //       })) ?? [],
-    //     contributions: values.contributions
-    //       ? values.contributions.type === "security"
-    //         ? {
-    //             type: "security",
-    //             isActive: true,
-    //             process: values.contributions.process,
-    //             amount: values.contributions.amount
-    //               ? typeof values.contributions.amount === "string"
-    //                 ? createDecimalValueString(values.contributions.amount)
-    //                 : typeof values.contributions.amount === "number"
-    //                 ? createDecimalValueString(
-    //                     String(values.contributions.amount)
-    //                   )
-    //                 : createDecimalValueString(
-    //                     String(values.contributions.amount)
-    //                   )
-    //               : createDecimalValueString("0"),
-    //             startDate: values.startDate,
-    //             // notificationPeriod:
-    //             //   values.contributions?.notificationPeriod ?? "weekly",
-    //             patternConfig: values.contributions?.patternConfig,
-    //             notificationEmail:
-    //               values.contributions?.notificationEmail === true
-    //                 ? true
-    //                 : false,
-    //             notificationPush:
-    //               values.contributions?.notificationPush === true
-    //                 ? true
-    //                 : false,
-    //             securityDistribution:
-    //               values.contributions?.securityDistribution?.map(
-    //                 (security) => ({
-    //                   ...security,
-    //                   commitment: security.commitment
-    //                     ? typeof security.commitment === "string"
-    //                       ? createDecimalValueString(security.commitment)
-    //                       : typeof security.commitment === "number"
-    //                       ? createDecimalValueString(
-    //                           String(security.commitment)
-    //                         )
-    //                       : createDecimalValueString(
-    //                           String(security.commitment)
-    //                         )
-    //                     : createDecimalValueString("0"),
-    //                 })
-    //               ) ?? [],
-    //           }
-    //         : values.contributions.type === "asset"
-    //         ? {
-    //             type: "asset",
-    //             isActive: true,
-    //             process: values.contributions.process,
-    //             amount: values.contributions.amount
-    //               ? typeof values.contributions.amount === "string"
-    //                 ? createDecimalValueString(values.contributions.amount)
-    //                 : typeof values.contributions.amount === "number"
-    //                 ? createDecimalValueString(
-    //                     String(values.contributions.amount)
-    //                   )
-    //                 : createDecimalValueString(
-    //                     String(values.contributions.amount)
-    //                   )
-    //               : createDecimalValueString("0"),
-    //             startDate: values.startDate,
-    //             patternConfig: values.contributions?.patternConfig,
-    //             notificationEmail:
-    //               values.contributions?.notificationEmail === true
-    //                 ? true
-    //                 : false,
-    //             notificationPush:
-    //               values.contributions?.notificationPush === true
-    //                 ? true
-    //                 : false,
-    //           }
-    //         : undefined
-    //       : undefined,
-    //   })
-    // ),
     mode: "onChange",
-    // defaultValues: {
-    //   securities: [],
-    //   contributions: {
-    //     process: "automatic",
-    //     securityDistribution: [],
-    //   },
-    // },
     defaultValues: {
-      //name: "Mine Manual One",
-      //platformId: "3d723d74-ecf5-49fa-a4d9-4c52c1842de7",
-      //accountType: "ISA",
-      //startDate: new Date("2025-01-01"),
       valueMethod: "calculated",
-      // contributions: {
-      //   process: "manual",
-      //   patternConfig: {
-      //     type: "rrule",
-      //     expression: "",
-      //   },
-      //   securityDistribution: [],
-      // },
-      // securities: [
-      // {
-      //   security: {
-      //     symbol: "AAPL",
-      //     name: "Apple Inc.",
-      //   },
-      //   shareHolding: 100,
-      //   gainLoss: 100,
-      // },
-      //],
     },
   });
 
@@ -246,12 +92,7 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
     });
   };
 
-  const {
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    watch,
-    getValues,
-  } = form;
+  const { handleSubmit } = form;
 
   return (
     <>
@@ -354,11 +195,8 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
   const form = useFormContext<UserAssetOrphanInsert>();
 
   const {
-    formState: { isSubmitting, errors },
+    formState: { isSubmitting },
   } = form;
-
-  // const { data: brokerProviders, isLoading: isLoadingBrokerProviders } =
-  //   useBrokerProviders();
 
   const { data: brokerPlatforms, isLoading: isLoadingBrokerPlatforms } =
     useBrokerPlatforms();
@@ -761,18 +599,6 @@ const SecurityCard = ({ security }: SecurityCardProps) => {
         <span>Start Date:</span>
         <span>{security.startDate?.toLocaleDateString() || "N/A"}</span>
       </div>
-      {/* <div className="flex flex-row gap-2">
-          <span className="text-sm">Name:</span>
-          <span>{security.security.name}</span>
-        </div>
-        <div className="flex flex-row gap-2">
-          <span className="text-sm">Share Holdings:</span>
-          <span>{security.shareHolding}</span>
-        </div>
-        <div className="flex flex-row gap-2">
-          <span className="text-sm">Gain/Loss:</span>
-          <span>{security.gainLoss}</span>
-        </div> */}
     </div>
   );
 };
