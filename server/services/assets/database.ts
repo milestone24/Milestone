@@ -908,8 +908,17 @@ export class DatabaseAssetService {
   }
 
   async updateUserAssetHistories(id: UserAsset["id"]): Promise<UserAsset> {
-    const assetPersistence = assetPersistenceFactory(this, id);
-    await securitiesService.updateAssetValues(assetPersistence);
+    const userAsset = await this.db.query.userAssets.findFirst({
+      where: eq(userAssets.id, id),
+    });
+
+    if (!userAsset) {
+      throw new Error("User asset not found");
+    }
+
+    const userAccountId = userAsset.userAccountId;
+
+    this.updateAssetValues(userAccountId, id);
     return this.getUserAsset(id);
   }
 
