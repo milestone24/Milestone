@@ -4,7 +4,7 @@ import {
   UserAssetSecurityOrphanLinkInsert,
 } from "shared/schema";
 import { Button } from "../ui/button";
-import { Pencil, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Trash2 } from "lucide-react";
 import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
 import { AssetSecurityUpsertDialog } from "./AssetSecurityUpsertDialog";
 
@@ -19,8 +19,19 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
   const { deleteSecurity, updateSecurity, assetStartDate } =
     useAssetSecurities();
 
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const handleDelete = () => {
-    return deleteSecurity.mutateAsync(security.id);
+    setIsDeleting(true);
+    return deleteSecurity
+      .mutateAsync(security.id)
+      .then(() => {
+        setIsDeleting(false);
+      })
+      .catch((error) => {
+        setIsDeleting(false);
+        return Promise.reject(error);
+      });
   };
 
   const handleEdit = () => {
@@ -51,7 +62,7 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
   return (
     <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
       <div
-        className="flex flex-1 flex-row justify-between cursor-pointer"
+        className="flex flex-1 flex-row justify-between cursor-pointer mr-4"
         onClick={() => onClick(security)}
       >
         <div className="flex flex-col items-start">
@@ -74,6 +85,7 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
           size="icon"
           className="h-8 w-8"
           onClick={handleEdit}
+          disabled={isDeleting}
         >
           <Pencil className="h-4 w-4" />
         </Button>
@@ -82,8 +94,13 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
           size="icon"
           className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
           onClick={handleDelete}
+          disabled={isDeleting}
         >
-          <Trash2 className="h-4 w-4" />
+          {isDeleting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Trash2 className="h-4 w-4" />
+          )}
         </Button>
       </div>
       <AssetSecurityUpsertDialog
