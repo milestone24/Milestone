@@ -26,25 +26,27 @@ export const RecurringContributionsList = ({
     );
   }
 
-  if (!contributions || contributions.length === 0) {
-    return null;
-  }
-
   return (
     <div className="space-y-3 mb-6">
       <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
         <CalendarClock className="h-4 w-4" />
         Recurring Contributions
       </h3>
-      <div className="space-y-2">
-        {contributions.map((contribution) => (
-          <RecurringContributionItem
-            key={contribution.id}
-            contribution={contribution}
-            assetId={assetId}
-          />
-        ))}
-      </div>
+      {!contributions || contributions.length === 0 ? (
+        <div className=" text-gray-500">
+          <p>No recurring contributions recorded for this account.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {contributions.map((contribution) => (
+            <RecurringContributionItem
+              key={contribution.id}
+              contribution={contribution}
+              assetId={assetId}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
