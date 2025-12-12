@@ -96,8 +96,10 @@ import { SocketMessage } from "@shared/schema/socket";
 import {
   assetSecurities,
   fireProjection,
+  portfolioAssets,
   portfolioGraphTransactions,
   portfolioGraphValues,
+  portfolioOverview,
   processes as processesKey,
 } from "@shared/api/queryKeys";
 import { randomUUID } from "node:crypto";
@@ -127,11 +129,13 @@ const sendAssetValuesInvalidatedNotification = (
   sendNotification(accountId, {
     type: "query",
     queryKeys: [
-      portfolioGraphValues,
-      portfolioGraphTransactions,
-      processesKey,
-      fireProjection,
-      assetSecurities,
+      [...portfolioGraphValues],
+      [...portfolioGraphTransactions],
+      [...processesKey],
+      [...fireProjection],
+      [...assetSecurities],
+      [...portfolioOverview],
+      [...portfolioAssets],
       ["assets", assetId],
     ],
   });
