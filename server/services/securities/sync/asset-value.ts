@@ -173,7 +173,15 @@ const calculateAssetValue = async (
 //   throw new Error("Not implemented")
 // }
 
-const updateAssetValues = async (assetPersistence: AssetPersistence) => {
+const updateAssetValues = async (
+  assetPersistence: AssetPersistence,
+  abortSignal: AbortSignal,
+  startDate?: Date
+) => {
+  if (startDate) {
+    await assetPersistence.removeAssetValuesFromDate(startDate);
+  }
+
   const assetSecurities = await assetPersistence.getAssetSecurities();
 
   //TODO Consider if this should be done here.
@@ -268,9 +276,11 @@ const updateAssetValues = async (assetPersistence: AssetPersistence) => {
 
 export const updateAssetValuesSync = async (
   assetPersistence: AssetPersistence,
-  callback: () => void
+  abortSignal: AbortSignal,
+  callback: () => void,
+  startDate?: Date
 ) => {
-  await updateAssetValues(assetPersistence);
+  await updateAssetValues(assetPersistence, abortSignal, startDate);
   callback();
 };
 

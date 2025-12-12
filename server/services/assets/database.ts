@@ -102,6 +102,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { calculatedAssetsQueryBuilder } from "./query";
 import Decimal from "decimal.js";
+import { ProcessSelect } from "@shared/schema/process";
 
 const securitiesService = securitiesFactory();
 
@@ -173,15 +174,54 @@ const recurringContributionsQueryBuilder = new ResourceQueryBuilder({
 export class DatabaseAssetService {
   constructor(private db: Database) {}
 
-  async updateAssetValues(accountId: string, assetId: string): Promise<void> {
+  async updateAssetValues(
+    accountId: string,
+    assetId: string,
+    startDate?: Date
+  ): Promise<void> {
     return new Promise(async (resolve, reject) => {
       sendNotification(accountId, {
         type: "notification",
         message: "Updating asset values...",
       });
+
+      console.log(
+        "Updating asset values for accountId",
+        accountId,
+        "and assetId",
+        assetId
+      );
+
+      let abortController: AbortController | undefined;
+
+      //First find an existing job for this assets that is running
+      //Either find a way to cancel or wait for it to complete before executing
+      //Posssibly a queue system?
+
+      const existingJob = await this.db.query.processes.findFirst({
+        where: and(
+          eq(processes.key, "update-asset-values"),
+          eq(processes.status, "running"),
+          sql`payload ->> 'assetId' = ${assetId}`
+        ),
+      });
+
+      if (existingJob) {
+        sendNotification(accountId, {
+          type: "notification",
+          message: "Asset values are already being updated",
+        });
+        resolve();
+        return;
+      }
+
+      abortController = new AbortController();
+
+      let job: ProcessSelect | undefined;
+
       try {
         //TODO job needs some kind of identifier for what resources are affected
-        const [job] = await this.db
+        [job] = await this.db
           .insert(processes)
           .values({
             key: "update-asset-values",
@@ -196,44 +236,50 @@ export class DatabaseAssetService {
 
         const assetPersistence = assetPersistenceFactory(this, assetId);
 
-        securitiesService.updateAssetValuesSync(assetPersistence, async () => {
-          console.log(
-            "Finished updating asset values for accountId",
-            accountId,
-            "and assetId",
-            assetId
-          );
+        securitiesService.updateAssetValuesSync(
+          assetPersistence,
+          abortController.signal,
+          async () => {
+            console.log(
+              "Finished updating asset values for accountId",
+              accountId,
+              "and assetId",
+              assetId
+            );
 
-          if (job) {
-            await this.db
-              .update(processes)
-              .set({ status: "completed", completedAt: new Date() })
-              .where(eq(processes.id, job.id));
-          }
-          sendNotification(accountId, {
-            type: "query",
-            queryKeys: [
-              portfolioGraphValues,
-              portfolioGraphTransactions,
-              processesKey,
-              fireProjection,
-            ],
-          });
-          sendNotification(accountId, {
-            type: "notification",
-            message: "Asset values updated",
-          });
-          resolve();
-        });
+            if (job) {
+              await this.db
+                .update(processes)
+                .set({ status: "completed", completedAt: new Date() })
+                .where(eq(processes.id, job.id));
+            }
+            sendNotification(accountId, {
+              type: "query",
+              queryKeys: [
+                portfolioGraphValues,
+                portfolioGraphTransactions,
+                processesKey,
+                fireProjection,
+              ],
+            });
+            sendNotification(accountId, {
+              type: "notification",
+              message: "Asset values updated",
+            });
+            resolve();
+          },
+          startDate
+        );
       } catch (error) {
         console.error("Error updating asset values", error);
+
+        if (job) {
+          await this.db
+            .update(processes)
+            .set({ status: "failed", completedAt: new Date() })
+            .where(eq(processes.id, job.id));
+        }
         reject(error);
-        // if (job) {
-        //   await this.db
-        //     .update(processes)
-        //     .set({ status: "failed", completedAt: new Date() })
-        //     .where(eq(processes.id, job.id));
-        // }
       }
     });
   }
@@ -1982,6 +2028,17 @@ export class DatabaseAssetService {
       currencyValue: Number(r.currencyValue ?? 0),
     }));
   }
+
+  async removeAssetValuesFromDate(
+    assetId: UserAsset["id"],
+    date: Date
+  ): Promise<void> {
+    await this.db
+      .delete(assetValues)
+      .where(
+        and(eq(assetValues.assetId, assetId), gte(assetValues.valueDate, date))
+      );
+  }
 }
 
 /* Asset Persistence Utility */
@@ -1996,6 +2053,7 @@ export type AssetPersistence = {
   insertAssetValues: (
     values: UserAssetValueOrphanInsert[]
   ) => Promise<AssetValue[]>;
+  removeAssetValuesFromDate: (date: Date) => Promise<void>;
 };
 
 export type AssetSecurityShareHoldingsForDate = {
@@ -2047,6 +2105,10 @@ export const assetPersistenceFactory = (
       values: UserAssetValueOrphanInsert[]
     ): Promise<AssetValue[]> => {
       return service.pushAssetValuesForAsset(assetId, values);
+    },
+
+    removeAssetValuesFromDate: async (date: Date): Promise<void> => {
+      return service.removeAssetValuesFromDate(assetId, date);
     },
   };
 };
