@@ -64,7 +64,7 @@ const contributionsDefaultValues: Partial<RecurringContributionGroupInsert> = {
 };
 
 type AccountCreateProps = {
-  onSubmit: (data: UserAssetOrphanInsert) => void;
+  onSubmit: (data: UserAssetOrphanInsert) => Promise<void>;
   onCancel: () => void;
 };
 
@@ -241,8 +241,9 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
   const [formStage, setFormStage] = useState<number>(1);
 
   const submitForm = (data: UserAssetOrphanInsert) => {
-    onSubmit(data);
-    form.reset();
+    return onSubmit(data).then(() => {
+      form.reset();
+    });
   };
 
   const {
@@ -338,6 +339,7 @@ const ActionsBar = ({
           {isProcessing ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
+              {` Adding Account...`}
             </>
           ) : (
             "Add Account"
