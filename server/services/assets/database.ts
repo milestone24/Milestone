@@ -120,6 +120,27 @@ const sendNotification = (accountId: string, message: SocketMessage) => {
   }
 };
 
+const sendAssetValuesInvalidatedNotification = (
+  accountId: string,
+  assetId: string
+) => {
+  sendNotification(accountId, {
+    type: "query",
+    queryKeys: [
+      portfolioGraphValues,
+      portfolioGraphTransactions,
+      processesKey,
+      fireProjection,
+      assetSecurities,
+      ["assets", assetId],
+    ],
+  });
+  sendNotification(accountId, {
+    type: "notification",
+    message: "Asset values invalidated",
+  });
+};
+
 const userAssetsQueryBuilder = new ResourceQueryBuilder({
   table: userAssets,
   allowedSortFields: [
@@ -255,17 +276,7 @@ export class DatabaseAssetService {
                 .set({ status: "completed", completedAt: new Date() })
                 .where(eq(processes.id, job.id));
             }
-            sendNotification(accountId, {
-              type: "query",
-              queryKeys: [
-                portfolioGraphValues,
-                portfolioGraphTransactions,
-                processesKey,
-                fireProjection,
-                assetSecurities,
-                ["assets", assetId],
-              ],
-            });
+            sendAssetValuesInvalidatedNotification(accountId, assetId);
             sendNotification(accountId, {
               type: "notification",
               message: "Asset values updated",
