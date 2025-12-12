@@ -7,7 +7,7 @@ import { UserAssetOrphanInsert } from "@shared/schema";
 type AddAccountDialogueProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: UserAssetOrphanInsert) => void;
+  onSubmit: (data: UserAssetOrphanInsert) => Promise<void>;
 };
 
 const AddAccountDialogue: React.FC<AddAccountDialogueProps> = ({

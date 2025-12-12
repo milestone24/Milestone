@@ -122,7 +122,8 @@ export const AssetSecurityNewForm = ({
             Cancel
           </Button>
           <Button type="submit" disabled={!isValid || isSubmitting}>
-            Add
+            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            {isSubmitting ? "Adding..." : "Add"}
           </Button>
         </div>
       </form>
@@ -241,12 +242,12 @@ export const AssetSecurityEditForm = ({
             >
               Cancel
             </Button>
+            <Button type="submit" disabled={!isValid || isSubmitting}></Button>
             <Button type="submit" disabled={!isValid || isSubmitting}>
               {isSubmitting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "Apply"
-              )}
+              ) : null}
+              {isSubmitting ? "Applying..." : "Apply"}
             </Button>
           </div>
         </form>
