@@ -18,7 +18,8 @@ import { RecurringContributionsList } from "./RecurringContributionsList";
 import { Skeleton } from "../ui/skeleton";
 import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
 import { AssetSecurityTransactionItem } from "./AssetSecurityTransactionItem";
-import { Coins } from "lucide-react";
+import { Coins, Banknote } from "lucide-react";
+import { Button } from "../ui/button";
 
 type SecuritiesTransactionsPanelProps = {
   assetId: string;
@@ -206,6 +207,10 @@ export const SecuritiesTransactionsPanel = ({
                 data={undefined}
                 display="block"
               />
+              <Button variant="outline" disabled={true}>
+                <Banknote className="h-4 w-4" />
+                Log Withdrawal
+              </Button>
             </div>
           </div>
 
