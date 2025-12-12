@@ -7,6 +7,16 @@ import { Button } from "../ui/button";
 import { Loader2, Pencil, Trash2 } from "lucide-react";
 import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
 import { AssetSecurityUpsertDialog } from "./AssetSecurityUpsertDialog";
+import {
+  AlertDialog,
+  AlertDialogHeader,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogContent,
+  AlertDialogFooter,
+} from "../ui/alert-dialog";
 
 type SecurityCardProps = {
   security: ResolvedAssetSecurity;
@@ -19,9 +29,11 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
   const { deleteSecurity, updateSecurity, assetStartDate } =
     useAssetSecurities();
 
+  const [isDeletingOpen, setIsDeletingOpen] = useState(false);
+
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDelete = () => {
+  const continueDelete = () => {
     setIsDeleting(true);
     return deleteSecurity
       .mutateAsync(security.id)
@@ -32,6 +44,10 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
         setIsDeleting(false);
         return Promise.reject(error);
       });
+  };
+
+  const handleDelete = () => {
+    setIsDeletingOpen(true);
   };
 
   const handleEdit = () => {
@@ -103,6 +119,29 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
           )}
         </Button>
       </div>
+      <AlertDialog
+        open={isDeletingOpen}
+        onOpenChange={(open) => !open && setIsDeletingOpen(false)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Security</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete all data associated with this security. This
+              action cannot be undone. Are you sure?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => continueDelete()}
+            >
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AssetSecurityUpsertDialog
         isOpen={isEditOpen}
         onOpenChange={setIsEditOpen}
