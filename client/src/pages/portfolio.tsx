@@ -41,6 +41,7 @@ import { getDateUrlParams } from "@/lib/date";
 import { portfolioGraphValues } from "@shared/api/queryKeys";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
 import { useAssetCreate } from "@/hooks/use-asset-create";
+import { PosNegNumber } from "@/components/common/PosNegNumber";
 
 function Portfolio() {
   const { dateRange } = useDateRange();
@@ -53,6 +54,7 @@ function Portfolio() {
     useBrokerPlatforms();
 
   const [, setLocation] = useLocation();
+
   const { assets, milestones, deleteAsset, isLoading } = usePortfolio(
     startDate,
     endDate
@@ -221,25 +223,15 @@ function Portfolio() {
             <span className="text-2xl font-bold">
               £{Number(portfolioOverview.value).toLocaleString()}
             </span>
-            <p
-              className={`text-sm font-medium ${
-                Number(portfolioOverview.currentChangePercentage) >= 0
-                  ? "text-green-600"
-                  : "text-red-600"
-              }`}
-            >
-              {displayInPercentage ? (
-                <>
-                  {Number(portfolioOverview.currentChangePercentage) >= 0 ? "+" : ""}
-                  {Number(portfolioOverview.currentChangePercentage).toFixed(1)}%
-                </>
-              ) : (
-                <>
-                  {Number(portfolioOverview.currentChange) >= 0 ? "+" : ""}£
-                  {Math.abs(Number(portfolioOverview.currentChange)).toLocaleString()}
-                </>
-              )}
-            </p>
+            <PosNegNumber
+              value={
+                displayInPercentage
+                  ? // Convert percentage to decimal for sakes of Intl.NumberFormat
+                    Number(portfolioOverview.currentChangePercentage) / 100
+                  : Number(portfolioOverview.currentChange)
+              }
+              displayInPercentage={displayInPercentage}
+            />
           </>
         ) : (
           <p className="font-bold text-lg">Loading portfolio total...</p>
@@ -446,39 +438,22 @@ function Portfolio() {
                         £{Number(asset.currentValue).toLocaleString()}
                       </p>
                       {asset.accountChange ? (
-                        <p
-                          className={`text-sm font-medium ${
-                            (displayInPercentage
-                              ? Number(asset.accountChange.currentChangePercentage)
-                              : Number(asset.accountChange.currentChange)) >= 0
-                              ? "text-green-600"
-                              : "text-red-600"
-                          }`}
-                        >
-                          {displayInPercentage ? (
-                            <>
-                              {Number(asset.accountChange.currentChangePercentage) >= 0
-                                ? "+"
-                                : ""}
-                              {Number(asset.accountChange.currentChangePercentage).toFixed(
-                                1
-                              )}
-                              %
-                            </>
-                          ) : (
-                            <>
-                              {Number(asset.accountChange.currentChange) >= 0
-                                ? "+"
-                                : ""}
-                              £
-                              {Math.abs(
-                                Number(asset.accountChange.currentChange)
-                              ).toLocaleString()}
-                            </>
-                          )}
-                        </p>
+                        <PosNegNumber
+                          value={
+                            displayInPercentage
+                              ? // Convert percentage to decimal for sakes of Intl.NumberFormat
+                                Number(
+                                  asset.accountChange.currentChangePercentage
+                                ) / 100
+                              : Number(asset.accountChange.currentChange)
+                          }
+                          displayInPercentage={displayInPercentage}
+                        />
                       ) : (
-                        <p className="text-gray-500">No change</p>
+                        <PosNegNumber
+                          value={0}
+                          displayInPercentage={displayInPercentage}
+                        />
                       )}
                     </div>
                   </div>
