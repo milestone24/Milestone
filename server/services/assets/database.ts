@@ -238,65 +238,6 @@ export class DatabaseAssetService {
     });
   }
 
-  private async clearAndUpdateAssetValuesFromDate(
-    accountId: string,
-    assetId: UserAsset["id"],
-    date: Date
-  ) {
-    console.log(
-      "Clearing and updating asset values from date",
-      accountId,
-      assetId,
-      date
-    );
-
-    const [job] = await this.db
-      .insert(processes)
-      .values({
-        key: "update-asset-values",
-        status: "running",
-        startedAt: new Date(),
-        payload: {
-          accountId,
-          assetId,
-        },
-      })
-      .returning();
-    await this.db
-      .delete(assetValues)
-      .where(
-        and(eq(assetValues.assetId, assetId), gte(assetValues.valueDate, date))
-      );
-    const assetPersistence = assetPersistenceFactory(this, assetId);
-    securitiesService.updateAssetValuesSync(assetPersistence, async () => {
-      console.log(
-        "Finished clearing and updating asset values from date",
-        accountId,
-        assetId,
-        date
-      );
-      console.log("Job", job);
-      if (job) {
-        await this.db
-          .update(processes)
-          .set({ status: "completed", completedAt: new Date() })
-          .where(eq(processes.id, job.id));
-      }
-      sendNotification(accountId, {
-        type: "query",
-        queryKeys: [
-          portfolioGraphValues,
-          portfolioGraphTransactions,
-          processesKey,
-        ],
-      });
-      sendNotification(accountId, {
-        type: "notification",
-        message: "Asset values updated",
-      });
-    });
-  }
-
   // private async recalculateAssetValue(
   //   tx: Transaction,
   //   assetId: UserAsset["id"]
@@ -1116,8 +1057,7 @@ export class DatabaseAssetService {
       throw new Error("Asset security not found, can not update asset values");
     }
 
-    //TODO this should be a background process??
-    this.clearAndUpdateAssetValuesFromDate(
+    this.updateAssetValues(
       assetSecurity.userAsset.userAccountId,
       assetSecurity.userAssetId,
       data.valueDate
