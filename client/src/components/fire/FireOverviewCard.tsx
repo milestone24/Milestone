@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { PosNegNumber } from "./PosNegNumber";
+import { PosNegNumber } from "../common/PosNegNumber";
 import { Button } from "../ui/button";
 import { ChartBar, ChartLine } from "lucide-react";
 import { cn } from "@/lib/utils";

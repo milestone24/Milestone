@@ -37,7 +37,7 @@ import {
 } from "../ui/select";
 import { Slider } from "../ui/slider";
 import { ContributionPreviewState } from "@/hooks/use-fire-preview-state";
-import { PosNegNumber } from "./PosNegNumber";
+import { PosNegNumber } from "../common/PosNegNumber";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 
 type DraftContributor = {
