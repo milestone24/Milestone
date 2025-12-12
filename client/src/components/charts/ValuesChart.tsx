@@ -19,6 +19,7 @@ import {
 } from "shared/schema";
 import { useProcesses } from "@/hooks/use-processes";
 import numabbr from "numabbr";
+import { PosNegNumber } from "../common/PosNegNumber";
 
 type ChartDataBase = CombinedDayTimePointBase;
 
@@ -451,18 +452,10 @@ export default function ValuesChart({
                                 £{change.previousValue.toLocaleString()} → £
                                 {change.newValue.toLocaleString()}
                               </span>
-                              <span
-                                className={
-                                  Number(change.change) >= 0
-                                    ? "text-green-600"
-                                    : "text-red-600"
-                                }
-                              >
-                                {Number(change.change) >= 0 ? "+" : ""}£
-                                {Math.abs(
-                                  Number(change.change)
-                                ).toLocaleString()}
-                              </span>
+                              <PosNegNumber
+                                value={Number(change.change)}
+                                displayInPercentage={false}
+                              />
                             </div>
                           </div>
                         ))}
