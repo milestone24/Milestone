@@ -1974,6 +1974,8 @@ export class DatabaseAssetService {
     securityId: UserAssetSecuritySelect["id"],
     data: UserAssetSecurityOrphanLinkInsert
   ): Promise<UserAssetSecuritySelect> {
+
+    const userAccountId = getUserAccountId();
     // Make sure the value item exists and belongs to the asset
     const existingValueItem = await this.db.query.userAssetSecurities.findFirst(
       {
@@ -2014,6 +2016,8 @@ export class DatabaseAssetService {
     if (!value) {
       throw new Error("Failed to update user asset security");
     }
+
+    this.updateAssetValues(userAccountId, assetId, data.startDate);
 
     return value;
   }
