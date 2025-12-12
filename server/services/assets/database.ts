@@ -902,7 +902,17 @@ export class DatabaseAssetService {
   }
 
   async deleteUserAsset(id: UserAsset["id"]): Promise<boolean> {
+
+    const userAccountId = getUserAccountId();
+    if (!userAccountId) {
+      throw new Error("User account not found");
+    }
+
     const result = await this.db.transaction(async (tx) => {
+      /**
+       * The nested deletes should not need to happen.
+       * DB level cascades should be enough.
+       */
       await tx
         .delete(userAssetSecurities)
         .where(eq(userAssetSecurities.userAssetId, id));
@@ -915,6 +925,11 @@ export class DatabaseAssetService {
         .where(eq(assetTransactions.assetId, id));
       return tx.delete(userAssets).where(eq(userAssets.id, id));
     });
+
+    if (result?.rowCount ?? 0 > 0) {
+      sendAssetValuesInvalidatedNotification(userAccountId, id);
+    }
+
     return (result?.rowCount ?? 0) > 0;
   }
 
