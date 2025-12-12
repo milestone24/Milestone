@@ -231,10 +231,11 @@ export async function registerRoutes(
         return res.status(400).json({ error: validation.error.message });
       }
       const data = validation.data;
-      const security = await assetService.createUserAssetSecurity(
-        req.params.assetId,
-        data
-      );
+      const security =
+        await assetService.createUserAssetSecurityAndTriggerUpdates(
+          req.params.assetId,
+          data
+        );
       res.json(security);
     }
   );

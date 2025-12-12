@@ -104,6 +104,7 @@ import { randomUUID } from "node:crypto";
 import { calculatedAssetsQueryBuilder } from "./query";
 import Decimal from "decimal.js";
 import { ProcessSelect } from "@shared/schema/process";
+import { getUserAccountId } from "@server/auth";
 
 const securitiesService = securitiesFactory();
 
@@ -1821,7 +1822,6 @@ export class DatabaseAssetService {
   ): Promise<UserAssetSecuritySelect> {
     // Make sure the asset exists
 
-
     const exec = async (
       tx: Transaction
     ): Promise<{
@@ -1846,7 +1846,7 @@ export class DatabaseAssetService {
 
       const securityId =
         data.type === "new"
-          ? await(async () => {
+          ? await (async () => {
               const security =
                 await securitiesService.createOrFindCachedSecurity(
                   data.security
@@ -1905,14 +1905,28 @@ export class DatabaseAssetService {
       //});
     };
 
-    const { asset, value } = tx
+    const { value } = tx
       ? await exec(tx)
       : await this.db.transaction(async (tx) => exec(tx));
 
-    if (asset) {
-      this.updateAssetValues(asset.userAccountId, assetId);
-    }
+    return value;
+  }
 
+  async createUserAssetSecurityAndTriggerUpdates(
+    assetId: UserAsset["id"],
+    data: UserAssetSecurityOrphanCreate,
+    tx?: Transaction
+  ): Promise<UserAssetSecuritySelect> {
+    console.log(
+      "Creating user asset security and triggering updates for assetId",
+      assetId
+    );
+
+    const userAccountId = getUserAccountId();
+
+    const value = await this.createUserAssetSecurity(assetId, data, tx);
+    //TODO needs async local
+    this.updateAssetValues(userAccountId, assetId, data.startDate);
     return value;
   }
 
