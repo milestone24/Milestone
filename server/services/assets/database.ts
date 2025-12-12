@@ -94,6 +94,7 @@ import { getNextExecutionDate } from "@shared/utils/scheduling";
 import { connections } from "@server/sockets/connections";
 import { SocketMessage } from "@shared/schema/socket";
 import {
+  assetSecurities,
   fireProjection,
   portfolioGraphTransactions,
   portfolioGraphValues,
@@ -260,6 +261,8 @@ export class DatabaseAssetService {
                 portfolioGraphTransactions,
                 processesKey,
                 fireProjection,
+                assetSecurities,
+                ["assets", assetId],
               ],
             });
             sendNotification(accountId, {
