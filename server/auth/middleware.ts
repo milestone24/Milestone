@@ -1,9 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import { AUTH_COOKIE_NAMES } from "./const";
 import { AuthoriseAPIKey, AuthoriseUser, AuthRequest, TenantType } from "./types";
-import { IncomingHttpHeaders } from "node:http";
+import { runWithContext } from "../context/request-context";
 
-const createAuthMiddleware = (allowedAuthTypes: TenantType[], authoriseUser: AuthoriseUser, authoriseAPIKey: AuthoriseAPIKey) => {
+const createAuthMiddleware = (
+  allowedAuthTypes: TenantType[],
+  authoriseUser: AuthoriseUser,
+  authoriseAPIKey: AuthoriseAPIKey
+) => {
   return async (req: AuthRequest, res: Response, next: NextFunction) => {
     const t = req.tenant;
 
@@ -30,12 +34,17 @@ const createAuthMiddleware = (allowedAuthTypes: TenantType[], authoriseUser: Aut
           };
 
           if (!("tenant" in req)) {
-            next(new Error("Tenant not found"));
+            return next(new Error("Tenant not found"));
           }
           if (!("userAccountId" in req.tenant)) {
-            next(new Error("User account ID not found"));
+            return next(new Error("User account ID not found"));
           }
-          return next();
+
+          // Wrap remaining middleware chain in request context
+          return runWithContext(
+            { userAccountId: authResult.tenantAccountId },
+            () => next()
+          );
         }
       }
 

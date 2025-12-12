@@ -183,3 +183,8 @@ export class AuthService {
 export * from "./types";
 
 export * from "./utils";
+
+export {
+  getUserAccountId,
+  hasRequestContext,
+} from "../context/request-context";
