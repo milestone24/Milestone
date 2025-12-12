@@ -369,6 +369,8 @@ login_ghcr() {
 }
 
 deploy() {
+  LOG "Pruning docker"
+  docker system prune -f
   LOG "Refreshing environment variables"
   refresh_env_file
   LOG "Ensuring APP_IMAGE is up to date"
