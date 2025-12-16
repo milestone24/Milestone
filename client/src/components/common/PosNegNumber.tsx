@@ -23,9 +23,6 @@ export function PosNegNumber({
     className
   );
 
-  console.log("value", value);
-  console.log("displayInPercentage", displayInPercentage);
-
   return (
     <>
       {value !== null ? (
@@ -34,7 +31,6 @@ export function PosNegNumber({
           {Intl.NumberFormat("en-GB", {
             style: displayInPercentage ? "percent" : "currency",
             currency: displayInPercentage ? undefined : "GBP",
-            minimumFractionDigits: displayInPercentage ? 1 : undefined,
           }).format(value)}
         </span>
       ) : (
