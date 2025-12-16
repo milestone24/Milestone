@@ -70,9 +70,6 @@ export const RecurringContributionItem = ({
             <span className="font-semibold text-lg">
               £{Number(contribution.amount).toLocaleString()}
             </span>
-            {isBusy && (
-              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-            )}
             <Badge
               variant={contribution.isActive ? "default" : "secondary"}
               className={
@@ -108,7 +105,11 @@ export const RecurringContributionItem = ({
             onClick={() => setIsEditOpen(true)}
             disabled={isBusy}
           >
-            <Pencil className="h-4 w-4" />
+            {updateRecurringContribution.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+            ) : (
+              <Pencil className="h-4 w-4" />
+            )}
           </Button>
           <Button
             variant="ghost"
@@ -117,7 +118,11 @@ export const RecurringContributionItem = ({
             onClick={() => setIsDeleteOpen(true)}
             disabled={isBusy}
           >
-            <Trash2 className="h-4 w-4" />
+            {deleteRecurringContribution.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin text-red-600" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </div>

@@ -103,7 +103,13 @@ export const TransactionRecurringForm = ({
               {isSubmitting ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : null}
-              {data ? "Update Contribution" : "Add Contribution"}
+              {data
+                ? isSubmitting
+                  ? "Updating Contribution..."
+                  : "Update Contribution"
+                : isSubmitting
+                ? "Adding Contribution..."
+                : "Add Contribution"}
             </Button>
           </div>
         </form>

@@ -371,10 +371,46 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Transaction ID is required" });
       }
       const result = await assetService.deleteUserAssetSecurityTransaction(
+        req.params.assetId,
         req.params.securityId,
         req.params.transactionId
       );
       res.json({ success: result });
+    }
+  );
+
+  router.put(
+    regExpPath(
+      `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam(
+        "securityId"
+      )}/transactions/${uuidRouteParam("transactionId")}`
+    ),
+    requireUser,
+    async (req: AuthRequest, res) => {
+      console.log("PUT req.params", JSON.stringify(req.params, null, 2));
+
+      if (!req.params.assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+      if (!req.params.securityId) {
+        return res.status(400).json({ error: "Security ID is required" });
+      }
+      if (!req.params.transactionId) {
+        return res.status(400).json({ error: "Transaction ID is required" });
+      }
+
+      const data = securityTransactionOrphanInsertSchema.safeParse(req.body);
+      if (!data.success) {
+        return res.status(400).json({ error: data.error.message });
+      }
+
+      const transaction = await assetService.updateUserAssetSecurityTransaction(
+        req.params.assetId,
+        req.params.securityId,
+        req.params.transactionId,
+        data.data
+      );
+      res.json(transaction);
     }
   );
 

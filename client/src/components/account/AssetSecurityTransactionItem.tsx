@@ -19,9 +19,7 @@ import {
 import { Button } from "../ui/button";
 import { useCallback, useState } from "react";
 import { useSecurityTransactions } from "@/hooks/use-security-transactions";
-import { useAsset } from "@/hooks/use-asset";
 import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
-import { SecurityTransactionSingleForm } from "./SecurityTransactionSingleForm";
 import { SecurityTransactionUpsertDialogue } from "./SecurityTransactionUpsertDialogue";
 
 type AssetSecurityTransactionItemProps = {
@@ -39,6 +37,8 @@ export const AssetSecurityTransactionItem = ({
   const { deleteSecurityTransaction } = useSecurityTransactions(assetId);
   const { updateSecurityTransaction } = useSecurityTransactions(assetId);
   const [error, setError] = useState<Error | null>(null);
+
+  const [isDialogueOpen, setIsDialogueOpen] = useState(false);
 
   const handleDeleteTransaction = useCallback(
     async ({
@@ -116,14 +116,15 @@ export const AssetSecurityTransactionItem = ({
             month: "short",
             year: "numeric",
           })}
-          {" · "}
-          £{transaction.currencyValue.toLocaleString()}
+          {" · "}£{transaction.currencyValue.toLocaleString()}
         </p>
       </div>
 
       {/* Actions Section */}
       <div className="flex items-center gap-2 self-end sm:self-center">
         <SecurityTransactionUpsertDialogue
+          isOpen={isDialogueOpen}
+          onOpenChange={setIsDialogueOpen}
           onSubmit={handleTransactionSubmit}
           data={transaction}
           securities={securities}

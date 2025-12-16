@@ -20,7 +20,6 @@ export const DeleteRecurringContributionDialog = ({
   isOpen,
   onOpenChange,
   onConfirm,
-  isDeleting,
 }: DeleteRecurringContributionDialogProps) => {
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
@@ -34,13 +33,12 @@ export const DeleteRecurringContributionDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            disabled={isDeleting}
             className="bg-red-600 hover:bg-red-700"
           >
-            {isDeleting ? "Deleting..." : "Delete"}
+            Delete"
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

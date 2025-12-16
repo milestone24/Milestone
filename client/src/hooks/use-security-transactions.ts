@@ -82,7 +82,7 @@ export const useSecurityTransactions = (assetId: string) => {
     Error,
     SecurityTransactionUpdateRequest
   >({
-    mutationFn: ({ securityId, transactionId, data }) => {
+    mutationFn: async ({ securityId, transactionId, data }) => {
       return apiRequest(
         "PUT",
         `/api/assets/${assetId}/securities/${securityId}/transactions/${transactionId}`,

@@ -2,6 +2,7 @@ import {
   assetGraphTransactions,
   assetGraphValues,
   assetSecurities,
+  assetSecuritiesTransactions,
 } from "@shared/api/queryKeys";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
@@ -84,6 +85,9 @@ export const useAssetSecurities = () => {
       queryClient.invalidateQueries({
         queryKey: [...assetGraphTransactions, assetId],
       });
+      queryClient.invalidateQueries({
+        queryKey: [...assetSecuritiesTransactions, assetId],
+      });
     },
   });
 
@@ -99,6 +103,9 @@ export const useAssetSecurities = () => {
       });
       queryClient.invalidateQueries({
         queryKey: [...assetGraphTransactions, assetId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...assetSecuritiesTransactions, assetId],
       });
     },
   });

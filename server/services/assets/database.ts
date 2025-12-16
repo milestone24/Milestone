@@ -1155,13 +1155,48 @@ export class DatabaseAssetService {
     return securityTransaction;
   }
 
+  async updateUserAssetSecurityTransaction(
+    assetId: UserAsset["id"],
+    assetSecurityId: string,
+    transactionId: string,
+    data: SecurityTransactionOrphanInsert
+  ): Promise<SecurityTransaction> {
+    const accountId = getUserAccountId();
+
+    const [securityTransaction] = await this.db
+      .update(securityTransactions)
+      .set(data)
+      .where(
+        and(
+          eq(securityTransactions.assetSecurityId, assetSecurityId),
+          eq(securityTransactions.id, transactionId)
+        )
+      )
+      .returning();
+
+    if (!securityTransaction) {
+      throw new Error("Failed to delete user asset security transaction");
+    }
+
+    this.updateAssetValues(accountId, assetId, data.valueDate);
+
+    return securityTransaction;
+  }
+
   async deleteUserAssetSecurityTransaction(
+    assetId: UserAsset["id"],
     assetSecurityId: string,
     transactionId: string
   ): Promise<{
     success: boolean;
     id: string;
   }> {
+    const accountId = getUserAccountId();
+
+    if (!accountId) {
+      throw new Error("Account ID not found");
+    }
+
     const [result] = await this.db
       .delete(securityTransactions)
       .where(
@@ -1175,6 +1210,8 @@ export class DatabaseAssetService {
     if (result == null) {
       throw new Error("Failed to delete user asset security transaction");
     }
+
+    this.updateAssetValues(accountId, assetId, result.valueDate);
 
     return {
       success: result != null,
@@ -1974,7 +2011,6 @@ export class DatabaseAssetService {
     securityId: UserAssetSecuritySelect["id"],
     data: UserAssetSecurityOrphanLinkInsert
   ): Promise<UserAssetSecuritySelect> {
-
     const userAccountId = getUserAccountId();
     // Make sure the value item exists and belongs to the asset
     const existingValueItem = await this.db.query.userAssetSecurities.findFirst(
@@ -2026,6 +2062,12 @@ export class DatabaseAssetService {
     assetId: UserAsset["id"],
     securityId: UserAssetSecuritySelect["id"]
   ): Promise<boolean> {
+    const userAccountId = getUserAccountId();
+
+    if (!userAccountId) {
+      throw new Error("Account ID not found");
+    }
+
     // Make sure the value item exists and belongs to the asset
     const existingValueItem = await this.db.query.userAssetSecurities.findFirst(
       {
@@ -2045,6 +2087,8 @@ export class DatabaseAssetService {
     const result = await this.db
       .delete(userAssetSecurities)
       .where(eq(userAssetSecurities.id, securityId));
+
+    this.updateAssetValues(userAccountId, assetId, new Date());
 
     return (result?.rowCount ?? 0) > 0;
   }

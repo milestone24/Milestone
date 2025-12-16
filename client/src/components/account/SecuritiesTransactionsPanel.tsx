@@ -91,9 +91,14 @@ export const SecuritiesTransactionsPanel = ({
   ): Promise<SecurityTransactionSelect> => {
     const { assetSecurityId, id, ...rest } = data;
 
-    return id
-      ? handleEditTransaction(id, assetSecurityId, rest)
-      : handleCreateTransaction(assetSecurityId, rest);
+    return (
+      id
+        ? handleEditTransaction(id, assetSecurityId, rest)
+        : handleCreateTransaction(assetSecurityId, rest)
+    ).then((response) => {
+      setDialogueOpen(false);
+      return Promise.resolve(response);
+    });
   };
 
   // Handlers for creating recurring contributions

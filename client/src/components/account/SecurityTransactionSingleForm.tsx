@@ -42,29 +42,49 @@ export const SecurityTransactionSingleForm = ({
   CancelButton,
 }: SecurityTransactionSingleFormProps) => {
   const form = useForm<SecurityTransactionUpsert>({
-    resolver: zodResolver(securityTransactionInsertSchema),
+    resolver: zodResolver(
+      securityTransactionInsertSchema.omit({
+        fees: true,
+        currency: true,
+        recordedAt: true,
+      })
+    ),
     values: data
       ? {
           value: data.value,
           currencyValue: data.currencyValue,
           valueDate: data.valueDate,
           assetSecurityId: data.assetSecurityId,
+          fees: data.fees,
+          currency: data.currency,
+          recordedAt: data.recordedAt,
         }
       : undefined,
     defaultValues: {
       value: createDecimalValueString("0"),
       currencyValue: createDecimalValueString("0"),
       valueDate: new Date(),
-      assetSecurityId: undefined,
+      assetSecurityId: "",
+      fees: undefined,
+      currency: undefined,
+      recordedAt: undefined,
+      //fees: createDecimalValueString("0"),
     },
-    mode: "onBlur",
+    mode: "onTouched",
   });
 
   const {
     handleSubmit,
     control,
-    formState: { isSubmitting },
+    formState: { isSubmitting, isValid, errors },
+    getValues,
   } = form;
+
+  console.log("errors", errors);
+
+  const validation = securityTransactionInsertSchema.safeParse(getValues());
+
+  console.log("validation ; ", validation);
 
   return (
     <Form {...form}>
@@ -75,14 +95,14 @@ export const SecurityTransactionSingleForm = ({
             name="assetSecurityId"
             rules={{
               required: true,
-              validate: (value) => {
-                if (!value) {
-                  return "Security is required";
-                } else if (!securities?.find((p) => p.id === value)) {
-                  return "Security is invalid";
-                }
-                return true;
-              },
+              // validate: (value) => {
+              //   if (!value) {
+              //     return "Security is required";
+              //   } else if (!securities?.find((p) => p.id === value)) {
+              //     return "Security is invalid";
+              //   }
+              //   return true;
+              // },
             }}
             render={({ field }) => (
               <FormItem>
@@ -92,6 +112,7 @@ export const SecurityTransactionSingleForm = ({
                 </FormDescription>
                 <Select
                   onValueChange={field.onChange}
+                  value={field.value}
                   defaultValue={field.value}
                   disabled={!securities}
                 >
@@ -190,11 +211,17 @@ export const SecurityTransactionSingleForm = ({
         </div>
         <div className="flex justify-end gap-2">
           {CancelButton}
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting || !isValid}>
             {isSubmitting ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : null}
-            {data ? "Update Contribution" : "Add Contribution"}
+            {data
+              ? isSubmitting
+                ? "Updating Contribution..."
+                : "Update Contribution"
+              : isSubmitting
+              ? "Adding Contribution..."
+              : "Add Contribution"}
           </Button>
         </div>
       </form>

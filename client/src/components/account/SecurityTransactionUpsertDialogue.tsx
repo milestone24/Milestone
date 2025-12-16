@@ -58,11 +58,16 @@ export const SecurityTransactionUpsertDialogue = ({
   // Form for adding/editing contributions
 
   const handleTransactionSubmit = useCallback(
-    async (data: SecurityTransactionUpsert) => {
+    async (data: SecurityTransactionUpsert): Promise<void> => {
       console.log("SSS handleTransactionSubmit data", data);
       //console.log("handleTransactionSubmit transactionId", transactionId);
-      if (!onSubmit) return;
-      onSubmit(data);
+      //if (!onSubmit) return;
+      await onSubmit(data);
+      if (onOpenChange) {
+        onOpenChange(false);
+      }
+      console.log("SSS handleTransactionSubmit done");
+      return Promise.resolve();
     },
     []
   );
