@@ -804,14 +804,14 @@ export class DatabaseAssetService {
               data.contributions.type === "security" &&
               data.contributions.securityDistribution.length > 0
             ) {
-              const securityDictribution =
+              const securityDistribution =
                 data.contributions.securityDistribution.find(
                   (securityDistribution) =>
                     securityDistribution.isTempSecurityId === true &&
                     securityDistribution.securityId === security.lid
                 );
 
-              if (securityDictribution) {
+              if (securityDistribution) {
                 await tx.insert(recurringContributions).values({
                   assetId: insertedUserAsset.id,
                   securityId: value.id,
@@ -822,7 +822,7 @@ export class DatabaseAssetService {
                       : createDecimalValueString(
                           Decimal(data.contributions.amount)
                             .mul(
-                              Decimal(securityDictribution.commitment).div(100)
+                              Decimal(securityDistribution.commitment).div(100)
                             )
                             .toString()
                         ),
@@ -906,7 +906,6 @@ export class DatabaseAssetService {
   }
 
   async deleteUserAsset(id: UserAsset["id"]): Promise<boolean> {
-
     const userAccountId = getUserAccountId();
     if (!userAccountId) {
       throw new Error("User account not found");
