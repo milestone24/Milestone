@@ -8,7 +8,7 @@ import {
   CartesianGrid,
   ReferenceLine,
 } from "recharts";
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   AssetValueTimePoint,
@@ -109,11 +109,7 @@ type ValuesChartProps = {
   milestones?: ChartMilestone[];
 };
 
-export default function ValuesChart({
-  className,
-  data,
-  milestones,
-}: ValuesChartProps) {
+export default memo(({ className, data, milestones }: ValuesChartProps) => {
   const [chartVisible, setChartVisible] = useState(true);
   const [showMilestonesLocal, setShowMilestonesLocal] = useState(true);
   const [selectedPoints, setSelectedPoints] = useState<
@@ -491,4 +487,4 @@ export default function ValuesChart({
       </div>
     </div>
   );
-}
+});
