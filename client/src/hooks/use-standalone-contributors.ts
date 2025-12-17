@@ -79,8 +79,8 @@ const generateId = () => {
 
 const defaultSchedule = () => ({
   patternConfig: {
-    type: "cron" as const,
-    expression: "0 0 1 * *", // first day of month
+    type: "rrule" as const,
+    expression: "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1", // first day of month
   },
   startDate: new Date(),
   endDate: null,
