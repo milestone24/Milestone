@@ -1,11 +1,38 @@
-import { db } from "@server/db";
 import { DatabaseAssetService } from "./database";
 import { DatabaseUserService } from "@server/services/users/database";
-import { beforeAll, describe, it, expect, vi } from "vitest";
+import { beforeAll, afterAll, describe, it, expect, vi } from "vitest";
 import { createDecimalValueString } from "@shared/schema/utils";
 import { BrokerPlatform, UserAssetInsert } from "@shared/schema";
 import { createRRulePattern } from "@shared/utils/scheduling";
 import { subDays } from "date-fns";
+import * as schema from "@server/db/schema";
+
+import { drizzle } from "drizzle-orm/node-postgres";
+import { setupOne } from "@server/test-utils/setup-one";
+import { eq, sql } from "drizzle-orm";
+import { db } from "@server/db";
+// const db = drizzle.mock({
+//   schema,
+// });
+
+// beforeAll(async () => {
+//   await setupOne({ db, schema });
+// });
+
+// afterAll(async () => {
+//   await db.execute(sql`TRUNCATE TABLE * CASCADE`);
+// });
+
+// describe.only("setupOne", () => {
+//   it("should setup one", async () => {
+//     const userAccount = await db
+//       .select()
+//       .from(schema.userAccounts)
+//       .where(eq(schema.userAccounts.email, "gary@milestone.com"));
+//     expect(userAccount).toBeDefined();
+//     expect(userAccount[0]?.email).toBe("gary@milestone.com");
+//   });
+// });
 
 describe("DatabaseAssetService createUserAsset", () => {
   let databaseAssetService: DatabaseAssetService;
@@ -22,7 +49,6 @@ describe("DatabaseAssetService createUserAsset", () => {
       throw new Error("No broker platforms found");
     }
     platform = platforms[0]!;
-
     const userAccount = await databaseUserService.getUserAccountByEmail(
       "gary@milestone.com"
       //"chris@milestone.com"
@@ -57,7 +83,8 @@ describe("DatabaseAssetService createUserAsset", () => {
         userAccountId,
         securities: [
           {
-            tempId: "5d627060-d23a-448a-ad8d-e93292c0f3c5",
+            type: "new",
+            lid: "5d627060-d23a-448a-ad8d-e93292c0f3c5",
             security: {
               symbol: "APPS",
               name: "Digital Turbine Inc",
@@ -67,9 +94,13 @@ describe("DatabaseAssetService createUserAsset", () => {
               currency: "USD",
               type: "Common Stock",
               isin: "US25400W1027",
+              cusip: "0000000000",
+              figi: "0000000000",
             },
-            shareHolding: createDecimalValueString("10000"),
-            currencyValue: createDecimalValueString("100"),
+            initialHolding: {
+              shareHolding: createDecimalValueString("10000"),
+              currencyValue: createDecimalValueString("100"),
+            },
             startDate,
             priorGainLoss: createDecimalValueString("0"),
           },

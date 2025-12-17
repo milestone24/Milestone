@@ -19,7 +19,7 @@ const Portfolio = lazy(() => import("@/pages/portfolio"));
 const AssetPage = lazy(() => import("@/pages/asset"));
 const Goals = lazy(() => import("@/pages/goals"));
 const Track = lazy(() => import("@/pages/track"));
-const Fire = lazy(() => import("@/pages/fire"));
+const Fire = lazy(() => import("@/pages/fire-now"));
 const Profile = lazy(() => import("@/pages/profile"));
 const Settings = lazy(() => import("@/pages/settings"));
 const ApiConnections = lazy(() => import("@/pages/api-connections"));

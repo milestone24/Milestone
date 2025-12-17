@@ -1,12 +1,15 @@
 import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
-import { drizzle as drizzleNodePostgres } from "drizzle-orm/node-postgres";
+import {
+  drizzle as drizzleNodePostgres,
+  NodePgDatabase,
+} from "drizzle-orm/node-postgres";
 import ws from "ws";
 import * as schema from "./schema/index";
 import { sql } from "drizzle-orm";
 import { log, error, warn, info, debug } from "../log";
 export { Client as PgClient } from "pg";
 
-import { DefaultLogger, LogWriter } from 'drizzle-orm/logger';
+import { DefaultLogger, LogWriter } from "drizzle-orm/logger";
 class MyLogWriter implements LogWriter {
   write(message: string) {
     log(message);
@@ -27,7 +30,6 @@ class MyLogWriter implements LogWriter {
 const logger = new DefaultLogger({ writer: new MyLogWriter() });
 
 export function createDatabaseConnection() {
-
   const databaseUrl = process.env.DATABASE_URL;
 
   if (!databaseUrl) {
@@ -38,7 +40,7 @@ export function createDatabaseConnection() {
 
   // Check if we're using a local Neon database
   const isLocalDb = /127.0.0.1|localhost/.test(databaseUrl);
-  
+
   const db = isLocalDb
     ? drizzleNodePostgres({
         connection: databaseUrl,
@@ -60,7 +62,7 @@ export function createDatabaseConnection() {
 
   return {
     db,
-    isLocalDb
+    isLocalDb,
   };
 }
 
@@ -71,8 +73,10 @@ const ping = async () => {
   console.log("Pinging database...");
   const pingResult = await db.execute(sql`SELECT 1`);
   console.log("Database ping successful:");
-}
+};
 
-export { db, isLocalDb, ping }; 
+export { db, isLocalDb, ping };
 
-export type Database = typeof db;
+//export type Database = typeof db;
+export type Schema = typeof schema;
+export type Database = NodePgDatabase<Schema>;
