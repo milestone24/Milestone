@@ -416,6 +416,22 @@ export const contributorScheduleSchema = z.object({
 
 export type ContributorSchedule = z.infer<typeof contributorScheduleSchema>;
 
+
+export const limitationSchema = z.object({
+  name: z.string(),
+  valueType: z.enum(["percentage", "fixed"]),
+  predicates: z.array(
+    z.object({
+      type: z.enum(["age", "date", "period"]),
+      value: z.string(),
+    })
+  ),
+  value: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Value must be a valid decimal string",
+  }),
+});
+
+export type Limitation = z.infer<typeof limitationSchema>;
 export const contributorSchema = z.object({
   referenceId: z.string().uuid().optional(),
   accountType: z.enum(accountType),
@@ -424,6 +440,7 @@ export const contributorSchema = z.object({
   expectedGrowthRate: z.number().min(-100).max(1000).optional(),
   valueReleases: z.array(valueReleasePointInTimeSchema).optional(),
   bonusValues: z.array(bonusValueSchema).optional(),
+  limitations: z.array(limitationSchema).optional(),
   currentValue: decimalValueSchema.refine(isDecimalValueString, {
     message: "Current value must be a valid decimal string",
   }),
