@@ -877,3 +877,10 @@ export function calculateYearsToTarget(
 
   return months / 12;
 }
+
+export const calculateStatePensionStartDate = (
+  dateOfBirth: Date,
+  statePensionAge: number
+): Date => {
+  return addYears(dateOfBirth, statePensionAge);
+};

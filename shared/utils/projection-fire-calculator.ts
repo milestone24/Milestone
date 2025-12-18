@@ -27,6 +27,7 @@ import {
   convertToAgeBasedProjection,
   mapAssetsToContributors,
   calculateMonthlyContributionDifference,
+  calculateStatePensionStartDate,
 } from "./projection-utils";
 import { createRRulePattern } from "./scheduling";
 import { calculateWithdrawalStrategy } from "./projection-withdrawal";
@@ -290,12 +291,24 @@ export async function projectRetirementWithAccountAssets(
   //We need to find all the details for the specifics of UK state pension withdrawels etc and rules
   //if (userFireSettings.includeGovernmentPensions) {
   if (true) {
+    const pensionAge = userFireSettings.statePensionAge;
+    const pensionStartDate = calculateStatePensionStartDate(
+      fireConfig.dateOfBirth,
+      pensionAge
+    );
+
     contributors.push({
       name: "State Pension",
       type: "state_pension",
       currentValue: createDecimalValueString("0"),
-      accountType: "SIPP",
+      accountType: "PENSION",
       expectedGrowthRate: 0,
+      valueReleases: [
+        {
+          value: pensionAge.toString(),
+          valueType: "age",
+        },
+      ],
       schedules: [
         {
           patternConfig: {
@@ -304,12 +317,9 @@ export async function projectRetirementWithAccountAssets(
               "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1"
             ).expression,
           },
-          startDate: calculateRetirementDate(
-            fireConfig.dateOfBirth,
-            userFireSettings.statePensionAge
-          ),
+          startDate: pensionStartDate,
           endDate: null,
-          value: createDecimalValueString("0"),
+          value: createDecimalValueString("1000"),
         },
       ],
     });
