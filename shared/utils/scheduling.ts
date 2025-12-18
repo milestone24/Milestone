@@ -24,8 +24,13 @@ import { Cron } from "croner";
 // Server (CJS): Module exports object with RRule property
 // Client (ESM via Vite): Named exports accessible via namespace import
 import * as rrule from "rrule";
+//import { RRule } from "rrule";
 // Type-safe access: RRule is available on the namespace in both CJS and ESM
-const RRule: typeof rrule.RRule = rrule.RRule;
+//const RRule: typeof rrule.RRule = rrule.RRule;
+//import type { RRule as RRuleType } from "rrule";
+//const RRule: typeof rrule.RRule = rrule.RRule;
+/** @ts-ignore */
+const RRule: typeof rrule.RRule = rrule.RRule || rrule.default.RRule;
 
 // ============================================================================
 // TYPES AND INTERFACES
@@ -1122,7 +1127,6 @@ export function getNextExecutionDate(
         //The RRule constructor will use todays date of system time by default
         //from String does not support options and the start date is not set on the RRule pattern. Shuold it be?
         rrule.options.dtstart = startDate;
-
         //It is important to state that if a time is not set on the schedule expression, the RRule library will use the system time by default.
         //How do we correct this?, set to midnight?
         //Maybe add a utility function that can detect if there is a time set on the schedule expression and if not, set it to midnight.
@@ -1139,6 +1143,7 @@ export function getNextExecutionDate(
         return undefined;
     }
   } catch (error) {
+    //TODO: Handle error, this is a dangerous hidden error.
     return undefined;
   }
 }
