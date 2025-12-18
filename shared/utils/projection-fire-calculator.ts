@@ -183,11 +183,6 @@ This will cause the projection to be infinite years ahead of retirement.`);
     growthRate
   );
 
-  console.log(
-    "monthlyContributionDifference SSS",
-    monthlyContributionDifference
-  );
-
   // Calculate projected retirement date based on trajectory
   const projectedRetirementDate =
     yearsAheadOrBehind === Infinity
@@ -240,56 +235,6 @@ This will cause the projection to be infinite years ahead of retirement.`);
     warnings,
   };
 }
-
-//type FireProjectionResult = FIREProjectionResult & {};
-
-// export async function projectFire(
-//   projectionConfig: Omit<ProjectionConfig, "startDate" | "endDate">,
-//   //db: Database
-//   dataSource: ProjectionDataSource
-// ): Promise<FireProjectionResult> {
-//   // Get user's FIRE settings
-//   // const userFireSettings = await db.query.fireSettings.findFirst({
-//   //   where: eq(fireSettings.userAccountId, userAccountId),
-//   // });
-
-//   const userFireSettings = await dataSource.getFireSettings();
-
-//   if (!userFireSettings) {
-//     throw new Error("FIRE settings not found for user");
-//   }
-
-//   // Get user's date of birth
-
-//   const userProfile = await dataSource.getUserProfile();
-
-//   // const user = await db.query.userAccounts.findFirst({
-//   //   where: eq(userAccounts.id, userAccountId),
-//   //   with: {
-//   //     userProfile: true,
-//   //   },
-//   // });
-
-//   if (!userProfile?.dob) {
-//     throw new Error("User date of birth not found");
-//   }
-
-//   // Create FIRE config from settings
-//   const fireConfig: FIREProjectionConfig = {
-//     dateOfBirth: userProfile.dob,
-//     targetRetirementAge: userFireSettings.targetRetirementAge,
-//     annualIncomeGoal: userFireSettings.annualIncomeGoal,
-//     safeWithdrawalRate: Decimal(userFireSettings.safeWithdrawalRate).toNumber(),
-//     adjustForInflation: userFireSettings.adjustInflation,
-//     statePensionAge: userFireSettings.statePensionAge,
-//   };
-
-//   const retirementProjection = await projectToRetirement(
-//     fireConfig,
-//     projectionConfig,
-//     dataSource
-//   );
-// }
 
 /**
  * Check FIRE feasibility using user's saved fire settings
@@ -368,33 +313,5 @@ export async function projectRetirementWithAccountAssets(
     });
   }
 
-  //return projectToRetirement(fireConfig, projectionConfig, dataSource);
-
-  //const contributors: Contributor[] = [];
-
   return projectToRetirement(fireConfig, projectionConfig, contributors);
 }
-
-/**
- * Calculate monthly contribution needed to achieve FIRE by target age
- */
-// export function calculateMonthlyShortfallToFIRE(
-//   currentPortfolioValue: number,
-//   fireNumber: number,
-//   yearsUntilRetirement: number,
-//   annualGrowthRate: number
-// ): DecimalValueString {
-//   const monthsRemaining = yearsUntilRetirement * 12;
-//   const shortfall = fireNumber - currentPortfolioValue;
-
-//   if (shortfall <= 0) {
-//     return createDecimalValueString("0"); // Already at or above FIRE number
-//   }
-
-//   return calculateMonthlyContributionDifference(
-//     0, // No current contribution
-//     shortfall,
-//     monthsRemaining,
-//     annualGrowthRate
-//   );
-// }
