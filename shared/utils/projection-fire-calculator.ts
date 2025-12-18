@@ -238,6 +238,8 @@ This will cause the projection to be infinite years ahead of retirement.`);
 
 /**
  * Check FIRE feasibility using user's saved fire settings
+ * This is called by the route checkFIREFeasibility as a consequence of a call the endpoint /api/projections/fire.
+ * This in turn calls the projectToRetirement function to project the retirement feasibility the same as the client
  */
 export async function projectRetirementWithAccountAssets(
   projectionConfig: ProjectionConfig,
@@ -313,5 +315,6 @@ export async function projectRetirementWithAccountAssets(
     });
   }
 
+  //This is the ame method call as the client makes for projecting a portfolio
   return projectToRetirement(fireConfig, projectionConfig, contributors);
 }
