@@ -302,6 +302,7 @@ export type AssetProjection = z.infer<typeof assetProjectionSchema>;
  * Contributor
  */
 
+
 export const contributionTypes = [
   "asset",
   "state_pension",
@@ -573,9 +574,82 @@ export const fireProjectionSchema = z.object({
   monthlyContributionDifference: monthlyContributionDifferenceSchema,
   projectionResult: projectionResultSchema,
   fireProjection: z.array(fireProjectionDataSchema),
+  withdrawalStrategy: z.lazy(() => withdrawalStrategySchema).optional(), // Forward reference, added after schema definition
   warnings: z.array(z.string()).optional(),
 });
 export type FireProjection = z.infer<typeof fireProjectionSchema>;
+
+// ============================================================================
+// WITHDRAWAL STRATEGY SCHEMAS
+// ============================================================================
+
+/**
+ * Reduced spending target - allows user to reduce income goal at certain ages
+ */
+export const reducedSpendingTargetSchema = z.object({
+  fromAge: z.number(),
+  reducedIncomeGoal: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Reduced income goal must be a valid decimal string",
+  }),
+});
+export type ReducedSpendingTarget = z.infer<typeof reducedSpendingTargetSchema>;
+
+/**
+ * Single account allocation within a withdrawal phase
+ */
+export const withdrawalAllocationSchema = z.object({
+  contributorName: z.string(),
+  contributorReferenceId: z.string().uuid().optional(),
+  accountType: z.enum(contributorType),
+  annualAmount: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Annual amount must be a valid decimal string",
+  }),
+  taxCharacteristics: z.string(),
+});
+export type WithdrawalAllocation = z.infer<typeof withdrawalAllocationSchema>;
+
+/**
+ * A withdrawal phase (triggered by account unlock events)
+ */
+export const withdrawalPhaseSchema = z.object({
+  phaseType: z.enum(["building", "withdrawal"]),
+  fromAge: z.number(),
+  toAge: z.number().nullable(),
+  annualIncomeTarget: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Annual income target must be a valid decimal string",
+  }),
+  allocations: z.array(withdrawalAllocationSchema),
+  warnings: z.array(z.string()).optional(),
+});
+export type WithdrawalPhase = z.infer<typeof withdrawalPhaseSchema>;
+
+/**
+ * Account access timeline entry
+ */
+export const accountAccessTimelineEntrySchema = z.object({
+  age: z.number().nullable(),
+  accountType: z.enum(contributorType),
+  contributorName: z.string(),
+  contributorReferenceId: z.string().uuid().optional(),
+  projectedValue: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Projected value must be a valid decimal string",
+  }),
+  taxCharacteristics: z.string(),
+  isAccessible: z.boolean(),
+});
+export type AccountAccessTimelineEntry = z.infer<
+  typeof accountAccessTimelineEntrySchema
+>;
+
+/**
+ * Complete withdrawal strategy result
+ */
+export const withdrawalStrategySchema = z.object({
+  phases: z.array(withdrawalPhaseSchema),
+  accountAccessTimeline: z.array(accountAccessTimelineEntrySchema),
+  warnings: z.array(z.string()).optional(),
+});
+export type WithdrawalStrategy = z.infer<typeof withdrawalStrategySchema>;
 
 // ============================================================================
 // API REQUEST/RESPONSE SCHEMAS

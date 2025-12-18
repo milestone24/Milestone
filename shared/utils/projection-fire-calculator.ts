@@ -29,6 +29,7 @@ import {
   calculateMonthlyContributionDifference,
 } from "./projection-utils";
 import { createRRulePattern } from "./scheduling";
+import { calculateWithdrawalStrategy } from "./projection-withdrawal";
 
 // ============================================================================
 // FIRE PROJECTION CALCULATOR
@@ -211,6 +212,18 @@ This will cause the projection to be infinite years ahead of retirement.`);
     createDecimalValueString(fireNumber.toString())
   );
 
+  // Calculate withdrawal strategy
+  const withdrawalStrategy = calculateWithdrawalStrategy(
+    contributors,
+    fireConfig,
+    projectionResult
+  );
+
+  // Merge withdrawal strategy warnings with existing warnings
+  if (withdrawalStrategy.warnings) {
+    warnings.push(...withdrawalStrategy.warnings);
+  }
+
   return {
     fireNumber,
     projectedRetirementDate,
@@ -223,6 +236,7 @@ This will cause the projection to be infinite years ahead of retirement.`);
     monthlyContributionDifference,
     fireProjection,
     projectionResult,
+    withdrawalStrategy,
     warnings,
   };
 }
