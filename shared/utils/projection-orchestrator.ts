@@ -340,11 +340,11 @@ export async function orchestrateProjection(
 
   // Filter contributors by milestone account type if specified
   let contributorsToProject = contributors;
-  if (milestoneTarget?.accountType) {
-    contributorsToProject = contributors.filter(
-      (contributor) => contributor.accountType === milestoneTarget.accountType
-    );
-  }
+  // if (milestoneTarget?.accountType) {
+  //   contributorsToProject = contributors.filter(
+  //     (contributor) => contributor.accountType === milestoneTarget.accountType
+  //   );
+  // }
 
   // Project each contributor
   const contributorProjections: ContributorProjection[] = [];
