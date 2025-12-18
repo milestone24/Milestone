@@ -176,7 +176,7 @@ export function generateLinearProjectionTimeSeries(
 
     // Get effective growth rate for this contributor
     const effectiveGrowthRate = getEffectiveGrowthRate(contributor, config);
-    const growthRate = effectiveGrowthRate / 100;
+    const growthRate = Decimal(effectiveGrowthRate).div(100);
     const growthValue =
       effectiveGrowthRate === 0
         ? Decimal(0) // No growth
