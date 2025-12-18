@@ -346,27 +346,15 @@ export async function orchestrateProjection(
   //   );
   // }
 
-  // Project each contributor
-  const contributorProjections: ContributorProjection[] = [];
   const warnings: string[] = [];
 
-  for (const contributor of contributorsToProject) {
-    try {
-      const projection = await projectSingleContributor(
-        contributor,
-        config,
-        dateOfBirth
-      );
+  // Project each contributor
 
-      contributorProjections.push(projection);
-    } catch (error) {
-      warnings.push(
-        `Failed to project contributor ${contributor.name}: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
-    }
-  }
+  const contributorProjections: ContributorProjection[] = await Promise.all(
+    contributorsToProject.map((contributor) =>
+      projectSingleContributor(contributor, config, dateOfBirth)
+    )
+  );
 
   //if (assetProjections.length === 0) {
   if (contributorProjections.length === 0) {
