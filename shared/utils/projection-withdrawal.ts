@@ -236,34 +236,16 @@ export function getAnnualScheduledIncomeForContributor(
     new Date(firstSchedule.startDate)
   );
 
-  console.log(
-    "getAnnualScheduledIncomeForContributor contributor",
-    JSON.stringify(contributor, null, 2)
-  );
-
-  console.log(
-    "getAnnualScheduledIncomeForContributor earliestStartDate",
-    earliestStartDate
-  );
-
   // Use the schedule's start date as the projection start
   // Add one day to ensure we're past the start date for RRule calculations
   const startDate = new Date(earliestStartDate);
   //startDate.setDate(startDate.getDate() + 1);
   const endDate = addYears(startDate, 1);
 
-  console.log("getAnnualScheduledIncomeForContributor startDate", startDate);
-  console.log("getAnnualScheduledIncomeForContributor endDate", endDate);
-
   const periodResult = calculatePeriodContributions(
     contributor,
     startDate,
     endDate
-  );
-
-  console.log(
-    "getAnnualScheduledIncomeForContributor periodResult",
-    periodResult
   );
 
   return createDecimalValueString(periodResult.contributions.toString());
