@@ -416,7 +416,6 @@ export const contributorScheduleSchema = z.object({
 
 export type ContributorSchedule = z.infer<typeof contributorScheduleSchema>;
 
-
 export const limitationSchema = z.object({
   name: z.string(),
   valueType: z.enum(["percentage", "fixed"]),
@@ -432,9 +431,12 @@ export const limitationSchema = z.object({
 });
 
 export type Limitation = z.infer<typeof limitationSchema>;
+
+const contributorType = [...accountType, "PENSION"] as const;
+
 export const contributorSchema = z.object({
   referenceId: z.string().uuid().optional(),
-  accountType: z.enum(accountType),
+  accountType: z.enum(contributorType),
   name: z.string(),
   type: z.enum(contributionTypes),
   expectedGrowthRate: z.number().min(-100).max(1000).optional(),
