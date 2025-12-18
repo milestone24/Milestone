@@ -208,11 +208,34 @@ This will cause the projection to be infinite years ahead of retirement.`);
     createDecimalValueString(fireNumber.toString())
   );
 
+  // Build income goals array - derive first goal from fire settings
+  // Additional goals can be added for different retirement phases
+  const incomeGoals = [
+    {
+      fromAge: fireConfig.targetRetirementAge,
+      incomeGoal: fireConfig.annualIncomeGoal,
+    },
+    // TODO: These should come from user settings, hardcoded for now
+    {
+      fromAge: 64,
+      incomeGoal: createDecimalValueString("50000"),
+    },
+    {
+      fromAge: 67,
+      incomeGoal: createDecimalValueString("40000"),
+    },
+    {
+      fromAge: 85,
+      incomeGoal: createDecimalValueString("20000"),
+    },
+  ];
+
   // Calculate withdrawal strategy
   const withdrawalStrategy = calculateWithdrawalStrategy(
     contributors,
     fireConfig,
-    projectionResult
+    projectionResult,
+    incomeGoals
   );
 
   // Merge withdrawal strategy warnings with existing warnings

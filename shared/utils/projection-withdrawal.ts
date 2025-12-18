@@ -55,9 +55,9 @@ export interface AccountAccessTimelineEntry {
   isAccessible: boolean;
 }
 
-export interface ReducedSpendingTarget {
+export interface IncomeGoal {
   fromAge: number;
-  reducedIncomeGoal: DecimalValueString;
+  incomeGoal: DecimalValueString;
 }
 
 export interface WithdrawalStrategy {
@@ -492,17 +492,34 @@ export function buildWithdrawalPhases(
   contributors: Contributor[],
   fireConfig: FIREProjectionConfig,
   projectionResult: ProjectionResult,
-  reducedSpendingTargets?: ReducedSpendingTarget[]
+  incomeGoals: IncomeGoal[]
 ): WithdrawalPhase[] {
   const phases: WithdrawalPhase[] = [];
-  const { dateOfBirth, targetRetirementAge, annualIncomeGoal } = fireConfig;
+  const { dateOfBirth, targetRetirementAge } = fireConfig;
   const currentAge = calculateAgeAtDate(dateOfBirth, new Date());
 
   const contributorUnlockInfos = contributors.map((c) =>
     buildContributorUnlockInfo(c, dateOfBirth, currentAge)
   );
 
+  // Sort income goals by fromAge ascending
+  const sortedIncomeGoals = [...incomeGoals].sort(
+    (a, b) => a.fromAge - b.fromAge
+  );
+
+  // Collect all phase boundary ages:
+  // 1. Contributor unlock ages (when accounts become accessible)
   const unlockAges = identifyUnlockEvents(contributors, dateOfBirth);
+  // 2. Income goal change ages
+  const incomeGoalAges = sortedIncomeGoals.map((g) => g.fromAge);
+
+  // Combine all boundary ages, filter to after retirement, dedupe, and sort
+  const allBoundaryAges = new Set<number>([
+    targetRetirementAge,
+    ...unlockAges.filter((age) => age >= targetRetirementAge),
+    ...incomeGoalAges.filter((age) => age >= targetRetirementAge),
+  ]);
+  const phaseBoundaries = Array.from(allBoundaryAges).sort((a, b) => a - b);
 
   // Building phase
   phases.push({
@@ -514,11 +531,6 @@ export function buildWithdrawalPhases(
   });
 
   // Withdrawal phases
-  const relevantUnlockAges = unlockAges.filter(
-    (age) => age > targetRetirementAge
-  );
-  const phaseBoundaries = [targetRetirementAge, ...relevantUnlockAges];
-
   for (let i = 0; i < phaseBoundaries.length; i++) {
     const fromAge = phaseBoundaries[i];
     const toAge = phaseBoundaries[i + 1] ?? null;
@@ -527,12 +539,13 @@ export function buildWithdrawalPhases(
       continue;
     }
 
-    let incomeTarget = annualIncomeGoal;
-    if (reducedSpendingTargets) {
-      for (const target of reducedSpendingTargets) {
-        if (fromAge >= target.fromAge) {
-          incomeTarget = target.reducedIncomeGoal;
-        }
+    // Find the applicable income goal for this phase
+    // Use the last income goal where fromAge >= goal.fromAge
+    let incomeTarget =
+      sortedIncomeGoals[0]?.incomeGoal ?? createDecimalValueString("0");
+    for (const goal of sortedIncomeGoals) {
+      if (fromAge >= goal.fromAge) {
+        incomeTarget = goal.incomeGoal;
       }
     }
 
@@ -570,7 +583,7 @@ export function calculateWithdrawalStrategy(
   contributors: Contributor[],
   fireConfig: FIREProjectionConfig,
   projectionResult: ProjectionResult,
-  reducedSpendingTargets?: ReducedSpendingTarget[]
+  incomeGoals: IncomeGoal[]
 ): WithdrawalStrategy {
   const { dateOfBirth } = fireConfig;
   const currentAge = calculateAgeAtDate(dateOfBirth, new Date());
@@ -587,7 +600,7 @@ export function calculateWithdrawalStrategy(
     contributors,
     fireConfig,
     projectionResult,
-    reducedSpendingTargets
+    incomeGoals
   );
 
   if (contributors.length === 0) {
