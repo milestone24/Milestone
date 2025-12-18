@@ -499,8 +499,6 @@ function defineValueReleasePointsForAssetType(
 export function mapAssetToContributor(
   asset: ProjectionOrchestratorAssetInput
 ): Contributor {
-  console.log("mapAssetToContributor asset", JSON.stringify(asset, null, 2));
-
   return {
     referenceId: asset.id,
     accountType: asset.accountType as AccountType,
