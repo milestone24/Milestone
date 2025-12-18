@@ -104,7 +104,7 @@ export interface ProjectionOrchestratorResult extends ProjectionResult {
 /**
  * Project a single asset
  */
-async function projectSingleContributor(
+export async function projectSingleContributor(
   contribution: Contributor,
   config: ProjectionConfigWithDateRange,
   dateOfBirth?: Date
