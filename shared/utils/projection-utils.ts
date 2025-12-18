@@ -423,6 +423,7 @@ function defineValueReleasePointsForAssetType(
 ): ValueReleasePointInTime[] {
   switch (assetType) {
     case "LISA":
+    case "ISA":
       // Lifetime ISA: Age 60+ (no penalty), or early withdrawal with 25% penalty
       // Exceptions: first home purchase, terminal illness
       return [
@@ -487,7 +488,6 @@ function defineValueReleasePointsForAssetType(
           exceptions: [], // No exceptions for Junior ISA
         },
       ];
-    case "ISA":
     case "GIA":
       // Flexible withdrawals - no restrictions
       return [];
