@@ -73,7 +73,7 @@ export const RRuleScheduler: React.FC<RRuleSchedulerProps> = ({
   };
 
   return (
-    <div className={`space-y-4 ${className}`}>
+    <div className={`space-y-10 ${className}`}>
       <FrequencySelector
         frequency={config.frequency}
         interval={config.interval}
