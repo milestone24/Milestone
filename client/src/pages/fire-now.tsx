@@ -46,6 +46,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { fireProjection } from "@shared/api/queryKeys";
 import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
 import { FireContributionsCard } from "@/components/fire/FireContributionsCard";
+import { WithdrawalStrategyCard } from "@/components/fire/WithdrawalStrategyCard";
 import Decimal from "decimal.js";
 
 // Calculate UK State Pension age based on date of birth
@@ -250,8 +251,6 @@ export default function Fire() {
     portfolioFallbackValue: 0, //Number(portfolioOverview?.value ?? 0),
   });
 
-  console.log("yearsToFire", yearsToFire);
-
   const isUsingCustomContributors =
     contributionMode === "custom" && mappedContributors.length > 0;
 
@@ -375,8 +374,6 @@ export default function Fire() {
             .div(100)
             .toNumber()
         : 0;
-
-    console.log("previewContributors", previewContributors);
 
     const contributionTotals = new Map<string, number>();
     previewContributors.forEach((contributor) => {
@@ -578,6 +575,20 @@ export default function Fire() {
           />
         ) : null}
 
+        <FireSettingsSummaryCard
+          form={fireSettingsForm}
+          onSubmit={handleSaveSettings}
+          isSubmitting={isSubmittingFireSettings}
+          isDirty={fireSettingsForm.formState.isDirty}
+          open={isSettingsEditorOpen}
+          onOpenChange={setIsSettingsEditorOpen}
+          onOpenPreviewModifiers={handleOpenPreviewModifiers}
+        />
+
+        <WithdrawalStrategyCard
+          withdrawalStrategy={activeProjection?.withdrawalStrategy}
+        />
+
         <FireContributionsCard
           contributionBreakdown={summaryData.contributionBreakdown}
           monthlyContributionDifference={
@@ -597,16 +608,6 @@ export default function Fire() {
           onResetContributionPreviewState={resetContributionPreviewState}
           customStartingValue={customStartingValue}
           onCustomStartingValueChange={setCustomStartingValue}
-        />
-
-        <FireSettingsSummaryCard
-          form={fireSettingsForm}
-          onSubmit={handleSaveSettings}
-          isSubmitting={isSubmittingFireSettings}
-          isDirty={fireSettingsForm.formState.isDirty}
-          open={isSettingsEditorOpen}
-          onOpenChange={setIsSettingsEditorOpen}
-          onOpenPreviewModifiers={handleOpenPreviewModifiers}
         />
 
         {error ? (
