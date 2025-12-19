@@ -1,0 +1,82 @@
+import { describe, it, expect } from "vitest";
+import { calculateWithdrawalStrategy } from "./projection-withdrawal";
+import {
+  Contributor,
+  createDecimalValueString,
+  ProjectionConfig,
+  ProjectionResult,
+} from "@shared/schema";
+import { defineContributorRulesForAssetType } from "./projection-utils-contributor";
+import { createRRulePattern } from "./scheduling";
+
+function createProjectionSimpleConfig(): ProjectionConfig {
+  return {
+    mode: "simple",
+    growthModel: "linear",
+    interval: "monthly",
+    modifiers: [],
+    useContributorSpecificGrowthRates: false,
+    growthRate: 0,
+  };
+}
+
+function createProjectionResult(): ProjectionResult {
+  return {
+    config: createProjectionSimpleConfig(),
+    totalCurrentValue: createDecimalValueString("0"),
+    totalProjectedValue: createDecimalValueString("0"),
+    contributorBreakdown: [],
+    computedAt: new Date(),
+    timePoints: [],
+    totalGrowth: createDecimalValueString("0"),
+    totalContributions: createDecimalValueString("0"),
+    totalBonuses: createDecimalValueString("0"),
+  };
+}
+
+describe("calculateWithdrawalStrategy", () => {
+  it("should return the correct withdrawal strategy", () => {
+    const contributors: Contributor[] = [
+      {
+        name: "Test Contributor",
+        type: "asset",
+        currentValue: createDecimalValueString("100000"),
+        accountType: "LISA",
+        ...defineContributorRulesForAssetType("LISA"),
+        schedules: [
+          {
+            patternConfig: createRRulePattern(
+              "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1"
+            ),
+            value: createDecimalValueString("1000"),
+            startDate: new Date(),
+            endDate: null,
+          },
+        ],
+      },
+    ];
+
+    const withdrawalStrategy = calculateWithdrawalStrategy(
+      contributors,
+      {
+        dateOfBirth: new Date("1979-05-15"),
+        targetRetirementAge: 67,
+        annualIncomeGoal: createDecimalValueString("10000"),
+        safeWithdrawalRate: 4,
+        adjustForInflation: true,
+        statePensionAge: 67,
+      },
+      createProjectionResult(),
+      [
+        {
+          fromAge: 67,
+          incomeGoal: createDecimalValueString("10000"),
+        },
+      ]
+    );
+
+    console.log("withdrawalStrategy", withdrawalStrategy);
+
+    expect(withdrawalStrategy).toBeDefined();
+  });
+});
