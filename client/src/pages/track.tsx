@@ -168,7 +168,8 @@ export default function Track() {
         safeWithdrawalRate: fireSettings.safeWithdrawalRate,
         monthlyInvestment: fireSettings.monthlyInvestment,
         adjustInflation: fireSettings.adjustInflation ?? true,
-        statePensionAge: fireSettings.statePensionAge ?? 66,
+        includeStatePension: fireSettings.includeStatePension ?? false,
+        incomeGoals: fireSettings.incomeGoals ?? [],
       });
     } catch (error) {
       console.error("Error updating FIRE settings:", error);

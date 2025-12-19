@@ -23,6 +23,13 @@ export const defaultValues = {
   statePensionAge: DEFAULT_STATE_PENSION_AGE,
 };
 
+export const incomeGoalSchema = z.object({
+  fromAge: z.number().int(),
+  incomeGoal: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Income goal must be a valid decimal string",
+  }),
+});
+
 export const fireSettingsOrphanSchema = z.object({
   targetRetirementAge: z.coerce.number().int(),
   annualIncomeGoal: decimalValueSchema.refine(isDecimalValueString, {
@@ -37,17 +44,21 @@ export const fireSettingsOrphanSchema = z.object({
   monthlyInvestment: decimalValueSchema.refine(isDecimalValueString, {
     message: "Monthly investment must be a valid decimal string",
   }),
-  //currentAge: z.coerce.number().int(), //Removed because age is calculated from dob
-  //adjustInflation: z.boolean().default(DEFAULT_ADJUST_INFLATION),
   adjustInflation: z.boolean().optional().default(DEFAULT_ADJUST_INFLATION),
-  statePensionAge: z.number().int().default(DEFAULT_STATE_PENSION_AGE),
-  //statePensionAge: z.coerce.number().int().optional(),
+  includeStatePension: z.boolean().optional().default(false),
+  incomeGoals: incomeGoalSchema.array(),
 });
 
 fireSettingsOrphanSchema._output satisfies Omit<
   DBInsertFireSettings,
   "userAccountId"
 >;
+
+export const fireSettingsOrphanFormSchema = fireSettingsOrphanSchema
+  .omit({ incomeGoals: true })
+  .extend({
+    reduceSpendingAt75: z.boolean(),
+  });
 
 export type FireSettingsOrphan = z.infer<typeof fireSettingsOrphanSchema>;
 

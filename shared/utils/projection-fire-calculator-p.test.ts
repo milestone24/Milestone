@@ -15,8 +15,15 @@ describe("projectToRetirement", () => {
       annualIncomeGoal: createDecimalValueString("100000"),
       dateOfBirth: new Date("1990-01-01"),
       safeWithdrawalRate: 4,
-      statePensionAge: 60,
       targetRetirementAge: 60,
+      gender: "male",
+      includeStatePension: false,
+      incomeGoals: [
+        {
+          fromAge: 60,
+          incomeGoal: createDecimalValueString("100000"),
+        },
+      ],
     };
 
     const projectionConfig: ProjectionConfig = {

@@ -1,11 +1,24 @@
-import { pgTable, integer, decimal, uuid, boolean } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  integer,
+  decimal,
+  uuid,
+  boolean,
+  jsonb,
+} from "drizzle-orm/pg-core";
 import { userAccounts } from "./user-account";
 import {
   brandedDecimal,
+  DecimalValueString,
   InferInsertModelBasic,
   timestampColumns,
 } from "./utils";
 import { InferSelectModel, sql } from "drizzle-orm";
+
+export type IncomeGoal = {
+  fromAge: number;
+  incomeGoal: DecimalValueString;
+};
 
 export const fireSettings = pgTable("fire_settings", {
   id: uuid("id")
@@ -20,7 +33,13 @@ export const fireSettings = pgTable("fire_settings", {
   safeWithdrawalRate: brandedDecimal("safe_withdrawal_rate").notNull(), // Percentage: 0.00 to 99.99
   monthlyInvestment: brandedDecimal("monthly_investment").notNull(), // Supports up to 9.99 trillion with 2 decimals
   adjustInflation: boolean("adjust_inflation").default(true).notNull(),
-  statePensionAge: integer("state_pension_age").default(66).notNull(), // UK State Pension age (66 or 67)
+  includeStatePension: boolean("include_state_pension")
+    .default(false)
+    .notNull(),
+  incomeGoals: jsonb("income_goals")
+    .$type<IncomeGoal[]>()
+    .notNull()
+    .default([]),
   ...timestampColumns(),
 });
 

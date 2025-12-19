@@ -11,8 +11,15 @@ import {
   FormDescription,
 } from "@/components/ui/form";
 
+export type FireSettingsFormValues = Omit<
+  FireSettingsInsert,
+  "incomeGoals" | "userAccountId"
+> & {
+  reduceSpendingAt75: boolean;
+};
+
 export const FireSettingsForm = () => {
-  const form = useFormContext<FireSettingsInsert>();
+  const form = useFormContext<FireSettingsFormValues>();
 
   return (
     <div className="space-y-4">
@@ -153,6 +160,54 @@ export const FireSettingsForm = () => {
                 Adjust for inflation{" "}
                 <span className="italic font-normal text-gray-500">
                   (average 2.8% over the past 30 years)
+                </span>
+              </FormLabel>
+            </div>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="includeStatePension"
+        render={({ field }) => (
+          <FormItem>
+            <div className="flex items-center space-x-2">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+              <FormLabel className="text-sm cursor-pointer !mt-0">
+                Include State Pension{" "}
+                <span className="italic font-normal text-gray-500">
+                  (based on your date of birth and gender)
+                </span>
+              </FormLabel>
+            </div>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="reduceSpendingAt75"
+        render={({ field }) => (
+          <FormItem>
+            <div className="flex items-center space-x-2">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+              <FormLabel className="text-sm cursor-pointer !mt-0">
+                Reduce spending at 75{" "}
+                <span className="italic font-normal text-gray-500">
+                  (75% of desired annual income at age 75)
                 </span>
               </FormLabel>
             </div>

@@ -7,9 +7,11 @@ import type { UseFormReturn } from "react-hook-form";
 import type { FireSettingsInsert } from "@shared/schema";
 import { FireSettingsPanel } from "@/components/fire/FireSettingsPanel";
 
+import type { FireSettingsFormValues } from "@/components/fire/FireSettingsForm";
+
 type FireSettingsSummaryCardProps = {
-  form: UseFormReturn<FireSettingsInsert>;
-  onSubmit: ReturnType<UseFormReturn<FireSettingsInsert>["handleSubmit"]>;
+  form: UseFormReturn<FireSettingsFormValues>;
+  onSubmit: ReturnType<UseFormReturn<FireSettingsFormValues>["handleSubmit"]>;
   isSubmitting: boolean;
   isDirty: boolean;
   open: boolean;
@@ -50,14 +52,23 @@ export function FireSettingsSummaryCard({
   onOpenChange,
   onOpenPreviewModifiers,
 }: FireSettingsSummaryCardProps) {
-  const [annualIncomeGoal, expectedAnnualReturn, safeWithdrawalRate, monthlyInvestment, targetRetirementAge] =
-    form.watch([
-      "annualIncomeGoal",
-      "expectedAnnualReturn",
-      "safeWithdrawalRate",
-      "monthlyInvestment",
-      "targetRetirementAge",
-    ]);
+  const [
+    annualIncomeGoal,
+    expectedAnnualReturn,
+    safeWithdrawalRate,
+    monthlyInvestment,
+    targetRetirementAge,
+    includeStatePension,
+    reduceSpendingAt75,
+  ] = form.watch([
+    "annualIncomeGoal",
+    "expectedAnnualReturn",
+    "safeWithdrawalRate",
+    "monthlyInvestment",
+    "targetRetirementAge",
+    "includeStatePension",
+    "reduceSpendingAt75",
+  ]);
 
   const summaryRows = useMemo(
     () => [
@@ -81,6 +92,14 @@ export function FireSettingsSummaryCard({
         label: "Target retirement age",
         value: formatAge(targetRetirementAge),
       },
+      {
+        label: "Include state pension",
+        value: includeStatePension ? "Yes" : "No",
+      },
+      {
+        label: "Reduce spending at 75",
+        value: reduceSpendingAt75 ? "Yes" : "No",
+      },
     ],
     [
       annualIncomeGoal,
@@ -88,7 +107,9 @@ export function FireSettingsSummaryCard({
       monthlyInvestment,
       safeWithdrawalRate,
       targetRetirementAge,
-    ],
+      includeStatePension,
+      reduceSpendingAt75,
+    ]
   );
 
   return (
@@ -96,7 +117,9 @@ export function FireSettingsSummaryCard({
       <CardHeader className="flex flex-col gap-2 pb-2">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <CardTitle className="text-base font-medium">FIRE settings</CardTitle>
+            <CardTitle className="text-base font-medium">
+              FIRE settings
+            </CardTitle>
             <p className="text-sm text-muted-foreground">
               Review the configuration that powers your retirement projection.
             </p>
@@ -104,15 +127,23 @@ export function FireSettingsSummaryCard({
           {isDirty && <Badge variant="secondary">Draft changes</Badge>}
         </div>
         <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          Changes are saved per user. Unsaved updates remain in draft until you apply them.
+          Changes are saved per user. Unsaved updates remain in draft until you
+          apply them.
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <dl className="grid gap-3 sm:grid-cols-2">
           {summaryRows.map((row) => (
-            <div key={row.label} className="rounded-md border bg-muted/30 px-3 py-2">
-              <dt className="text-xs uppercase tracking-wide text-muted-foreground">{row.label}</dt>
-              <dd className="text-sm font-medium text-foreground">{row.value}</dd>
+            <div
+              key={row.label}
+              className="rounded-md border bg-muted/30 px-3 py-2"
+            >
+              <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+                {row.label}
+              </dt>
+              <dd className="text-sm font-medium text-foreground">
+                {row.value}
+              </dd>
             </div>
           ))}
         </dl>
@@ -122,7 +153,11 @@ export function FireSettingsSummaryCard({
             {open ? "Close editor" : "Edit settings"}
           </Button>
           {onOpenPreviewModifiers && (
-            <Button size="sm" variant="outline" onClick={onOpenPreviewModifiers}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onOpenPreviewModifiers}
+            >
               Adjust preview
             </Button>
           )}
@@ -131,7 +166,11 @@ export function FireSettingsSummaryCard({
         <Collapsible open={open} onOpenChange={onOpenChange}>
           <CollapsibleContent className="space-y-4 data-[state=closed]:hidden">
             <div className="rounded-lg border bg-background p-4">
-              <FireSettingsPanel form={form} onSubmit={onSubmit} isSubmitting={isSubmitting} />
+              <FireSettingsPanel
+                form={form}
+                onSubmit={onSubmit}
+                isSubmitting={isSubmitting}
+              />
             </div>
           </CollapsibleContent>
         </Collapsible>

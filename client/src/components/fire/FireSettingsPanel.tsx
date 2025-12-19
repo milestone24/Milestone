@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 import { FireSettingsForm } from "@/components/fire/FireSettingsForm";
 import type { FireSettingsInsert } from "@shared/schema";
 
+import type { FireSettingsFormValues } from "@/components/fire/FireSettingsForm";
+
 type FireSettingsPanelProps = {
-  form: UseFormReturn<FireSettingsInsert>;
-  onSubmit: ReturnType<UseFormReturn<FireSettingsInsert>["handleSubmit"]>;
+  form: UseFormReturn<FireSettingsFormValues>;
+  onSubmit: ReturnType<UseFormReturn<FireSettingsFormValues>["handleSubmit"]>;
   isSubmitting: boolean;
 };
 

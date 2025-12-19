@@ -8,13 +8,17 @@ import {
   fireSettingsInsertSchema,
   fireSettingsOrphanSchema,
   createDecimalValueString,
+  fireSettingsOrphanFormSchema,
 } from "@shared/schema";
 import type {
   FIREProjectionConfig,
   ProjectionConfig,
 } from "@shared/schema/projections";
 import { useSession } from "@/hooks/use-session";
-import { calculateAge } from "@shared/utils/projection-utils";
+import {
+  calculateAge,
+  defineStatePensionAgeForGenderUK,
+} from "@shared/utils/projection-utils";
 import { useFireSettings } from "@/hooks/use-fire-settings";
 import { usePatchFireSettings } from "@/hooks/use-fire-settings-patch";
 import { useCreateFireSettings } from "@/hooks/use-fire-settings-create";
@@ -48,30 +52,25 @@ import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
 import { FireContributionsCard } from "@/components/fire/FireContributionsCard";
 import { WithdrawalStrategyCard } from "@/components/fire/WithdrawalStrategyCard";
 import Decimal from "decimal.js";
+import { FireSettingsFormValues } from "@/components/fire/FireSettingsForm";
+import { IncomeGoal } from "@shared/utils/projection-withdrawal";
 
-// Calculate UK State Pension age based on date of birth
-const calculateStatePensionAge = (
-  dob: string | Date | null | undefined
-): number => {
-  if (!dob) return DEFAULT_STATE_PENSION_AGE;
-
-  const dobDate = typeof dob === "string" ? new Date(dob) : dob;
-  const cutoffDate = new Date("1960-04-06");
-
-  // Born before April 6, 1960 → 66, otherwise → 67
-  return dobDate < cutoffDate ? 66 : 67;
+const hasAt75IncomeGoal = (incomeGoals: IncomeGoal[]): boolean => {
+  return incomeGoals.some((goal) => goal.fromAge === 75);
 };
 
 export default function Fire() {
   const { toast } = useToast();
 
   const { user } = useSession();
-  const currentAge = user?.profile?.dob ? calculateAge(user.profile.dob) : NaN;
-  const statePensionAge = calculateStatePensionAge(user?.profile?.dob);
-  //const { data: portfolioOverview } = usePortfolioOverview();
+  const userDOB = user?.profile?.dob;
+  const userGender = user?.profile?.gender;
+  const currentAge = userDOB ? calculateAge(userDOB) : NaN;
+  const statePensionAge =
+    userDOB && userGender
+      ? defineStatePensionAgeForGenderUK(userDOB, userGender)
+      : NaN;
   const queryClient = useQueryClient();
-
-  //console.log("portfolioOverview", portfolioOverview);
 
   const { data: fireSettings, isLoading: isLoadingFireSettings } =
     useFireSettings();
@@ -79,26 +78,43 @@ export default function Fire() {
   const { mutateAsync: createFireSettings } = useCreateFireSettings();
 
   // Single form instance for the entire page
-  const fireSettingsForm = useForm<FireSettingsInsert>({
-    resolver: zodResolver(fireSettingsOrphanSchema),
+  const fireSettingsForm = useForm<FireSettingsFormValues>({
+    resolver: zodResolver(fireSettingsOrphanFormSchema),
+    values: fireSettings
+      ? {
+          annualIncomeGoal: fireSettings?.annualIncomeGoal ?? "0",
+          expectedAnnualReturn: fireSettings?.expectedAnnualReturn ?? "7",
+          safeWithdrawalRate: fireSettings?.safeWithdrawalRate ?? "4",
+          monthlyInvestment: fireSettings?.monthlyInvestment ?? "",
+          targetRetirementAge:
+            fireSettings?.targetRetirementAge ?? DEFAULT_TARGET_RETIREMENT_AGE,
+          adjustInflation: fireSettings?.adjustInflation ?? true,
+          includeStatePension: fireSettings?.includeStatePension ?? false,
+          reduceSpendingAt75: hasAt75IncomeGoal(
+            fireSettings?.incomeGoals ?? []
+          ),
+        }
+      : undefined,
     defaultValues: {
       annualIncomeGoal: "",
       expectedAnnualReturn: "7",
       safeWithdrawalRate: "4",
       monthlyInvestment: "",
       targetRetirementAge: DEFAULT_TARGET_RETIREMENT_AGE,
-      statePensionAge: statePensionAge,
       adjustInflation: true,
+      includeStatePension: false,
+      reduceSpendingAt75: false,
     },
   });
 
   const {
     formState: { isSubmitting: isSubmittingFireSettings },
     handleSubmit,
+    watch,
   } = fireSettingsForm;
 
   // Watch values for calculations
-  const fireSettingsValues = fireSettingsForm.watch();
+  const fireSettingsValues = watch();
 
   // Helper variables for numeric conversions (used in calculations and display)
   // These convert DecimalValueString form values to numbers where needed
@@ -110,33 +126,44 @@ export default function Fire() {
     fireSettingsValues.targetRetirementAge || DEFAULT_TARGET_RETIREMENT_AGE
   );
   const adjustInflation = fireSettingsValues.adjustInflation ?? true;
-
+  const includeStatePension = fireSettingsValues.includeStatePension ?? false;
+  const reduceSpendingAt75 = fireSettingsValues.reduceSpendingAt75 ?? false;
   const [customStartingValue, setCustomStartingValue] = useState(0);
 
   const firePreviewConfig = useMemo<FIREProjectionConfig | null>(() => {
-    if (!user?.profile?.dob) return null;
+    if (!userDOB || !userGender) return null;
 
-    const dob =
-      typeof user.profile.dob === "string"
-        ? new Date(user.profile.dob)
-        : user.profile.dob;
-
-    if (!dob || Number.isNaN(dob.getTime())) {
-      return null;
-    }
-
+    //Here we should should be be goig from Decimal string to number back to Decimal string.
+    //Always use createDecimalValueString to create the Decimal string.
     return {
-      dateOfBirth: dob,
+      dateOfBirth: userDOB,
+      gender: userGender,
       targetRetirementAge,
-      annualIncomeGoal: createDecimalValueString(
-        (fireSettingsValues.annualIncomeGoal || "0").toString()
-      ),
+      annualIncomeGoal: createDecimalValueString(annualIncomeGoal.toString()),
       safeWithdrawalRate: withdrawalRate,
       adjustForInflation: adjustInflation,
-      statePensionAge,
+      includeStatePension: includeStatePension,
+      incomeGoals: [
+        {
+          fromAge: targetRetirementAge,
+          incomeGoal: createDecimalValueString(annualIncomeGoal.toString()),
+        },
+        //If reduceSpendingAt75 is true, add an income goal of 75% of the annual income goal at age 75
+        ...(reduceSpendingAt75
+          ? [
+              {
+                fromAge: 75,
+                incomeGoal: createDecimalValueString(
+                  (annualIncomeGoal * 0.75).toString()
+                ),
+              },
+            ]
+          : []),
+      ],
     } satisfies FIREProjectionConfig;
   }, [
-    user?.profile?.dob,
+    userDOB,
+    userGender,
     targetRetirementAge,
     fireSettingsValues.annualIncomeGoal,
     withdrawalRate,
@@ -196,26 +223,26 @@ export default function Fire() {
   }, []);
 
   // Update form when fireSettings loads
-  useEffect(() => {
-    if (fireSettings) {
-      fireSettingsForm.reset({
-        ...fireSettings,
-        // Money fields: strip trailing zeros for cleaner display
-        annualIncomeGoal: parseFloat(fireSettings.annualIncomeGoal).toString(),
-        monthlyInvestment: parseFloat(
-          fireSettings.monthlyInvestment
-        ).toString(),
-        // Percentage fields: retain 2 decimal places
-        expectedAnnualReturn: parseFloat(
-          fireSettings.expectedAnnualReturn
-        ).toFixed(2),
-        safeWithdrawalRate: parseFloat(fireSettings.safeWithdrawalRate).toFixed(
-          2
-        ),
-        statePensionAge: statePensionAge, // Always use calculated value based on DOB
-      });
-    }
-  }, [fireSettings, fireSettingsForm, statePensionAge]);
+  // useEffect(() => {
+  //   if (fireSettings) {
+  //     fireSettingsForm.reset({
+  //       ...fireSettings,
+  //       // Money fields: strip trailing zeros for cleaner display
+  //       annualIncomeGoal: parseFloat(fireSettings.annualIncomeGoal).toString(),
+  //       monthlyInvestment: parseFloat(
+  //         fireSettings.monthlyInvestment
+  //       ).toString(),
+  //       // Percentage fields: retain 2 decimal places
+  //       expectedAnnualReturn: parseFloat(
+  //         fireSettings.expectedAnnualReturn
+  //       ).toFixed(2),
+  //       safeWithdrawalRate: parseFloat(fireSettings.safeWithdrawalRate).toFixed(
+  //         2
+  //       ),
+  //       includeStatePension: fireSettings.includeStatePension ?? false,
+  //     });
+  //   }
+  // }, [fireSettings, fireSettingsForm, statePensionAge]);
 
   useEffect(() => {
     if (!adjustInflation && previewState.inflation.enabled) {
@@ -454,6 +481,24 @@ export default function Fire() {
   const handleSaveSettings = fireSettingsForm.handleSubmit(async (data) => {
     const settings: Omit<FireSettingsInsert, "id" | "userAccountId"> = {
       ...data,
+      incomeGoals: [
+        {
+          fromAge: data.targetRetirementAge,
+          incomeGoal: createDecimalValueString(
+            data.annualIncomeGoal.toString()
+          ),
+        },
+        ...(data.reduceSpendingAt75
+          ? [
+              {
+                fromAge: 75,
+                incomeGoal: createDecimalValueString(
+                  Decimal(data.annualIncomeGoal).mul(0.75).toString()
+                ),
+              },
+            ]
+          : []),
+      ],
     };
 
     try {
@@ -470,7 +515,6 @@ export default function Fire() {
       });
       await queryClient.invalidateQueries({ queryKey: fireProjection });
     } catch (error) {
-      console.error("Error saving FIRE settings:", error);
       toast({
         title: "Error saving settings",
         description:
@@ -480,15 +524,15 @@ export default function Fire() {
     }
   });
 
-  if (!user?.profile?.dob) {
+  if (!userDOB || !userGender) {
     return (
       <div className="fire-screen mx-auto max-w-5xl px-4 pb-20">
         <Card className="mt-4">
           <CardContent className="p-4">
             <h2 className="mb-3 text-lg font-semibold">FIRE Calculator</h2>
             <p className="mb-6 text-sm text-gray-600">
-              You must set your date of birth before you can use the FIRE
-              calculator. This should be done in your profile settings.
+              You must set your date of birth and gender before you can use the
+              FIRE calculator. This should be done in your profile settings.
             </p>
             <Link href="/profile">Go to Profile</Link>
           </CardContent>
@@ -530,8 +574,6 @@ export default function Fire() {
       </div>
     );
   }
-
-  console.log("error", error);
 
   // Main FIRE calculator view
   return (

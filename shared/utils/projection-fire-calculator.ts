@@ -28,7 +28,10 @@ import {
   calculateMonthlyContributionDifference,
   defineStatePensionDetailsUK,
 } from "./projection-utils";
-import { mapAssetsToContributors } from "./projection-utils-contributor";
+import {
+  defineStatePensionContributor,
+  mapAssetsToContributors,
+} from "./projection-utils-contributor";
 import { createRRulePattern } from "./scheduling";
 import { calculateWithdrawalStrategy } from "./projection-withdrawal";
 
@@ -208,34 +211,12 @@ This will cause the projection to be infinite years ahead of retirement.`);
     createDecimalValueString(fireNumber.toString())
   );
 
-  // Build income goals array - derive first goal from fire settings
-  // Additional goals can be added for different retirement phases
-  const incomeGoals = [
-    {
-      fromAge: fireConfig.targetRetirementAge,
-      incomeGoal: fireConfig.annualIncomeGoal,
-    },
-    // TODO: These should come from user settings, hardcoded for now
-    {
-      fromAge: 64,
-      incomeGoal: createDecimalValueString("50000"),
-    },
-    {
-      fromAge: 67,
-      incomeGoal: createDecimalValueString("40000"),
-    },
-    {
-      fromAge: 85,
-      incomeGoal: createDecimalValueString("20000"),
-    },
-  ];
-
   // Calculate withdrawal strategy
   const withdrawalStrategy = calculateWithdrawalStrategy(
     contributors,
     fireConfig,
     projectionResult,
-    incomeGoals
+    fireConfig.incomeGoals
   );
 
   // Merge withdrawal strategy warnings with existing warnings
@@ -302,11 +283,13 @@ export async function projectRetirementWithAccountAssets(
   // Create FIRE config from settings
   const fireConfig: FIREProjectionConfig = {
     dateOfBirth: userProfile.dob,
+    gender: userProfile.gender,
     targetRetirementAge: userFireSettings.targetRetirementAge,
     annualIncomeGoal: userFireSettings.annualIncomeGoal,
     safeWithdrawalRate: Decimal(userFireSettings.safeWithdrawalRate).toNumber(),
     adjustForInflation: userFireSettings.adjustInflation,
-    statePensionAge: userFireSettings.statePensionAge,
+    includeStatePension: userFireSettings.includeStatePension,
+    incomeGoals: userFireSettings.incomeGoals,
   };
 
   const assets = await dataSource.getAssets();
@@ -317,37 +300,13 @@ export async function projectRetirementWithAccountAssets(
   //We need to find all the details for the specifics of UK state pension withdrawels etc and rules
   //if (userFireSettings.includeGovernmentPensions) {
 
-  if (true) {
-    //const pensionAge = userFireSettings.statePensionAge;
-    const { age: pensionAge, startDate: pensionStartDate } =
-      defineStatePensionDetailsUK(fireConfig.dateOfBirth, userProfile.gender);
-
-    contributors.push({
-      name: "State Pension",
-      type: "state_pension",
-      currentValue: createDecimalValueString("0"),
-      accountType: "PENSION",
-      expectedGrowthRate: 0,
-      valueReleases: [
-        {
-          value: pensionAge.toString(),
-          valueType: "age",
-        },
-      ],
-      schedules: [
-        {
-          patternConfig: {
-            type: "rrule",
-            expression: createRRulePattern(
-              "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1"
-            ).expression,
-          },
-          startDate: pensionStartDate,
-          endDate: null,
-          value: createDecimalValueString("1000"),
-        },
-      ],
+  if (fireConfig.includeStatePension) {
+    const statePensionContributor = defineStatePensionContributor({
+      dateOfBirth: fireConfig.dateOfBirth,
+      gender: fireConfig.gender,
     });
+
+    contributors.push(statePensionContributor);
   }
 
   //This is the ame method call as the client makes for projecting a portfolio

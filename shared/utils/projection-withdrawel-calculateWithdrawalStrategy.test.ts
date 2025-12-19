@@ -60,11 +60,18 @@ describe("calculateWithdrawalStrategy", () => {
       contributors,
       {
         dateOfBirth: new Date("1979-05-15"),
+        gender: "male",
+        includeStatePension: false,
+        incomeGoals: [
+          {
+            fromAge: 67,
+            incomeGoal: createDecimalValueString("10000"),
+          },
+        ],
         targetRetirementAge: 67,
         annualIncomeGoal: createDecimalValueString("10000"),
         safeWithdrawalRate: 4,
         adjustForInflation: true,
-        statePensionAge: 67,
       },
       createProjectionResult(),
       [

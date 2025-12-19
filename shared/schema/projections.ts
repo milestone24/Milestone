@@ -2,7 +2,7 @@ import { z } from "zod";
 import { AccountType, accountType, UserAsset } from "./portfolio-assets";
 import { RecurringContribution } from "./transaction";
 import { Milestone } from "./portfolio-milestone";
-import { FireSettings } from "./portfolio-fire";
+import { FireSettings, incomeGoalSchema } from "./portfolio-fire";
 import { UserProfile } from "./user-account";
 import { decimalValueSchema, schedulePatternType } from "@server/db/schema";
 import {
@@ -223,13 +223,15 @@ export type MilestoneTarget = z.infer<typeof milestoneTargetSchema>;
  */
 export const fireProjectionConfigSchema = z.object({
   dateOfBirth: dateTransformedSchema,
+  gender: z.enum(["male", "female", "other"]),
   targetRetirementAge: z.number().min(18).max(100),
   annualIncomeGoal: z.string().refine(isDecimalValueString, {
     message: "Annual income goal must be a valid decimal string",
   }),
   safeWithdrawalRate: z.number().min(0).max(100), // Percentage (typically 3-4%)
   adjustForInflation: z.boolean().default(true),
-  statePensionAge: z.number().min(60).max(70).default(66),
+  includeStatePension: z.boolean().default(false),
+  incomeGoals: incomeGoalSchema.array(),
 });
 export type FIREProjectionConfig = z.infer<typeof fireProjectionConfigSchema>;
 
@@ -590,18 +592,6 @@ export type FireProjection = z.infer<typeof fireProjectionSchema>;
 // ============================================================================
 // WITHDRAWAL STRATEGY SCHEMAS
 // ============================================================================
-
-/**
- * Income goal - defines target income from a specific age
- * Used to define income targets across retirement phases
- */
-export const incomeGoalSchema = z.object({
-  fromAge: z.number(),
-  incomeGoal: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Income goal must be a valid decimal string",
-  }),
-});
-export type IncomeGoal = z.infer<typeof incomeGoalSchema>;
 
 /**
  * Single account allocation within a withdrawal phase
