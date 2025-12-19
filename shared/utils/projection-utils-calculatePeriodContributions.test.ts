@@ -4,7 +4,7 @@ import { Contributor } from "@shared/schema/projections";
 import { createDecimalValueString } from "@shared/schema/utils";
 import { createRRulePattern } from "./scheduling";
 import { addYears } from "date-fns";
-import { calculateStatePensionStartDate } from "./projection-utils";
+import { defineStatePensionDetailsUK } from "./projection-utils";
 
 describe("calculatePeriodContributions", () => {
   it("should return the correct LISA contributions for a monthly contribution of 10 for 12 months", () => {
@@ -34,11 +34,8 @@ describe("calculatePeriodContributions", () => {
   });
 
   it.only("should return the correct State Pension contributions for a monthly contribution of 10 for 12 months", () => {
-    const pensionAge = 67;
-    const pensionStartDate = calculateStatePensionStartDate(
-      new Date("1979-05-15"),
-      pensionAge
-    );
+    const { startDate: pensionStartDate, age: pensionAge } =
+      defineStatePensionDetailsUK(new Date("1979-05-15"), "male");
 
     const contributor: Contributor = {
       name: "State Pension",

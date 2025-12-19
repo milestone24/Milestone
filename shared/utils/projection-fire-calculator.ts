@@ -27,7 +27,7 @@ import {
   convertToAgeBasedProjection,
   mapAssetsToContributors,
   calculateMonthlyContributionDifference,
-  calculateStatePensionStartDate,
+  defineStatePensionDetailsUK,
 } from "./projection-utils";
 import { createRRulePattern } from "./scheduling";
 import { calculateWithdrawalStrategy } from "./projection-withdrawal";
@@ -313,12 +313,15 @@ export async function projectRetirementWithAccountAssets(
   //If fire settings or other config has "include government pensions" set to true, then add the government pension to the contributors
   //We need to find all the details for the specifics of UK state pension withdrawels etc and rules
   //if (userFireSettings.includeGovernmentPensions) {
+
+  //const gender = fireConfig.gender;
+  //We need to get the gender from the user profile
+  const gender = "male";
+
   if (true) {
-    const pensionAge = userFireSettings.statePensionAge;
-    const pensionStartDate = calculateStatePensionStartDate(
-      fireConfig.dateOfBirth,
-      pensionAge
-    );
+    //const pensionAge = userFireSettings.statePensionAge;
+    const { age: pensionAge, startDate: pensionStartDate } =
+      defineStatePensionDetailsUK(fireConfig.dateOfBirth, gender);
 
     contributors.push({
       name: "State Pension",

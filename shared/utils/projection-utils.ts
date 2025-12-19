@@ -876,9 +876,51 @@ export function calculateYearsToTarget(
   return months / 12;
 }
 
-export const calculateStatePensionStartDate = (
+//TODO: This is a placeholder for the gender of the user.
+export type Gender = "male" | "female" | "other";
+
+export const defineStatePensionAgeForGenderUK = (
   dateOfBirth: Date,
-  statePensionAge: number
-): Date => {
-  return addYears(dateOfBirth, statePensionAge);
+  gender: Gender
+): number => {
+  return gender === "male"
+    ? dateOfBirth.getFullYear() < 1960
+      ? 66
+      : 67
+    : gender === "female"
+    ? dateOfBirth.getFullYear() < 1960
+      ? 65
+      : 66
+    : gender === "other"
+    ? dateOfBirth.getFullYear() < 1960
+      ? 66
+      : 67
+    : 0;
+};
+
+export const defineStatePensionDetailsUK = (
+  dateOfBirth: Date,
+  gender: Gender
+): {
+  age: number;
+  startDate: Date;
+} => {
+  const statePensionAge = defineStatePensionAgeForGenderUK(dateOfBirth, gender);
+  return {
+    age: statePensionAge,
+    startDate: addYears(dateOfBirth, statePensionAge),
+  };
+};
+
+export const defineStatePensionValueUK = (
+  dateOfBirth: Date,
+  gender: Gender,
+  contributionYears: number
+): {
+  value: DecimalValueString;
+} => {
+  //TODO: Calculate the value of the state pension based on the date of birth, gender and contribution years
+  return {
+    value: createDecimalValueString("1000"),
+  };
 };

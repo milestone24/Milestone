@@ -4,7 +4,7 @@ import { Contributor } from "@shared/schema/projections";
 import { createDecimalValueString } from "@shared/schema/utils";
 import { createRRulePattern } from "./scheduling";
 import { addYears } from "date-fns";
-import { calculateStatePensionStartDate } from "./projection-utils";
+import { defineStatePensionDetailsUK } from "./projection-utils";
 
 describe("getAnnualScheduledIncomeForContributor", () => {
   it("should return the correct State Pension contributions for a monthly contribution of 10 for 12 months", () => {
@@ -26,12 +26,10 @@ describe("getAnnualScheduledIncomeForContributor", () => {
     // };
 
     const dateOfBirth = new Date("1979-05-15");
-    const pensionAge = 67;
+    const gender = "male";
 
-    const pensionStartDate = calculateStatePensionStartDate(
-      dateOfBirth,
-      pensionAge
-    );
+    const { startDate: pensionStartDate, age: pensionAge } =
+      defineStatePensionDetailsUK(dateOfBirth, gender);
 
     const contributor: Contributor = {
       name: "State Pension",
