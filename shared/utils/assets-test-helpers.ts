@@ -13,7 +13,7 @@ export const singleAssetWithSingleHistory: WithAssetHistory<
 >[] = [
   {
     id: "a1",
-    accountType: "calculated",
+    accountType: "ISA",
     name: "a1",
     startDate: new Date("2024-01-01T00:00:00Z"),
     valueMethod: "calculated",
@@ -45,7 +45,7 @@ export const multipleAssetWithSingleHistory: WithAssetHistory<
 >[] = [
   {
     id: "a1",
-    accountType: "calculated",
+    accountType: "ISA",
     name: "a1",
     startDate: new Date("2024-01-01T00:00:00Z"),
     valueMethod: "calculated",
@@ -83,7 +83,7 @@ export const multipleAssetWithSingleHistory: WithAssetHistory<
   },
   {
     id: "a2",
-    accountType: "calculated",
+    accountType: "ISA",
     name: "a2",
     startDate: new Date("2024-01-01T00:00:00Z"),
     valueMethod: "calculated",

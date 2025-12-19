@@ -232,7 +232,7 @@ export const userAssets = pgTable(
       .references(() => userAccounts.id),
     platformId: uuid("platform_id").references(() => brokerPlatforms.id),
     providerId: uuid("provider_id").references(() => brokerProviders.id),
-    accountType: text("account_type").notNull(), // ISA, SIPP, CISA (Lifetime ISA), GIA (General Account)
+    accountType: accountTypeEnum("account_type").notNull(),
     ...timestampColumns(),
   },
   (t) => [

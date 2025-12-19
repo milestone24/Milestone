@@ -15,6 +15,7 @@ import type {
 } from "@server/db/schema/index";
 import {
   accountType,
+  accountTypeEnum,
   decimalValueSchema,
   decimalValueSchemaRequiredGreaterThanZero,
 } from "@server/db/schema/index";
@@ -293,13 +294,7 @@ export const userAssetOrphanInsertSchema = z.object({
     .min(4, { message: "Name must be at least 4 characters long" }),
   platformId: z.string().optional(),
   providerId: z.string().optional(),
-
-  //TODO Account type to become a wrapper type
-  //wrapperType: z.string().optional(),
-  accountType: z
-    .string()
-    .refine((val) => Object.values(accountType).includes(val as AccountType)),
-
+  accountType: z.enum(accountType),
   startDate: z.coerce
     .date()
     .refine((val) => val <= new Date(), {
@@ -353,6 +348,9 @@ type ZodUserAssetInsert = z.infer<typeof userAssetInsertSchema>;
 export type UserAssetInsert = ZodUserAssetInsert;
 
 export type UserAsset = DBUserAsset;
+// export type UserAsset = Omit<DBUserAsset, "accountType"> & {
+//   accountType: AccountType;
+// };
 export type UserAssetWithHistoryAndAccountChange = WithAccountChange<
   WithAssetHistory<UserAssetWithValue, AssetValue>
 >;
