@@ -36,7 +36,7 @@ import {
   calculatedAssetsQueryBuilder,
   calculatedAssetsWithContributionsQueryBuilder,
 } from "../assets/query";
-import { mapAssetsToContributors } from "@shared/utils/projection-utils";
+import { mapAssetsToContributors } from "@shared/utils/projection-utils-contributor";
 
 export type AssetWithRecurringContributions = UserAssetWithValue & {
   recurringContributions: RecurringContribution[];

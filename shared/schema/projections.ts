@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { accountType, UserAsset } from "./portfolio-assets";
+import { AccountType, accountType, UserAsset } from "./portfolio-assets";
 import { RecurringContribution } from "./transaction";
 import { Milestone } from "./portfolio-milestone";
 import { FireSettings } from "./portfolio-fire";
@@ -302,7 +302,6 @@ export type AssetProjection = z.infer<typeof assetProjectionSchema>;
  * Contributor
  */
 
-
 export const contributionTypes = [
   "asset",
   "state_pension",
@@ -372,11 +371,13 @@ export const taxSchema = z.object({
   }),
 });
 
-export type Tax = z.infer<typeof taxSchema>;
+export type ContributorTax = z.infer<typeof taxSchema>;
 
 export const valueReleasePointInTimeSchema = z.object({
   valueType: z.enum(["age", "date"]),
   value: z.string(), // Age as string (e.g., "60") or ISO date string (e.g., "2025-04-06")
+  //Applying penalties suggests that the value can be accessed before the value is reached but with a penalty.
+  //If no penalties are applied does it suggest the value is explicity locked and there are no exceptions?
   penalties: z
     .array(
       z.object({
@@ -435,6 +436,8 @@ export type Limitation = z.infer<typeof limitationSchema>;
 
 const contributorType = [...accountType, "PENSION"] as const;
 
+export type ContributorType = (typeof contributorType)[number];
+
 export const contributorSchema = z.object({
   referenceId: z.string().uuid().optional(),
   accountType: z.enum(contributorType),
@@ -457,6 +460,11 @@ export const computationContextSchema = z.object({
   contributors: z.array(contributorSchema),
 });
 export type ComputationContext = z.infer<typeof computationContextSchema>;
+
+export type ContributorRules = Pick<
+  Contributor,
+  "valueReleases" | "bonusValues" | "expectedGrowthRate" | "taxes"
+>;
 
 /**
  * Milestone progress result - indicates if user is on track
@@ -584,15 +592,16 @@ export type FireProjection = z.infer<typeof fireProjectionSchema>;
 // ============================================================================
 
 /**
- * Reduced spending target - allows user to reduce income goal at certain ages
+ * Income goal - defines target income from a specific age
+ * Used to define income targets across retirement phases
  */
-export const reducedSpendingTargetSchema = z.object({
+export const incomeGoalSchema = z.object({
   fromAge: z.number(),
-  reducedIncomeGoal: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Reduced income goal must be a valid decimal string",
+  incomeGoal: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Income goal must be a valid decimal string",
   }),
 });
-export type ReducedSpendingTarget = z.infer<typeof reducedSpendingTargetSchema>;
+export type IncomeGoal = z.infer<typeof incomeGoalSchema>;
 
 /**
  * Single account allocation within a withdrawal phase
@@ -731,7 +740,7 @@ export type ProjectionOrchestratorAssetInput = {
   id: string;
   currentValue: DecimalValueString;
   name: string;
-  accountType: UserAsset["accountType"];
+  accountType: AccountType;
   recurringContributions: RecurringContribution[];
 };
 

@@ -15,7 +15,7 @@ import {
 } from "./projection-orchestrator";
 import Decimal from "decimal.js";
 import { createDecimalValueString, DecimalValueString } from "@shared/schema";
-import { mapAssetsToContributors } from "./projection-utils";
+import { mapAssetsToContributors } from "./projection-utils-contributor";
 
 // ============================================================================
 // MILESTONE PROGRESS TRACKING

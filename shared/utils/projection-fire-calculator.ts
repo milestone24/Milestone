@@ -25,10 +25,10 @@ import {
   addDateRengeToProjectionConfig,
   calculateYearsAheadOrBehind,
   convertToAgeBasedProjection,
-  mapAssetsToContributors,
   calculateMonthlyContributionDifference,
   defineStatePensionDetailsUK,
 } from "./projection-utils";
+import { mapAssetsToContributors } from "./projection-utils-contributor";
 import { createRRulePattern } from "./scheduling";
 import { calculateWithdrawalStrategy } from "./projection-withdrawal";
 

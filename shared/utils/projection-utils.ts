@@ -2,14 +2,11 @@ import type {
   ProjectionTimePoint,
   ProjectionInterval,
   ContributorSchedule,
-  ProjectionOrchestratorAssetInput,
   Contributor,
   ProjectionConfigWithDateRange,
   SimpleProjectionConfigWithDateRange,
   ProjectionConfig,
   FireProjectionData,
-  BonusValue,
-  ValueReleasePointInTime,
   MonthlyContributionDifference,
 } from "@shared/schema/projections";
 import { ModifierChain, createModifierContext } from "./projection-modifiers";
@@ -375,156 +372,6 @@ export function extractAndSortDates(
   return sortedTimestamps.map((timestamp) => new Date(timestamp));
 }
 
-export function mapRecurringContributionToContributorSchedule(
-  recurringContribution: RecurringContribution
-): ContributorSchedule {
-  return {
-    patternConfig: recurringContribution.patternConfig,
-    value: recurringContribution.amount,
-    startDate: recurringContribution.startDate,
-    endDate: null,
-  };
-}
-
-export function mapRecurringContributionsToContributorSchedules(
-  recurringContributions: RecurringContribution[]
-): ContributorSchedule[] {
-  return recurringContributions.map(
-    mapRecurringContributionToContributorSchedule
-  );
-}
-
-function defineBonusValuesForAssetType(assetType: AccountType): BonusValue[] {
-  switch (assetType) {
-    case "LISA":
-      return [
-        {
-          name: "LISA",
-          valueType: "percentage",
-          value: createDecimalValueString("0.25"), // 25% government bonus
-          annualLimit: createDecimalValueString("1000"), // Max bonus: 25% of £4,000 = £1,000
-          annualContributionLimit: createDecimalValueString("4000"), // Max contributions eligible for bonus
-          priority: 1,
-        },
-      ];
-    case "ISA":
-    case "CISA":
-    case "SIPP":
-    case "GIA":
-      // No government bonuses for these account types
-      return [];
-    default:
-      return [];
-  }
-}
-
-function defineValueReleasePointsForAssetType(
-  assetType: AccountType
-): ValueReleasePointInTime[] {
-  switch (assetType) {
-    case "LISA":
-    case "ISA":
-      // Lifetime ISA: Age 60+ (no penalty), or early withdrawal with 25% penalty
-      // Exceptions: first home purchase, terminal illness
-      return [
-        {
-          value: "60", // Age 60 or over
-          valueType: "age",
-          penalties: [
-            {
-              rule: {
-                comparator: "lt", // Less than age 60
-                value: "60",
-              },
-              penalty: {
-                valueType: "percentage",
-                value: createDecimalValueString("0.25"), // 25% withdrawal charge
-              },
-            },
-          ],
-          exceptions: ["first_home", "terminal_illness"], // Permitted withdrawals without penalty
-        },
-      ];
-    case "SIPP":
-      // Self-Invested Personal Pension: Minimum Pension Age 55 (rising to 57 from April 2028)
-      // For simplicity, using age 55. Could be enhanced to check date >= 2028-04-06 for age 57
-      return [
-        {
-          value: "55", // Minimum Pension Age (55, or 57 from April 2028)
-          valueType: "age",
-          penalties: [
-            {
-              rule: {
-                comparator: "lt", // Less than age 55
-                value: "55",
-              },
-              penalty: {
-                valueType: "percentage",
-                value: createDecimalValueString("1.0"), // 100% locked (cannot access before minimum age)
-              },
-            },
-          ],
-          exceptions: [], // No exceptions for early access to pensions
-        },
-      ];
-    case "CISA":
-      // Junior ISA: Cannot withdraw until child turns 18
-      return [
-        {
-          value: "18", // Age 18
-          valueType: "age",
-          penalties: [
-            {
-              rule: {
-                comparator: "lt", // Less than age 18
-                value: "18",
-              },
-              penalty: {
-                valueType: "percentage",
-                value: createDecimalValueString("1.0"), // 100% locked (cannot access before age 18)
-              },
-            },
-          ],
-          exceptions: [], // No exceptions for Junior ISA
-        },
-      ];
-    case "GIA":
-      // Flexible withdrawals - no restrictions
-      return [];
-    default:
-      return [];
-  }
-}
-
-export function mapAssetToContributor(
-  asset: ProjectionOrchestratorAssetInput
-): Contributor {
-  return {
-    referenceId: asset.id,
-    accountType: asset.accountType as AccountType,
-    name: asset.name,
-    type: "asset",
-    currentValue: asset.currentValue,
-    schedules: mapRecurringContributionsToContributorSchedules(
-      asset.recurringContributions
-    ),
-    valueReleases: defineValueReleasePointsForAssetType(
-      asset.accountType as AccountType
-    ),
-    bonusValues: defineBonusValuesForAssetType(
-      asset.accountType as AccountType
-    ),
-    //A percentage value, should we convert to a decimal value string?
-    expectedGrowthRate: 7,
-  };
-}
-
-export function mapAssetsToContributors(
-  assets: ProjectionOrchestratorAssetInput[]
-): Contributor[] {
-  return assets.map(mapAssetToContributor);
-}
-
 //TODO Correct spelling of range
 export function addDateRengeToProjectionConfig(
   projectionConfig: ProjectionConfig,
@@ -759,7 +606,6 @@ export function calculateMonthlyContributionDifference(
     ),
   };
 }
-
 
 /**
  * Calculate years ahead or behind target retirement age
