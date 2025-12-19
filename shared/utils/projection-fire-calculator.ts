@@ -295,6 +295,9 @@ export async function projectRetirementWithAccountAssets(
   if (!userProfile?.dob) {
     throw new Error("User date of birth not found");
   }
+  if (!userProfile?.gender) {
+    throw new Error("User date of birth not found");
+  }
 
   // Create FIRE config from settings
   const fireConfig: FIREProjectionConfig = {
@@ -314,14 +317,10 @@ export async function projectRetirementWithAccountAssets(
   //We need to find all the details for the specifics of UK state pension withdrawels etc and rules
   //if (userFireSettings.includeGovernmentPensions) {
 
-  //const gender = fireConfig.gender;
-  //We need to get the gender from the user profile
-  const gender = "male";
-
   if (true) {
     //const pensionAge = userFireSettings.statePensionAge;
     const { age: pensionAge, startDate: pensionStartDate } =
-      defineStatePensionDetailsUK(fireConfig.dateOfBirth, gender);
+      defineStatePensionDetailsUK(fireConfig.dateOfBirth, userProfile.gender);
 
     contributors.push({
       name: "State Pension",
