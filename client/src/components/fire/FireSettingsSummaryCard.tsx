@@ -60,6 +60,7 @@ export function FireSettingsSummaryCard({
     targetRetirementAge,
     includeStatePension,
     reduceSpendingAt75,
+    adjustInflation,
   ] = form.watch([
     "annualIncomeGoal",
     "expectedAnnualReturn",
@@ -68,6 +69,7 @@ export function FireSettingsSummaryCard({
     "targetRetirementAge",
     "includeStatePension",
     "reduceSpendingAt75",
+    "adjustInflation",
   ]);
 
   const summaryRows = useMemo(
@@ -100,6 +102,10 @@ export function FireSettingsSummaryCard({
         label: "Reduce spending at 75",
         value: reduceSpendingAt75 ? "Yes" : "No",
       },
+      {
+        label: "Adjust for inflation",
+        value: adjustInflation ? "Yes" : "No",
+      },
     ],
     [
       annualIncomeGoal,
@@ -109,6 +115,7 @@ export function FireSettingsSummaryCard({
       targetRetirementAge,
       includeStatePension,
       reduceSpendingAt75,
+      adjustInflation,
     ]
   );
 

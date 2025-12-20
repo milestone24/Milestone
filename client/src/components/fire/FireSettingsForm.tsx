@@ -146,30 +146,6 @@ export const FireSettingsForm = () => {
 
       <FormField
         control={form.control}
-        name="adjustInflation"
-        render={({ field }) => (
-          <FormItem>
-            <div className="flex items-center space-x-2">
-              <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-              </FormControl>
-              <FormLabel className="text-sm cursor-pointer !mt-0">
-                Adjust for inflation{" "}
-                <span className="italic font-normal text-gray-500">
-                  (average 2.8% over the past 30 years)
-                </span>
-              </FormLabel>
-            </div>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={form.control}
         name="includeStatePension"
         render={({ field }) => (
           <FormItem>
@@ -208,6 +184,30 @@ export const FireSettingsForm = () => {
                 Reduce spending at 75{" "}
                 <span className="italic font-normal text-gray-500">
                   (75% of desired annual income at age 75)
+                </span>
+              </FormLabel>
+            </div>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="adjustInflation"
+        render={({ field }) => (
+          <FormItem>
+            <div className="flex items-center space-x-2">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+              <FormLabel className="text-sm cursor-pointer !mt-0">
+                Adjust for inflation{" "}
+                <span className="italic font-normal text-gray-500">
+                  (average 2.8% over the past 30 years)
                 </span>
               </FormLabel>
             </div>
