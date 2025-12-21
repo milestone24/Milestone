@@ -107,43 +107,12 @@ import { calculatedAssetsQueryBuilder } from "./query";
 import Decimal from "decimal.js";
 import { ProcessSelect } from "@shared/schema/process";
 import { getUserAccountId } from "@server/auth";
+import { AssetValuesService } from "../process/asset-values";
 
 const securitiesService = securitiesFactory();
 
 //type Transaction = NodePgTransaction<Schema, TSchema>;
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-
-const sendNotification = (accountId: string, message: SocketMessage) => {
-  const sockets = connections.get(accountId);
-  if (sockets) {
-    sockets.forEach((socket) => {
-      socket.send(JSON.stringify(message));
-    });
-  }
-};
-
-const sendAssetValuesInvalidatedNotification = (
-  accountId: string,
-  assetId: string
-) => {
-  sendNotification(accountId, {
-    type: "query",
-    queryKeys: [
-      [...portfolioGraphValues],
-      [...portfolioGraphTransactions],
-      [...processesKey],
-      [...fireProjection],
-      [...assetSecurities],
-      [...portfolioOverview],
-      [...portfolioAssets],
-      ["assets", assetId],
-    ],
-  });
-  sendNotification(accountId, {
-    type: "notification",
-    message: "Asset values invalidated",
-  });
-};
 
 const userAssetsQueryBuilder = new ResourceQueryBuilder({
   table: userAssets,
@@ -199,108 +168,12 @@ const recurringContributionsQueryBuilder = new ResourceQueryBuilder({
 });
 
 export class DatabaseAssetService {
-  constructor(private db: Database) {}
 
-  async updateAssetValues(
-    accountId: string,
-    assetId: string,
-    startDate?: Date
-  ): Promise<void> {
-    return new Promise(async (resolve, reject) => {
-      sendNotification(accountId, {
-        type: "notification",
-        message: "Updating asset values...",
-      });
-
-      console.log(
-        "Updating asset values for accountId",
-        accountId,
-        "and assetId",
-        assetId
-      );
-
-      let abortController: AbortController | undefined;
-
-      //First find an existing job for this assets that is running
-      //Either find a way to cancel or wait for it to complete before executing
-      //Posssibly a queue system?
-
-      const existingJob = await this.db.query.processes.findFirst({
-        where: and(
-          eq(processes.key, "update-asset-values"),
-          eq(processes.status, "running"),
-          sql`payload ->> 'assetId' = ${assetId}`
-        ),
-      });
-
-      if (existingJob) {
-        sendNotification(accountId, {
-          type: "notification",
-          message: "Asset values are already being updated",
-        });
-        resolve();
-        return;
-      }
-
-      abortController = new AbortController();
-
-      let job: ProcessSelect | undefined;
-
-      try {
-        //TODO job needs some kind of identifier for what resources are affected
-        [job] = await this.db
-          .insert(processes)
-          .values({
-            key: "update-asset-values",
-            status: "running",
-            startedAt: new Date(),
-            payload: {
-              accountId,
-              assetId,
-            },
-          })
-          .returning();
-
-        const assetPersistence = assetPersistenceFactory(this, assetId);
-
-        securitiesService.updateAssetValuesSync(
-          assetPersistence,
-          abortController.signal,
-          async () => {
-            console.log(
-              "Finished updating asset values for accountId",
-              accountId,
-              "and assetId",
-              assetId
-            );
-
-            if (job) {
-              await this.db
-                .update(processes)
-                .set({ status: "completed", completedAt: new Date() })
-                .where(eq(processes.id, job.id));
-            }
-            sendAssetValuesInvalidatedNotification(accountId, assetId);
-            sendNotification(accountId, {
-              type: "notification",
-              message: "Asset values updated",
-            });
-            resolve();
-          },
-          startDate
-        );
-      } catch (error) {
-        console.error("Error updating asset values", error);
-
-        if (job) {
-          await this.db
-            .update(processes)
-            .set({ status: "failed", completedAt: new Date() })
-            .where(eq(processes.id, job.id));
-        }
-        reject(error);
-      }
-    });
+  private assetValuesService: AssetValuesService;
+  constructor(private db: Database) {
+    this.assetValuesService = new AssetValuesService(db, (assetId: string) =>
+      assetPersistenceFactory(this, assetId)
+    );
   }
 
   // private async recalculateAssetValue(
@@ -880,7 +753,7 @@ export class DatabaseAssetService {
       return insertedUserAsset;
     });
 
-    this.updateAssetValues(
+    this.assetValuesService.updateAssetValues(
       insertedUserAsset.userAccountId,
       insertedUserAsset.id
     );
@@ -930,7 +803,7 @@ export class DatabaseAssetService {
     });
 
     if (result?.rowCount ?? 0 > 0) {
-      sendAssetValuesInvalidatedNotification(userAccountId, id);
+      this.assetValuesService.sendAssetValuesInvalidatedNotification(userAccountId, id);
     }
 
     return (result?.rowCount ?? 0) > 0;
@@ -947,7 +820,7 @@ export class DatabaseAssetService {
 
     const userAccountId = userAsset.userAccountId;
 
-    this.updateAssetValues(userAccountId, id);
+    this.assetValuesService.updateAssetValues(userAccountId, id);
     return this.getUserAsset(id);
   }
 
@@ -1145,7 +1018,7 @@ export class DatabaseAssetService {
       throw new Error("Asset security not found, can not update asset values");
     }
 
-    this.updateAssetValues(
+    this.assetValuesService.updateAssetValues(
       assetSecurity.userAsset.userAccountId,
       assetSecurity.userAssetId,
       data.valueDate
@@ -1177,7 +1050,7 @@ export class DatabaseAssetService {
       throw new Error("Failed to delete user asset security transaction");
     }
 
-    this.updateAssetValues(accountId, assetId, data.valueDate);
+    this.assetValuesService.updateAssetValues(accountId, assetId, data.valueDate);
 
     return securityTransaction;
   }
@@ -1210,7 +1083,7 @@ export class DatabaseAssetService {
       throw new Error("Failed to delete user asset security transaction");
     }
 
-    this.updateAssetValues(accountId, assetId, result.valueDate);
+    this.assetValuesService.updateAssetValues(accountId, assetId, result.valueDate);
 
     return {
       success: result != null,
@@ -2001,7 +1874,7 @@ export class DatabaseAssetService {
 
     const value = await this.createUserAssetSecurity(assetId, data, tx);
     //TODO needs async local
-    this.updateAssetValues(userAccountId, assetId, data.startDate);
+    this.assetValuesService.updateAssetValues(userAccountId, assetId, data.startDate);
     return value;
   }
 
@@ -2052,7 +1925,7 @@ export class DatabaseAssetService {
       throw new Error("Failed to update user asset security");
     }
 
-    this.updateAssetValues(userAccountId, assetId, data.startDate);
+    this.assetValuesService.updateAssetValues(userAccountId, assetId, data.startDate);
 
     return value;
   }
@@ -2087,7 +1960,7 @@ export class DatabaseAssetService {
       .delete(userAssetSecurities)
       .where(eq(userAssetSecurities.id, securityId));
 
-    this.updateAssetValues(userAccountId, assetId, new Date());
+    this.assetValuesService.updateAssetValues(userAccountId, assetId, new Date());
 
     return (result?.rowCount ?? 0) > 0;
   }

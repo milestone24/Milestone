@@ -4,7 +4,10 @@ import { Database } from "@server/db";
 import { and, eq, sql } from "drizzle-orm";
 import { processes } from "@server/db/schema";
 import { ProcessSelect } from "@shared/schema/process";
-import { assetPersistenceFactory } from "@server/services/assets/database";
+import {
+  AssetPersistence,
+  assetPersistenceFactory,
+} from "@server/services/assets/database";
 import { DatabaseAssetService } from "@server/services/assets/database";
 import {
   processes as processesKey,
@@ -18,11 +21,12 @@ import {
 const securitiesService = securitiesFactory();
 
 export class AssetValuesService {
-  private assetService: DatabaseAssetService;
   //TODO consider how to handle the abstraction of Db or
-  constructor(private db: Database) {
-    this.assetService = new DatabaseAssetService(db);
-  }
+  constructor(
+    //TODO maybe use job or process persistence factory instead of db?
+    private db: Database,
+    private assetPersistenceFactory: (assetId: string) => AssetPersistence
+  ) {}
 
   async updateAssetValues(
     accountId: string,
@@ -56,18 +60,20 @@ export class AssetValuesService {
         ),
       });
 
-      if (existingJob) {
-        sendNotification(accountId, {
-          type: "notification",
-          message: "Asset values are already being updated",
-        });
-        resolve();
-        return;
-      }
+      // if (existingJob) {
+      //   sendNotification(accountId, {
+      //     type: "notification",
+      //     message: "Asset values are already being updated",
+      //   });
+      //   resolve();
+      //   return;
+      // }
 
       abortController = new AbortController();
 
       let job: ProcessSelect | undefined;
+
+      const assetPersistence = this.assetPersistenceFactory(assetId);
 
       try {
         //TODO job needs some kind of identifier for what resources are affected
@@ -75,7 +81,7 @@ export class AssetValuesService {
           .insert(processes)
           .values({
             key: "update-asset-values",
-            status: "running",
+            status: existingJob ? "pending" : "running",
             startedAt: new Date(),
             payload: {
               accountId,
@@ -84,10 +90,20 @@ export class AssetValuesService {
           })
           .returning();
 
-        const assetPersistence = assetPersistenceFactory(
-          this.assetService,
-          assetId
-        );
+        //Options when there is existing jobs.
+        //Normally there would only be one existing for the same assets but we have to consider
+        //the possibility of race conditions and that there might be multiple jobs for the same asset.
+        //1. adding new job would trigger a distributed event to signal to other asset update jobs for the same asset to abort.
+        //2. we manually trigger the distributed event to signal to other asset update jobs for the same asset to abort.
+
+        //Wait for signal that it is safe to continue?
+        //db.addeventlistener for changes to the job status.
+        //find all jobs that are still running.
+        //If there are no running jobs, we can continue.
+        //If there are running jobs, we need to wait for them to complete.
+        //We will presume if all jobs are a status other than running then it is safe to continue.
+
+        //Do we then need to pu the rest of the folling code in a callback.
 
         securitiesService.updateAssetValuesSync(
           assetPersistence,
