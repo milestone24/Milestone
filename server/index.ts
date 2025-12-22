@@ -9,6 +9,7 @@ import { ping } from "./db";
 import http from "http";
 import helmet from "helmet";
 import { applyWebsocket } from "./sockets/primary";
+import semver from "semver";
 
 const app = express();
 
@@ -59,6 +60,15 @@ app.use(express.static(path.join(process.cwd(), "public")));
 // Error handling middleware
 
 (async () => {
+  const requiredVersion = "24.0.0";
+
+  if (!semver.gt(process.version, requiredVersion)) {
+    console.error(`Error: Incompatible Node.js version detected.`);
+    console.error(
+      `Your version is ${process.version}. This app requires Node.js v${requiredVersion} or later.`
+    );
+    process.exit(1); // Exit with a failure code
+  }
   app.use("/api", await registerRoutes(Router(), authService));
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
