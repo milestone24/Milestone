@@ -16,6 +16,7 @@ export const processStatuses = [
   "running",
   "completed",
   "failed",
+  "aborted",
 ] as const;
 export const processStatus = pgEnum("process_status", processStatuses);
 export type ProcessStatus = (typeof processStatuses)[number];
@@ -54,8 +55,8 @@ export const processes = pgTable(
   (table) => [
     //TODO add constraint to check that status is completed or failed if completedAt is not null
     check(
-      "status_completed_or_failed_has_completed_at",
-      sql`(${table.status} in ('completed', 'failed') and ${table.completedAt} is not null) or (${table.status} not in ('completed', 'failed') and ${table.completedAt} is null)`
+      "status_completed_or_failed_or_aborted_has_completed_at",
+      sql`(${table.status} in ('completed', 'failed', 'aborted') and ${table.completedAt} is not null) or (${table.status} not in ('completed', 'failed', 'aborted') and ${table.completedAt} is null)`
     ),
   ]
 );

@@ -171,9 +171,7 @@ export class DatabaseAssetService {
 
   private assetValuesService: AssetValuesService;
   constructor(private db: Database) {
-    this.assetValuesService = new AssetValuesService(db, (assetId: string) =>
-      assetPersistenceFactory(this, assetId)
-    );
+    this.assetValuesService = new AssetValuesService(db);
   }
 
   // private async recalculateAssetValue(
