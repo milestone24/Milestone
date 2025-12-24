@@ -12,12 +12,12 @@ import { AssetSecurity, AssetValueResult } from "../types"
 import type { AssetPersistence } from "@server/services/assets/database"
 import { populateSecuritiesDailyHistoryCache, populateSecurityDailyHistoryCache } from "./cache"
 import {
-  AssetValueMetadata,
   AssetValueMetadataSecurity,
   createDecimalValueString,
   DecimalValueString,
 } from "@shared/schema";
 import { Decimal } from "decimal.js";
+import { EventEmitter } from "node:events";
 
 // ============================================================================
 // DAILY HISTORY CACHING METHODS
@@ -173,20 +173,55 @@ const calculateAssetValue = async (
 //   throw new Error("Not implemented")
 // }
 
-const updateAssetValues = async (
+type Data = {
+  assetId: string;
+  accountId: string;
+  jobId: string;
+  startDate?: Date;
+};
+
+type EventType = "started" | "completed" | "failed" | "aborted" | "exited";
+
+type EmitEvents = {
+  [k in EventType]: [data: Data];
+};
+
+type B = EventEmitter;
+
+const __updateAssetValues = async (
+  assetId: string,
+  accountId: string,
+  jobId: string,
+  startDate: Date | null,
   assetPersistence: AssetPersistence,
   abortSignal: AbortSignal,
-  startDate?: Date
+  eventEmitter: EventEmitter<EmitEvents>
 ) => {
   if (startDate) {
     await assetPersistence.removeAssetValuesFromDate(startDate);
   }
 
+  const emitData: Data = {
+    assetId,
+    accountId,
+    jobId,
+  };
+
+  if (abortSignal.aborted) {
+    eventEmitter.emit("aborted", emitData);
+    return;
+  }
+
+  eventEmitter.emit("started", emitData);
+
   const assetSecurities = await assetPersistence.getAssetSecurities();
 
   //TODO Consider if this should be done here.
   //Make sure this method is optimised to only retrieve the dates that are needed.
-  const results = await populateSecuritiesDailyHistoryCache(
+  //TODO Ensure cache is populated for all securities
+
+  //Disable this should not be a responsibility of this service.
+  await populateSecuritiesDailyHistoryCache(
     assetSecurities.map((security) => ({
       securityId: security.securityId,
       startDate: security.startDate,
@@ -204,8 +239,6 @@ const updateAssetValues = async (
         new Date(lastAssetValue.valueDate).getTime() + 24 * 60 * 60 * 1000
       )
     : null;
-
-  //TODO Ensure cache is populated for all securities
 
   let currentDate = lastValueDatePlusADay
     ? lastValueDatePlusADay > earliestSecurityStartDate
@@ -227,6 +260,12 @@ const updateAssetValues = async (
   */
 
   while (currentDate < todayMinusOne) {
+    if (abortSignal.aborted) {
+      eventEmitter.emit("aborted", emitData);
+      eventEmitter.emit("exited", emitData);
+      break;
+    }
+
     const assetSecurityShareHoldings =
       await assetPersistence.getAssetSecurityShareHoldingsForDate(currentDate);
 
@@ -246,6 +285,10 @@ const updateAssetValues = async (
       currentDate
     );
 
+    if (abortSignal.aborted) {
+      break;
+    }
+
     if (assetValueResult) {
       if (assetValueResult.metadata.dataStatus === "complete") {
         values.push(assetValueResult);
@@ -255,6 +298,11 @@ const updateAssetValues = async (
     }
 
     currentDate = addDays(currentDate, 1);
+  }
+
+  if (abortSignal.aborted) {
+    eventEmitter.emit("aborted", emitData);
+    return;
   }
 
   const today = new Date();
@@ -269,20 +317,51 @@ const updateAssetValues = async (
         metadata: value.metadata,
       }))
     );
+    eventEmitter.emit("completed", emitData);
   } else {
     console.log("NO ASSET VALUES TO INSERT");
+    eventEmitter.emit("completed", emitData);
   }
 };
 
-export const updateAssetValuesSync = async (
-  assetPersistence: AssetPersistence,
-  abortSignal: AbortSignal,
-  callback: () => void,
-  startDate?: Date
-) => {
-  await updateAssetValues(assetPersistence, abortSignal, startDate);
-  callback();
-};
+export class AssetValuesUpdater extends EventEmitter<EmitEvents> {
+  constructor(
+    private assetId: string,
+    private accountId: string,
+    private jobId: string,
+    private startDate: Date | null,
+    private assetPersistence: AssetPersistence,
+    private abortSignal: AbortSignal
+  ) {
+    super();
+  }
+  async update() {
+    __updateAssetValues(
+      this.assetId,
+      this.accountId,
+      this.jobId,
+      this.startDate,
+      this.assetPersistence,
+      this.abortSignal,
+      this
+    );
+    return this;
+  }
+}
+
+// export const updateAssetValuesSync = async (
+//   assetPersistence: AssetPersistence,
+//   abortSignal: AbortSignal,
+//   callback: (status: ProcessStatus) => void,
+//   startDate?: Date
+// ) => {
+//   const updater = new AssetValuesUpdater(
+//     assetPersistence,
+//     abortSignal,
+//     startDate
+//   );
+//   callback("completed");
+// };
 
 /**
  * Triggered when user adds/modifies securities for an asset
@@ -319,7 +398,7 @@ export const updateAssetValuesSync = async (
 //   try {
 //     // Step 1: Calculate current asset value immediately for UI feedback
 //     const currentCalculation = await calculateAssetValueForDate(assetId, currentDate)
-    
+
 //     if (!currentCalculation) {
 //       throw new Error("Unable to calculate current asset value")
 //     }
@@ -327,7 +406,7 @@ export const updateAssetValuesSync = async (
 //     // Step 2: Analyze cache status for the securities
 //     const securityIds = securitiesData.map(s => s.securityId)
 //     const todayStr = currentDate.toISOString().split('T')[0]
-    
+
 //     // Check which securities have price data for today
 //     const todayPrices = await db.query.securityDailyHistory.findMany({
 //       where: and(
@@ -337,7 +416,7 @@ export const updateAssetValuesSync = async (
 //     })
 
 //     const securitiesWithTodayPrices = new Set(todayPrices.map(p => p.securityId))
-    
+
 //     // Count cache status
 //     for (const securityId of securityIds) {
 //       if (securitiesWithTodayPrices.has(securityId)) {
@@ -397,7 +476,7 @@ export const updateAssetValuesSync = async (
 //     // Step 4: If we're missing price data for current calculation, try to fetch from APIs
 //     if (cacheStatus.missingPrices > 0) {
 //       // Get securities that need price data
-//       const securitiesNeedingPrices = securitiesData.filter(s => 
+//       const securitiesNeedingPrices = securitiesData.filter(s =>
 //         !securitiesWithTodayPrices.has(s.securityId)
 //       )
 
@@ -409,7 +488,7 @@ export const updateAssetValuesSync = async (
 //             currentDate,
 //             currentDate
 //           )
-          
+
 //           if (populateResult.recordsAdded > 0) {
 //             cacheStatus.pricesFromAPI++
 //             cacheStatus.missingPrices--
@@ -470,8 +549,8 @@ export const bulkSyncAllAutomatedAssets = async (
   };
 }> => {
   // TODO: Implementation
-  throw new Error("Not implemented")
-}
+  throw new Error("Not implemented");
+};
 
 // ============================================================================
 // SYNC MODULE FACTORY
@@ -487,9 +566,8 @@ export const factory = () => {
     // calculateAssetValueForDate,
     // populateAssetValuesForDateRange,
     //onSecuritiesUpdated,
-    updateAssetValues,
-    updateAssetValuesSync,
+    //updateAssetValues,
     calculateAssetValueForDateFromCache,
     bulkSyncAllAutomatedAssets,
   };
-}
+};
