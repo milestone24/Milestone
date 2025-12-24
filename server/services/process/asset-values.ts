@@ -26,7 +26,7 @@ export class AssetValuesService {
     private db: Database
   ) {}
 
-  async updateAssetValues(
+  async updateAssetValuesForAssetOfAccount(
     accountId: string,
     assetId: string,
     startDate?: Date

@@ -751,7 +751,7 @@ export class DatabaseAssetService {
       return insertedUserAsset;
     });
 
-    this.assetValuesService.updateAssetValues(
+    this.assetValuesService.updateAssetValuesForAssetOfAccount(
       insertedUserAsset.userAccountId,
       insertedUserAsset.id
     );
@@ -818,7 +818,10 @@ export class DatabaseAssetService {
 
     const userAccountId = userAsset.userAccountId;
 
-    this.assetValuesService.updateAssetValues(userAccountId, id);
+    this.assetValuesService.updateAssetValuesForAssetOfAccount(
+      userAccountId,
+      id
+    );
     return this.getUserAsset(id);
   }
 
@@ -1016,7 +1019,7 @@ export class DatabaseAssetService {
       throw new Error("Asset security not found, can not update asset values");
     }
 
-    this.assetValuesService.updateAssetValues(
+    this.assetValuesService.updateAssetValuesForAssetOfAccount(
       assetSecurity.userAsset.userAccountId,
       assetSecurity.userAssetId,
       data.valueDate
@@ -1048,7 +1051,11 @@ export class DatabaseAssetService {
       throw new Error("Failed to delete user asset security transaction");
     }
 
-    this.assetValuesService.updateAssetValues(accountId, assetId, data.valueDate);
+    this.assetValuesService.updateAssetValuesForAssetOfAccount(
+      accountId,
+      assetId,
+      data.valueDate
+    );
 
     return securityTransaction;
   }
@@ -1081,7 +1088,11 @@ export class DatabaseAssetService {
       throw new Error("Failed to delete user asset security transaction");
     }
 
-    this.assetValuesService.updateAssetValues(accountId, assetId, result.valueDate);
+    this.assetValuesService.updateAssetValuesForAssetOfAccount(
+      accountId,
+      assetId,
+      result.valueDate
+    );
 
     return {
       success: result != null,
@@ -1872,7 +1883,11 @@ export class DatabaseAssetService {
 
     const value = await this.createUserAssetSecurity(assetId, data, tx);
     //TODO needs async local
-    this.assetValuesService.updateAssetValues(userAccountId, assetId, data.startDate);
+    this.assetValuesService.updateAssetValuesForAssetOfAccount(
+      userAccountId,
+      assetId,
+      data.startDate
+    );
     return value;
   }
 
@@ -1923,7 +1938,11 @@ export class DatabaseAssetService {
       throw new Error("Failed to update user asset security");
     }
 
-    this.assetValuesService.updateAssetValues(userAccountId, assetId, data.startDate);
+    this.assetValuesService.updateAssetValuesForAssetOfAccount(
+      userAccountId,
+      assetId,
+      data.startDate
+    );
 
     return value;
   }
@@ -1958,7 +1977,11 @@ export class DatabaseAssetService {
       .delete(userAssetSecurities)
       .where(eq(userAssetSecurities.id, securityId));
 
-    this.assetValuesService.updateAssetValues(userAccountId, assetId, new Date());
+    this.assetValuesService.updateAssetValuesForAssetOfAccount(
+      userAccountId,
+      assetId,
+      new Date()
+    );
 
     return (result?.rowCount ?? 0) > 0;
   }

@@ -49,13 +49,13 @@ describe("AssetValuesService", () => {
 
         await new Promise(async (resolve, reject) => {
           try {
-            assetValuesService.updateAssetValues(
+            assetValuesService.updateAssetValuesForAssetOfAccount(
               accountId,
               assetId,
               startDateOne
             );
             setTimeout(() => {
-              assetValuesService.updateAssetValues(
+              assetValuesService.updateAssetValuesForAssetOfAccount(
                 accountId,
                 assetId,
                 startDateTwo
