@@ -11,6 +11,7 @@ import { registerRoutes as registerOcrRoutes } from "./ocr";
 import { AuthService } from "server/auth";
 import { registerRoutes as registerTrackingRoutes } from "./tracking";
 import { registerRoutes as registerProjectionsRoutes } from "./projections";
+import { registerRoutes as registerTriggersRoutes } from "./triggers";
 
 export async function registerRoutes(
   router: Router,
@@ -35,6 +36,7 @@ export async function registerRoutes(
     "/projections",
     await registerProjectionsRoutes(Router(), authService)
   );
+  router.use("/triggers", await registerTriggersRoutes(Router(), authService));
   //router.use("/verification", await registerVerificationRoutes(Router(), authService));
   return router;
 } 
