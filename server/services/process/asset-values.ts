@@ -1,7 +1,7 @@
 import { sendNotification } from "../comms/socket";
 import { Database } from "@server/db";
 import { and, eq, or, sql } from "drizzle-orm";
-import { processes } from "@server/db/schema";
+import { processes, userAssets } from "@server/db/schema";
 import {
   ProcessSelect,
   UpdateAssetValuesProcess,
@@ -222,4 +222,31 @@ export class AssetValuesService {
       message: "Asset values invalidated",
     });
   };
+
+  async updateAssetValuesForAllAssetsOfAccount(
+    accountId: string,
+    startDate?: Date
+  ): Promise<void> {
+    const assets = await this.db.query.userAssets.findMany({
+      where: eq(userAssets.userAccountId, accountId),
+    });
+    //Could this be done in a parallel manner?
+    for (const asset of assets) {
+      await this.updateAssetValuesForAssetOfAccount(
+        accountId,
+        asset.id,
+        startDate
+      );
+    }
+  }
+
+  async updateAssetValuesForAllAssetsOfAllAccounts(
+    startDate?: Date
+  ): Promise<void> {
+    const accounts = await this.db.query.userAccounts.findMany();
+    //Could this be done in a parallel manner?
+    for (const account of accounts) {
+      await this.updateAssetValuesForAllAssetsOfAccount(account.id, startDate);
+    }
+  }
 }
