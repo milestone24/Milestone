@@ -32,10 +32,25 @@ export type UpdateAssetValuesProcess = Omit<
   };
 };
 
+export type UpdateSecuritiesDailyHistoryCacheProcess = Omit<
+  DBProcessSelect,
+  "key" | "payload"
+> & {
+  key: "update-securities-daily-history-cache";
+  payload: {
+    date: Date;
+  };
+};
+
 export type OtherProcess = Omit<DBProcessSelect, "key" | "payload"> & {
   key: string;
   payload: Record<string, unknown>;
 };
+
+export const isUpdateSecuritiesDailyHistoryCacheProcess = (
+  process: ProcessSelect
+): process is UpdateSecuritiesDailyHistoryCacheProcess =>
+  process.key === "update-securities-daily-history-cache";
 
 export const isUpdateAssetValuesProcess = (
   process: ProcessSelect

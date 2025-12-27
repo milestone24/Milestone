@@ -52,18 +52,53 @@ export const isAssetValuesUpdateMessage = (
   return message.type.startsWith("asset-values-update-");
 };
 
+export type SecuritiesDailyHistoryCacheUpdateMessageBase = {
+  jobId: string;
+};
+
+type SecuritiesDailyHistoryCacheUpdateStartedMessage =
+  SecuritiesDailyHistoryCacheUpdateMessageBase & {
+    type: "securities-daily-history-cache-update-started";
+  };
+
+type SecuritiesDailyHistoryCacheUpdateCompletedMessage =
+  SecuritiesDailyHistoryCacheUpdateMessageBase & {
+    type: "securities-daily-history-cache-update-completed";
+  };
+type SecuritiesDailyHistoryCacheUpdateFailedMessage =
+  SecuritiesDailyHistoryCacheUpdateMessageBase & {
+    type: "securities-daily-history-cache-update-failed";
+  };
+type SecuritiesDailyHistoryCacheUpdateExitedMessage =
+  SecuritiesDailyHistoryCacheUpdateMessageBase & {
+    type: "securities-daily-history-cache-update-exited";
+  };
+type SecuritiesDailyHistoryCacheUpdateAbortedMessage =
+  SecuritiesDailyHistoryCacheUpdateMessageBase & {
+    type: "securities-daily-history-cache-update-aborted";
+  };
+
+export type SecuritiesDailyHistoryCacheUpdateMessage =
+  | SecuritiesDailyHistoryCacheUpdateStartedMessage
+  | SecuritiesDailyHistoryCacheUpdateCompletedMessage
+  | SecuritiesDailyHistoryCacheUpdateFailedMessage
+  | SecuritiesDailyHistoryCacheUpdateExitedMessage
+  | SecuritiesDailyHistoryCacheUpdateAbortedMessage;
+
+export const isSecuritiesDailyHistoryCacheUpdateMessage = (
+  message: Message
+): message is SecuritiesDailyHistoryCacheUpdateMessage => {
+  return message.type.startsWith("securities-daily-history-cache-update-");
+};
+
 type NotificationMessage = {
   type: "notification";
   message: string;
 };
 
 export type Message =
-  | AssetValuesUpdateAbortMessage
-  | AssetValuesUpdateStartedMessage
-  | AssetValuesUpdateCompletedMessage
-  | AssetValuesUpdateFailedMessage
-  | AssetValuesUpdateExitedMessage
-  | AssetValuesUpdateAbortedMessage
+  | AssetValuesUpdateMessage
+  | SecuritiesDailyHistoryCacheUpdateMessage
   | NotificationMessage;
 
 type MessageCallback = (message: Message) => Promise<void>;

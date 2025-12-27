@@ -4,7 +4,9 @@ import { SecurityContext, SecurityHistory } from "../types"
 import { eq, sql } from "drizzle-orm"
 import { factory as gatewayFactory } from "../gateway"
 import { differenceInDays } from "date-fns"
-
+import EventEmitter from "events";
+import { AssetPersistence } from "@server/services/assets/database";
+import { a } from "node_modules/vitest/dist/chunks/suite.d.BJWk38HB";
 
 /**
  * Fetch and process security history data for a date range
@@ -65,9 +67,15 @@ export const fetchFilteredSecurityHistoryForDates = async (
  * and so a start date will be needed.
  * @returns Promise with cache population results
  */
-export const populateSecurityDailyHistoryCache = async (
-  securityContext: SecurityContext
+const populateSecurityDailyHistoryCache = async (
+  securityContext: SecurityContext,
+  jobId: string,
+  abortSignal: AbortSignal
 ): Promise<Date[]> => {
+  if (abortSignal.aborted) {
+    return [];
+  }
+
   // console.log("populateSecurityDailyHistoryCache SECURITY CONTEXT", securityContext)
 
   const { securityId, startDate } = securityContext;
@@ -87,6 +95,10 @@ export const populateSecurityDailyHistoryCache = async (
     orderBy: sql`${securityDailyHistory.date} DESC`,
   });
 
+  if (abortSignal.aborted) {
+    return [];
+  }
+
   //console.log("populateSecurityDailyHistoryCache LAST RECORD", lastRecord)
 
   //Before it was presumed that hen giving a start date to the gateway (particularly eodhd) it would actually start
@@ -101,6 +113,7 @@ export const populateSecurityDailyHistoryCache = async (
 
   //console.log("populateSecurityDailyHistoryCache DATE RANGE", dateRange);
 
+  //PAss the abort signal to the fetchFilteredSecurityHistoryForDates function
   const securityHistory = await fetchFilteredSecurityHistoryForDates(
     {
       symbol: security.symbol,
@@ -110,6 +123,10 @@ export const populateSecurityDailyHistoryCache = async (
     // or the start date of the security until today
     dateRange
   );
+
+  if (abortSignal.aborted) {
+    return [];
+  }
 
   //We should not throw this error.
   //How ever this error should never need to be thrown as prelimary checks should see
@@ -160,26 +177,108 @@ export const populateSecurityDailyHistoryCache = async (
     }
   }
 
-  await db.insert(securityDailyHistory).values(
-    securityHistory.map((record) => ({
-      securityId,
-      date: record.date.toISOString().split("T")[0]!,
-      open: record.open.toString(),
-      high: record.high.toString(),
-      low: record.low.toString(),
-      close: record.close.toString(),
-      source: record.sourceIdentifier,
-    }))
-  );
+  if (abortSignal.aborted) {
+    return [];
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.insert(securityDailyHistory).values(
+      securityHistory.map((record) => ({
+        securityId,
+        date: record.date.toISOString().split("T")[0]!,
+        open: record.open.toString(),
+        high: record.high.toString(),
+        low: record.low.toString(),
+        close: record.close.toString(),
+        source: record.sourceIdentifier,
+      }))
+    );
+    if (abortSignal.aborted) {
+      tx.rollback();
+    }
+  });
+
+  if (abortSignal.aborted) {
+    return [];
+  }
 
   return securityHistory.map((record) => record.date);
 };
 
+type Data = {
+  jobId: string;
+};
+
+type EventType = "started" | "completed" | "failed" | "aborted" | "exited";
+
+type EmitEvents = {
+  [k in EventType]: [data: Data];
+};
+
 export const populateSecuritiesDailyHistoryCache = async (
-  securityContexts: SecurityContext[]
+  securityContexts: SecurityContext[],
+  jobId: string,
+  abortSignal: AbortSignal,
+  eventEmitter: EventEmitter<EmitEvents>
 ): Promise<Date[][]> => {
-  const results = await Promise.all(securityContexts.map(securityContext => populateSecurityDailyHistoryCache(securityContext)))
-  return results
+  console.log(
+    "populateSecuritiesDailyHistoryCache securityContexts",
+    securityContexts
+  );
+
+  const populatePromises = Promise.all(
+    securityContexts.map((securityContext) =>
+      populateSecurityDailyHistoryCache(securityContext, jobId, abortSignal)
+    )
+  );
+
+  const results = await populatePromises
+    .then((results) => {
+      if (abortSignal.aborted) {
+        eventEmitter.emit("aborted", { jobId });
+        return [];
+      }
+      eventEmitter.emit("completed", { jobId });
+      return results;
+    })
+    .catch((error) => {
+      eventEmitter.emit("failed", { jobId });
+      throw error;
+    });
+
+  console.log("populateSecuritiesDailyHistoryCache results", results);
+  return results;
+};
+
+export class SecuritiesCacheUpdater extends EventEmitter<EmitEvents> {
+  constructor(
+    private jobId: string,
+    private securityContexts: SecurityContext[],
+    private abortSignal: AbortSignal
+  ) {
+    super();
+  }
+  async update() {
+    console.log("SecuritiesCacheUpdater started", this.jobId);
+    this.emit("started", { jobId: this.jobId });
+    populateSecuritiesDailyHistoryCache(
+      this.securityContexts,
+      this.jobId,
+      this.abortSignal,
+      this
+    )
+      .then(() => {
+        console.log("SecuritiesCacheUpdater then", this.jobId);
+        this.emit("completed", { jobId: this.jobId });
+        this.emit("exited", { jobId: this.jobId });
+      })
+      .catch((error) => {
+        this.emit("failed", { jobId: this.jobId });
+        this.emit("exited", { jobId: this.jobId });
+        //throw error;
+      });
+    return this;
+  }
 }
 
 /** Old ** */
@@ -189,7 +288,7 @@ type BulkPopulateSecurityDailyHistoryResult = {
   success: boolean;
   recordsAdded: Date[];
   errors: string[];
-}
+};
 
 /**
  * Populate security daily history for multiple securities in parallel
@@ -197,63 +296,77 @@ type BulkPopulateSecurityDailyHistoryResult = {
  * @returns Promise with results for each security
  */
 export const bulkPopulateSecurityDailyHistory = async (
-  requests: Array<SecurityContext>
+  requests: Array<SecurityContext>,
+  jobId: string,
+  abortSignal: AbortSignal,
+  eventEmitter: EventEmitter<EmitEvents>
 ): Promise<BulkPopulateSecurityDailyHistoryResult[]> => {
-
-  const results: BulkPopulateSecurityDailyHistoryResult[] = []
+  const results: BulkPopulateSecurityDailyHistoryResult[] = [];
 
   // Process requests in parallel with controlled concurrency
-  const CONCURRENCY_LIMIT = 5 // Prevent overwhelming the APIs
-  
-  const processRequest = async (request: SecurityContext): Promise<BulkPopulateSecurityDailyHistoryResult> => {
+  const CONCURRENCY_LIMIT = 5; // Prevent overwhelming the APIs
+
+  const processRequest = async (
+    request: SecurityContext
+  ): Promise<BulkPopulateSecurityDailyHistoryResult> => {
     try {
       const populateResult = await populateSecurityDailyHistoryCache(
-        request
-      )
+        request,
+        jobId,
+        abortSignal
+      );
 
       return {
         securityId: request.securityId,
         success: true,
         recordsAdded: populateResult,
-        errors: []
-      }
+        errors: [],
+      };
     } catch (error) {
       return {
         securityId: request.securityId,
         success: false,
         recordsAdded: [],
-        errors: [`Failed to process: ${error instanceof Error ? error.message : 'Unknown error'}`]
-      }
+        errors: [
+          `Failed to process: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+        ],
+      };
     }
-  }
+  };
 
   // Process requests in batches to control concurrency
   for (let i = 0; i < requests.length; i += CONCURRENCY_LIMIT) {
-    const batch = requests.slice(i, i + CONCURRENCY_LIMIT)
-    const batchPromises = batch.map(processRequest)
-    
+    const batch = requests.slice(i, i + CONCURRENCY_LIMIT);
+    const batchPromises = batch.map(processRequest);
+
     try {
-      const batchResults = await Promise.all(batchPromises)
-      results.push(...batchResults)
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
     } catch (error) {
       // Handle any unexpected batch failures
-      const failedResults = batch.map(request => ({
+      const failedResults = batch.map((request) => ({
         securityId: request.securityId,
         success: false,
         recordsAdded: [],
-        errors: [`Batch processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`]
-      }))
-      results.push(...failedResults)
+        errors: [
+          `Batch processing failed: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+        ],
+      }));
+      results.push(...failedResults);
     }
 
     // Small delay between batches to be respectful to APIs
     if (i + CONCURRENCY_LIMIT < requests.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000)) // 1 second delay
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // 1 second delay
     }
   }
 
-  return results
-}
+  return results;
+};
 
 export const factory = () => {
   return {
