@@ -87,7 +87,7 @@ export const handler = async (event: Event) => {
                   completedAt: new Date(),
                   //error: "Asset values update aborted",
                 }
-              : { status }
+              : { status, completedAt: null }
           )
           .where(eq(processes.id, job.id))
           .returning();
