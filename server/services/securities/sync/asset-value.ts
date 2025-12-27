@@ -9,8 +9,7 @@
 import { getSecurityHistoryForDateRange as getSecurityHistoryForDateRangeCache } from "../cache"
 import { addDays } from "date-fns"
 import { AssetSecurity, AssetValueResult } from "../types"
-import type { AssetPersistence } from "@server/services/assets/database"
-import { populateSecuritiesDailyHistoryCache, populateSecurityDailyHistoryCache } from "./cache"
+import type { AssetPersistence } from "@server/services/assets/database";
 import {
   AssetValueMetadataSecurity,
   createDecimalValueString,
@@ -215,19 +214,6 @@ const __updateAssetValues = async (
   eventEmitter.emit("started", emitData);
 
   const assetSecurities = await assetPersistence.getAssetSecurities();
-
-  //TODO Consider if this should be done here.
-  //Make sure this method is optimised to only retrieve the dates that are needed.
-  //TODO Ensure cache is populated for all securities
-
-  //Disable this should not be a responsibility of this service.
-  await populateSecuritiesDailyHistoryCache(
-    assetSecurities.map((security) => ({
-      securityId: security.securityId,
-      startDate: security.startDate,
-      endDate: new Date(),
-    }))
-  );
 
   const earliestSecurityStartDate = assetSecurities.reduce((min, security) => {
     return security.startDate < min ? security.startDate : min;
