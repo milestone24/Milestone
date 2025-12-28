@@ -3,6 +3,8 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as events from "aws-cdk-lib/aws-events";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 
 export interface MilestoneAppConstructProps {
@@ -397,6 +399,132 @@ EOF`,
       `runuser -l ec2-user -c "/opt/milestone/bin/deploy.sh \${DEFAULT_IMAGE}"`
     );
 
+    // Create trigger script for securities cache update
+    const triggerSecuritiesCacheScript = `#!/usr/bin/env bash
+set -euo pipefail
+
+API_KEY="\${1:-}"
+ENDPOINT="http://localhost/api/triggers/securities-daily-history-cache-update"
+LOG(){ echo "[$(date --iso-8601=seconds)] [TRIGGER] $1"; }
+
+if [[ -z "$API_KEY" ]]; then
+  LOG "ERROR: API_KEY parameter is required"
+  exit 1
+fi
+
+LOG "Triggering securities daily history cache update"
+
+HTTP_RESPONSE=$(curl -s -w "\\n%{http_code}" -X POST "$ENDPOINT" \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: $API_KEY")
+
+HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '\$d')
+HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n1)
+
+if [[ "$HTTP_STATUS" -ge 200 && "$HTTP_STATUS" -lt 300 ]]; then
+  LOG "SUCCESS: $HTTP_BODY"
+  exit 0
+else
+  LOG "ERROR: HTTP $HTTP_STATUS - $HTTP_BODY"
+  exit 1
+fi
+`;
+
+    userData.addCommands(
+      `cat > /opt/milestone/bin/trigger-securities-cache.sh << 'EOF'
+${triggerSecuritiesCacheScript}
+EOF`,
+      "chmod +x /opt/milestone/bin/trigger-securities-cache.sh"
+    );
+
+    // Create SSM Document for the trigger command
+    const triggerSecuritiesCacheDocument = new ssm.CfnDocument(
+      this,
+      "TriggerSecuritiesCacheDocument",
+      {
+        documentType: "Command",
+        name: `${stack.stackName}-trigger-securities-cache`,
+        content: {
+          schemaVersion: "2.2",
+          description: "Trigger securities daily history cache update",
+          parameters: {
+            ApiKey: {
+              type: "String",
+              description: "API Key for authentication",
+            },
+          },
+          mainSteps: [
+            {
+              action: "aws:runShellScript",
+              name: "triggerSecuritiesCache",
+              inputs: {
+                runCommand: [
+                  "/opt/milestone/bin/trigger-securities-cache.sh '{{ ApiKey }}'",
+                ],
+              },
+            },
+          ],
+        },
+      }
+    );
+
+    // Create IAM role for EventBridge to invoke SSM
+    const eventBridgeRole = new iam.Role(this, "EventBridgeSSMRole", {
+      assumedBy: new iam.ServicePrincipal("events.amazonaws.com"),
+      description: "Role for EventBridge to invoke SSM Run Command",
+    });
+
+    eventBridgeRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["ssm:SendCommand"],
+        resources: [
+          `arn:aws:ssm:${stack.region}:${stack.account}:document/${stack.stackName}-trigger-securities-cache`,
+          `arn:aws:ec2:${stack.region}:${stack.account}:instance/${this.instanceId}`,
+        ],
+      })
+    );
+
+    // Create EventBridge rule with SSM SendCommand target for scheduled trigger (daily at 2 AM UTC)
+    new events.CfnRule(this, "SecuritiesCacheScheduleRule", {
+      name: `${stack.stackName}-securities-cache-ssm-target`,
+      description:
+        "EventBridge rule to trigger SSM command for securities cache update",
+      scheduleExpression: "cron(0 2 * * ? *)",
+      state: "ENABLED",
+      targets: [
+        {
+          id: "TriggerSecuritiesCacheSSM",
+          arn: `arn:aws:ssm:${stack.region}::document/AWS-RunShellScript`,
+          roleArn: eventBridgeRole.roleArn,
+          runCommandParameters: {
+            runCommandTargets: [
+              {
+                key: "InstanceIds",
+                values: [this.instanceId],
+              },
+            ],
+          },
+          input: JSON.stringify({
+            commands: [
+              `API_KEY=$(aws ssm get-parameter --name "/milestone/trigger-api-key" --with-decryption --query 'Parameter.Value' --output text) && /opt/milestone/bin/trigger-securities-cache.sh "$API_KEY"`,
+            ],
+          }),
+        },
+      ],
+    });
+
+    // Grant SSM GetParameter permission for the trigger API key
+    instanceRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["ssm:GetParameter"],
+        resources: [
+          `arn:aws:ssm:${stack.region}:${stack.account}:parameter/milestone/trigger-api-key`,
+        ],
+      })
+    );
+
     // Output useful information
     new cdk.CfnOutput(this, "InstanceId", {
       value: this.instanceId,
@@ -417,6 +545,11 @@ EOF`,
     new cdk.CfnOutput(this, "CloudFrontDomain", {
       value: this.distribution.domainName,
       description: "CloudFront distribution domain name",
+    });
+
+    new cdk.CfnOutput(this, "TriggerSecuritiesCacheCommand", {
+      value: `aws ssm send-command --instance-ids ${this.instanceId} --document-name "${stack.stackName}-trigger-securities-cache" --parameters 'ApiKey=YOUR_API_KEY'`,
+      description: "SSM command to manually trigger securities cache update",
     });
   }
 }
