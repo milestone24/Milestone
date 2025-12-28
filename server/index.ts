@@ -80,10 +80,12 @@ app.use(express.static(path.join(process.cwd(), "public")));
 
   //Dont allow undhandled apiu route requests to follow through
   app.use("/api", (req, res) => {
-    res.status(404);
+    console.log("Unhandled API route request:", req.path);
+    return res.status(404).json({ message: "Not Found" });
   });
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    console.error("Error in API route:", err);
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
     res.status(status).json({ message });
