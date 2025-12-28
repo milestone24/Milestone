@@ -14,20 +14,22 @@ export async function registerRoutes(
   const securitiesCacheService = new SecuritiesCacheService(db);
 
   router.post(
-    "/triggers/asset-values-update",
+    "/asset-values-update",
     requireApiKey,
     requireScope("trigger"),
     async (req, res) => {
+      console.log("Updating asset values for all assets of all accounts");
       assetValuesService.updateAssetValuesForAllAssetsOfAllAccounts();
       res.json({ message: "Asset values update has been triggered" });
     }
   );
 
   router.post(
-    "/triggers/securities-daily-history-cache-update",
+    "/securities-daily-history-cache-update",
     requireApiKey,
     requireScope("trigger"),
     async (req, res) => {
+      console.log("Updating securities daily history cache for all securities");
       securitiesCacheService.updateSecuritiesDailyHistoryCacheForAllSecurities();
       res.json({
         message: "Securities daily history cache update has been triggered",
