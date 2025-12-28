@@ -82,8 +82,15 @@ export interface AuthorizeUserResult {
   refreshToken?: string;
 }
 
+// API Key types
+export type ApiKeyType = "user" | "system";
+export type ApiKeyScope = "read" | "write" | "admin" | "trigger";
+
 export interface AuthorizeTenantResult {
   tenantId: string;
+  keyType: ApiKeyType;
+  scope: ApiKeyScope;
+  userAccountId?: string;
 }
 
 export interface APIKeyAttributes {
@@ -99,6 +106,24 @@ export type APIKeyInsert = Omit<APIKeyAttributes, "expiry"> & {
   isRevoked: boolean;
 }
 
+export type APIKeyPersisted = {
+  id: string;
+  keyHash: string;
+  keyPrefix: string;
+  name: string;
+  type: ApiKeyType;
+  scope: ApiKeyScope;
+  tenantId: string;
+  userAccountId: string | null;
+  allowedIPs: string[] | null;
+  allowedDomains: string[] | null;
+  rateLimit: number | null;
+  expiresAt: Date | null;
+  isRevoked: boolean;
+  lastUsedAt: Date | null;
+}
+
+/** @deprecated Use APIKeyPersisted instead */
 export type APIKeyPerssisted = APIKeyInsert & {
   id: string;
   key: string;
@@ -111,15 +136,23 @@ export type APIKeyPerssisted = APIKeyInsert & {
 export type PersistRefreshToken = (tokenInsert: RefreshTokenInsert) => Promise<RefreshTokenPerssisted>;
 export type GetRefreshToken = (tenantAccountId: string, familyId: string) => Promise<RefreshTokenPerssisted | null>;
 export type RevokeRefreshTokenFamily = (tenantAccountId: string, familyId: string) => Promise<void>;
+/** @deprecated Use GetAPIKeyByHash instead */
 export type GetAPIKey = (apiKey: string) => Promise<APIKeyPerssisted | null>;
+export type GetAPIKeyByHash = (
+  keyHash: string
+) => Promise<APIKeyPersisted | null>;
+export type UpdateAPIKeyLastUsed = (apiKeyId: string) => Promise<void>;
 
 
 export type TokenPersistence = {
   persistRefreshToken: PersistRefreshToken;
   getRefreshToken: GetRefreshToken;
   revokeRefreshTokenFamily: RevokeRefreshTokenFamily;
+  /** @deprecated Use getAPIKeyByHash instead */
   getAPIKey: GetAPIKey;
-}
+  getAPIKeyByHash: GetAPIKeyByHash;
+  updateAPIKeyLastUsed: UpdateAPIKeyLastUsed;
+};
 
 export type AuthoriseUser = (attributes: AuthorizeUserAttributes, res: ResponseWithCookiesLike) => Promise<AuthorizeUserResult | null>;
 export type AuthoriseAPIKey = (attributes: AuthorizeAPIKeyAttributes) => Promise<AuthorizeTenantResult | null>;
@@ -137,14 +170,17 @@ export type TenantType = 'user' | 'api' | 'service';
 export type Tenant = {
   id: string;
 } & (
-  {
-    type: 'user';
-    userAccountId: string;
-  } | {
-    type: 'api';
-    userAccountId?: undefined;
-  }
-)
+  | {
+      type: "user";
+      userAccountId: string;
+    }
+  | {
+      type: "api";
+      keyType: ApiKeyType;
+      scope: ApiKeyScope;
+      userAccountId?: string;
+    }
+);
 
 export interface RequestLike {
   cookies: {

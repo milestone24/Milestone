@@ -19,7 +19,8 @@ export const requireTenantWithUserAccountId = async <T>(tenant: Tenant | undefin
       throw new Error("User account ID not found on tenant");
     }
 
-    return await fn(tenant);
+    // Cast to the expected type after runtime check
+    return await fn(tenant as Tenant & { id: string, userAccountId: string });
 
   });
 };

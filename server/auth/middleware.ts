@@ -1,6 +1,12 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction, RequestHandler } from "express";
 import { AUTH_COOKIE_NAMES } from "./const";
-import { AuthoriseAPIKey, AuthoriseUser, AuthRequest, TenantType } from "./types";
+import {
+  ApiKeyScope,
+  AuthoriseAPIKey,
+  AuthoriseUser,
+  AuthRequest,
+  TenantType,
+} from "./types";
 import { runWithContext } from "../context/request-context";
 
 const createAuthMiddleware = (
@@ -9,8 +15,6 @@ const createAuthMiddleware = (
   authoriseAPIKey: AuthoriseAPIKey
 ) => {
   return async (req: AuthRequest, res: Response, next: NextFunction) => {
-    const t = req.tenant;
-
     try {
       // Try browser session auth if allowed
       if (allowedAuthTypes.includes("user")) {
@@ -58,29 +62,67 @@ const createAuthMiddleware = (
           });
 
           if (authResult) {
-            req.tenant = { id: authResult.tenantId, type: "api" };
+            req.tenant = {
+              id: authResult.tenantId,
+              type: "api",
+              keyType: authResult.keyType,
+              scope: authResult.scope,
+              userAccountId: authResult.userAccountId,
+            };
             return next();
           }
-          // TODO: Implement API key validation
-          // const apiClient = await validateApiKey(apiKey);
-          // req.tenant = { id: apiClient.id, type: 'api' };
 
-          throw new Error("API key validation not implemented");
+          return next(new Error("Invalid API key"));
         }
       }
 
       // No valid auth found
-      //return res.status(401).json({ error: "Unauthorized" });
       return next(new Error("Unauthorized"));
     } catch (error) {
       console.error("auth middleware error", error);
-      //return res.status(401).json({ error: "Invalid authentication" });
       return next(new Error("Invalid authentication"));
     }
   };
 };
 
-// Export the factory function for custom auth requirements
-export { createAuthMiddleware }; 
+/**
+ * Scope hierarchy for permission checking
+ * Higher number = more permissions
+ */
+const SCOPE_HIERARCHY: Record<ApiKeyScope, number> = {
+  trigger: 1,
+  read: 2,
+  write: 3,
+  admin: 4,
+};
 
+/**
+ * Middleware to require a minimum scope level for API key access.
+ * For user-type auth, full access is assumed.
+ */
+const createScopeMiddleware = (requiredScope: ApiKeyScope): RequestHandler => {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.tenant) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
+    // For user-type auth, assume full access
+    if (req.tenant.type === "user") {
+      return next();
+    }
+
+    // For API auth, check scope
+    if (req.tenant.type === "api") {
+      const tenantScope = req.tenant.scope;
+      if (SCOPE_HIERARCHY[tenantScope] >= SCOPE_HIERARCHY[requiredScope]) {
+        return next();
+      }
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+
+    return res.status(403).json({ error: "Insufficient permissions" });
+  };
+};
+
+// Export the factory functions
+export { createAuthMiddleware, createScopeMiddleware };

@@ -1,6 +1,7 @@
 import { refreshTokens } from "@server/db/schema/user-account";
+import { apiKeys } from "@server/db/schema/api-keys";
 import { AuthService } from "../../auth";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../db";
 
 const authService = new AuthService({
@@ -52,6 +53,7 @@ const authService = new AuthService({
       await db.update(refreshTokens).set({ isRevoked: true }).where(and(eq(refreshTokens.userAccountId, tenantAccountId), eq(refreshTokens.familyId, familyId)));
     },
 
+    /** @deprecated Use getAPIKeyByHash instead */
     getAPIKey: async (apiKey: string) => {
       return {
         id: "123",
@@ -64,7 +66,45 @@ const authService = new AuthService({
         allowedDomains: [],
         allowedIPs: [],
       }
-    }
+    },
+
+    getAPIKeyByHash: async (keyHash: string) => {
+      const [apiKey] = await db
+        .select()
+        .from(apiKeys)
+        .where(eq(apiKeys.keyHash, keyHash));
+
+      if (!apiKey) {
+        return null;
+      }
+
+      return {
+        id: apiKey.id,
+        keyHash: apiKey.keyHash,
+        keyPrefix: apiKey.keyPrefix,
+        name: apiKey.name,
+        type: apiKey.type,
+        scope: apiKey.scope,
+        tenantId: apiKey.tenantId,
+        userAccountId: apiKey.userAccountId,
+        allowedIPs: apiKey.allowedIPs,
+        allowedDomains: apiKey.allowedDomains,
+        rateLimit: apiKey.rateLimit,
+        expiresAt: apiKey.expiresAt,
+        isRevoked: apiKey.isRevoked,
+        lastUsedAt: apiKey.lastUsedAt,
+      };
+    },
+
+    updateAPIKeyLastUsed: async (apiKeyId: string) => {
+      await db
+        .update(apiKeys)
+        .set({ 
+          lastUsedAt: new Date(),
+          usageCount: sql`${apiKeys.usageCount} + 1`,
+        })
+        .where(eq(apiKeys.id, apiKeyId));
+    },
   }
 });
 

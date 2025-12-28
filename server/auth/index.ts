@@ -25,8 +25,8 @@ import {
   clearAuthCookies,
   setAuthCookies,
 } from "./token";
-import { authorizeAPIKey, authorizeUser } from "./auth";
-import { createAuthMiddleware } from "./middleware";
+import { authorizeAPIKey, authorizeUser, hashApiKey } from "./auth";
+import { createAuthMiddleware, createScopeMiddleware } from "./middleware";
 
 interface AuthServiceOptions {
   accessTokenSecret: string;
@@ -41,7 +41,6 @@ interface AuthServiceOptions {
 }
 
 export class AuthService {
-
   private readonly accessTokenCookieName: string;
   private readonly refreshTokenCookieName: string;
   private readonly accessTokenSecret: string;
@@ -52,10 +51,11 @@ export class AuthService {
   private readonly tokenPersistence: TokenPersistence;
   private readonly cookieOptions: CookieOptions;
 
-
   constructor(options: AuthServiceOptions) {
-    this.accessTokenCookieName = options.accessTokenCookieName ?? AUTH_COOKIE_NAMES.ACCESS_TOKEN;
-    this.refreshTokenCookieName = options.refreshTokenCookieName ?? AUTH_COOKIE_NAMES.REFRESH_TOKEN;
+    this.accessTokenCookieName =
+      options.accessTokenCookieName ?? AUTH_COOKIE_NAMES.ACCESS_TOKEN;
+    this.refreshTokenCookieName =
+      options.refreshTokenCookieName ?? AUTH_COOKIE_NAMES.REFRESH_TOKEN;
     this.accessTokenSecret = options.accessTokenSecret;
     this.refreshTokenSecret = options.refreshTokenSecret;
     this.apiKeySecret = options.apiKeySecret ?? this.accessTokenSecret;
@@ -71,22 +71,33 @@ export class AuthService {
     };
   }
 
-  public generateAccessToken(attributes: Omit<JWTAuthTokenAttributes, "expiry">) {
-    return generateAccessToken({
-      ...attributes,
-      expiry: this.accessTokenExpiry
-    }, this.accessTokenSecret);
+  public generateAccessToken(
+    attributes: Omit<JWTAuthTokenAttributes, "expiry">
+  ) {
+    return generateAccessToken(
+      {
+        ...attributes,
+        expiry: this.accessTokenExpiry,
+      },
+      this.accessTokenSecret
+    );
   }
 
   public verifyAccessToken(token: string) {
     return verifyAccessToken(token, this.accessTokenSecret);
   }
 
-  public generateRefreshToken(attributes: Omit<RefreshTokenAttributes, "expiry">) {
-    return generateRefreshToken({
-      ...attributes,
-      expiry: this.refreshTokenExpiry
-    }, this.tokenPersistence, this.refreshTokenSecret);
+  public generateRefreshToken(
+    attributes: Omit<RefreshTokenAttributes, "expiry">
+  ) {
+    return generateRefreshToken(
+      {
+        ...attributes,
+        expiry: this.refreshTokenExpiry,
+      },
+      this.tokenPersistence,
+      this.refreshTokenSecret
+    );
   }
 
   public verifyRefreshToken(token: string) {
@@ -97,27 +108,56 @@ export class AuthService {
     return revokeRefreshTokenFamily(attributes, this.tokenPersistence);
   }
 
-  public setAuthCookies(res: ResponseWithCookiesLike, accessToken: string, refreshToken: string) {
-    setAuthCookies(res, this.accessTokenCookieName, this.refreshTokenCookieName, this.cookieOptions, accessToken, refreshToken);
+  public setAuthCookies(
+    res: ResponseWithCookiesLike,
+    accessToken: string,
+    refreshToken: string
+  ) {
+    setAuthCookies(
+      res,
+      this.accessTokenCookieName,
+      this.refreshTokenCookieName,
+      this.cookieOptions,
+      accessToken,
+      refreshToken
+    );
   }
 
   public clearAuthCookies(res: ResponseWithCookiesLike) {
-    clearAuthCookies(res, this.accessTokenCookieName, this.refreshTokenCookieName, this.cookieOptions);
+    clearAuthCookies(
+      res,
+      this.accessTokenCookieName,
+      this.refreshTokenCookieName,
+      this.cookieOptions
+    );
   }
 
-  public authorizeUser(attributes: AuthorizeUserAttributes, res: ResponseWithCookiesLike) {
-    const that = this
-    return authorizeUser({
-      ...attributes,
-      accessTokenSecret: this.accessTokenSecret,
-      refreshTokenSecret: this.refreshTokenSecret,
-      accessTokenExpiry: this.accessTokenExpiry,
-      refreshTokenExpiry: this.refreshTokenExpiry
-    }, function (res: ResponseWithCookiesLike, accessToken: string, refreshToken: string) {
-      that.setAuthCookies(res, accessToken, refreshToken);
-    }, function (res: ResponseWithCookiesLike) {
-      that.clearAuthCookies(res);
-    }, this.tokenPersistence, res);
+  public authorizeUser(
+    attributes: AuthorizeUserAttributes,
+    res: ResponseWithCookiesLike
+  ) {
+    const that = this;
+    return authorizeUser(
+      {
+        ...attributes,
+        accessTokenSecret: this.accessTokenSecret,
+        refreshTokenSecret: this.refreshTokenSecret,
+        accessTokenExpiry: this.accessTokenExpiry,
+        refreshTokenExpiry: this.refreshTokenExpiry,
+      },
+      function (
+        res: ResponseWithCookiesLike,
+        accessToken: string,
+        refreshToken: string
+      ) {
+        that.setAuthCookies(res, accessToken, refreshToken);
+      },
+      function (res: ResponseWithCookiesLike) {
+        that.clearAuthCookies(res);
+      },
+      this.tokenPersistence,
+      res
+    );
   }
 
   public authorizeAPIKey(attributes: AuthorizeAPIKeyAttributes) {
@@ -132,43 +172,81 @@ export class AuthService {
       this.tokenPersistence
     );
   }
-  
+
   public createAuthMiddleware(allowedAuthTypes: TenantType[]) {
     const that = this;
-    return createAuthMiddleware(allowedAuthTypes,
-      function (attributes: AuthorizeUserAttributes, res: ResponseWithCookiesLike) {
+    return createAuthMiddleware(
+      allowedAuthTypes,
+      function (
+        attributes: AuthorizeUserAttributes,
+        res: ResponseWithCookiesLike
+      ) {
         return that.authorizeUser(attributes, res);
       },
       function (attributes: AuthorizeAPIKeyAttributes) {
         return that.authorizeAPIKey(attributes);
-      });  
+      }
+    );
   }
 
   public getAuthMiddlewares() {
-
     const that = this;
     return {
-      requireUser: createAuthMiddleware(['user'], function (attributes: AuthorizeUserAttributes, res: ResponseWithCookiesLike) {
-        return that.authorizeUser(attributes, res);
-      }, function (attributes: AuthorizeAPIKeyAttributes) {
-        return that.authorizeAPIKey(attributes);
-      }),
-      requireApiKey: createAuthMiddleware(['api'], function (attributes: AuthorizeUserAttributes, res: ResponseWithCookiesLike) {
-        return that.authorizeUser(attributes, res);
-      }, function (attributes: AuthorizeAPIKeyAttributes) {
-        return that.authorizeAPIKey(attributes);
-      }),
-      requireAny: createAuthMiddleware(['user', 'api'], function (attributes: AuthorizeUserAttributes, res: ResponseWithCookiesLike) {
-        return that.authorizeUser(attributes, res);
-      }, function (attributes: AuthorizeAPIKeyAttributes) {
-        return that.authorizeAPIKey(attributes);
-      }),
-      requireBoth: createAuthMiddleware(['user', 'api'], function (attributes: AuthorizeUserAttributes, res: ResponseWithCookiesLike) {
-        return that.authorizeUser(attributes, res);
-      }, function (attributes: AuthorizeAPIKeyAttributes) {
-        return that.authorizeAPIKey(attributes);
-      }),
-    }
+      requireUser: createAuthMiddleware(
+        ["user"],
+        function (
+          attributes: AuthorizeUserAttributes,
+          res: ResponseWithCookiesLike
+        ) {
+          return that.authorizeUser(attributes, res);
+        },
+        function (attributes: AuthorizeAPIKeyAttributes) {
+          return that.authorizeAPIKey(attributes);
+        }
+      ),
+      requireApiKey: createAuthMiddleware(
+        ["api"],
+        function (
+          attributes: AuthorizeUserAttributes,
+          res: ResponseWithCookiesLike
+        ) {
+          return that.authorizeUser(attributes, res);
+        },
+        function (attributes: AuthorizeAPIKeyAttributes) {
+          return that.authorizeAPIKey(attributes);
+        }
+      ),
+      requireAny: createAuthMiddleware(
+        ["user", "api"],
+        function (
+          attributes: AuthorizeUserAttributes,
+          res: ResponseWithCookiesLike
+        ) {
+          return that.authorizeUser(attributes, res);
+        },
+        function (attributes: AuthorizeAPIKeyAttributes) {
+          return that.authorizeAPIKey(attributes);
+        }
+      ),
+      requireBoth: createAuthMiddleware(
+        ["user", "api"],
+        function (
+          attributes: AuthorizeUserAttributes,
+          res: ResponseWithCookiesLike
+        ) {
+          return that.authorizeUser(attributes, res);
+        },
+        function (attributes: AuthorizeAPIKeyAttributes) {
+          return that.authorizeAPIKey(attributes);
+        }
+      ),
+      /**
+       * Middleware to require a minimum scope level.
+       * Use after requireApiKey or requireAny middleware.
+       * For user-type auth, full access is assumed.
+       */
+      requireScope: createScopeMiddleware,
+    };
   }
 
   public getAccessTokenCookieName() {
@@ -183,6 +261,8 @@ export class AuthService {
 export * from "./types";
 
 export * from "./utils";
+
+export { hashApiKey } from "./auth";
 
 export {
   getUserAccountId,

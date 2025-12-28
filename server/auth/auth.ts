@@ -1,9 +1,17 @@
 //import { refreshTokens } from "@db/schema";
+import { createHash } from "crypto";
 import { clearAuthCookies, generateRefreshToken, setAuthCookies } from "./token";
 import { generateAccessToken } from "./token";
 import { verifyAccessToken, verifyRefreshToken } from "./token";
 //import { db } from "@db/connection";
 import { AuthorizeAPIKeyAttributesExtended, AuthorizeUserAttributesExtended, AuthorizeUserResult, AuthorizeTenantResult, CookieOptions, ResponseWithCookiesLike, TokenPersistence } from "./types";
+
+/**
+ * Hash an API key using SHA-256
+ */
+export function hashApiKey(apiKey: string): string {
+  return createHash("sha256").update(apiKey).digest("hex");
+}
 
 export async function authorizeUser(
   attributes: AuthorizeUserAttributesExtended,
@@ -95,32 +103,60 @@ export async function authorizeAPIKey(
   tokenPersistence: TokenPersistence,
 ): Promise<AuthorizeTenantResult | null> {
 
-  const { apiKey, apiKeySecret } = attributes;
-  const apiKeyEnitity = await tokenPersistence.getAPIKey(apiKey);
+  const { apiKey, reqDomain, reqIP } = attributes;
+  
+  // Hash the incoming key to compare against stored hash
+  const keyHash = hashApiKey(apiKey);
+  
+  const apiKeyEntity = await tokenPersistence.getAPIKeyByHash(keyHash);
 
-  if (!apiKeyEnitity) {
+  if (!apiKeyEntity) {
     return null;
   }
 
-  const { expiresAt, allowedDomains, allowedIPs, isRevoked, key } = apiKeyEnitity;
+  const { 
+    id,
+    expiresAt, 
+    allowedDomains, 
+    allowedIPs, 
+    isRevoked,
+    tenantId,
+    type,
+    scope,
+    userAccountId,
+  } = apiKeyEntity;
 
-  if (expiresAt && expiresAt < new Date()) {
-    return null;
-  }
-
+  // Check if revoked
   if (isRevoked) {
     return null;
   }
 
-  if (allowedDomains && !allowedDomains.includes(attributes.reqDomain)) {
+  // Check expiration
+  if (expiresAt && expiresAt < new Date()) {
     return null;
   }
 
-  if (allowedIPs && !allowedIPs.includes(attributes.reqIP)) {
-    return null;
+  // Check IP restrictions (if configured)
+  if (allowedIPs && allowedIPs.length > 0 && reqIP) {
+    if (!allowedIPs.includes(reqIP)) {
+      return null;
+    }
   }
 
-  const { id: tenantId } = apiKeyEnitity;
+  // Check domain restrictions (if configured)
+  if (allowedDomains && allowedDomains.length > 0 && reqDomain) {
+    if (!allowedDomains.includes(reqDomain)) {
+      return null;
+    }
+  }
 
-  return { tenantId };
+  // Update last used timestamp (fire and forget)
+  tokenPersistence.updateAPIKeyLastUsed(id).catch(() => {});
+
+  return { 
+    tenantId,
+    keyType: type,
+    scope,
+    userAccountId: userAccountId ?? undefined,
+  };
 }
