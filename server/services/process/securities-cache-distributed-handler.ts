@@ -13,7 +13,7 @@ import {
 import {
   factory as queueFactory,
   SecuritiesDailyHistoryCacheUpdateMessageBase,
-} from "@server/services/distributed";
+} from "@server/services/distributed/queue";
 
 type Event = {
   jobId: string;
@@ -35,6 +35,23 @@ export const handler = async (event: Event) => {
   }
 
   let abortController: AbortController = new AbortController();
+
+  const signalTermCallback = () => {
+    console.log("SIGINT or SIGTERM received");
+    exitSignalTriggered = true;
+    abortController.abort("SIGINT or SIGTERM received");
+    //process.off("SIGTERM", signalTermCallback);
+  };
+
+  const signalIntCallback = () => {
+    console.log("SIGINT received");
+    exitSignalTriggered = true;
+    abortController.abort("SIGINT received");
+    //process.off("SIGINT", signalIntCallback);
+  };
+
+  process.on("SIGINT", signalIntCallback);
+  process.on("SIGTERM", signalTermCallback);
 
   const queueService = queueFactory();
   const callback = async (message: any) => {
@@ -69,16 +86,7 @@ export const handler = async (event: Event) => {
     ),
   });
 
-  console.log("securitiesForAllAccounts", securitiesForAllAccounts);
-
-  const startDate = securitiesForAllAccounts.reduce((min, security) => {
-    return security.startDate < min ? security.startDate : min;
-  }, new Date());
-
-  const endDate = new Date();
-
   const updateJobWithStatus = async (status: ProcessStatus) => {
-    console.log("updateJobWithStatus", status, job.id);
     if (job) {
       try {
         const result = await db
@@ -112,8 +120,8 @@ export const handler = async (event: Event) => {
     jobId,
     securitiesForAllAccounts.map((security) => ({
       securityId: security.securityId,
-      startDate: startDate,
-      endDate: endDate,
+      startDate: security.startDate,
+      endDate: new Date(),
     })),
     abortController.signal
   );
@@ -122,8 +130,8 @@ export const handler = async (event: Event) => {
     jobId: jobId,
   };
 
-  securitiesCacheUpdater.once("started", () => {
-    updateJobWithStatus("running");
+  securitiesCacheUpdater.once("started", async () => {
+    await updateJobWithStatus("running");
     queueService.publish({
       type: "securities-daily-history-cache-update-started",
       ...messageData,
@@ -131,8 +139,8 @@ export const handler = async (event: Event) => {
     queueService.unsubscribe(callback);
   });
 
-  securitiesCacheUpdater.once("aborted", () => {
-    updateJobWithStatus("aborted");
+  securitiesCacheUpdater.once("aborted", async () => {
+    await updateJobWithStatus("aborted");
     if (exitSignalTriggered) {
       console.log("Abort listener, SIGINT or SIGTERM received, exiting");
       process.exit(0);
@@ -144,8 +152,8 @@ export const handler = async (event: Event) => {
     queueService.unsubscribe(callback);
   });
 
-  securitiesCacheUpdater.once("completed", () => {
-    updateJobWithStatus("completed");
+  securitiesCacheUpdater.once("completed", async () => {
+    await updateJobWithStatus("completed");
     queueService.publish({
       type: "securities-daily-history-cache-update-completed",
       ...messageData,
@@ -153,8 +161,8 @@ export const handler = async (event: Event) => {
     queueService.unsubscribe(callback);
   });
 
-  securitiesCacheUpdater.once("failed", () => {
-    updateJobWithStatus("failed");
+  securitiesCacheUpdater.once("failed", async () => {
+    await updateJobWithStatus("failed");
     queueService.publish({
       type: "securities-daily-history-cache-update-failed",
       ...messageData,
@@ -163,23 +171,13 @@ export const handler = async (event: Event) => {
   });
 
   securitiesCacheUpdater.once("exited", () => {
+    process.off("SIGINT", signalIntCallback);
+    process.off("SIGTERM", signalTermCallback);
     queueService.publish({
       type: "securities-daily-history-cache-update-exited",
       ...messageData,
     });
     queueService.unsubscribe(callback);
-  });
-
-  process.on("SIGINT", async () => {
-    console.log("SIGINT received");
-    exitSignalTriggered = true;
-    abortController.abort("SIGINT received");
-  });
-
-  process.on("SIGTERM", () => {
-    console.log("SIGTERM received");
-    exitSignalTriggered = true;
-    abortController.abort("SIGTERM received");
   });
 
   securitiesCacheUpdater.update();

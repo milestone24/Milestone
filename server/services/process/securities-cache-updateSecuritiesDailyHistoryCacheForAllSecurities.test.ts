@@ -6,7 +6,7 @@ import { expect } from "vitest";
 import {
   factory as queueFactory,
   SecuritiesDailyHistoryCacheUpdateMessage,
-} from "@server/services/distributed";
+} from "@server/services/distributed/queue";
 
 describe("SecuritiesCacheService", async () => {
   it(
