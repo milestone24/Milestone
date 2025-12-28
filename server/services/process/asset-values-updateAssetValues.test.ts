@@ -5,8 +5,8 @@ import {
   assetPersistenceFactory,
   DatabaseAssetService,
 } from "@server/services/assets/database";
-import { factory as queueFactory } from "@server/services/distributed";
-import { Message } from "@server/services/distributed";
+import { factory as queueFactory } from "@server/services/distributed/queue";
+import { Message } from "@server/services/distributed/queue";
 import { addDays, startOfMonth } from "date-fns";
 
 describe("AssetValuesService", () => {

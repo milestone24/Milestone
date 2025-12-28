@@ -1,7 +1,7 @@
 import {
   AssetValuesUpdateMessageBase,
   factory as queueFactory,
-} from "@server/services/distributed";
+} from "@server/services/distributed/queue";
 import { AssetValuesUpdater } from "../securities/sync/asset-value";
 import {
   AssetPersistence,
@@ -29,9 +29,28 @@ type Event = {
 export const handler = async (event: Event) => {
   const { assetId, accountId, jobId, startDate } = event;
 
+  let exitSignalTriggered = false;
+
   console.log("Asset values update started for start date", startDate);
 
   let abortController: AbortController = new AbortController();
+
+  const signalTermCallback = () => {
+    console.log("SIGINT or SIGTERM received");
+    exitSignalTriggered = true;
+    abortController.abort("SIGINT or SIGTERM received");
+    process.off("SIGTERM", signalTermCallback);
+  };
+
+  const signalIntCallback = () => {
+    console.log("SIGINT received");
+    exitSignalTriggered = true;
+    abortController.abort("SIGINT received");
+    process.off("SIGINT", signalIntCallback);
+  };
+
+  process.on("SIGINT", signalIntCallback);
+  process.on("SIGTERM", signalTermCallback);
 
   const job = await db.query.processes.findFirst({
     where: and(eq(processes.id, jobId)),
@@ -128,23 +147,22 @@ export const handler = async (event: Event) => {
   });
   updater.once("aborted", async () => {
     await updateJobWithStatus("aborted");
+    if (exitSignalTriggered) {
+      console.log("Abort listener, SIGINT or SIGTERM received, exiting");
+      process.exit(0);
+    }
     queueService.publish({
       ...messageData,
       type: "asset-values-update-aborted",
     });
   });
   updater.once("exited", async () => {
+    process.off("SIGINT", signalIntCallback);
+    process.off("SIGTERM", signalTermCallback);
     queueService.publish({
       ...messageData,
       type: "asset-values-update-exited",
     });
-  });
-
-  process.on("SIGINT", async () => {
-    abortController.abort();
-  });
-  process.on("SIGTERM", () => {
-    abortController.abort();
   });
 
   updater.update();

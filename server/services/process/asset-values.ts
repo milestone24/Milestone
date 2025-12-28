@@ -15,7 +15,7 @@ import {
   portfolioGraphValues,
   portfolioOverview,
 } from "@shared/api/queryKeys";
-import { factory as queueFactory } from "@server/services/distributed";
+import { factory as queueFactory } from "@server/services/distributed/queue";
 import { mockLambdaHandler } from "./asset-values-mock-lambda";
 import { handler } from "./asset-values-distributed-handler";
 
