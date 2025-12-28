@@ -22,6 +22,8 @@ type Event = {
 export const handler = async (event: Event) => {
   const { jobId } = event;
 
+  let exitSignalTriggered = false;
+
   const job = await db.query.processes.findFirst({
     where: and(eq(processes.id, jobId)),
   });
@@ -131,6 +133,10 @@ export const handler = async (event: Event) => {
 
   securitiesCacheUpdater.once("aborted", () => {
     updateJobWithStatus("aborted");
+    if (exitSignalTriggered) {
+      console.log("Abort listener, SIGINT or SIGTERM received, exiting");
+      process.exit(0);
+    }
     queueService.publish({
       type: "securities-daily-history-cache-update-aborted",
       ...messageData,
@@ -165,10 +171,15 @@ export const handler = async (event: Event) => {
   });
 
   process.on("SIGINT", async () => {
-    abortController.abort();
+    console.log("SIGINT received");
+    exitSignalTriggered = true;
+    abortController.abort("SIGINT received");
   });
+
   process.on("SIGTERM", () => {
-    abortController.abort();
+    console.log("SIGTERM received");
+    exitSignalTriggered = true;
+    abortController.abort("SIGTERM received");
   });
 
   securitiesCacheUpdater.update();
