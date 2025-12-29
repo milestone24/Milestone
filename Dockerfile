@@ -1,5 +1,5 @@
 # Stage 1: Dependencies - Cache node_modules separately
-FROM node:22 AS dependencies
+FROM node:24 AS dependencies
 WORKDIR /app
 
 # Copy package files for dependency installation
@@ -9,7 +9,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 # Stage 2: Build - Build the application
-FROM node:22 AS build
+FROM node:24 AS build
 WORKDIR /app
 
 # Copy dependencies from previous stage
@@ -31,7 +31,7 @@ COPY client/ ./client/
 RUN npm run build
 
 # Stage 3: Production - Minimal runtime image
-# FROM node:22 AS production
+# FROM node:24 AS production
 # WORKDIR /app
 
 # # Copy package files for production dependencies only
