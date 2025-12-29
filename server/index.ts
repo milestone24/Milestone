@@ -10,6 +10,7 @@ import http from "http";
 import helmet from "helmet";
 import { applyWebsocket } from "./sockets/primary";
 import semver from "semver";
+import { initUpdateChain } from "./services/distributed/chain";
 
 const app = express();
 
@@ -135,6 +136,7 @@ app.use(express.static(path.join(process.cwd(), "public")));
     //applyWebsocket(wsServer, authService);
 
     applyWebsocket(server, authService);
+    initUpdateChain();
   } catch (error) {
     console.log("Database ping failed:", error);
   }
