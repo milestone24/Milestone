@@ -11,14 +11,10 @@ import {
   portfolioAssets,
   portfolioGraphValues,
   portfolioGraphTransactions,
+  assetValues,
 } from "@shared/api/queryKeys";
 
 const ASSET_VALUES_QUERY_KEY = "user-asset-history";
-
-export const getAssetValuesQueryKey = (assetId: string) => [
-  ASSET_VALUES_QUERY_KEY,
-  assetId,
-];
 
 type AssetValueUpdate = UserAssetValueOrphanInsert & {
   historyId: AssetValue["id"];
@@ -26,7 +22,7 @@ type AssetValueUpdate = UserAssetValueOrphanInsert & {
 
 export function useAssetValues(assetId: string | undefined) {
   const query = useQuery<AssetValue[]>({
-    queryKey: getAssetValuesQueryKey(assetId ?? ""),
+    queryKey: [...assetValues, assetId ?? ""],
     queryFn: () =>
       apiRequest<AssetValue[]>(
         "GET",
@@ -37,7 +33,7 @@ export function useAssetValues(assetId: string | undefined) {
 
   const invalidateRelatedQueries = () => {
     queryClient.invalidateQueries({
-      queryKey: getAssetValuesQueryKey(assetId ?? ""),
+      queryKey: [...assetValues, assetId ?? ""],
     });
     queryClient.invalidateQueries({
       queryKey: [...assetGraphValues],
