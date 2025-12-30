@@ -268,7 +268,6 @@ export class SecuritiesCacheUpdater extends EventEmitter<EmitEvents> {
       this
     )
       .then(() => {
-        console.log("SecuritiesCacheUpdater then", this.jobId);
         this.emit("completed", { jobId: this.jobId });
         this.emit("exited", { jobId: this.jobId });
       })
