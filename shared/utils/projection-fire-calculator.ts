@@ -90,7 +90,7 @@ export async function projectToRetirement(
   // Calculate FIRE number
   const fireNumber = calculateFIRENumber(
     Decimal(fireConfig.annualIncomeGoal).toNumber(),
-    fireConfig.safeWithdrawalRate
+    Decimal(fireConfig.safeWithdrawalRate).toNumber()
   );
 
   // Create projection config with retirement date as end date
@@ -286,7 +286,7 @@ export async function projectRetirementWithAccountAssets(
     gender: userProfile.gender,
     targetRetirementAge: userFireSettings.targetRetirementAge,
     annualIncomeGoal: userFireSettings.annualIncomeGoal,
-    safeWithdrawalRate: Decimal(userFireSettings.safeWithdrawalRate).toNumber(),
+    safeWithdrawalRate: userFireSettings.safeWithdrawalRate,
     adjustForInflation: userFireSettings.adjustInflation,
     includeStatePension: userFireSettings.includeStatePension,
     incomeGoals: userFireSettings.incomeGoals,

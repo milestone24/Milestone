@@ -70,7 +70,7 @@ describe("calculateWithdrawalStrategy", () => {
         ],
         targetRetirementAge: 67,
         annualIncomeGoal: createDecimalValueString("10000"),
-        safeWithdrawalRate: 4,
+        safeWithdrawalRate: createDecimalValueString("4"),
         adjustForInflation: true,
       },
       createProjectionResult(),

@@ -225,7 +225,7 @@ export const fireProjectionConfigSchema = z.object({
   dateOfBirth: dateTransformedSchema,
   gender: z.enum(["male", "female", "other"]),
   targetRetirementAge: z.number().min(18).max(100),
-  annualIncomeGoal: z.string().refine(isDecimalValueString, {
+  annualIncomeGoal: decimalValueSchema.refine(isDecimalValueString, {
     message: "Annual income goal must be a valid decimal string",
   }),
   safeWithdrawalRate: z.number().min(0).max(100), // Percentage (typically 3-4%)

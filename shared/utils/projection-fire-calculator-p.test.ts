@@ -14,7 +14,7 @@ describe("projectToRetirement", () => {
       adjustForInflation: false,
       annualIncomeGoal: createDecimalValueString("100000"),
       dateOfBirth: new Date("1990-01-01"),
-      safeWithdrawalRate: 4,
+      safeWithdrawalRate: createDecimalValueString("4"),
       targetRetirementAge: 60,
       gender: "male",
       includeStatePension: false,
