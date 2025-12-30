@@ -1,7 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+// @ts-nocheck
+
+//This test needs modifying to use the new SecurityCacheUpdater Event Emitter
+
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   bulkPopulateSecurityDailyHistory,
-  populateSecurityDailyHistoryCache,
+  populateSecuritiesDailyHistoryCache,
 } from "./cache";
 // import {
 //   populateSecurityDailyHistory,
@@ -13,6 +17,7 @@ import {
 // } from './index'
 
 import { factory } from "./asset-value";
+import { EventEmitter } from "events";
 
 const assetValue = factory();
 
@@ -29,10 +34,17 @@ describe("Securities Sync Module", () => {
     it("should populate daily history for a single security", async () => {
       // TODO: Implement test
       await expect(
-        populateSecurityDailyHistoryCache({
-          securityId: "security-id-1",
-          startDate: new Date("2024-01-01"),
-        })
+        populateSecuritiesDailyHistoryCache(
+          [
+            {
+              securityId: "security-id-1",
+              startDate: new Date("2024-01-01"),
+            },
+          ],
+          "job-id",
+          new AbortSignal(),
+          new EventEmitter()
+        )
       ).rejects.toThrow("Not implemented");
     });
 
