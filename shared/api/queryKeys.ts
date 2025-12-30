@@ -34,6 +34,7 @@ export const fireSettings = ["fire-settings"];
 
 // Projection query keys
 export const assetProjection = ["projections", "asset"];
+export const assetValues = ["asset", "history", "values"];
 export const portfolioProjection = ["projections", "portfolio"];
 export const milestoneProjection = ["projections", "milestone"];
 export const milestonesProjection = ["projections", "milestones"];
