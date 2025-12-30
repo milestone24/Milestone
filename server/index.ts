@@ -11,6 +11,7 @@ import helmet from "helmet";
 import { applyWebsocket } from "./sockets/primary";
 import semver from "semver";
 import { initUpdateChain } from "./services/distributed/chain";
+import { initQueueNotifications } from "./services/distributed/notification";
 
 const app = express();
 
@@ -137,6 +138,7 @@ app.use(express.static(path.join(process.cwd(), "public")));
 
     applyWebsocket(server, authService);
     initUpdateChain();
+    initQueueNotifications();
   } catch (error) {
     console.log("Database ping failed:", error);
   }

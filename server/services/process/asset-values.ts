@@ -35,10 +35,6 @@ export class AssetValuesService {
     startDate?: Date
   ): Promise<void> {
     return new Promise(async (resolve, reject) => {
-      sendNotification(accountId, {
-        type: "notification",
-        message: "Updating asset values...",
-      });
 
       console.log(
         "Updating asset values for accountId",
