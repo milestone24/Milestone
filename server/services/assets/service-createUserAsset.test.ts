@@ -11,6 +11,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { setupOne } from "@server/test-utils/setup-one";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@server/db";
+import { AssetValuesService } from "../process/asset-values";
 // const db = drizzle.mock({
 //   schema,
 // });
@@ -37,12 +38,14 @@ import { db } from "@server/db";
 describe("DatabaseAssetService createUserAsset", () => {
   let databaseAssetService: DatabaseAssetService;
   let databaseUserService: DatabaseUserService;
+  let assetValuesService: AssetValuesService;
   let platform: BrokerPlatform;
   let userAccountId: string;
 
   beforeAll(async () => {
     databaseAssetService = new DatabaseAssetService(db);
     databaseUserService = new DatabaseUserService(db);
+    assetValuesService = new AssetValuesService(db);
 
     const platforms = await databaseAssetService.getBrokerPlatforms();
     if (!platforms || platforms.length === 0) {
@@ -64,8 +67,8 @@ describe("DatabaseAssetService createUserAsset", () => {
     "should create a user asset",
     async () => {
       const updateAssetValuesSpy = await vi.spyOn(
-        databaseAssetService,
-        "updateAssetValues"
+        assetValuesService,
+        "updateAssetValuesForAssetOfAccount"
       );
       // .mockImplementation(async () => {
       //   return Promise.resolve();
