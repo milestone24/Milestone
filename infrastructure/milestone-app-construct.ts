@@ -474,14 +474,28 @@ EOF`,
       description: "Role for EventBridge to invoke SSM Run Command",
     });
 
+    // Build document ARN using CDK's formatArn for consistency
+    const documentArn = stack.formatArn({
+      service: "ssm",
+      resource: "document",
+      resourceName: triggerSecuritiesCacheDocument.ref,
+    });
+
+    // Build instance ARN for SSM targeting
+    const instanceArn = stack.formatArn({
+      service: "ec2",
+      resource: "instance",
+      resourceName: this.instance.instanceId,
+    });
+
+    // AWS-RunShellScript is an AWS-managed document (no account ID in ARN)
+    const awsRunShellScriptArn = `arn:aws:ssm:${stack.region}::document/AWS-RunShellScript`;
+
     eventBridgeRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ["ssm:SendCommand"],
-        resources: [
-          `arn:aws:ssm:${stack.region}:${stack.account}:document/${stack.stackName}-trigger-securities-cache`,
-          `arn:aws:ec2:${stack.region}:${stack.account}:instance/${this.instanceId}`,
-        ],
+        resources: [documentArn, awsRunShellScriptArn, instanceArn],
       })
     );
 
@@ -495,7 +509,7 @@ EOF`,
       targets: [
         {
           id: "TriggerSecuritiesCacheSSM",
-          arn: `arn:aws:ssm:${stack.region}::document/AWS-RunShellScript`,
+          arn: awsRunShellScriptArn,
           roleArn: eventBridgeRole.roleArn,
           runCommandParameters: {
             runCommandTargets: [
