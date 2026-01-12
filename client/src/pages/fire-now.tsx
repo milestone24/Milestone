@@ -140,7 +140,7 @@ export default function Fire() {
       gender: userGender,
       targetRetirementAge,
       annualIncomeGoal: createDecimalValueString(annualIncomeGoal.toString()),
-      safeWithdrawalRate: withdrawalRate,
+      safeWithdrawalRate: createDecimalValueString(withdrawalRate.toString()),
       adjustForInflation: adjustInflation,
       includeStatePension: includeStatePension,
       incomeGoals: [

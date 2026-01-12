@@ -10,6 +10,7 @@ import {
   DecimalValueString,
   isDecimalValueString,
 } from "./utils";
+import Decimal from "decimal.js";
 
 // ============================================================================
 // PROJECTION CONFIGURATION
@@ -228,7 +229,13 @@ export const fireProjectionConfigSchema = z.object({
   annualIncomeGoal: decimalValueSchema.refine(isDecimalValueString, {
     message: "Annual income goal must be a valid decimal string",
   }),
-  safeWithdrawalRate: z.number().min(0).max(100), // Percentage (typically 3-4%)
+  safeWithdrawalRate: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Safe withdrawal rate must be a valid decimal string",
+    })
+    .refine((val) => Decimal(val).gt(0) && Decimal(val).lt(100), {
+      message: "Safe withdrawal rate must be between 0 and 100",
+    }),
   adjustForInflation: z.boolean().default(true),
   includeStatePension: z.boolean().default(false),
   incomeGoals: incomeGoalSchema.array(),
