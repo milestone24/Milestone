@@ -1,12 +1,16 @@
-import { factory } from "@server/services/securities"
+// @ts-nocheck
 
-import { db } from "@server/db"
+//This script needs modifying to use the new AssetValuesUpdater Event Emitter
 
-const securityService = factory()
+import { factory } from "@server/services/securities";
 
-import dotenv from "dotenv"
+import { db } from "@server/db";
+
+const securityService = factory();
+
+import dotenv from "dotenv";
 import { userAssetSecurities } from "@server/db/schema";
-import { eq } from "drizzle-orm"
+import { eq } from "drizzle-orm";
 
 import { populateSecuritiesDailyHistoryCache } from "@server/services/securities/sync/cache";
 
@@ -100,11 +104,14 @@ const go = async () => {
 
   //const results = await populateSecuritiesDailyHistoryCache(securityContexts)
 
+  const ac = new AbortController();
+
   const results = await updateAssetValues(
-    assetPersistenceFactory(assetService, assetId)
+    assetPersistenceFactory(assetService, assetId),
+    ac.signal
   );
 
   console.log("RESULTS", results);
 };
 
-go()
+go();
