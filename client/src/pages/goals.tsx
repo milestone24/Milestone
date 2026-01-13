@@ -54,6 +54,7 @@ import {
 } from "@shared/schema";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
+import { useAssets } from "@/hooks/use-assets";
 
 // Form schema for adding a new milestone
 const milestoneSchema = z.object({
@@ -67,8 +68,10 @@ const milestoneSchema = z.object({
 });
 
 export default function Goals() {
-  const { assets, milestones, addMilestone, deleteMilestone, isLoading } =
+  const { milestones, addMilestone, deleteMilestone, isLoading } =
     usePortfolio();
+
+  const { data: assets = [], isLoading: isLoadingAssets } = useAssets();
 
   const { data: portfolioOverview } = usePortfolioOverview();
 

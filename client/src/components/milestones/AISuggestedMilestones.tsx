@@ -12,12 +12,15 @@ import { useToast } from "@/hooks/use-toast";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
 import { createDecimalValueString } from "@shared/schema";
 import Decimal from "decimal.js";
+import { useAssets } from "@/hooks/use-assets";
 
 // Define AccountType directly here as well to avoid type issues
 type AccountType = "ISA" | "SIPP" | "LISA" | "GIA";
 
 export default function AISuggestedMilestones() {
-  const { assets, milestones, addMilestone, isLoading } = usePortfolio();
+  const { milestones, addMilestone, isLoading } = usePortfolio();
+
+  const { data: assets = [], isLoading: isLoadingAssets } = useAssets();
 
   const { data: portfolioOverview } = usePortfolioOverview();
 

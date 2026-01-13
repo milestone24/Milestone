@@ -61,6 +61,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useBrokerProviders } from "@/hooks/use-broker-providers";
 import { ScreenshotUpload } from "@/components/record/ScreenshotUpload";
+import { useAssets } from "@/hooks/use-assets";
 type AccountFormData = {
   [key: string]: number | undefined;
 };
@@ -72,9 +73,11 @@ const assetWithValeGuard = (
 };
 
 export default function Record() {
-  const { addAsset, isLoading, updateAsset, assets } = usePortfolio();
+  const { addAsset, isLoading, updateAsset } = usePortfolio();
 
   const { data: brokerProviders } = useBrokerProviders();
+
+  const { data: assets = [], isLoading: isLoadingAssets } = useAssets();
 
   // Create a function to handle contribution submissions
   const addContributionToAsset = async (

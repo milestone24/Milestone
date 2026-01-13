@@ -42,6 +42,7 @@ import { portfolioGraphValues } from "@shared/api/queryKeys";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
 import { useAssetCreate } from "@/hooks/use-asset-create";
 import { PosNegNumber } from "@/components/common/PosNegNumber";
+import { useAssets } from "@/hooks/use-assets";
 
 function Portfolio() {
   const { dateRange } = useDateRange();
@@ -55,7 +56,12 @@ function Portfolio() {
 
   const [, setLocation] = useLocation();
 
-  const { assets, milestones, deleteAsset, isLoading } = usePortfolio(
+  const { milestones, deleteAsset, isLoading } = usePortfolio(
+    startDate,
+    endDate
+  );
+
+  const { data: assets, isLoading: isLoadingAssets } = useAssets(
     startDate,
     endDate
   );
@@ -310,7 +316,7 @@ function Portfolio() {
           </AlertDialog>
 
           {/* Edit Mode Toggle Button - Only shown when accounts exist */}
-          {assets.length > 0 ? (
+          {assets && assets.length > 0 ? (
             <Button
               variant="outline"
               size="icon"
@@ -334,7 +340,7 @@ function Portfolio() {
         </div>
       </div>
 
-      {isLoading ? (
+      {isLoadingAssets ? (
         // Skeleton loading state for accounts
         Array(3)
           .fill(0)
@@ -355,7 +361,7 @@ function Portfolio() {
               </div>
             </div>
           ))
-      ) : assets.length === 0 ? (
+      ) : !assets || assets.length === 0 ? (
         <div className="py-8 text-center">
           <p className="text-gray-500 mb-4">
             No investment accounts added yet.
