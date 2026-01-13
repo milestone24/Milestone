@@ -116,7 +116,9 @@ const calculateAssetValue = async (
         value: createDecimalValueString(
           Decimal.mul(security.close, security.shareHolding).toString()
         ),
-        shareHolding: security.shareHolding,
+        shareHolding: createDecimalValueString(
+          security.shareHolding.toString()
+        ),
       });
     }
   }

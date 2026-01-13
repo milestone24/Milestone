@@ -63,8 +63,9 @@ export type AssetValueMetadataSecurity = {
   securityName: string;
   securitySymbol: string;
   value: DecimalValueString;
-  shareHolding: number;
+  shareHolding: DecimalValueString;
 };
+
 
 export type AssetValueMetadata = {
   calculatedAt: string;
