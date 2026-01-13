@@ -68,7 +68,7 @@ const presets: Array<Omit<StandaloneContributor, "id">> = [
   },
   {
     name: "Workplace Pension £250/mo",
-    accountType: "CISA",
+    accountType: null,
     type: "workplace_pension",
     monthlyAmount: 250,
   },

@@ -110,8 +110,6 @@ function defineValueReleasePointsForAssetType(
       return valueReleasesISA;
     case "SIPP":
       return valueReleasesSIPP;
-    case "CISA":
-      return valueReleasesCISA;
     case "GIA":
       // Flexible withdrawals - no restrictions
       return [];
@@ -142,7 +140,6 @@ function defineBonusValuesForAssetType(
       return bonusValuesLISA;
     case "ISA":
       return bonusValuesISA;
-    case "CISA":
     case "SIPP":
     case "GIA":
       // No government bonuses for these account types
@@ -183,15 +180,6 @@ export function defineContributorRulesForISA(): ContributorRules {
   };
 }
 
-export function defineContributorRulesForCISA(): ContributorRules {
-  return {
-    valueReleases: defineValueReleasePointsForAssetType("CISA"),
-    bonusValues: defineBonusValuesForAssetType("CISA"),
-    taxes: defineTaxesForAssetType("CISA"),
-    expectedGrowthRate: 7,
-  };
-}
-
 export function defineContributorRulesForSIPP(): ContributorRules {
   return {
     valueReleases: defineValueReleasePointsForAssetType("SIPP"),
@@ -218,8 +206,6 @@ export function defineContributorRulesForAssetType(
       return defineContributorRulesForLISA();
     case "ISA":
       return defineContributorRulesForISA();
-    case "CISA":
-      return defineContributorRulesForCISA();
     case "SIPP":
       return defineContributorRulesForSIPP();
     case "GIA":

@@ -2,7 +2,6 @@ import { pgEnum } from "drizzle-orm/pg-core";
 
 export const accountType = [
   "ISA",
-  "CISA",
   "SIPP",
   "LISA",
   "GIA",

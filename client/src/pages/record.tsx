@@ -622,8 +622,8 @@ export default function Record() {
                                     ? "Lifetime ISA"
                                     : asset.accountType === "GIA"
                                     ? "General Account"
-                                    : asset.accountType === "CISA"
-                                    ? "Cash ISA"
+                                    : asset.accountType === "ISA"
+                                    ? "Individual Savings Account"
                                     : asset.accountType}
                                 </span>
                               </div>
@@ -795,8 +795,8 @@ export default function Record() {
                                     ? "Lifetime ISA"
                                     : asset.accountType === "GIA"
                                     ? "General Account"
-                                    : asset.accountType === "CISA"
-                                    ? "Cash ISA"
+                                    : asset.accountType === "ISA"
+                                    ? "Individual Savings Account"
                                     : asset.accountType}
                                 </span>
                               </div>

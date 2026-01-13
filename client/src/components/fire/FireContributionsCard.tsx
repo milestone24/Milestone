@@ -73,7 +73,7 @@ const presets: Array<Omit<StandaloneContributor, "id">> = [
   {
     name: "Workplace Pension £250/mo",
     //TODO a workplace pension should not have to be a CISA
-    accountType: "CISA",
+    accountType: null,
     type: "workplace_pension",
     monthlyAmount: 250,
   },

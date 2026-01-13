@@ -10,7 +10,7 @@ async function setupOne(context: DBContext): Promise<void> {
   await db.insert(schema.brokerPlatforms).values({
     id: "1",
     name: "Broker Platform 1",
-    supportedAccountTypes: ["ISA", "CISA", "SIPP", "LISA", "GIA"],
+    supportedAccountTypes: ["ISA", "SIPP", "LISA", "GIA"],
     supportsAPIKey: false,
     createdAt: new Date(),
     updatedAt: new Date(),

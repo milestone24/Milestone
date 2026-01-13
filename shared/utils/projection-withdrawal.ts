@@ -140,8 +140,6 @@ export function getTaxCharacteristics(contributor: Contributor): string {
         : "Tax-free";
     case "SIPP":
       return "25% tax-free lump sum, rest taxed as income";
-    case "CISA":
-      return "Tax-free (Junior ISA)";
     default:
       return "Standard taxation";
   }
@@ -390,8 +388,6 @@ function getTaxEfficiencyPriority(
       return 3;
     case "SIPP":
       return 4;
-    case "CISA":
-      return 5;
     default:
       return 50;
   }
