@@ -139,20 +139,20 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
   }, [milestonesQueryKey]);
 
   // Fetch assets
-  const {
-    data: assets = [],
-    isLoading: isLoadingAssets,
-    isError: isAssetsError,
-  } = useQuery<UserAssetWithHistoryAndAccountChange[]>({
-    queryKey: [...portfolioAssets, startDate, endDate],
-    queryFn: apiEnabled
-      ? async () =>
-          apiRequest(
-            "GET",
-            `/api/assets?${getDateUrlParams(startDate, endDate)}`
-          )
-      : skipToken,
-  });
+  // const {
+  //   data: assets = [],
+  //   isLoading: isLoadingAssets,
+  //   isError: isAssetsError,
+  // } = useQuery<UserAssetWithHistoryAndAccountChange[]>({
+  //   queryKey: [...portfolioAssets, startDate, endDate],
+  //   queryFn: apiEnabled
+  //     ? async () =>
+  //         apiRequest(
+  //           "GET",
+  //           `/api/assets?${getDateUrlParams(startDate, endDate)}`
+  //         )
+  //     : skipToken,
+  // });
 
   // Fetch milestones
   const {
@@ -531,15 +531,6 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
 
   // Check for errors and show notifications
   useEffect(() => {
-    if (isAssetsError) {
-      toast({
-        title: "Failed to load assets",
-        description:
-          "There was an error loading your assets. Please try again.",
-        variant: "destructive",
-      });
-    }
-
     if (isMilestonesError) {
       toast({
         title: "Failed to load milestones",
@@ -548,9 +539,9 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
         variant: "destructive",
       });
     }
-  }, [isAssetsError, isMilestonesError]);
+  }, [isMilestonesError]);
 
-  const isLoading = isLoadingAssets || isLoadingMilestones;
+  const isLoading = isLoadingMilestones;
 
   return {
     ...context,
@@ -568,7 +559,6 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     deleteMilestone,
     updateMilestone,
     isLoading,
-    assets,
     milestones,
   };
 };
