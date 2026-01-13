@@ -9,7 +9,7 @@ export type ContributionMode = "portfolio" | "custom" | "settings";
 export type StandaloneContributor = {
   id: string;
   name: string;
-  accountType: AccountType;
+  accountType: AccountType | null;
   type: ContributionTypes;
   monthlyAmount: number;
 };

@@ -321,7 +321,7 @@ export const contributionTypes = [
 export const contributorProjectionSchema = z.object({
   contributorReferenceId: z.string().uuid().optional(),
   contributorName: z.string(),
-  accountType: z.string(),
+  accountType: z.string().nullable(),
   currentValue: decimalValueSchema.refine(isDecimalValueString, {
     message: "Current value must be a valid decimal string",
   }),
@@ -449,7 +449,7 @@ export type ContributorType = (typeof contributorType)[number];
 
 export const contributorSchema = z.object({
   referenceId: z.string().uuid().optional(),
-  accountType: z.enum(contributorType),
+  accountType: z.enum(contributorType).nullable(),
   name: z.string(),
   type: z.enum(contributionTypes),
   expectedGrowthRate: z.number().min(-100).max(1000).optional(),
