@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Pencil, Trash2 } from "lucide-react";
+import { ChartBar, ChartLine, Pencil, Trash2 } from "lucide-react";
 import AssetHistoryChart, { ChartData } from "@/components/charts/ValuesChart";
 import DateRangeBar from "@/components/layout/DateRangeBar";
 import { usePortfolio } from "@/context/PortfolioContext";
@@ -42,6 +42,7 @@ import { portfolioGraphValues } from "@shared/api/queryKeys";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
 import { useAssetCreate } from "@/hooks/use-asset-create";
 import { PosNegNumber } from "@/components/common/PosNegNumber";
+import { cn } from "@/lib/utils";
 import { useAssets } from "@/hooks/use-assets";
 
 function Portfolio() {
@@ -50,6 +51,8 @@ function Portfolio() {
   const { start: startDate, end: endDate } = useMemo(() => {
     return getDateRange(dateRange as DateRangeOption);
   }, [dateRange]);
+
+  const [showChart, toggleChart] = useState(false);
 
   const { data: brokerPlatforms, isLoading: isLoadingBrokerPlatforms } =
     useBrokerPlatforms();
@@ -220,28 +223,47 @@ function Portfolio() {
     [deleteAsset, accountToDelete, setAccountToDelete, setIsEditMode]
   );
 
+  const onToggleChart = useCallback(() => {
+    toggleChart(!showChart);
+  }, [toggleChart, showChart]);
+
   return (
     <div className="max-w-5xl mx-auto px-2 md:px-4 pb-20">
-      <div className="w-full flex flex-col">
-        <span>Value</span>
-        {portfolioOverview ? (
-          <>
-            <span className="text-2xl font-bold">
-              £{Number(portfolioOverview.value).toLocaleString()}
-            </span>
-            <PosNegNumber
-              value={
-                displayInPercentage
-                  ? // Convert percentage to decimal for sakes of Intl.NumberFormat
-                    Number(portfolioOverview.currentChangePercentage) / 100
-                  : Number(portfolioOverview.currentChange)
-              }
-              displayInPercentage={displayInPercentage}
-            />
-          </>
-        ) : (
-          <p className="font-bold text-lg">Loading portfolio total...</p>
-        )}
+      <div className="flex flex-row justify-between items-center">
+        <div className="w-full flex flex-col">
+          <span>Total Value</span>
+          {portfolioOverview ? (
+            <>
+              <span className="text-2xl font-bold">
+                £{Number(portfolioOverview.value).toLocaleString()}
+              </span>
+              <PosNegNumber
+                value={
+                  displayInPercentage
+                    ? // Convert percentage to decimal for sakes of Intl.NumberFormat
+                      Number(portfolioOverview.currentChangePercentage) / 100
+                    : Number(portfolioOverview.currentChange)
+                }
+                displayInPercentage={displayInPercentage}
+              />
+            </>
+          ) : (
+            <p className="font-bold text-lg">Loading portfolio total...</p>
+          )}
+        </div>
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="lg"
+            className={cn(
+              "cursor-pointer border rounded-full w-10 h-10 p-2 m-0 flex items-center justify-center [&_svg]:!w-full [&_svg]:!h-full",
+              showChart ? "bg-gray-100" : "bg-transparent"
+            )}
+            onClick={onToggleChart}
+          >
+            <ChartLine strokeWidth={1} />
+          </Button>
+        </div>
       </div>
 
       {/* Date Range Control */}
@@ -250,17 +272,19 @@ function Portfolio() {
       </div>
 
       {/* Chart Section */}
-      <AssetHistoryChart
-        className="mt-4"
-        data={chartData}
-        // milestones={milestones ?? []}
-        // showMilestones={showMilestones}
-        // url="/api/assets/portfolio-value/history"
-        // queryKey={["portfolio", "history", "graph"]}
-        // nextMilestone={
-        //   nextMilestone ? Number(nextMilestone.targetValue) : undefined
-        // }
-      />
+      {showChart ? (
+        <AssetHistoryChart
+          className="mt-4"
+          data={chartData}
+          // milestones={milestones ?? []}
+          // showMilestones={showMilestones}
+          // url="/api/assets/portfolio-value/history"
+          // queryKey={["portfolio", "history", "graph"]}
+          // nextMilestone={
+          //   nextMilestone ? Number(nextMilestone.targetValue) : undefined
+          // }
+        />
+      ) : null}
       {/* Portfolio Accounts List */}
       <div className="flex justify-between items-center my-4">
         <h2 className="text-lg font-semibold">Accounts</h2>
