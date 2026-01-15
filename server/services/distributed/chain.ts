@@ -4,6 +4,7 @@ import { Message } from "./queue";
 import { AssetValuesService } from "../process/asset-values";
 import { db } from "@server/db";
 import { sendNotification } from "../comms/socket";
+import { invalidateCache } from "../cache";
 
 const assetValuesService = new AssetValuesService(db);
 export const initUpdateChain = async () => {
@@ -17,6 +18,7 @@ export const initUpdateChain = async () => {
       });
     }
     if (message.type === "asset-values-update-completed") {
+      await invalidateCache(["portfolio", "assets"]);
       sendNotification(message.accountId, {
         type: "notification",
         message: `Asset values update completed for assetId: ${message.assetId}`,
