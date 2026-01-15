@@ -64,14 +64,20 @@ function Portfolio() {
     endDate
   );
 
-  const { data: assets, isLoading: isLoadingAssets } = useAssets(
-    startDate,
-    endDate
-  );
+  const {
+    data: assets = [],
+    isLoading: isLoadingAssets,
+    isError: isErrorAssets,
+    error: assetsError,
+  } = useAssets(startDate, endDate);
 
   const { mutateAsync: addAsset } = useAssetCreate();
 
-  const { data: portfolioOverview } = usePortfolioOverview(startDate, endDate);
+  const {
+    data: portfolioOverview,
+    isLoading: isLoadingPortfolioOverview,
+    isError: isErrorPortfolioOverview,
+  } = usePortfolioOverview(startDate, endDate);
 
   const { toast } = useToast();
 
@@ -385,131 +391,145 @@ function Portfolio() {
               </div>
             </div>
           ))
-      ) : !assets || assets.length === 0 ? (
-        <div className="py-8 text-center">
-          <p className="text-gray-500 mb-4">
-            No investment accounts added yet.
-          </p>
-          <Button
-            onClick={() => setIsAddAccountOpen(true)}
-            className="bg-black text-white hover:bg-gray-800"
-          >
-            Add Your First Account
-          </Button>
-        </div>
       ) : (
         // List of accounts
         <>
-          {assets.map((asset) => {
-            const platformName = asset.platformId
-              ? getPlatformName(asset.platformId, brokerPlatforms ?? [])
-              : null;
-            return (
-              <section
-                key={asset.id}
-                className="border-b border-gray-200 py-3 cursor-pointer hover:bg-gray-50 transition-colors relative"
-                onClick={(e) => {
-                  if (!isEditMode) {
-                    setLocation(`/asset/${asset.id}`);
-                  }
-                }}
+          {isErrorAssets ? (
+            <div className="py-8 text-center">
+              <p className="text-gray-500 mb-4">
+                Error loading accounts: {assetsError?.message}
+              </p>
+            </div>
+          ) : !assets || assets.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-gray-500 mb-4">
+                No investment accounts added yet.
+              </p>
+              <Button
+                onClick={() => setIsAddAccountOpen(true)}
+                className="bg-black text-white hover:bg-gray-800"
               >
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <BrokerLogoBoxed
-                      broker={
-                        platformName
-                          ? getBrokerSlugFromName(platformName)
-                          : undefined
-                      }
-                      size="md"
-                    />
-                    <div>
-                      {/* <div className="mb-2">
+                Add Your First Account
+              </Button>
+            </div>
+          ) : (
+            assets.map((asset) => {
+              const platformName = asset.platformId
+                ? getPlatformName(asset.platformId, brokerPlatforms ?? [])
+                : null;
+              return (
+                <section
+                  key={asset.id}
+                  className="border-b border-gray-200 py-3 cursor-pointer hover:bg-gray-50 transition-colors relative"
+                  onClick={(e) => {
+                    if (!isEditMode) {
+                      setLocation(`/asset/${asset.id}`);
+                    }
+                  }}
+                >
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <BrokerLogoBoxed
+                        broker={
+                          platformName
+                            ? getBrokerSlugFromName(platformName)
+                            : undefined
+                        }
+                        size="md"
+                      />
+                      <div>
+                        {/* <div className="mb-2">
                         <h2 className="text-xs text-gray-500  ">{asset.id}</h2>
                       </div> */}
-                      <div className="mb-2">
+                        {/* <div className="mb-2">
                         <span className="text-lg font-medium block">
                           {asset.name}
                         </span>
+                      </div> */}
+                        {platformName ? (
+                          <div>
+                            <span className="font-medium block">
+                              {platformName}
+                            </span>
+                          </div>
+                        ) : null}
+                        <span
+                          className={`text-sm block ${getAccountTypeColor(
+                            asset.accountType
+                          )}`}
+                        >
+                          {getBrokerAccountTypeFullName(asset.accountType)}
+                        </span>
+                        <span className="text-xs text-gray-500 block">
+                          {asset.startDate.toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
                       </div>
-                      {platformName ? (
-                        <div>
-                          <span className="font-medium block">
-                            {platformName}
-                          </span>
-                        </div>
-                      ) : null}
-                      <span
-                        className={`text-sm ${getAccountTypeColor(
-                          asset.accountType
-                        )}`}
-                      >
-                        {getBrokerAccountTypeFullName(asset.accountType)}
-                      </span>
                     </div>
-                  </div>
-                  <div className="flex items-center">
-                    {isEditMode && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="mr-2 text-red-600 hover:text-red-800 hover:bg-red-50"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setAccountToDelete(asset.id);
-                        }}
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </Button>
-                    )}
-                    <div className="text-right">
-                      <p className="font-semibold">
-                        £{Number(asset.currentValue).toLocaleString()}
-                      </p>
-                      {asset.accountChange ? (
-                        <PosNegNumber
-                          value={
-                            displayInPercentage
-                              ? // Convert percentage to decimal for sakes of Intl.NumberFormat
-                                Number(
-                                  asset.accountChange.currentChangePercentage
-                                ) / 100
-                              : Number(asset.accountChange.currentChange)
-                          }
-                          displayInPercentage={displayInPercentage}
-                        />
-                      ) : (
-                        <PosNegNumber
-                          value={0}
-                          displayInPercentage={displayInPercentage}
-                        />
+                    <div className="flex items-center">
+                      {isEditMode && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="mr-2 text-red-600 hover:text-red-800 hover:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAccountToDelete(asset.id);
+                          }}
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </Button>
                       )}
+                      <div className="text-right">
+                        <p className="font-semibold">
+                          £{Number(asset.currentValue).toLocaleString()}
+                        </p>
+                        {asset.accountChange ? (
+                          <PosNegNumber
+                            value={
+                              displayInPercentage
+                                ? // Convert percentage to decimal for sakes of Intl.NumberFormat
+                                  Number(
+                                    asset.accountChange.currentChangePercentage
+                                  ) / 100
+                                : Number(asset.accountChange.currentChange)
+                            }
+                            displayInPercentage={displayInPercentage}
+                          />
+                        ) : (
+                          <PosNegNumber
+                            value={0}
+                            displayInPercentage={displayInPercentage}
+                          />
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </section>
-            );
-          })}
-
-          <div className="mt-6 text-center text-sm text-gray-500">
-            <p>
-              Last updated on{" "}
-              {new Date().toLocaleDateString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })}{" "}
-              •
-              <Button
-                variant="link"
-                className="text-primary font-medium p-0 ml-1"
-                onClick={() => setLocation("/record")}
-              >
-                Update Now
-              </Button>
-            </p>
-          </div>
+                  <div className="mt-6 text-center text-sm text-gray-500">
+                    <p>
+                      Last updated on{" "}
+                      {new Date().toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}{" "}
+                      •
+                      <Button
+                        variant="link"
+                        className="text-primary font-medium p-0 ml-1"
+                        onClick={() => setLocation("/record")}
+                      >
+                        Update Now
+                      </Button>
+                    </p>
+                  </div>
+                </section>
+              );
+            })
+          )}
         </>
       )}
     </div>
