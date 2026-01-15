@@ -357,6 +357,9 @@ export default memo(({ className, data, milestones }: ValuesChartProps) => {
                       name={s.name}
                       key={s.name}
                       stroke={s.color}
+                      animateNewValues={false}
+                      animationDuration={0}
+                      animationBegin={0}
                     />
                   ))}
                   {/* {dummyData.map((s) => (
