@@ -437,6 +437,55 @@ EOF`,
       "chmod +x /opt/milestone/bin/trigger-securities-cache.sh"
     );
 
+    // Create trigger script for cache invalidation
+    const triggerInvalidateCacheScript = `#!/usr/bin/env bash
+set -euo pipefail
+
+API_KEY="\${1:-}"
+PAYLOAD_B64="\${2:-}"
+ENDPOINT="http://localhost/api/triggers/invalidate-cache"
+LOG(){ echo "[$(date --iso-8601=seconds)] [TRIGGER] $1"; }
+
+if [[ -z "$API_KEY" ]]; then
+  LOG "ERROR: API_KEY parameter is required"
+  exit 1
+fi
+
+if [[ -n "$PAYLOAD_B64" ]]; then
+  if ! PAYLOAD_JSON="$(printf '%s' "$PAYLOAD_B64" | base64 -d 2>/dev/null)"; then
+    LOG "ERROR: Failed to decode payload base64"
+    exit 1
+  fi
+
+  HTTP_RESPONSE=$(curl -s -w "\\n%{http_code}" -X POST "$ENDPOINT" \\
+    -H "Content-Type: application/json" \\
+    -H "x-api-key: $API_KEY" \\
+    -d "$PAYLOAD_JSON")
+else
+  HTTP_RESPONSE=$(curl -s -w "\\n%{http_code}" -X POST "$ENDPOINT" \\
+    -H "Content-Type: application/json" \\
+    -H "x-api-key: $API_KEY")
+fi
+
+HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '\$d')
+HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n1)
+
+if [[ "$HTTP_STATUS" -ge 200 && "$HTTP_STATUS" -lt 300 ]]; then
+  LOG "SUCCESS: $HTTP_BODY"
+  exit 0
+else
+  LOG "ERROR: HTTP $HTTP_STATUS - $HTTP_BODY"
+  exit 1
+fi
+`;
+
+    userData.addCommands(
+      `cat > /opt/milestone/bin/trigger-invalidate-cache.sh << 'EOF'
+${triggerInvalidateCacheScript}
+EOF`,
+      "chmod +x /opt/milestone/bin/trigger-invalidate-cache.sh"
+    );
+
     // Create SSM Document for the trigger command
     const triggerSecuritiesCacheDocument = new ssm.CfnDocument(
       this,
@@ -460,6 +509,43 @@ EOF`,
               inputs: {
                 runCommand: [
                   "/opt/milestone/bin/trigger-securities-cache.sh '{{ ApiKey }}'",
+                ],
+              },
+            },
+          ],
+        },
+      }
+    );
+
+    // Create SSM Document for cache invalidation trigger
+    const triggerInvalidateCacheDocument = new ssm.CfnDocument(
+      this,
+      "TriggerInvalidateCacheDocument",
+      {
+        documentType: "Command",
+        name: `${stack.stackName}-trigger-invalidate-cache`,
+        content: {
+          schemaVersion: "2.2",
+          description: "Trigger cache invalidation",
+          parameters: {
+            ApiKey: {
+              type: "String",
+              description: "API Key for authentication",
+            },
+            PayloadBase64: {
+              type: "String",
+              description:
+                "Optional base64 JSON payload to pass through to the endpoint (e.g. {\"namespaces\":[\"portfolio\",\"assets\"]})",
+              default: "",
+            },
+          },
+          mainSteps: [
+            {
+              action: "aws:runShellScript",
+              name: "triggerInvalidateCache",
+              inputs: {
+                runCommand: [
+                  "/opt/milestone/bin/trigger-invalidate-cache.sh '{{ ApiKey }}' '{{ PayloadBase64 }}'",
                 ],
               },
             },
@@ -564,6 +650,11 @@ EOF`,
     new cdk.CfnOutput(this, "TriggerSecuritiesCacheCommand", {
       value: `aws ssm send-command --instance-ids ${this.instanceId} --document-name "${stack.stackName}-trigger-securities-cache" --parameters 'ApiKey=YOUR_API_KEY'`,
       description: "SSM command to manually trigger securities cache update",
+    });
+
+    new cdk.CfnOutput(this, "TriggerInvalidateCacheCommand", {
+      value: `aws ssm send-command --instance-ids ${this.instanceId} --document-name "${stack.stackName}-trigger-invalidate-cache" --parameters 'ApiKey=YOUR_API_KEY,PayloadBase64='`,
+      description: "SSM command to manually trigger cache invalidation",
     });
   }
 }
