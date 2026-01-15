@@ -108,6 +108,11 @@ import Decimal from "decimal.js";
 import { ProcessSelect } from "@shared/schema/process";
 import { getUserAccountId } from "@server/auth";
 import { AssetValuesService } from "../process/asset-values";
+import {
+  Cached,
+  buildCacheKey,
+  queryParamsToKeyRoundedDates,
+} from "@server/services/cache";
 
 const securitiesService = securitiesFactory();
 
@@ -168,7 +173,6 @@ const recurringContributionsQueryBuilder = new ResourceQueryBuilder({
 });
 
 export class DatabaseAssetService {
-
   private assetValuesService: AssetValuesService;
   constructor(private db: Database) {
     this.assetValuesService = new AssetValuesService(db);
@@ -441,6 +445,18 @@ export class DatabaseAssetService {
     return results;
   }
 
+  @Cached({
+    namespace: "assets",
+    keyGenerator: (userAccountId, query) =>
+      buildCacheKey(
+        "assets",
+        userAccountId,
+        "with-history-and-account-value-change",
+        queryParamsToKeyRoundedDates(query)
+      ),
+    //ttl: 30 * 60 * 1000, // 5 minutes
+    ttl: 0, // forever
+  })
   async getUserAssetsWithAccountValueChange(
     userId: UserAccount["id"],
     query: QueryParams | undefined
@@ -801,7 +817,10 @@ export class DatabaseAssetService {
     });
 
     if (result?.rowCount ?? 0 > 0) {
-      this.assetValuesService.sendAssetValuesInvalidatedNotification(userAccountId, id);
+      this.assetValuesService.sendAssetValuesInvalidatedNotification(
+        userAccountId,
+        id
+      );
     }
 
     return (result?.rowCount ?? 0) > 0;
@@ -1408,6 +1427,18 @@ export class DatabaseAssetService {
     return transactions;
   }
 
+  @Cached({
+    namespace: "portfolio",
+    keyGenerator: (userAccountId, query) =>
+      buildCacheKey(
+        "portfolio",
+        userAccountId,
+        "overview",
+        queryParamsToKeyRoundedDates(query)
+      ),
+    //ttl: 30 * 60 * 1000, // 5 minutes
+    ttl: 0, // forever
+  })
   async getPortfolioOverviewForUser(
     userAccountId: UserAccount["id"],
     query?: QueryParams
@@ -1422,6 +1453,18 @@ export class DatabaseAssetService {
     return change;
   }
 
+  @Cached({
+    namespace: "portfolio",
+    keyGenerator: (userAccountId, query) =>
+      buildCacheKey(
+        "portfolio",
+        userAccountId,
+        "asset-value-history",
+        queryParamsToKeyRoundedDates(query)
+      ),
+    //ttl: 30 * 60 * 1000, // 5 minutes
+    ttl: 0, // forever
+  })
   async getPortfolioValueHistoryForUser(
     userAccountId: UserAccount["id"],
     query?: QueryParams
@@ -1440,6 +1483,20 @@ export class DatabaseAssetService {
     return valueHistory;
   }
 
+  //The cache here will be forever.
+  //It is reliant on the cache being cleared.
+  @Cached({
+    namespace: "portfolio",
+    keyGenerator: (userAccountId, query) =>
+      buildCacheKey(
+        "portfolio",
+        userAccountId,
+        "transaction-history",
+        queryParamsToKeyRoundedDates(query)
+      ),
+    //ttl: 30 * 60 * 1000, // 5 minutes
+    ttl: 0, // forever
+  })
   async getPortfolioTransactionHistoryForUser(
     userAccountId: UserAccount["id"],
     query?: QueryParams
