@@ -508,24 +508,6 @@ function Portfolio() {
                       </div>
                     </div>
                   </div>
-                  <div className="mt-6 text-center text-sm text-gray-500">
-                    <p>
-                      Last updated on{" "}
-                      {new Date().toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}{" "}
-                      •
-                      <Button
-                        variant="link"
-                        className="text-primary font-medium p-0 ml-1"
-                        onClick={() => setLocation("/record")}
-                      >
-                        Update Now
-                      </Button>
-                    </p>
-                  </div>
                 </section>
               );
             })
