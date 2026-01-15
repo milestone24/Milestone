@@ -111,6 +111,7 @@ import { AssetValuesService } from "../process/asset-values";
 import {
   Cached,
   buildCacheKey,
+  InvalidatesCache,
   queryParamsToKeyRoundedDates,
 } from "@server/services/cache";
 
@@ -664,6 +665,7 @@ export class DatabaseAssetService {
     return transactionHistory;
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async createUserAsset(data: UserAssetInsert): Promise<UserAsset> {
     const insertedUserAsset = await this.db.transaction(async (tx) => {
       const [insertedUserAsset] = await tx
@@ -775,6 +777,7 @@ export class DatabaseAssetService {
     return insertedUserAsset;
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async updateUserAsset(
     id: UserAsset["id"],
     data: UserAssetInsert
@@ -792,6 +795,7 @@ export class DatabaseAssetService {
     return updatedUserAsset;
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async deleteUserAsset(id: UserAsset["id"]): Promise<boolean> {
     const userAccountId = getUserAccountId();
     if (!userAccountId) {
@@ -826,6 +830,7 @@ export class DatabaseAssetService {
     return (result?.rowCount ?? 0) > 0;
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async updateUserAssetHistories(id: UserAsset["id"]): Promise<UserAsset> {
     const userAsset = await this.db.query.userAssets.findFirst({
       where: eq(userAssets.id, id),
@@ -844,6 +849,7 @@ export class DatabaseAssetService {
     return this.getUserAsset(id);
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async createUserAssetValueHistory(
     id: UserAsset["id"],
     data: UserAssetValueOrphanInsert
@@ -858,6 +864,7 @@ export class DatabaseAssetService {
     return insertedAssetValue;
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async pushAssetValuesForAsset(
     assetId: UserAsset["id"],
     values: UserAssetValueOrphanInsert[]
@@ -879,6 +886,7 @@ export class DatabaseAssetService {
     return insertedValues;
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async updateUserAssetValueHistory(
     id: UserAsset["id"],
     assetValueId: AssetValue["id"],
@@ -897,6 +905,7 @@ export class DatabaseAssetService {
     return updatedAssetValue;
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async deleteUserAssetValueHistory(
     id: UserAsset["id"],
     assetValueId: AssetValue["id"]
@@ -911,6 +920,7 @@ export class DatabaseAssetService {
 
   /* Transactions */
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async createUserAssetTransaction(
     id: UserAsset["id"],
     data: UserAssetTransactionOrphanInsert
@@ -931,6 +941,7 @@ export class DatabaseAssetService {
     return insertedAssetTransaction;
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async updateUserAssetTransaction(
     id: UserAsset["id"],
     assetTransactionId: AssetTransaction["id"],
@@ -954,6 +965,7 @@ export class DatabaseAssetService {
     return updatedAssetTransaction;
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async deleteUserAssetTransaction(
     id: UserAsset["id"],
     assetTransactionId: AssetTransaction["id"]
@@ -1010,6 +1022,7 @@ export class DatabaseAssetService {
     return securityTransactionHistory;
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async createUserAssetSecurityTransaction(
     assetSecurityId: string,
     data: SecurityTransactionOrphanInsert
@@ -1047,6 +1060,7 @@ export class DatabaseAssetService {
     return securityTransaction;
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async updateUserAssetSecurityTransaction(
     assetId: UserAsset["id"],
     assetSecurityId: string,
@@ -1079,6 +1093,7 @@ export class DatabaseAssetService {
     return securityTransaction;
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async deleteUserAssetSecurityTransaction(
     assetId: UserAsset["id"],
     assetSecurityId: string,
@@ -1829,6 +1844,7 @@ export class DatabaseAssetService {
     return security as ResolvedAssetSecurity;
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async createUserAssetSecurity(
     assetId: UserAsset["id"],
     data: UserAssetSecurityOrphanCreate,
@@ -1926,6 +1942,7 @@ export class DatabaseAssetService {
     return value;
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async createUserAssetSecurityAndTriggerUpdates(
     assetId: UserAsset["id"],
     data: UserAssetSecurityOrphanCreate,
@@ -2004,6 +2021,7 @@ export class DatabaseAssetService {
     return value;
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async deleteUserAssetSecurity(
     assetId: UserAsset["id"],
     securityId: UserAssetSecuritySelect["id"]
@@ -2083,6 +2101,7 @@ export class DatabaseAssetService {
     }));
   }
 
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async removeAssetValuesFromDate(
     assetId: UserAsset["id"],
     date: Date
