@@ -19,7 +19,7 @@ export type DateRangeOption =
   | "6months"
   | "1year"
   | "ytd"
-  | "all";
+  | "max";
 
 interface DateRangeControlProps {
   className?: string;
@@ -50,33 +50,41 @@ export default function DateRangeControl({ className }: DateRangeControlProps) {
   );
 }
 
-export const getDateRange = (range: DateRangeOption): { start: Date; end: Date } => {
+export const getDateRange = (
+  range: DateRangeOption
+): { start: Date | undefined; end: Date | undefined } => {
   const end = new Date();
-  let start = new Date();
+  let start: Date | undefined;
 
   switch (range) {
     case "week":
-      start.setDate(end.getDate() - 7);
+      start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
       break;
     case "1month":
+      start = new Date(end);
       start.setMonth(end.getMonth() - 1);
       break;
     case "3months":
+      start = new Date(end);
       start.setMonth(end.getMonth() - 3);
       break;
     case "6months":
+      start = new Date(end);
       start.setMonth(end.getMonth() - 6);
       break;
     case "1year":
+      start = new Date(end);
       start.setFullYear(end.getFullYear() - 1);
       break;
     case "ytd":
       start = new Date(end.getFullYear(), 0, 1); // January 1st of current year
       break;
-    case "all":
-      start = new Date(2019, 0, 1); // Just a distant past date
+    case "max":
+      //TODO: This should be the earliest date of the assets in the database
+      start = undefined;
       break;
     default:
+      start = new Date(end);
       start.setMonth(end.getMonth() - 6); // Default to 6 months
   }
 
