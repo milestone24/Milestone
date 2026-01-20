@@ -19,6 +19,7 @@ import {
   UserAssetWithValue,
   createDecimalValueString,
   DecimalValueString,
+  UserAssetWithValueChange,
 } from "@shared/schema";
 import { arrayToAsyncIterator } from "./async";
 import { QueryParams } from "@server/utils/resource-query-builder";
@@ -926,7 +927,7 @@ export const resolveDayTransactionHistoryForAssetsForDateRange = async (
 };
 
 export const getPortfolioOverviewForAssets = async (
-  assets: UserAssetWithHistoryAndAccountChange[]
+  assets: UserAssetWithValueChange[]
 ): Promise<AssetsChange> => {
   const assetsValueChanges: AssetsChange =
     assets.length > 0

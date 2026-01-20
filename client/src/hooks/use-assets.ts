@@ -3,8 +3,8 @@ import { getDateUrlParams } from "@/lib/date";
 import { apiRequest } from "@/lib/queryClient";
 import { portfolioAssets } from "@shared/api/queryKeys";
 import {
-  UserAssetWithHistoryAndAccountChange,
-  userAssetWithHistoryAndAccountChangeSchema,
+  UserAssetWithValueChange,
+  userAssetWithValueChangeSchema,
 } from "@shared/schema";
 import { skipToken, useQuery } from "@tanstack/react-query";
 
@@ -12,14 +12,15 @@ export const useAssets = (startDate?: Date, endDate?: Date) => {
   const { user, isSessionPending } = useSession();
   const apiEnabled = !isSessionPending && !!user;
 
-  return useQuery<UserAssetWithHistoryAndAccountChange[]>({
+  return useQuery<UserAssetWithValueChange[]>({
     queryKey: [...portfolioAssets, startDate, endDate],
     queryFn: apiEnabled
       ? async () => {
-          const response = await apiRequest<
-            UserAssetWithHistoryAndAccountChange[]
-          >("GET", `/api/assets?${getDateUrlParams(startDate, endDate)}`);
-          const result = userAssetWithHistoryAndAccountChangeSchema
+          const response = await apiRequest<UserAssetWithValueChange[]>(
+            "GET",
+            `/api/assets?${getDateUrlParams(startDate, endDate)}`
+          );
+          const result = userAssetWithValueChangeSchema
             .array()
             .safeParse(response);
 

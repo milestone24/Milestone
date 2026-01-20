@@ -637,10 +637,12 @@ export class DatabaseAssetService {
   async getUserAssetsWithAccountValueChange(
     userId: UserAccount["id"],
     query: QueryParams | undefined
-  ): Promise<UserAssetWithHistoryAndAccountChange[]> {
+  ): Promise<UserAssetWithValueChange[]> {
+    //): Promise<UserAssetWithHistoryAndAccountChange[]> {
     const dateRange = queryParamsFilterToDateRange(query?.filter);
 
-    const assets = await this.getUserAssetsWithAssetValueHistoryWithBoundary(
+    //const assets = await this.getUserAssetsWithAssetValueHistoryWithBoundary(
+    const assets = await this.getUserAssetsWithBoundaryCandidates(
       userId,
       query
     );
