@@ -68,6 +68,7 @@ import {
   UserAssetSecurityLinkInsert,
   UserAssetSecurityOrphanCreate,
   UserAssetSecurityOrphanLinkInsert,
+  UserAssetWithValueChange,
 } from "@shared/schema";
 import { NodePgTransaction } from "drizzle-orm/node-postgres";
 import { Schema, TSchema } from "server/db/types/utils";
@@ -413,6 +414,181 @@ export class DatabaseAssetService {
     }
 
     return results;
+  }
+
+  /**
+   * Minimal boundary candidates needed to calculate day-based start/end change.
+   *
+   * This intentionally does NOT fetch the full range history and does NOT include "after end"
+   * (that is useful for graphing continuity, not for start->end change).
+   *
+   * Returns up to 4 rows:
+   * - earliest value on start day
+   * - latest value before start day
+   * - latest value on end day
+   * - latest value before end day
+   */
+  async getUserAssetWithBoundaryCandidates(
+    assetId: UserAsset["id"],
+    startDate: Date,
+    endDate: Date
+  ): Promise<BrandedAssetValue[]> {
+    const toUTCMidnight = (date: Date): Date =>
+      new Date(
+        Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+      );
+
+    const startDay = toUTCMidnight(startDate);
+    const endDay = toUTCMidnight(endDate);
+
+    const startDayNext = new Date(startDay.getTime() + 24 * 60 * 60 * 1000);
+    const endDayNext = new Date(endDay.getTime() + 24 * 60 * 60 * 1000);
+
+    const select = {
+      ...getTableColumns(assetValues),
+      recordType: sql<Extract<ValueAbstractType, "asset_value">>`'asset_value'`,
+    };
+
+    // earliest value on start day
+    const startDayQuery = this.db
+      .select(select)
+      .from(assetValues)
+      .where(
+        and(
+          eq(assetValues.assetId, assetId),
+          gte(assetValues.valueDate, startDay),
+          lt(assetValues.valueDate, startDayNext)
+        )
+      )
+      .orderBy(
+        asc(assetValues.valueDate),
+        asc(assetValues.recordedAt),
+        asc(assetValues.id)
+      )
+      .limit(1);
+
+    // latest value before start day
+    const beforeStartQuery = this.db
+      .select(select)
+      .from(assetValues)
+      .where(
+        and(
+          eq(assetValues.assetId, assetId),
+          lt(assetValues.valueDate, startDay)
+        )
+      )
+      .orderBy(
+        desc(assetValues.valueDate),
+        desc(assetValues.recordedAt),
+        desc(assetValues.id)
+      )
+      .limit(1);
+
+    // latest value on end day
+    const endDayQuery = this.db
+      .select(select)
+      .from(assetValues)
+      .where(
+        and(
+          eq(assetValues.assetId, assetId),
+          gte(assetValues.valueDate, endDay),
+          lt(assetValues.valueDate, endDayNext)
+        )
+      )
+      .orderBy(
+        desc(assetValues.valueDate),
+        desc(assetValues.recordedAt),
+        desc(assetValues.id)
+      )
+      .limit(1);
+
+    // latest value before end day
+    const beforeEndQuery = this.db
+      .select(select)
+      .from(assetValues)
+      .where(
+        and(eq(assetValues.assetId, assetId), lt(assetValues.valueDate, endDay))
+      )
+      .orderBy(
+        desc(assetValues.valueDate),
+        desc(assetValues.recordedAt),
+        desc(assetValues.id)
+      )
+      .limit(1);
+
+    const rows = await unionAll(
+      startDayQuery,
+      beforeStartQuery,
+      endDayQuery,
+      beforeEndQuery
+    ).orderBy(asc(assetValues.valueDate));
+
+    // Deduplicate in case a candidate is the same row (e.g. start-day exists and is also "before end").
+    const seen = new Set<string>();
+    const deduped: BrandedAssetValue[] = [];
+    for (const row of rows) {
+      const key = `${row.id ?? "null"}|${row.valueDate.toISOString()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(row);
+    }
+
+    return deduped;
+  }
+
+  /**
+   * Fetches ONLY the minimal set of asset value "boundary candidates" needed to calculate
+   * day-based start/end change for a date range (no full history).
+   *
+   * This is intended to support a lightweight "assets with account change" response where:
+   * - We keep the existing day-based boundary semantics used by `defineAssetValuesForDateRange`
+   * - We avoid fetching all values within the range
+   *
+   * Candidate selection (per asset, depending on query):
+   * - start-day earliest value (if start provided)
+   * - last value before start-day (if start provided)
+   * - end-day latest value (if end provided)
+   * - last value before end-day (if end provided)
+   *
+   * If no start/end is provided, we fall back to:
+   * - earliest overall value
+   * - latest overall value
+   *
+   * Note: returned `history` is intentionally sparse and only meant for change calculation.
+   */
+  async getUserAssetsWithBoundaryCandidates(
+    userId: UserAccount["id"],
+    query?: QueryParams
+  ): Promise<WithAssetHistory<UserAssetWithValue, BrandedAssetValue>[]> {
+    const assets = await calculatedAssetsQueryBuilder(this.db)
+      .where(and(eq(userAssets.userAccountId, userId)))
+      .execute();
+
+    const dateRange = queryParamsFilterToDateRange(query?.filter);
+
+    const startResolved = resolveDate(dateRange.start);
+    const endResolved = resolveDate(dateRange.end);
+
+    if (!startResolved || !endResolved) {
+      throw new Error(
+        "getUserAssetsWithBoundaryCandidates requires both start and end dates for change calculation"
+      );
+    }
+
+    return await Promise.all(
+      assets.map(async (asset) => {
+        const candidates = await this.getUserAssetWithBoundaryCandidates(
+          asset.id,
+          startResolved,
+          endResolved
+        );
+
+        return {
+          ...asset,
+          history: candidates,
+        };
+      })
+    );
   }
 
   /**
