@@ -44,6 +44,7 @@ import { useAssetCreate } from "@/hooks/use-asset-create";
 import { PosNegNumber } from "@/components/common/PosNegNumber";
 import { cn } from "@/lib/utils";
 import { useAssets } from "@/hooks/use-assets";
+import { usePortfolioValue } from "@/hooks/use-portfolio-value";
 
 function Portfolio() {
   const { dateRange } = useDateRange();
@@ -78,6 +79,12 @@ function Portfolio() {
     isLoading: isLoadingPortfolioOverview,
     isError: isErrorPortfolioOverview,
   } = usePortfolioOverview(startDate, endDate);
+
+  const {
+    data: portfolioValue,
+    isLoading: isLoadingPortfolioValue,
+    isError: isErrorPortfolioValue,
+  } = usePortfolioValue() ;
 
   const { toast } = useToast();
 
@@ -238,12 +245,25 @@ function Portfolio() {
       <div className="flex flex-row justify-between items-center">
         <div className="w-full flex flex-col">
           <span>Total Value</span>
-          {portfolioOverview ? (
+          {portfolioValue ? (
             <>
-              <span className="text-2xl font-bold">
-                £{Number(portfolioOverview.value).toLocaleString()}
-              </span>
-              <PosNegNumber
+              <div className="flex flex-row gap-2">
+                <span className="text-2xl font-bold">
+                  £{Number(portfolioValue.value).toLocaleString()}
+                </span>
+                <span className="text-2xl font-bold">
+                  <PosNegNumber
+                    value={Number(portfolioValue.returnValue) / 100}
+                    displayInPercentage={true}
+                  />
+                </span>
+              </div>
+            </>
+          ) : (
+            <p className="font-bold text-lg">Loading portfolio total...</p>
+          )}
+          {portfolioOverview ?
+              ( <PosNegNumber
                 value={
                   displayInPercentage
                     ? // Convert percentage to decimal for sakes of Intl.NumberFormat
@@ -252,10 +272,7 @@ function Portfolio() {
                 }
                 displayInPercentage={displayInPercentage}
               />
-            </>
-          ) : (
-            <p className="font-bold text-lg">Loading portfolio total...</p>
-          )}
+            ) : null}
         </div>
         <div className="flex justify-end">
           <Button
