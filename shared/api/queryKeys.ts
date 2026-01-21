@@ -13,6 +13,7 @@ export const portfolioGraphTransactions = [
   "graph",
 ];
 export const portfolioOverview = ["portfolio", "overview"];
+export const portfolioValue = ["portfolio", "value"];
 export const portfolioAssets = ["portfolio", "assets"];
 export const assetGraphValues = ["asset", "history", "values", "graph"];
 export const assetGraphTransactions = [

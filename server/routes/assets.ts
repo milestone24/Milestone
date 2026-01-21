@@ -607,6 +607,20 @@ export async function registerRoutes(
     res.json(response);
   });
 
+  router.get("/portfolio-value", requireUser, async (req: AuthRequest, res) => {
+    const response = await requireTenantWithUserAccountId(
+      req.tenant,
+      async (tenant) => {
+        const value = await assetService.getPortfolioValueForUser(
+          tenant.userAccountId,
+        );
+        return value;
+      }
+    );
+
+    res.json(response);
+  });
+
   router.get(
     "/portfolio-value/history",
     requireUser,
