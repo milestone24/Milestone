@@ -21,6 +21,7 @@ import {
   getTableColumns,
   gt,
   gte,
+  inArray,
   lt,
   lte,
   sql,
@@ -62,6 +63,7 @@ import {
   UserAssetSecurityOrphanCreate,
   UserAssetSecurityOrphanLinkInsert,
   UserAssetWithValueChange,
+  PortfolioValue,
 } from "@shared/schema";
 import {
   QueryParams,
@@ -79,7 +81,7 @@ import { factory as securitiesFactory } from "@server/services/securities";
 import { AssetSecurity } from "../securities/types";
 import { getNextExecutionDate } from "@shared/utils/scheduling";
 import { randomUUID } from "node:crypto";
-import { calculatedAssetsQueryBuilder } from "./query";
+import { calculatedAssetsQueryBuilder, securityTransactionsAccumulatedCTEBuilder } from "./query";
 import Decimal from "decimal.js";
 import { getUserAccountId } from "@server/auth";
 import { AssetValuesService } from "../process/asset-values";
@@ -1344,6 +1346,67 @@ export class DatabaseAssetService {
     const change = await getPortfolioOverviewForAssets(assetsWithChange);
 
     return change;
+  }
+
+  @Cached({
+    namespace: "portfolio",
+    keyGenerator: (userAccountId) =>
+      buildCacheKey(
+        "portfolio",
+        userAccountId,
+        "values",
+        queryParamsToKeyRoundedDates({
+          filter: {
+            dateRange: {
+              start: new Date(0),
+              end: new Date(),
+            },
+          },
+        })
+      ),
+    //ttl: 30 * 60 * 1000, // 5 minutes
+    ttl: 0, // forever
+  })
+  async getPortfolioValueForUser(
+    userAccountId: UserAccount["id"],
+  ): Promise<PortfolioValue> {
+
+    const assets = await calculatedAssetsQueryBuilder(this.db)
+      .where(and(eq(userAssets.userAccountId, userAccountId)))
+      .execute();
+
+    //First get the sum of the last values for all assets.
+
+    const assetIds = assets.map((asset) => asset.id);
+
+    const value = assets
+    .map((asset) => Decimal(asset.currentValue))
+    .reduce((acc:Decimal, curr:Decimal) => acc.add(curr), Decimal(0))
+    .toFixed(2);
+
+    //Then get the sum of all transactions to date for all assets.
+
+    const transactionsAccumulated = securityTransactionsAccumulatedCTEBuilder(this.db);
+
+    const avs = await this.db.with(transactionsAccumulated)
+    .selectDistinctOn([transactionsAccumulated.assetId])
+    .from(transactionsAccumulated)
+    .where(inArray(transactionsAccumulated.assetId, assetIds))
+    .orderBy(
+      asc(transactionsAccumulated.assetId),
+      desc(transactionsAccumulated.valueDate)
+    )
+
+    const values = avs.map((av) => Decimal(av.accumulativeAssetCurrencyValue));
+
+    const assetsTransactionsValue = values.reduce((acc, curr) => acc.add(curr), Decimal(0));
+
+    const returnValue = Decimal(value).div(assetsTransactionsValue).mul(100).toFixed(2);
+
+    return {
+      value: createDecimalValueString(value.toString()),
+      returnValue: createDecimalValueString(returnValue.toString()),
+    };
   }
 
   @Cached({

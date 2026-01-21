@@ -755,3 +755,9 @@ export type CombinedValueHistory = {
 export type AssetHistoryValue =
   | BrandedAbstractTransactionValue
   | BrandedAssetValue;
+
+
+export type PortfolioValue = {
+  value: DecimalValueString;
+  returnValue: DecimalValueString;
+};
