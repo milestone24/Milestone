@@ -591,7 +591,7 @@ export async function registerRoutes(
     }
   );
 
-  router.get("/portfolio-value", requireUser, async (req: AuthRequest, res) => {
+  router.get("/portfolio-overview", requireUser, async (req: AuthRequest, res) => {
     const response = await requireTenantWithUserAccountId(
       req.tenant,
       async (tenant) => {

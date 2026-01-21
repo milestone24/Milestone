@@ -10,7 +10,7 @@ export const usePortfolioOverview = (startDate?: Date, endDate?: Date) => {
     queryFn: () =>
       apiRequest<AssetsChange>(
         "GET",
-        `/api/assets/portfolio-value?${getDateUrlParams(startDate, endDate)}`
+        `/api/assets/portfolio-overview?${getDateUrlParams(startDate, endDate)}`
       ),
   });
 };
