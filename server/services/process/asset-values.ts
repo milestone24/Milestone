@@ -17,6 +17,7 @@ import {
   assetGraphValues,
   assetGraphTransactions,
   assetValues,
+  portfolioValue,
 } from "@shared/api/queryKeys";
 import { factory as queueFactory } from "@server/services/distributed/queue";
 import { mockLambdaHandler } from "./asset-values-mock-lambda";
@@ -215,6 +216,7 @@ export class AssetValuesService {
         [...assetValues],
         [...assetGraphTransactions],
         [...portfolioOverview],
+        [...portfolioValue],
         [...portfolioAssets],
         ["assets", assetId],
       ],
