@@ -234,9 +234,10 @@ function AssetPage() {
             size="md"
           />
           <div>
-            <div className="mb-2">
+            {/* TODO: Being able to add a custom account name is temporarily disabled and so we do not display. */}
+            {/* <div className="mb-2">
               <h1 className="text-xl ">{asset.name}</h1>
-            </div>
+            </div> */}
             <h1 className="text-xl font-semibold">{asset.platform?.name}</h1>
             <span className="text-sm text-gray-600">
               {getBrokerAccountTypeFullName(asset.accountType)}
