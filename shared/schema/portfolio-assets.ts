@@ -15,13 +15,11 @@ import type {
 } from "@server/db/schema/index";
 import {
   accountType,
-  accountTypeEnum,
   decimalValueSchema,
   decimalValueSchemaRequiredGreaterThanZero,
 } from "@server/db/schema/index";
 import {
   DecimalValueString,
-  IfConstructorEquals,
   isDecimalValueString,
 } from "./utils";
 import {
@@ -32,34 +30,12 @@ import {
 
 import {
   BrandedAbstractTransactionValue,
-  patternSchema,
   recurringContributionGroupInsertSchema,
-  recurringContributionOrphanInsertSchema,
   TransactionAbstract,
 } from "./transaction";
 import { BrandedValue, ValueAbstract, ValueAbstractType } from "./common";
 
 export { accountType } from "@server/db/schema/index";
-
-// export const generalAssetOrphanInsertSchema = z.object({
-//   name: z.string(),
-//   currentValue: z.number().optional(),
-// })
-
-// type ZodGeneralAssetOrphan = z.infer<typeof generalAssetOrphanInsertSchema>;
-// export type GeneralAssetOrphanInsert = IfConstructorEquals<ZodGeneralAssetOrphan, Orphan<DBGeneralAssetInsert>, never>;
-// generalAssetOrphanInsertSchema satisfies ZodType<GeneralAssetOrphanInsert>;
-
-// export const generalAssetInsertSchema = generalAssetOrphanInsertSchema.extend({
-//   userAccountId: z.string(),
-// });
-
-// type ZodGeneralAsset = z.infer<typeof generalAssetInsertSchema>;
-// export type GeneralAssetInsert = IfConstructorEquals<ZodGeneralAsset, DBGeneralAssetInsert, never>;
-// generalAssetInsertSchema satisfies ZodType<GeneralAssetInsert>;
-
-// export type GeneralAsset = DBGeneralAsset
-// export type GeneralAssetWithAccountChange = WithAccountChange<GeneralAsset>
 
 export type AccountType = DBAccountType;
 
@@ -67,8 +43,6 @@ export type BrandedAssetValue = BrandedValue<
   AssetValue,
   Extract<ValueAbstractType, "asset_value">
 >;
-
-//export { accountType } from "@server/db/schema";
 
 export const userAssetSecurityBaseSchema = z.object({
   startDate: z.coerce.date(),
@@ -78,8 +52,6 @@ export const userAssetSecurityBaseSchema = z.object({
     })
     .transform((val) => (val === "" ? undefined : val))
     .optional(),
-  //TODO Remove this, this is backend only
-  //recordedAt: z.coerce.date().optional(),
 });
 
 export type UserAssetSecurityBase = z.infer<typeof userAssetSecurityBaseSchema>;
@@ -167,127 +139,6 @@ export type UserAssetSecurityLinkInsert = z.infer<
   typeof userAssetSecurityLinkInsertSchema
 >;
 
-// export const userAssetSecurityNewInsertSchema =
-//   userAssetSecurityBaseSchema.extend({
-//     userAssetId: z.string(),
-//     security: securityInsertSchema
-//       .required()
-//       .refine((val) => val !== null && val !== undefined, {
-//         message: "Security is required",
-//       }),
-//     /**
-//      * Share holding and teh currency Value will be used to record an initial transaction.
-//      */
-//     shareHolding: decimalValueSchemaRequiredGreaterThanZero.refine(
-//       isDecimalValueString,
-//       {
-//         message: "Share holding must be a valid decimal string",
-//       }
-//     ),
-//     currencyValue: decimalValueSchemaRequiredGreaterThanZero.refine(
-//       isDecimalValueString,
-//       {
-//         message: "Currency value must be a valid decimal string",
-//       }
-//     ),
-//   });
-
-// export type UserAssetSecurityNewInsert = z.infer<
-//   typeof userAssetSecurityNewInsertSchema
-// >;
-
-// export const userAssetSecurityInsertSchema = z.discriminatedUnion("type", [
-//   userAssetSecurityLinkInsertSchema.extend({
-//     type: z.literal("link"),
-//   }),
-//   userAssetSecurityNewInsertSchema.extend({
-//     type: z.literal("new"),
-//   }),
-// ]);
-
-// export type UserAssetSecurityInsert = z.infer<
-//   typeof userAssetSecurityInsertSchema
-// >;
-
-// export type UserAssetSecurityInsertLink = Omit<
-//   Extract<UserAssetSecurityInsert, { type: "link" }>,
-//   "type"
-// >;
-// export type UserAssetSecurityInsertNew = Omit<
-//   Extract<UserAssetSecurityInsert, { type: "new" }>,
-//   "type"
-// >;
-
-//export const userAssetSecurityInsertSchema
-
-// export type UserAssetSecurityInsert = z.input<
-//   typeof userAssetSecurityInsertSchema
-// >;
-
-/**
- * This is only for the use in the schema for the user asset orphan insert.
- * The shareholding and currency value will be translated to an initial transaction.
- * lid is a temporary id for the security, it is used to identify the security
- * primarily for recurring contribution mappings.
- */
-// export const userAssetOrphanSecurityInsertSchema = userAssetSecurityBaseSchema.extend({
-//   lid: z.string(),
-//   security: securityInsertSchema,
-//   shareHolding: decimalValueSchemaRequiredGreaterThanZero.refine(
-//     isDecimalValueString,
-//     {
-//       message: "Share holding must be a valid decimal string",
-//     }
-//   ),
-//   currencyValue: decimalValueSchemaRequiredGreaterThanZero.refine(
-//     isDecimalValueString,
-//     {
-//       message: "Currency value must be a valid decimal string",
-//     }
-//   ),
-// });
-
-// export type UserAssetOrphanSecurityInsert = z.infer<
-//   typeof userAssetOrphanSecurityInsertSchema
-// >;
-
-/**
- * This is used only when an initial security is added to an asset,
- * either via the create asset (account)
- * The shareholding and currency value will be translated to an initial transaction.
- * lid is a temporary id for the security, it is used to identify the security
- * primarily for recurring contribution mappings.
- */
-// export const userAssetSecurityWithInitialValuesInsertSchema =
-//   userAssetSecurityBaseSchema.extend({
-//     //tid needs removing, this is not a responsibility here, only when the security is in a security group.
-//     //tid: z.string(), //Temporary Id so the new asset security can be identified within a group.
-//     security: securityInsertSchema
-//       .required()
-//       .refine((val) => val !== null && val !== undefined, {
-//         message: "Security is required",
-//       }),
-//     /**
-//      * Share holding and teh currency Value will be used to record an initial transaction.
-//      */
-//     shareHolding: decimalValueSchemaRequiredGreaterThanZero.refine(
-//       isDecimalValueString,
-//       {
-//         message: "Share holding must be a valid decimal string",
-//       }
-//     ),
-//     currencyValue: decimalValueSchemaRequiredGreaterThanZero.refine(
-//       isDecimalValueString,
-//       {
-//         message: "Currency value must be a valid decimal string",
-//       }
-//     ),
-//   });
-
-// export type UserAssetSecurityWithInitialValuesInsert = z.infer<
-//   typeof userAssetSecurityWithInitialValuesInsertSchema
-// >;
-
 export const userAssetOrphanInsertSchema = z.object({
   name: z
     .string()
@@ -314,19 +165,7 @@ export const userAssetOrphanInsertSchema = z.object({
   securities: z.array(
     userAssetSecurityOrphanNewCreateInsertSchema.extend({ lid: z.string() })
   ),
-  //Contibutions here should be in unison with the recurringContributionOrphanInsertSchema and recurringContributionInsertSchema
   contributions: recurringContributionGroupInsertSchema.optional(),
-  //     // notificationPeriod: z.enum([
-  //     //   "daily",
-  //     //   "weekly",
-  //     //   "monthly",
-  //     //   "quarterly",
-  //     //   "yearly",
-  //     // ]),
-  //     notificationEmail: z.boolean(),
-  //     notificationPush: z.boolean(),
-  //   })
-  //   .optional(),
 });
 
 userAssetOrphanInsertSchema satisfies ZodType<
@@ -335,16 +174,12 @@ userAssetOrphanInsertSchema satisfies ZodType<
 
 export type UserAssetOrphanInsert = z.infer<typeof userAssetOrphanInsertSchema>;
 
-//export type BrokerProviderAssetOrphanInsert = IfConstructorEquals<ZodBrokerProviderAssetOrphan, Orphan<DBBrokerProviderAssetInsert>, never>;
-//brokerProviderAssetOrphanInsertSchema satisfies ZodType<BrokerProviderAssetOrphanInsert>;
-
 export const userAssetInsertSchema = userAssetOrphanInsertSchema.extend({
   userAccountId: z.string(),
 });
 
 type ZodUserAssetInsert = z.infer<typeof userAssetInsertSchema>;
-// export type BrokerProviderAssetInsert = IfConstructorEquals<ZodBrokerProviderAsset, DBBrokerProviderAssetInsert, never>;
-// brokerProviderAssetInsertSchema satisfies ZodType<BrokerProviderAssetInsert>;
+
 export type UserAssetInsert = ZodUserAssetInsert;
 
 export type UserAsset = DBUserAsset;
@@ -366,17 +201,6 @@ export type AssetValue = Omit<DBAssetValueSelect, "value"> & {
 
 export type AssetValueMetadata = DBAssetValueMetadata;
 export type AssetValueMetadataSecurity = DBAssetValueMetadataSecurity;
-
-// export type UserAsset = Omit<DBUserAsset, "accountType"> & {
-//   accountType: AccountType;
-// };
-
-// export type AssetValueMetadataSecurity = {
-//   securityName: string;
-//   securitySymbol: string;
-//   value: DecimalValueString;
-//   shareHolding: number;
-// };
 
 export const userAssetWithValueSchema = z.object({
   id: z.string(),
@@ -409,15 +233,6 @@ export const assetValueMetadataSecuritySchema = z.object({
 });
 
 assetValueMetadataSecuritySchema._output satisfies AssetValueMetadataSecurity;
-
-// export type AssetValueMetadata = {
-//   calculatedAt: string;
-//   securitiesProcessed: number;
-//   securitiesTotal: number;
-//   dataStatus: "complete" | "partial";
-//   sourcesUsed: string[]; // Dynamic source identifiers from actual services
-//   securities: AssetValueMetadataSecurity[];
-// };
 
 export const assetValueMetadataSchema = z.object({
   calculatedAt: z.string(),
@@ -530,12 +345,6 @@ export type UserAssetSecuritySelect = DBUserAssetSecurity & {
   security: SecuritySelect;
 };
 
-// export type CalculatedValue = {
-//   value: DecimalValueString;
-//   currentChange: DecimalValueString;
-//   currentChangePercentage: DecimalValueString;
-// };
-
 export type ValueChange = CalculatedValue & {
   startDate: Date;
   endDate: Date;
@@ -554,9 +363,7 @@ export type WithAssetHistory<
   T extends { id: string },
   H extends ValueAbstract
 > = T & {
-  //Change to ValueAbstract
   history: H[];
-  //history: AssetValue[];
 };
 
 export type WithValueHistory<T extends { id: string }> = T & {
@@ -623,7 +430,6 @@ export type WithPlatform<T extends { id: string }> = T & {
  * - asset is used for asset history that are real asset items
  * - synthetic is used for purely synthetic time values (normally with a value of 0)
  */
-
 export type AseetHistoryEntryType = "synthetic" | "synthetic-asset" | "asset";
 
 export type AssetHistoryValueBase = {
@@ -673,7 +479,6 @@ export type AssetHistoryPoint = {
   type: "value" | "transaction";
   value: DecimalValueString;
   valueDate: Date;
-  //recordedAt: Date;
 };
 
 export type SecurityHistoryPoint = {
