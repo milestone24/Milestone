@@ -51,6 +51,7 @@ import {
   RecurringContributionFormProps,
 } from "./RecurringContributionForm";
 import { createRRulePattern } from "@shared/utils/scheduling";
+import { generateId } from "@shared/utils/id"
 
 type AccountCreateProps = {
   onSubmit: (data: UserAssetOrphanInsert) => Promise<void>;
@@ -76,10 +77,14 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
   onSubmit,
   onCancel,
 }) => {
+
+  const name = `account-${generateId()}`
+
   const form = useForm<UserAssetOrphanInsert>({
     resolver: zodResolver(userAssetOrphanInsertSchema),
     mode: "onChange",
     defaultValues: {
+      name,
       valueMethod: "calculated",
     },
   });
@@ -196,7 +201,10 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
 
   const {
     formState: { isSubmitting },
+    watch,
   } = form;
+
+  const name = watch("name");
 
   const { data: brokerPlatforms, isLoading: isLoadingBrokerPlatforms } =
     useBrokerPlatforms();
@@ -226,7 +234,9 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
       <div className="flex flex-row justify-between items-center">
         <h2 className="text-lg font-bold">Account Details</h2>
       </div>
-      <FormField
+      {/* TODO: Being able to add a cutom account name is temporarily disabled. */}
+      {/* <span className="text-sm text-gray-500">{name}</span> */}
+      {/* <FormField
         control={form.control}
         name="name"
         rules={{ required: true }}
@@ -239,7 +249,7 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
             <FormMessage />
           </FormItem>
         )}
-      />
+      /> */}
       <FormField
         control={form.control}
         name="platformId"
