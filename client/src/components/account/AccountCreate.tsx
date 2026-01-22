@@ -36,7 +36,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Button } from "../ui/button";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
@@ -103,7 +103,7 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
     <>
       <div className="flex flex-row justify-between items-center">
         <h1 className="text-2xl font-bold">
-          Create an account step {formStage}
+          Add Investment Account
         </h1>
       </div>
       <Form {...form}>
@@ -196,6 +196,14 @@ const ActionsBar = ({
   );
 };
 
+const PhaseHeading = ({ heading }: { heading: string }) => {
+  return (
+    <div className="flex flex-row justify-between items-center">
+      <h2 className="text-md">{heading}</h2>
+    </div>
+  );
+};
+
 const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
   const form = useFormContext<UserAssetOrphanInsert>();
 
@@ -229,11 +237,24 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
     onNext: canNext ? props.onNext : undefined,
   };
 
+  const selectableAccountTypes = useMemo(() =>
+    {
+      return (selectedPlatform
+        ? selectedPlatform.supportedAccountTypes
+        : accountType)
+        .filter((type) => type !== "OTHER")
+    }
+  , [selectedPlatform, accountType])
+
+  const startDateInstructions = useMemo(() => {
+    return (selectedPlatform
+      ? `Insert instruction for ${selectedPlatform.name} here`
+      : "We can only provide instructions for a known platform.")
+  }, [selectedPlatform])
+
   return (
     <>
-      <div className="flex flex-row justify-between items-center">
-        <h2 className="text-lg font-bold">Account Details</h2>
-      </div>
+      <PhaseHeading heading="1) Account Details" />
       {/* TODO: Being able to add a cutom account name is temporarily disabled. */}
       {/* <span className="text-sm text-gray-500">{name}</span> */}
       {/* <FormField
@@ -268,7 +289,7 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
           <FormItem>
             <FormLabel>Select Platform</FormLabel>
             <FormDescription>
-              Did you use a broker platform to manage your assets?
+              Did you use an investment platform to manage your asset?
             </FormDescription>
             <Select
               onValueChange={field.onChange}
@@ -277,7 +298,7 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
             >
               <FormControl>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select" />
+                  <SelectValue placeholder="Select Platform" />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
@@ -307,17 +328,11 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {selectedPlatform
-                  ? selectedPlatform.supportedAccountTypes.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))
-                  : accountType.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
+                {selectableAccountTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <FormMessage />
@@ -330,8 +345,8 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
         name="startDate"
         render={() => (
           <FormItem>
-            <FormLabel>Select Start Date</FormLabel>
-            <FormDescription>When did you start this account? </FormDescription>
+            <FormLabel>Start Date</FormLabel>
+            <FormDescription>When did you start this account?</FormDescription>
             <Controller
               control={form.control}
               name="startDate"
@@ -347,6 +362,9 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
               )}
             />
             <FormMessage />
+            <FormDescription>How do I find this?
+              <p>{startDateInstructions}</p>
+            </FormDescription>
           </FormItem>
         )}
       />
@@ -454,6 +472,7 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
 
   return (
     <>
+      <PhaseHeading heading="2) Account Value" />
       {addingSecurity ? (
         <>
           <span className="text-md">Adding Security</span>
@@ -674,9 +693,7 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
 
   return (
     <>
-      <div className="flex flex-row justify-between items-center">
-        <h2 className="text-lg font-bold">Schedule</h2>
-      </div>
+      <PhaseHeading heading="3) Schedule" />
 
       <div className="flex flex-col gap-3 items-start">
         <FormLabel>Should this account have scheduled contributions?</FormLabel>
