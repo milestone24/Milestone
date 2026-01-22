@@ -1,6 +1,5 @@
 import type {
   AssetSecurityLike,
-  RecurringContributionGroupInsert,
   UserAssetOrphanInsert,
   DecimalValueString,
   UserAssetSecurityOrphanNewCreateInsert,
@@ -52,6 +51,7 @@ import {
 } from "./RecurringContributionForm";
 import { createRRulePattern } from "@shared/utils/scheduling";
 import { generateId } from "@shared/utils/id"
+import Decimal from "decimal.js";
 
 type AccountCreateProps = {
   onSubmit: (data: UserAssetOrphanInsert) => Promise<void>;
@@ -60,11 +60,30 @@ type AccountCreateProps = {
 
 type ActionsBarProps = {
   onCancel: () => void;
-  onNext?: () => void;
   onBack?: () => void;
-  canSubmit?: boolean;
   isProcessing: boolean;
-};
+}
+& (
+  |
+  {
+    canSubmit: true;
+    submitDisabled: boolean;
+  }
+  | {
+    canSubmit?: false;
+    submitDisabled?: undefined;
+  }
+)
+& (
+  | {
+    onNext: () => void;
+    nextDisabled: boolean;
+  }
+  | {
+    onNext?: undefined;
+    nextDisabled?: undefined;
+  }
+)
 
 type AccountCreateFormProps = {
   onCancel: () => void;
@@ -82,7 +101,7 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
 
   const form = useForm<UserAssetOrphanInsert>({
     resolver: zodResolver(userAssetOrphanInsertSchema),
-    mode: "onChange",
+    mode: "all",
     defaultValues: {
       name,
       valueMethod: "calculated",
@@ -95,6 +114,10 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
     return onSubmit(data).then(() => {
       form.reset();
     });
+  };
+
+  const handleNext = async () => {
+    setFormStage(formStage + 1);
   };
 
   const { handleSubmit } = form;
@@ -110,13 +133,13 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
         <form onSubmit={handleSubmit(submitForm)} className="space-y-4">
           {formStage === 1 && (
             <AccountCreateOne
-              onNext={() => setFormStage(2)}
+              onNext={handleNext}
               onCancel={onCancel}
             />
           )}
           {formStage === 2 && (
             <AccountCreateTwo
-              onNext={() => setFormStage(3)}
+              onNext={handleNext}
               onBack={() => setFormStage(1)}
               onCancel={onCancel}
             />
@@ -138,9 +161,11 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
 const ActionsBar = ({
   onCancel,
   onNext,
+  nextDisabled,
   onBack,
   isProcessing,
   canSubmit,
+  submitDisabled,
 }: ActionsBarProps) => {
   console.log("actions bar isProcessing", isProcessing);
 
@@ -176,12 +201,13 @@ const ActionsBar = ({
             e.stopPropagation();
             onNext();
           }}
+          disabled={nextDisabled}
         >
           Next
         </Button>
       ) : null}
       {canSubmit === true ? (
-        <Button type="submit" disabled={isProcessing}>
+        <Button type="submit" disabled={isProcessing || submitDisabled}>
           {isProcessing ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -201,18 +227,18 @@ const PhaseHeading = ({ heading }: { heading: string }) => {
     <div className="flex flex-row justify-between items-center">
       <h2 className="text-md">{heading}</h2>
     </div>
-  );
+  );  
 };
 
 const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
+
+  const { onNext, canSubmit, ...restProps } = props;
+
   const form = useFormContext<UserAssetOrphanInsert>();
 
   const {
     formState: { isSubmitting },
-    watch,
   } = form;
-
-  const name = watch("name");
 
   const { data: brokerPlatforms, isLoading: isLoadingBrokerPlatforms } =
     useBrokerPlatforms();
@@ -222,19 +248,39 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
     (p) => p.id === selectedPlatformId
   );
 
-  const nameFieldState = form.getFieldState("name");
-  const platformFieldState = form.getFieldState("platformId");
   const accountTypeFieldState = form.getFieldState("accountType");
+  const startDateFieldState = form.getFieldState("startDate");
 
-  const canNext =
-    !nameFieldState.invalid &&
-    !platformFieldState.invalid &&
-    !accountTypeFieldState.invalid;
+  const canNext = (
+    (!accountTypeFieldState.invalid && accountTypeFieldState.isDirty) &&
+    (!startDateFieldState.invalid && startDateFieldState.isDirty)
+  );
 
-  const actionsBarProps = {
-    ...props,
+  const handleNext = async (next: () => void) => {
+    const isValid = await form.trigger(["accountType", "startDate"]);
+    if (isValid) {
+      next();
+    }
+  }
+
+  //TODO: create helper function for this
+  const actionsBarProps:ActionsBarProps = {
+    ...restProps,
     isProcessing: isSubmitting,
-    onNext: canNext ? props.onNext : undefined,
+    ...(onNext ? {
+      onNext: () => handleNext(onNext),
+      nextDisabled: !canNext,
+    } : {
+      onNext: undefined,
+      nextDisabled: undefined,
+    }),
+    ...(canSubmit ? {
+      canSubmit: true,
+      submitDisabled: !canNext,
+    } : {
+      canSubmit: false,
+      submitDisabled: undefined,
+    }),
   };
 
   const selectableAccountTypes = useMemo(() =>
@@ -295,9 +341,13 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
               onValueChange={field.onChange}
               defaultValue={field.value}
               disabled={isLoadingBrokerPlatforms}
+              name={field.name}
             >
               <FormControl>
-                <SelectTrigger>
+                <SelectTrigger
+                  onBlur={field.onBlur}
+                  onChange={field.onChange}
+                >
                   <SelectValue placeholder="Select Platform" />
                 </SelectTrigger>
               </FormControl>
@@ -321,9 +371,13 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
         render={({ field }) => (
           <FormItem>
             <FormLabel>Select Account Type</FormLabel>
-            <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <Select onValueChange={field.onChange} defaultValue={field.value} name={field.name}>
               <FormControl>
-                <SelectTrigger>
+                <SelectTrigger
+                  onBlur={field.onBlur}
+                  onChange={field.onChange}
+                  name={field.name}
+                >
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
               </FormControl>
@@ -355,6 +409,9 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
                 <Input
                   type="date"
                   onChange={(e) => field.onChange(new Date(e.target.value))}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  disabled={field.disabled}
                   value={
                     field.value ? field.value.toISOString().split("T")[0] : ""
                   }
@@ -439,6 +496,9 @@ const AssetSecurityForm = ({
 };
 
 const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
+
+  const { onNext, canSubmit, ...restProps } = props;
+
   const form = useFormContext<UserAssetOrphanInsert>();
 
   const { watch } = form;
@@ -451,8 +511,8 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
   const [addingSecurity, setAddingSecurity] = useState<boolean>(false);
 
   const valueMethod = watch("valueMethod");
-
   const startDate = watch("startDate");
+  const securities = watch("securities");
 
   const {
     formState: { isSubmitting },
@@ -468,6 +528,41 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
     setAddingSecurity(false);
     //We add this to satisfy the API of the form.
     return Promise.resolve();
+  };
+
+  const currentValueFieldState = form.getFieldState("currentValue");
+
+  const canNext = (
+      ((valueMethod === "calculated" && (securities?.length ?? 0) > 0) ||
+      (valueMethod === "manual" && currentValueFieldState.isDirty && !currentValueFieldState.invalid))
+  );
+
+  const handleNext = async (next: () => void) => {
+    const triggerFields: (keyof UserAssetOrphanInsert)[] = valueMethod === "calculated" ? ["valueMethod", "securities"] : ["valueMethod", "currentValue"];
+    const isValid = await form.trigger(triggerFields);
+    if (isValid) {
+      next();
+    }
+  }
+
+  //TODO: create helper function for this
+  const actionsBarProps:ActionsBarProps = {
+    ...restProps,
+    isProcessing: isSubmitting,
+    ...(onNext ? {
+      onNext: () => handleNext(onNext),
+      nextDisabled: !canNext,
+    } : {
+      onNext: undefined,
+      nextDisabled: undefined,
+    }),
+    ...(canSubmit ? {
+      canSubmit: true,
+      submitDisabled: !canNext,
+    } : {
+      canSubmit: false,
+      submitDisabled: undefined,
+    }),
   };
 
   return (
@@ -540,33 +635,40 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
             )}
           />
           {valueMethod === "calculated" ? (
-            <>
-              <div>
-                <FormLabel>Add Securities</FormLabel>
-                <FormDescription>
-                  In order to calculate the value of your account, we need to
-                  know which securities are held in the account
-                </FormDescription>
-              </div>
-              <div className="space-y-2 flex flex-col gap-2">
-                {fields.map((field, index) => (
-                  <div
-                    key={field.id}
-                    className="flex flex-row gap-2 items-start"
-                  >
-                    <div className="flex-1">
-                      <SecurityCard security={field} />
-                    </div>
-                    <Button variant="outline" onClick={() => remove(index)}>
-                      <Trash2 className="w-4 h-4" />
+            <FormField
+              control={form.control}
+              name="securities"
+              render={({ field }) => (
+                <>
+                  <div>
+                    <FormLabel>Add Securities</FormLabel>
+                    <FormDescription>
+                      In order to calculate the value of your account, we need to
+                      know which securities are held in the account
+                    </FormDescription>
+                  </div>
+                  <div className="space-y-2 flex flex-col gap-2">
+                    {fields.map((field, index) => (
+                      <div
+                        key={field.id}
+                        className="flex flex-row gap-2 items-start"
+                      >
+                        <div className="flex-1">
+                          <SecurityCard security={field} />
+                        </div>
+                        <Button variant="outline" onClick={() => remove(index)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button onClick={() => setAddingSecurity(true)}>
+                      Add Security
                     </Button>
                   </div>
-                ))}
-                <Button onClick={() => setAddingSecurity(true)}>
-                  Add Security
-                </Button>
-              </div>
-            </>
+                  <FormMessage />
+                </>
+            )}
+          />
           ) : null}
           {valueMethod === "manual" ? (
             <FormField
@@ -587,7 +689,7 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
               )}
             />
           ) : null}
-          <ActionsBar {...props} isProcessing={isSubmitting} />
+          <ActionsBar {...actionsBarProps} isProcessing={isSubmitting}/>
         </>
       )}
     </>
@@ -633,6 +735,9 @@ const SecurityCard = ({ security }: SecurityCardProps) => {
 };
 
 const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
+
+  const { onNext, canSubmit, ...restProps } = props;
+
   const form = useFormContext<UserAssetOrphanInsert>();
 
   const {
@@ -691,6 +796,29 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
           securities: undefined,
         };
 
+  const contributionsAmount = watch("contributions.amount");
+  const contributionsAmountIsPositive = contributionsAmount ? Decimal(contributionsAmount).gt(0) : false;
+  
+  const contributionsFieldState = form.getFieldState("contributions.amount");
+
+  const canNext = isScheduled ? (
+    (!contributionsFieldState.invalid && contributionsFieldState.isDirty && contributionsAmountIsPositive)
+  ) : true;
+
+  const actionsBarProps:ActionsBarProps = {
+    ...restProps,
+    isProcessing: isSubmitting,
+    onNext: undefined,
+    nextDisabled: undefined,
+    ...(canSubmit ? {
+      canSubmit: true,
+      submitDisabled: !canNext,
+    } : {
+      canSubmit: false,
+      submitDisabled: undefined,
+    }),
+  };
+
   return (
     <>
       <PhaseHeading heading="3) Schedule" />
@@ -715,7 +843,7 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
           <RecurringContributionForm {...recurringProps} />
         </>
       ) : null}
-      <ActionsBar {...props} isProcessing={isSubmitting} />
+      <ActionsBar {...actionsBarProps} isProcessing={isSubmitting} />
     </>
   );
 };

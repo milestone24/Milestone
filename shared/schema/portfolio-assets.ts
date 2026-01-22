@@ -164,7 +164,7 @@ export const userAssetOrphanInsertSchema = z.object({
     .optional(),
   securities: z.array(
     userAssetSecurityOrphanNewCreateInsertSchema.extend({ lid: z.string() })
-  ),
+  ).nonempty({ message: "At least one security is required" }),
   contributions: recurringContributionGroupInsertSchema.optional(),
 });
 
