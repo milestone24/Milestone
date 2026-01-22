@@ -43,10 +43,6 @@ export type PortfolioContextType = {
   activeSection: string;
 };
 
-type UserAssetUpdate = UserAssetOrphanInsert & {
-  id: UserAsset["id"];
-};
-
 type AssetValueUpdate = UserAssetValueInsert & {
   historyId: AssetValue["id"];
 };
@@ -164,61 +160,6 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     queryFn: apiEnabled
       ? async () => apiRequest("GET", milestonesQueryKey[0] ?? "")
       : skipToken,
-  });
-  // Mutations for assets
-  const addAsset = useMutation<UserAsset, Error, UserAssetOrphanInsert>({
-    mutationFn: (newAsset) =>
-      apiRequest<UserAsset>("POST", "/api/assets/", {
-        ...newAsset,
-        userAccountId: user?.account.id,
-        securities: newAsset.securities.map((security) => ({
-          ...security,
-        })),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: portfolioAssets });
-      queryClient.invalidateQueries({ queryKey: portfolioGraphValues });
-      queryClient.invalidateQueries({ queryKey: portfolioGraphTransactions });
-      toast({
-        title: "Asset added",
-        description: "Your asset has been added successfully.",
-      });
-    },
-    onError: (error) => {
-      console.error("Error adding asset", error);
-      toast({
-        title: "Error adding asset",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateAsset = useMutation<UserAsset, Error, UserAssetUpdate>({
-    mutationFn: (data) => {
-      const { id, ...rest } = data;
-      return apiRequest<UserAsset>("PUT", `/api/assets/${id}`, {
-        ...rest,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: portfolioAssets });
-      queryClient.invalidateQueries({ queryKey: portfolioGraphValues });
-      queryClient.invalidateQueries({ queryKey: portfolioGraphTransactions });
-      toast({
-        title: "Asset updated",
-        description: "Your asset has been updated successfully.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error updating asset",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    },
   });
 
   const deleteAsset = useMutation<void, Error, UserAsset["id"]>({
@@ -545,8 +486,6 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
 
   return {
     ...context,
-    addAsset,
-    updateAsset,
     deleteAsset,
     addAssetValue,
     updateAssetValue,

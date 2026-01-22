@@ -73,7 +73,7 @@ const assetWithValeGuard = (
 };
 
 export default function Record() {
-  const { addAsset, isLoading, updateAsset } = usePortfolio();
+  const { isLoading } = usePortfolio();
 
   const { data: brokerProviders } = useBrokerProviders();
 
