@@ -9,7 +9,7 @@ export const DATE_RANGES = [
   { label: "6M", value: "6months" },
   { label: "1Y", value: "1year" },
   { label: "YTD", value: "ytd" },
-  { label: "All", value: "all" },
+  { label: "Max", value: "max" },
 ];
 
 export type DateRangeOption =
