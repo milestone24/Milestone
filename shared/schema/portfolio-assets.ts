@@ -191,9 +191,74 @@ export type ValueFields = {
 
 export type UserAssetWithValue = UserAsset & ValueFields;
 
+export const calculatedValueSchema = z.object({
+  value: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Value must be a valid decimal string",
+  }),
+  currentChange: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Current change must be a valid decimal string",
+  }),
+  currentChangePercentage: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Current change percentage must be a valid decimal string",
+  }),
+});
+
+export type CalculatedValue = z.infer<typeof calculatedValueSchema>;
+
+export type ResolvedAssetSecurity =
+  WithCalculatedValue<UserAssetSecuritySelect>;
+
+/**
+ * Used to parse and validate the response from the API for a resolved asset security
+ */
+export const resolvedAssetSecuritySchema = z.object({
+  id: z.string(),
+  updatedAt: z.coerce.date(),
+  createdAt: z.coerce.date(),
+  startDate: z.coerce.date(),
+  userAssetId: z.string(),
+  securityId: z.string(),
+  archived: z.boolean(),
+  priorGainLoss: decimalValueSchema.nullable(),
+  calculatedValue: calculatedValueSchema,
+  security: securitySelectSchema,
+});
+
+resolvedAssetSecuritySchema._output satisfies ResolvedAssetSecurity;
+
+export const resolvedAssetSecuritiesSchema = z.array(
+  resolvedAssetSecuritySchema
+);
+
+
+export type WithPlatform<T extends { id: string }> = T & {
+  platform?: BrokerPlatform;
+};
+
 export type ResolvedUserAsset = WithPlatform<
   WithResolvedSecurities<UserAssetWithValue>
 >;
+
+export const resolvedUserAssetSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  platformId: z.string().nullable(),
+  providerId: z.string().nullable(),
+  accountType: z.enum(accountType),
+  startDate: z.coerce.date(),
+  valueMethod: z.enum(["manual", "calculated"]),
+  userAccountId: z.string(),
+  updatedAt: z.coerce.date().nullable(),
+  createdAt: z.coerce.date().nullable(),
+  lastValueDate: z.coerce.date().nullable(),
+  currentValue: decimalValueSchema.refine(isDecimalValueString, {
+   message: "Current value must be a valid decimal string",
+  }),
+  securities: resolvedAssetSecuritiesSchema,
+});
+
+resolvedUserAssetSchema._output satisfies ResolvedUserAsset;
+
 
 export type AssetValue = Omit<DBAssetValueSelect, "value"> & {
   value: DecimalValueString;
@@ -260,20 +325,6 @@ export const assetValueHistorySchema = z.object({
 });
 
 assetValueHistorySchema._output satisfies AssetValue;
-
-export const calculatedValueSchema = z.object({
-  value: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Value must be a valid decimal string",
-  }),
-  currentChange: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Current change must be a valid decimal string",
-  }),
-  currentChangePercentage: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Current change percentage must be a valid decimal string",
-  }),
-});
-
-export type CalculatedValue = z.infer<typeof calculatedValueSchema>;
 
 export const assetsChangeSchema = calculatedValueSchema.extend({
   startDate: z.coerce.date(),
@@ -389,36 +440,6 @@ export type WithSecurities<T extends { id: string }> = T & {
 
 export type WithResolvedSecurities<T extends { id: string }> = T & {
   securities: ResolvedAssetSecurity[];
-};
-
-export type ResolvedAssetSecurity =
-  WithCalculatedValue<UserAssetSecuritySelect>;
-
-/**
- * Used to parse and validate the response from the API for a resolved asset security
- */
-export const resolvedAssetSecuritySchema = z.object({
-  id: z.string(),
-  updatedAt: z.coerce.date(),
-  createdAt: z.coerce.date(),
-  startDate: z.coerce.date(),
-  userAssetId: z.string(),
-  securityId: z.string(),
-  archived: z.boolean(),
-  priorGainLoss: decimalValueSchema.nullable(),
-  calculatedValue: calculatedValueSchema,
-  security: securitySelectSchema,
-});
-
-resolvedAssetSecuritySchema._output satisfies ResolvedAssetSecurity;
-
-export const resolvedAssetSecuritiesSchema = z.array(
-  resolvedAssetSecuritySchema
-);
-
-
-export type WithPlatform<T extends { id: string }> = T & {
-  platform?: BrokerPlatform;
 };
 
 /**
