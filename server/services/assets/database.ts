@@ -34,7 +34,7 @@ import {
   AssetValue,
   BrokerProvider,
   UserAccount,
-  AssetsChange,
+  ValueChange,
   UserAssetValueOrphanInsert,
   RecurringContribution,
   RecurringContributionOrphanInsert,
@@ -1337,7 +1337,8 @@ export class DatabaseAssetService {
   async getPortfolioOverviewForUser(
     userAccountId: UserAccount["id"],
     query?: QueryParams
-  ): Promise<AssetsChange> {
+  ): Promise<ValueChange> {
+
     const assetsWithChange = await this.getUserAssetsWithAccountValueChange(
       userAccountId,
       query

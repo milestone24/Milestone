@@ -1,6 +1,6 @@
 import {
   UserAsset,
-  AssetsChange,
+  ValueChange,
   AssetValue,
   DataRangeQuery,
   PossibleDummyAssetValue,
@@ -87,7 +87,7 @@ export const normalisePercentage = (
 
 export const calculateAssetsChange = (
   assetValues: PossibleDummyAssetValue[]
-): AssetsChange => {
+): ValueChange => {
   const [firstAssetValue, lastAssetValue] = resolveAssetValuesForIndexes(
     assetValues,
     0,
@@ -928,12 +928,12 @@ export const resolveDayTransactionHistoryForAssetsForDateRange = async (
 
 export const getPortfolioOverviewForAssets = async (
   assets: UserAssetWithValueChange[]
-): Promise<AssetsChange> => {
-  const assetsValueChanges: AssetsChange =
+): Promise<ValueChange> => {
+  const assetsValueChanges: ValueChange =
     assets.length > 0
       ? assets
           .map((asset) => asset.accountChange)
-          .reduce((acc: AssetsChange, asset) => {
+          .reduce((acc: ValueChange, asset) => {
             const startDate: Date =
               asset.startDate < acc.startDate ? asset.startDate : acc.startDate;
 

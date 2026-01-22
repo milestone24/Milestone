@@ -18,7 +18,7 @@ import {
   SessionUser,
   UserAsset,
   UserAssetOrphanInsert,
-  AssetsChange,
+  ValueChange,
   AssetValue,
   UserAssetValueInsert,
   AssetTransaction,

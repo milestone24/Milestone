@@ -536,7 +536,7 @@ export type UserAssetSecuritySelect = DBUserAssetSecurity & {
 //   currentChangePercentage: DecimalValueString;
 // };
 
-export type AssetsChange = CalculatedValue & {
+export type ValueChange = CalculatedValue & {
   startDate: Date;
   endDate: Date;
   startValue: DecimalValueString;
@@ -547,7 +547,7 @@ export type WithCalculatedValue<T extends { id: string }> = T & {
 };
 
 export type WithAccountChange<T extends { id: string }> = T & {
-  accountChange: AssetsChange;
+  accountChange: ValueChange;
 };
 
 export type WithAssetHistory<
