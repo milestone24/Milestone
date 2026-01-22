@@ -198,6 +198,7 @@ export default memo(({ className, data, milestones }: ValuesChartProps) => {
                     }
                   }}
 
+
                   // onClick={(data) => {
                   //   if (data && data.activePayload) {
                   //     alert(JSON.stringify(data.activePayload));
@@ -210,12 +211,14 @@ export default memo(({ className, data, milestones }: ValuesChartProps) => {
                     strokeDasharray="3 3"
                     vertical={false}
                     stroke="#f0f0f0"
+
                   />
                   <XAxis
                     dataKey="timestamp"
                     type="number"
                     axisLine={false}
                     tickLine={false}
+
                     tick={{ fontSize: 10 }}
                     domain={["dataMin", "dataMax"]}
                     allowDuplicatedCategory={false}
@@ -360,6 +363,8 @@ export default memo(({ className, data, milestones }: ValuesChartProps) => {
                       animateNewValues={false}
                       animationDuration={0}
                       animationBegin={0}
+                      dot={false}
+                      activeDot={true}
                     />
                   ))}
                   {/* {dummyData.map((s) => (
