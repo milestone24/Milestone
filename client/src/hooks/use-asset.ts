@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/queryClient";
-import { ResolvedUserAsset } from "@shared/schema/portfolio-assets";
+import { ResolvedUserAsset, resolvedUserAssetSchema } from "@shared/schema/portfolio-assets";
 import { useQuery } from "@tanstack/react-query";
 
 export const useAsset = (assetId: string | undefined) => {
@@ -10,8 +10,14 @@ export const useAsset = (assetId: string | undefined) => {
     error: assetError,
   } = useQuery<ResolvedUserAsset>({
     queryKey: ["assets", assetId],
-    queryFn: () =>
-      apiRequest<ResolvedUserAsset>("GET", `/api/assets/${assetId}`),
+    queryFn: async () => {
+      const response = await apiRequest<ResolvedUserAsset>("GET", `/api/assets/${assetId}`);
+      const result = resolvedUserAssetSchema.safeParse(response);
+      if (!result.success) {
+        throw new Error("Invalid asset result");
+      }
+      return result.data;
+    },
     enabled: !!assetId,
   });
 
