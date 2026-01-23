@@ -24,6 +24,7 @@ import {
   inArray,
   lt,
   lte,
+  not,
   sql,
   sum,
 } from "drizzle-orm";
@@ -64,6 +65,7 @@ import {
   UserAssetSecurityOrphanLinkInsert,
   UserAssetWithValueChange,
   PortfolioValue,
+  UserAssetUpdate,
 } from "@shared/schema";
 import {
   QueryParams,
@@ -783,13 +785,114 @@ export class DatabaseAssetService {
   @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async updateUserAsset(
     id: UserAsset["id"],
-    data: UserAssetInsert
+    data: UserAssetUpdate
   ): Promise<UserAsset> {
-    const [updatedUserAsset] = await this.db
-      .update(userAssets)
-      .set(data)
-      .where(eq(userAssets.id, id))
-      .returning();
+
+    const updatedUserAsset = await this.db.transaction(async (tx) => {
+
+      try {
+
+        const userAsset = await tx.query.userAssets.findFirst({
+          where: eq(userAssets.id, id),
+          columns: {
+            startDate: true,
+          },
+        });
+
+        if (!userAsset) {
+          throw new Error("User asset not found");
+        }
+
+        const assetStartDate = userAsset.startDate;
+
+        const [updatedUserAsset] = await tx
+          .update(userAssets)
+          .set(data)
+          .where(eq(userAssets.id, id))
+          .returning();
+
+        //First update the asset securities start dates if start dates match
+        //Do we need an extra field on the asset securities table to track 
+        //if the start date is aligned?
+        //The securities start date is changed alignment should be false
+
+        if (data.startDate) {
+
+          const userAssetSecuritiesForAsset = await tx.query.userAssetSecurities.findMany({
+            where: eq(userAssetSecurities.userAssetId, id),
+            columns: {
+              id: true,
+              startDate: true,
+            },
+          });
+
+          if (userAssetSecuritiesForAsset.length > 0) {
+
+            const userAssetSecuritiesIds = userAssetSecuritiesForAsset.map((security) => security.id);
+
+            /*
+            First we obtain a list of security transactions that are before the new start date,
+            an not equal to the new asset start date.
+            */
+
+            const securitiesTransactionsBeforeStartDate = await tx.query.securityTransactions.findMany({
+              where: and(
+                inArray(securityTransactions.assetSecurityId, userAssetSecuritiesIds),
+                not(eq(securityTransactions.valueDate, assetStartDate)),
+                lt(securityTransactions.valueDate, data.startDate)),
+              columns: {
+                id: true,
+                valueDate: true,
+              },
+            });
+
+            /*
+            If there are security transactions before the new start date, we need to throw an error
+            because we can not update the start date of the asset securities if there are security transactions
+            before the new start date.
+            */
+
+            if (securitiesTransactionsBeforeStartDate.length > 0) {
+              throw new Error("Security transactions before new start date found");
+            }
+
+            const updatedUserAssetSecurities = await tx.update(userAssetSecurities).set({
+              startDate: data.startDate,
+            }).where(
+              and(
+                eq(userAssetSecurities.userAssetId, id),
+                eq(userAssetSecurities.startDate, assetStartDate)
+              )
+            ).returning();
+
+            const securityTransactionIds = updatedUserAssetSecurities.map((security) => security.id);
+
+            if (updatedUserAssetSecurities.length > 0) {
+              await tx.update(securityTransactions).set({
+                valueDate: data.startDate,
+              }).where(
+                and(
+                  inArray(securityTransactions.assetSecurityId, securityTransactionIds),
+                  eq(securityTransactions.valueDate, assetStartDate)
+                )
+              ).returning();
+            }
+          }
+        }
+
+        return updatedUserAsset;
+
+      } catch (error) {
+        /*
+        We dont need to rollback here because the error thrown
+        will cause the transaction to be rolled back automatically.
+        */
+        //await tx.rollback();
+        const errorMessage = error instanceof Error ? error.message : undefined;
+        throw new Error(`Failed to update user asset${(errorMessage ? `: ${errorMessage}` : ".")}`);
+      }
+
+    });
 
     if (!updatedUserAsset) {
       throw new Error("Failed to update user asset");
