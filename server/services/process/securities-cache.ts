@@ -1,10 +1,11 @@
 import { Database } from "@server/db";
 import { assetSecurities } from "@shared/api/queryKeys";
 import { sendNotification } from "../comms/socket";
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, inArray, not, or, sql } from "drizzle-orm";
 import { UpdateSecuritiesDailyHistoryCacheProcess } from "@shared/schema/process";
-import { processes } from "@server/db/schema";
+import { processes, ProcessSelect } from "@server/db/schema";
 import { handler } from "./securities-cache-distributed-handler";
+import { factory as queueFactory } from "@server/services/distributed/queue";
 
 export class SecuritiesCacheService {
   //TODO consider how to handle the abstraction of Db or
@@ -20,47 +21,83 @@ export class SecuritiesCacheService {
     //   message: "Updating securities daily history cache...",
     // });
 
-    const existingJobs: UpdateSecuritiesDailyHistoryCacheProcess[] =
-      ((await this.db.query.processes.findMany({
+    const findExistingProcesses = async (excludeIds?: string[]) => {
+      const jobs: UpdateSecuritiesDailyHistoryCacheProcess[] = await this.db.query.processes.findMany({
         where: and(
           eq(processes.key, "update-securities-daily-history-cache"),
-          or(eq(processes.status, "running"), eq(processes.status, "pending"))
-        ),
-      })) as UpdateSecuritiesDailyHistoryCacheProcess[]) ?? [];
+          or(
+            eq(processes.status, "running"),
+            eq(processes.status, "pending")
+          ),
+          excludeIds ? not(inArray(processes.id, excludeIds)) : undefined,
+        )
+      }) as UpdateSecuritiesDailyHistoryCacheProcess[] ?? [];
+      return jobs;
+    };
 
-    console.log("existingJobs", existingJobs);
+    const queueService = queueFactory();
 
-    if (existingJobs.length > 0) {
-      //Do we need to wait and run again?
+    let job: ProcessSelect | undefined;
+
+    try {
+
+      const existingJobs: UpdateSecuritiesDailyHistoryCacheProcess[] =
+        await findExistingProcesses();
+
+      if (existingJobs.length > 0) {
+        queueService.publish({
+          type: "securities-daily-history-cache-update-failed",
+          jobId: undefined,
+          message: "Securities daily history cache update already in progress",
+        });
+        //Do we need to wait and run again?
+        return;
+      }
+
+      [job] = await this.db
+        .insert(processes)
+        .values({
+          key: "update-securities-daily-history-cache",
+          status: "running",
+          startedAt: new Date(),
+          payload: {
+            date: new Date(),
+          },
+        })
+        .returning();
+
+      if (!job) {
+        queueService.publish({
+          type: "securities-daily-history-cache-update-failed",
+          jobId: undefined,
+          message: "Failed to create job",
+        });
+        return;
+      }
+
+      const distributed = process.env.DISTRIBUTED === "true";
+
+      if (distributed) {
+        // mockLambdaHandler({
+        //   jobId: job.id,
+        // });
+      } else {
+        handler({ jobId: job.id })
+      }
+    } catch (error) {
+      if (job) {
+        await this.db
+          .update(processes)
+          .set({ status: "failed", completedAt: new Date() })
+          .where(eq(processes.id, job.id));
+      }
+      queueService.publish({
+        type: "securities-daily-history-cache-update-failed",
+        jobId: job?.id,
+        message: "Error updating securities daily history cache",
+      });
       return;
     }
 
-    const [job] = await this.db
-      .insert(processes)
-      .values({
-        key: "update-securities-daily-history-cache",
-        status: "running",
-        startedAt: new Date(),
-        payload: {
-          date: new Date(),
-        },
-      })
-      .returning();
-
-    if (!job) {
-      throw new Error("Failed to create job");
-    }
-
-    const distributed = process.env.DISTRIBUTED === "true";
-
-    if (distributed) {
-      // mockLambdaHandler({
-      //   jobId: job.id,
-      // });
-    } else {
-      handler({ jobId: job.id }).catch((error) => {
-        console.error("Error updating securities daily history cache", error);
-      });
-    }
   }
 }

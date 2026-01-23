@@ -68,8 +68,10 @@ type SecuritiesDailyHistoryCacheUpdateCompletedMessage =
     type: "securities-daily-history-cache-update-completed";
   };
 type SecuritiesDailyHistoryCacheUpdateFailedMessage =
-  SecuritiesDailyHistoryCacheUpdateMessageBase & {
+  Omit<SecuritiesDailyHistoryCacheUpdateMessageBase, "jobId"> & {
+    jobId?: string;
     type: "securities-daily-history-cache-update-failed";
+    message?: string;
   };
 type SecuritiesDailyHistoryCacheUpdateExitedMessage =
   SecuritiesDailyHistoryCacheUpdateMessageBase & {
