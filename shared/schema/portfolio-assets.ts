@@ -182,6 +182,14 @@ type ZodUserAssetInsert = z.infer<typeof userAssetInsertSchema>;
 
 export type UserAssetInsert = ZodUserAssetInsert;
 
+export type UserAssetUpdate = Partial<Pick<UserAssetOrphanInsert, "startDate">>;
+
+export const assetUpdateSchema = z.object({
+  startDate: z.coerce.date(),
+}).partial();
+
+assetUpdateSchema._output satisfies Partial<UserAssetUpdate>;
+
 export type UserAsset = DBUserAsset;
 
 export type ValueFields = {
