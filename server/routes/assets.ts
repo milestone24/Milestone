@@ -15,6 +15,7 @@ import {
   userAssetOrphanInsertSchema,
   userAssetSecurityOrphanCreateSchema,
   userAssetSecurityOrphanLinkInsertSchema,
+  assetUpdateSchema,
 } from "@shared/schema";
 import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
 import { db } from "@server/db";
@@ -91,18 +92,19 @@ export async function registerRoutes(
     }
   );
 
-  router.put(
+  router.patch(
     regExpPath(`/${uuidRouteParam("assetId")}`),
     requireUser,
     async (req: AuthRequest, res) => {
       if (!req.params.assetId) {
         return res.status(400).json({ error: "Asset ID is required" });
       }
-      const data = userAssetInsertSchema.parse(req.body);
-      const asset = await assetService.updateUserAsset(
-        req.params.assetId,
-        data
-      );
+      //Make this partial
+      const data = assetUpdateSchema.safeParse(req.body);
+      if (!data.success) {
+        return res.status(400).json({ error: data.error.message });
+      }
+      const asset = await assetService.updateUserAsset(req.params.assetId, data.data);
       res.json(asset);
     }
   );
