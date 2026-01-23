@@ -28,6 +28,7 @@ export const assetSecuritiesTransactions = [
   "securities",
   "transactions",
 ];
+export const asset = ["asset"];
 export const processes = ["processes"];
 
 // Fire settings query keys
