@@ -84,6 +84,7 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
         <div className="flex flex-col items-start">
           <p className="font-medium">{security.security.name}</p>
           <p className="text-sm text-gray-600">{security.security.symbol}</p>
+          <p className="text-sm text-gray-600">{security.startDate.toLocaleDateString()}</p>
         </div>
         <div className="flex flex-col items-end">
           <p className="font-medium">
