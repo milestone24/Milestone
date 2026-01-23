@@ -1,6 +1,6 @@
 import { sendNotification } from "../comms/socket";
 import { Database } from "@server/db";
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, inArray, not, or, sql } from "drizzle-orm";
 import { processes, userAssets } from "@server/db/schema";
 import {
   ProcessSelect,
@@ -28,107 +28,140 @@ export class AssetValuesService {
   constructor(
     //TODO maybe use job or process persistence factory instead of db?
     private db: Database
-  ) {}
+  ) { }
 
   async updateAssetValuesForAssetOfAccount(
     accountId: string,
     assetId: string,
     startDate?: Date
   ): Promise<void> {
-    return new Promise(async (resolve, reject) => {
 
-      console.log(
-        "Updating asset values for accountId",
-        accountId,
-        "and assetId",
-        assetId,
-        "and start date",
-        startDate
-      );
+    console.log(
+      "Updating asset values for accountId",
+      accountId,
+      "and assetId",
+      assetId,
+      "and start date",
+      startDate
+    );
 
-      //Now we manually trigger the distributed event to signal to other asset update jobs for the same asset to abort.
-      //We should consider adding new job would trigger a distributed event to signal to other asset update jobs for the same asset to abort.
+    //Now we manually trigger the distributed event to signal to other asset update jobs for the same asset to abort.
+    //We should consider adding new job would trigger a distributed event to signal to other asset update jobs for the same asset to abort.
 
-      //Existing jobs abort logic.
-      //find all jobs that are still running.
-      //If there are no running jobs, we can continue.
-      //If there are running jobs, we dispatch an event to abort them.
-      //We wait for the jobs to abort.
-      //We will presume if all jobs are a status other than running or pending then it is safe to continue.
-      //This logic would reside in each instance of a horizontal scaling backend.
-      //The invocation of an actual asset values update is distributed to a handler function that can be distributable eventually.
+    //Existing jobs abort logic.
+    //find all jobs that are still running.
+    //If there are no running jobs, we can continue.
+    //If there are running jobs, we dispatch an event to abort them.
+    //We wait for the jobs to abort.
+    //We will presume if all jobs are a status other than running or pending then it is safe to continue.
+    //This logic would reside in each instance of a horizontal scaling backend.
+    //The invocation of an actual asset values update is distributed to a handler function that can be distributable eventually.
 
-      //We will eventually change the process for updating asset values to use temporary tables to store updated data
-      //and then swap the temporary table with the final table.
-      //Therefore if the swap process is already in process, we must wait for it to complete before continuing.      //Do we then need to pu the rest of the folling code in a callback.
+    //We will eventually change the process for updating asset values to use temporary tables to store updated data
+    //and then swap the temporary table with the final table.
+    //Therefore if the swap process is already in process, we must wait for it to complete before continuing.      //Do we then need to pu the rest of the folling code in a callback.
+
+    const defineEarliestStartDate = async (
+      processes: UpdateAssetValuesProcess[]
+    ) => {
+      const earliestStartDate = processes.reduce((min, process) => {
+        const startDate = new Date(process.payload.startDate);
+        return startDate < min ? startDate : min;
+      }, new Date());
+      return earliestStartDate;
+    };
+
+    const findExistingProcesses = async (excludeIds?: string[]) => {
+      const jobs: UpdateAssetValuesProcess[] = await this.db.query.processes.findMany({
+        where: and(
+          eq(processes.key, "update-asset-values"),
+          or(
+            eq(processes.status, "running"),
+            eq(processes.status, "pending")
+          ),
+          excludeIds ? not(inArray(processes.id, excludeIds)) : undefined,
+          sql`payload ->> 'assetId' = ${assetId}`
+        )
+      }) as UpdateAssetValuesProcess[] ?? [];
+      return jobs;
+    };
+
+    const waitForJobsToAbort = async (excludeIds?: string[]) => {
+      const timeout = 20000;
+      let timedOut = false;
+      const timeoutId = setTimeout(() => {
+        timedOut = true;
+      }, timeout);
+      let iterations = 0;
+
+      while (true) {
+        iterations++;
+
+        const jobs = await findExistingProcesses(excludeIds);
+
+        console.log(`Iteration ${iterations}: found ${jobs.length} jobs, timedOut=${timedOut}`);
+
+        if (jobs.length === 0) {
+          clearTimeout(timeoutId);
+          return;
+        }
+
+        //wait for 5 second before checking again
+        if (timedOut) {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      }
+      clearTimeout(timeoutId);
+      throw new Error("Jobs did not abort in time");
+    };
+
+    let job: ProcessSelect | undefined;
+
+    const queueService = queueFactory();
+
+    try {
+
+      [job] = await this.db
+        .insert(processes)
+        .values({
+          key: "update-asset-values",
+          //The status would be set to running by the distributed handler
+          status: "pending",
+          startedAt: new Date(),
+          payload: {
+            accountId,
+            assetId,
+            startDate,
+          },
+        })
+        .returning();
+
+      if (!job) {
+        queueService.publish({
+          accountId,
+          assetId,
+          type: "asset-values-update-failed",
+          jobId: undefined,
+          message: "Failed to create job",
+        });
+        return;
+      }
 
       //First find an existing job for this assets that is running
-      const existingJobs: UpdateAssetValuesProcess[] =
-        ((await this.db.query.processes.findMany({
-          where: and(
-            eq(processes.key, "update-asset-values"),
-            or(
-              eq(processes.status, "running"),
-              eq(processes.status, "pending")
-            ),
-            sql`payload ->> 'assetId' = ${assetId}`
-          ),
-        })) as UpdateAssetValuesProcess[]) ?? [];
-
-      const defineEarliestStartDate = async (
-        processes: UpdateAssetValuesProcess[]
-      ) => {
-        const earliestStartDate = processes.reduce((min, process) => {
-          const startDate = new Date(process.payload.startDate);
-          return startDate < min ? startDate : min;
-        }, new Date());
-        return earliestStartDate;
-      };
-
-      const waitForJobsToAbort = async () => {
-        const timeout = 20000;
-        let timedOut = false;
-        const timeoutId = setTimeout(() => {
-          timedOut = true;
-        }, timeout);
-
-        while (true) {
-          const jobs = await this.db.query.processes.findMany({
-            where: and(
-              eq(processes.key, "update-asset-values"),
-              or(
-                eq(processes.status, "running"),
-                eq(processes.status, "pending")
-              )
-            ),
-          });
-
-          if (jobs.length === 0) {
-            clearTimeout(timeoutId);
-            return;
-          }
-
-          //wait for 2 second before checking again
-          if (timedOut) {
-            break;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 5000));
-        }
-        throw new Error("Jobs did not abort in time");
-      };
+      const existingJobs = await findExistingProcesses([job.id]);
 
       console.log("Asset Values Service Existing jobs", existingJobs.length);
 
       if (existingJobs.length > 0) {
-        const queueService = queueFactory();
         //Dispatch an event to abort the jobs
         //Normally there would only be one existing for the same assets but we have to consider
         //the possibility of race conditions and that there might be multiple jobs for the same asset.
         //So a dispatch event is sent to each job to abort it.
-        for (const job of existingJobs) {
+        for (const ejob of existingJobs) {
           queueService.publish({
             type: "asset-values-update-abort",
-            jobId: job.id,
+            jobId: ejob.id,
           });
         }
         //We have to consider start dates here.
@@ -136,68 +169,70 @@ export class AssetValuesService {
         //we need to start the new job from the start date of the running job.
         startDate = await defineEarliestStartDate(existingJobs);
         //Wait for the jobs to abort
-        await waitForJobsToAbort();
+
+        try {
+          await waitForJobsToAbort([job.id])
+        } catch (error) {
+          console.error("Error waiting for jobs to abort", error);
+
+          await this.db
+            .update(processes)
+            .set({ status: "failed", completedAt: new Date() })
+            .where(eq(processes.id, job?.id));
+
+          queueService.publish({
+            accountId,
+            assetId,
+            type: "asset-values-update-failed",
+            jobId: job.id,
+            message: "Error waiting for jobs to abort",
+          });
+
+          return;
+        }
       }
 
       console.log("Continuing with update asset values startDate", startDate);
 
-      let job: ProcessSelect | undefined;
+      //TODO job needs some kind of identifier for what resources are affected
+      //Should the creation of a job be done through a message queue to prevent race conditions?
 
-      try {
-        //TODO job needs some kind of identifier for what resources are affected
-        //Should the creation of a job be done through a message queue to prevent race conditions?
+      const distributed = process.env.DISTRIBUTED === "true";
 
-        const [job] = await this.db
-          .insert(processes)
-          .values({
-            key: "update-asset-values",
-            //The status would be set to running by the distributed handler
-            status: "pending",
-            startedAt: new Date(),
-            payload: {
-              accountId,
-              assetId,
-              startDate,
-            },
-          })
-          .returning();
-
-        if (!job) {
-          throw new Error("Failed to create job");
-        }
-
-        const distributed = process.env.DISTRIBUTED === "true";
-
-        if (distributed) {
-          //later relaced with an invocation of the lambda function
-          mockLambdaHandler({
-            assetId,
-            accountId,
-            jobId: job.id,
-            startDate,
-          });
-        } else {
-          handler({
-            assetId,
-            accountId,
-            jobId: job.id,
-            startDate,
-          });
-        }
-
-        resolve();
-      } catch (error) {
-        console.error("Error updating asset values", error);
-
-        if (job) {
-          await this.db
-            .update(processes)
-            .set({ status: "failed", completedAt: new Date() })
-            .where(eq(processes.id, job.id));
-        }
-        reject(error);
+      if (distributed) {
+        //later relaced with an invocation of the lambda function
+        mockLambdaHandler({
+          assetId,
+          accountId,
+          jobId: job.id,
+          startDate,
+        });
+      } else {
+        handler({
+          assetId,
+          accountId,
+          jobId: job.id,
+          startDate,
+        });
       }
-    });
+    } catch (error) {
+      console.error("Error updating asset values", error);
+
+      if (job) {
+        await this.db
+          .update(processes)
+          .set({ status: "failed", completedAt: new Date() })
+          .where(eq(processes.id, job.id));
+      }
+
+      queueService.publish({
+        accountId,
+        assetId,
+        type: "asset-values-update-failed",
+        jobId: job?.id,
+        message: "Error updating asset values",
+      });
+    };
   }
 
   sendAssetValuesInvalidatedNotification = (

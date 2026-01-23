@@ -26,8 +26,10 @@ type AssetValuesUpdateCompletedMessage = AssetValuesUpdateMessageBase & {
   type: "asset-values-update-completed";
 };
 
-type AssetValuesUpdateFailedMessage = AssetValuesUpdateMessageBase & {
+type AssetValuesUpdateFailedMessage = Omit<AssetValuesUpdateMessageBase, "jobId"> & {
   type: "asset-values-update-failed";
+  jobId?: string;
+  message?: string;
 };
 
 type AssetValuesUpdateExitedMessage = AssetValuesUpdateMessageBase & {
