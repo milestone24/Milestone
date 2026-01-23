@@ -1,8 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { UserAsset, UserAssetOrphanInsert } from "@shared/schema";
+import { UserAsset, UserAssetOrphanInsert, UserAssetUpdate } from "@shared/schema";
 import { toast } from "./use-toast";
-import { portfolioAssets, portfolioGraphTransactions, portfolioGraphValues } from "@shared/api/queryKeys";
+import { asset as assetQueryKey, portfolioAssets, portfolioGraphTransactions, portfolioGraphValues, assetSecuritiesTransactions, assetSecurities } from "@shared/api/queryKeys";
 
 // type UserAssetUpdate = UserAssetOrphanInsert & {
 //   id: UserAsset["id"];
@@ -10,14 +10,18 @@ import { portfolioAssets, portfolioGraphTransactions, portfolioGraphValues } fro
 
 export const useAssetUpdate = (assetId: string) => {
 
-  return useMutation<UserAsset, Error, UserAssetOrphanInsert>({
+  return useMutation<UserAsset, Error, UserAssetUpdate>({
     mutationFn: (data) => {
-      return apiRequest<UserAsset>("PUT", `/api/assets/${assetId}`, {
+      console.log("PATCH data", JSON.stringify(data, null, 2));
+      return apiRequest<UserAsset>("PATCH", `/api/assets/${assetId}`, {
         ...data,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: portfolioAssets });
+      queryClient.invalidateQueries({ queryKey: [...assetQueryKey, assetId] });
+      queryClient.invalidateQueries({ queryKey: [...assetSecurities, assetId] });
+      queryClient.invalidateQueries({ queryKey: [...assetSecuritiesTransactions, assetId] });
       queryClient.invalidateQueries({ queryKey: portfolioGraphValues });
       queryClient.invalidateQueries({ queryKey: portfolioGraphTransactions });
       toast({

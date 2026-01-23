@@ -35,6 +35,7 @@ import { AssetSecuritiesProvider } from "@/context/AssetSecuritiesContext";
 import { assetGraphValues } from "@shared/api/queryKeys";
 import { useAssetValues } from "@/hooks/use-asset-values";
 import { AssetValueList } from "@/components/account/AssetValueList";
+import { AccountDetails } from "@/components/account/AccountDetails";
 
 function AssetPage() {
   const params = useParams();
@@ -282,6 +283,10 @@ function AssetPage() {
           // }
         />
       ) : null}
+
+      <div className="flex flex-col gap-2">
+        <AccountDetails asset={asset} editableFields={{ startDate: true }} />
+      </div>
 
       <AssetSecuritiesProvider
         assetId={assetId}
