@@ -9,10 +9,18 @@ export const useSocket = () => {
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const websocketUrl = `${protocol}://${window.location.host}/`;
     const websocket = new WebSocket(websocketUrl);
+
+    const controller = new AbortController();
+
     websocket.onopen = () => {
       console.log("websocket connected");
     };
     websocket.onmessage = (event) => {
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
       const data = JSON.parse(event.data);
 
       if (isQueryMessage(data)) {
@@ -29,7 +37,8 @@ export const useSocket = () => {
     };
 
     return () => {
-      websocket.close();
+      controller.abort();
+      websocket.close(1000, "Aborted");
     };
   }, [queryClient]);
 };
