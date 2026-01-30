@@ -18,3 +18,6 @@ migrations_before
 infrastructure/cdk.out
 infrastructure/*.js
 infrastructure/*.d.ts
+
+# worktree files
+.wt/**/*.*
