@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import FireChart from "@/components/charts/FireChart";
+// import FireChart from "@/components/charts/FireChart";
+import FireChart from "@/components/charts/FireChartD3";
 import type { FireProjectionData } from "@shared/schema/projections";
 import type { ComponentProps } from "react";
 import { Badge } from "@/components/ui/badge";

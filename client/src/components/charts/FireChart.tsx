@@ -1,3 +1,41 @@
+/**
+ * @deprecated This component uses Recharts and has been replaced by FireChartD3.
+ *
+ * @see FireChartD3 - D3-based replacement with improved performance and features
+ *
+ * **Migration Status:** Deprecated as of D3 migration (2026-02)
+ *
+ * **Replacement:** Use `FireChartD3` from `@/components/charts/FireChartD3`
+ *
+ * **Why kept:** Retained for reference during D3 migration validation period.
+ * Once the D3 implementation is confirmed satisfactory in production,
+ * this file can be safely removed.
+ *
+ * **Key Differences in D3 version:**
+ * - Direct D3 rendering (better performance)
+ * - Configurable curve interpolation (default: monotoneX for smooth lines)
+ * - Custom hooks architecture (use-fire-chart-data, use-fire-chart-scales, etc.)
+ * - Reference area (retirement phase shading)
+ * - Vertical reference line with label
+ * - Same API and visual output
+ *
+ * **All features replicated:**
+ * - Portfolio, Target, and Accessible Value lines
+ * - Toggle button for Accessible Value
+ * - Retirement marker dot
+ * - Filtered data (lines end at retirement age)
+ * - Custom X-axis ticks (current age, retirement, decades)
+ *
+ * @example
+ * // Old (deprecated):
+ * import FireChart from "@/components/charts/FireChart";
+ *
+ * // New (recommended):
+ * import FireChartD3 from "@/components/charts/FireChartD3";
+ * // Or aliased:
+ * import FireChart from "@/components/charts/FireChartD3";
+ */
+
 import { useState, useMemo } from "react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, ReferenceLine, ReferenceArea, Scatter } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";

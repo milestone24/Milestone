@@ -1,3 +1,39 @@
+/**
+ * @deprecated This component uses Recharts and has been replaced by TrackChartD3.
+ *
+ * @see TrackChartD3 - D3-based replacement with improved performance and features
+ *
+ * **Migration Status:** Deprecated as of D3 migration (2026-02)
+ *
+ * **Replacement:** Use `TrackChartD3` from `@/components/charts/TrackChartD3`
+ *
+ * **Why kept:** Retained for reference during D3 migration validation period.
+ * Once the D3 implementation is confirmed satisfactory in production,
+ * this file can be safely removed.
+ *
+ * **Key Differences in D3 version:**
+ * - Direct D3 rendering (better performance)
+ * - Configurable curve interpolation (default: monotoneX for smooth lines)
+ * - Custom hooks architecture (use-track-chart-data, use-track-chart-scales, etc.)
+ * - Same dual data source (server projection OR client-side fallback)
+ * - Same API and visual output
+ *
+ * **All features replicated:**
+ * - Three lines: Target (red, dashed), Projected (blue, solid), Actual (green dot)
+ * - Dual data source support (server-calculated or client-side growth calculation)
+ * - Current value marker at current age
+ * - Y-axis formatting: £{value/1000}k
+ *
+ * @example
+ * // Old (deprecated):
+ * import TrackChart from "@/components/charts/TrackChart";
+ *
+ * // New (recommended):
+ * import TrackChartD3 from "@/components/charts/TrackChartD3";
+ * // Or aliased:
+ * import TrackChart from "@/components/charts/TrackChartD3";
+ */
+
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";

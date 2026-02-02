@@ -14,7 +14,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartBar, ChartLine, Pencil, Trash2 } from "lucide-react";
-import AssetHistoryChart, { ChartData } from "@/components/charts/ValuesChart";
+///import AssetHistoryChart, { ChartData } from "@/components/charts/ValuesChart";
+import AssetHistoryChart, { ChartData } from "@/components/charts/ValuesChartD3";
+
 import DateRangeBar from "@/components/layout/DateRangeBar";
 import { usePortfolio } from "@/context/PortfolioContext";
 import { useToast } from "@/hooks/use-toast";

@@ -1,3 +1,32 @@
+/**
+ * @deprecated This component uses Recharts and has been replaced by ValuesChartD3.
+ *
+ * @see ValuesChartD3 - D3-based replacement with improved performance and features
+ *
+ * **Migration Status:** Deprecated as of D3 migration (2026-02)
+ *
+ * **Replacement:** Use `ValuesChartD3` from `@/components/charts/ValuesChartD3`
+ *
+ * **Why kept:** Retained for reference during D3 migration validation period.
+ * Once the D3 implementation is confirmed satisfactory in production,
+ * this file can be safely removed.
+ *
+ * **Key Differences in D3 version:**
+ * - Direct D3 rendering (better performance)
+ * - Configurable curve interpolation (default: monotoneX for smooth lines)
+ * - Custom hooks architecture (use-chart-dimensions, use-chart-data, etc.)
+ * - Same API and visual output
+ *
+ * @example
+ * // Old (deprecated):
+ * import ValuesChart from "@/components/charts/ValuesChart";
+ *
+ * // New (recommended):
+ * import ValuesChartD3 from "@/components/charts/ValuesChartD3";
+ * // Or aliased:
+ * import ValuesChart from "@/components/charts/ValuesChartD3";
+ */
+
 import {
   Line,
   LineChart,

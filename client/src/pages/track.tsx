@@ -7,7 +7,8 @@ import {
   calculateAge,
   convertToAgeBasedProjection,
 } from "@shared/utils/projection-utils";
-import TrackChart from "@/components/charts/TrackChart";
+// import TrackChart from "@/components/charts/TrackChart";
+import TrackChart from "@/components/charts/TrackChartD3";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
 import { useFireSettings } from "@/hooks/use-fire-settings";
 import { usePatchFireSettings } from "@/hooks/use-fire-settings-patch";

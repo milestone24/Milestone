@@ -8,7 +8,8 @@ import {
   computeClientFireProjection,
   calculateContributionImpactWithProjections,
 } from "@shared/utils/projection-client";
-import FireChart from "@/components/charts/FireChart";
+// import FireChart from "@/components/charts/FireChart";
+import FireChart from "@/components/charts/FireChartD3";
 import { useToast } from "@/hooks/use-toast";
 import {
   DEFAULT_STATE_PENSION_AGE,
