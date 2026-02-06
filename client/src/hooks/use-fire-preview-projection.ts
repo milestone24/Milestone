@@ -3,12 +3,13 @@ import type {
   Contributor,
   ProjectionConfig,
   FIREProjectionConfig,
+  FireProjection,
 } from "@shared/schema/projections";
 import { projectToRetirement } from "@shared/utils/projection-fire-calculator";
-import type { FireProjectionView } from "./use-fire-projection-state";
 
 interface UseFirePreviewProjectionParams {
-  baseProjection?: FireProjectionView;
+  //baseProjection?: FireProjectionView;
+  baseProjection?: FireProjection;
   fireConfig?: FIREProjectionConfig | null;
   projectionConfig?: ProjectionConfig | null;
   contributors: Contributor[];
@@ -16,7 +17,7 @@ interface UseFirePreviewProjectionParams {
 }
 
 interface PreviewState {
-  projection?: FireProjectionView;
+  projection?: FireProjection;
   error: Error | null;
   status: "idle" | "loading" | "success" | "error";
 }
@@ -73,21 +74,16 @@ export function useFirePreviewProjection({
 
         if (cancelled) return;
 
-        const view: FireProjectionView = {
-          ...result,
-          state: "preview",
-        };
-
         setState((prev) => {
           if (
             prev.status === "success" &&
-            prev.projection === view &&
+            prev.projection === result &&
             prev.error === null
           ) {
             return prev;
           }
 
-          return { status: "success", projection: view, error: null };
+          return { status: "success", projection: result, error: null };
         });
       } catch (error) {
         if (cancelled) return;
