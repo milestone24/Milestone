@@ -575,6 +575,9 @@ export const fireProjectionSchema = z.object({
   projectedValueAtRetirement: decimalValueSchema.refine(isDecimalValueString, {
     message: "Projected value at retirement must be a valid decimal string",
   }),
+  progressPercentage: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Progress percentage must be a valid decimal string",
+  }),
   isOnTrack: z.boolean(),
   yearsAheadOrBehind: z.number(),
   yearsRemainingToFireTarget: z.number(), // Negative if ahead, positive if behind

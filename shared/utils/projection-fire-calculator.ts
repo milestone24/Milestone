@@ -144,6 +144,9 @@ This will cause the projection to be infinite years ahead of retirement.`);
     .sub(Decimal(fireNumber))
     .toNumber();
 
+  const progressPercentage = createDecimalValueString(Decimal(currentPortfolioValue)
+    .div(Decimal(fireNumber)).toFixed(2).toString());
+
   const isOnTrack = targetDifference <= 0;
 
   // Calculate years until retirement
@@ -232,6 +235,7 @@ This will cause the projection to be infinite years ahead of retirement.`);
     projectedValueAtRetirement,
     isOnTrack,
     yearsAheadOrBehind,
+    progressPercentage,
     yearsRemainingToFireTarget,
     monthlyContributionDifference,
     fireProjection,
