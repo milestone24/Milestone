@@ -252,7 +252,7 @@ This will cause the projection to be infinite years ahead of retirement.`);
  * This is called by the route checkFIREFeasibility as a consequence of a call the endpoint /api/projections/fire.
  * This in turn calls the projectToRetirement function to project the retirement feasibility the same as the client
  */
-export async function projectRetirementWithAccountAssets(
+export async function projectRetirementWithContributors(
   projectionConfig: ProjectionConfig,
   //db: Database
   dataSource: ProjectionDataSource
@@ -299,7 +299,32 @@ export async function projectRetirementWithAccountAssets(
 
   const assets = await dataSource.getAssets();
 
-  const contributors = mapAssetsToContributors(assets);
+  let contributors: Contributor[] = mapAssetsToContributors(assets, true, projectionConfig.usePortfolioRecurringContributions);
+
+  /*
+  We always push the fire settings montyl contriution
+  but we only include the value if the user has not selected to include the portfolio recurring contributions
+  */
+  contributors.push(
+    {
+      name: "Fire Settings Monthly Contribution",
+      type: "custom",
+      accountType: "OTHER",
+      currentValue: createDecimalValueString("0"),
+      schedules: [{
+        startDate: new Date(),
+        endDate: null,
+        value: createDecimalValueString(userFireSettings.monthlyInvestment),
+        patternConfig: {
+          type: "rrule",
+          expression: createRRulePattern("FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1")
+            .expression,
+        },
+      }],
+      includeValue: !projectionConfig.usePortfolioRecurringContributions,
+      includeContributions: !projectionConfig.usePortfolioRecurringContributions,
+    },
+  )
 
   //If fire settings or other config has "include government pensions" set to true, then add the government pension to the contributors
   //We need to find all the details for the specifics of UK state pension withdrawels etc and rules
@@ -309,7 +334,7 @@ export async function projectRetirementWithAccountAssets(
     const statePensionContributor = defineStatePensionContributor({
       dateOfBirth: fireConfig.dateOfBirth,
       //gender: fireConfig.gender,
-    });
+    }, true, true);
 
     contributors.push(statePensionContributor);
   }

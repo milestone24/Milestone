@@ -133,7 +133,7 @@ export async function getAllMilestonesWithProgress(
   const userMilestones = await dataSource.getMilestones();
 
   const assets = await dataSource.getAssets();
-  const contributors = mapAssetsToContributors(assets);
+  const contributors = mapAssetsToContributors(assets, true, true);
 
   const progressResults: MilestoneProgress[] = [];
 

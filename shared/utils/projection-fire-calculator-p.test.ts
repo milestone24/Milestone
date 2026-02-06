@@ -81,6 +81,8 @@ describe("projectToRetirement", () => {
           endDate: new Date("2025-12-31"),
         },
       ],
+      includeValue: true,
+      includeContributions: true,
     };
 
     const result = await projectToRetirement(fireConfig, projectionConfig, [

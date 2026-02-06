@@ -99,7 +99,7 @@ type ContributorSource = "portfolio" | "preview" | "other";
 
 export type FireContributor = Pick<
   Contributor,
-  "name" | "accountType" | "type" | "currentValue" | "schedules"
+  "name" | "accountType" | "type" | "currentValue" | "schedules" | "includeValue" | "includeContributions"
 > & {
   id: string;
   source: ContributorSource;

@@ -12,6 +12,8 @@ export type StandaloneContributor = {
   accountType: AccountType | null;
   type: ContributionTypes;
   monthlyAmount: number;
+  includeValue: boolean;
+  includeContributions: boolean;
 };
 
 const CONTRIBUTION_MODE_KEY = "fire-contribution-mode";
@@ -97,6 +99,8 @@ const mapStandaloneToContributor = (item: StandaloneContributor): Contributor =>
       value: createDecimalValueString(item.monthlyAmount.toString()),
     },
   ],
+  includeValue: item.includeValue,
+  includeContributions: item.includeContributions,
 });
 
 export function useStandaloneContributors() {

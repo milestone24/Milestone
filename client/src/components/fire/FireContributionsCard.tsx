@@ -63,18 +63,24 @@ const presets: Array<Omit<StandaloneContributor, "id">> = [
     accountType: "LISA",
     type: "asset",
     monthlyAmount: 100,
+    includeContributions: true,
+    includeValue: true,
   },
   {
     name: "SIPP £200/mo",
     accountType: "SIPP",
     type: "asset",
     monthlyAmount: 200,
+    includeContributions: true,
+    includeValue: true,
   },
   {
     name: "ISA £150/mo",
     accountType: "ISA",
     type: "asset",
     monthlyAmount: 150,
+    includeContributions: true,
+    includeValue: true,
   },
   {
     name: "Workplace Pension £250/mo",
@@ -82,6 +88,8 @@ const presets: Array<Omit<StandaloneContributor, "id">> = [
     accountType: null,
     type: "workplace_pension",
     monthlyAmount: 250,
+    includeContributions: true,
+    includeValue: true,
   },
 ];
 
@@ -212,6 +220,8 @@ export function FireContributionsCard(props: FireContributionsCardProps) {
       accountType: draft.accountType,
       type: draft.type,
       monthlyAmount: draft.monthlyAmount,
+      includeContributions: true,
+      includeValue: true,
     });
     setDraft((prev) => ({
       ...prev,

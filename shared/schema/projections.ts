@@ -450,6 +450,8 @@ export const contributorSchema = z.object({
   }),
   schedules: z.array(contributorScheduleSchema),
   taxes: z.array(taxSchema).optional(),
+  includeValue: z.boolean(),
+  includeContributions: z.boolean(),
 });
 
 export type Contributor = z.infer<typeof contributorSchema>;

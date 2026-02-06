@@ -32,6 +32,8 @@ describe("generateSimpleProjection and expect contributions to be correct", () =
       ],
       valueReleases: [],
       bonusValues: [],
+      includeValue: true,
+      includeContributions: true,
     };
 
     const projection = generateSimpleProjection({

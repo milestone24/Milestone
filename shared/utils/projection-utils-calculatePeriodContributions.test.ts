@@ -23,6 +23,8 @@ describe("calculatePeriodContributions", () => {
           endDate: addYears(new Date(), 1),
         },
       ],
+      includeValue: true,
+      includeContributions: true,
     };
 
     const result = calculatePeriodContributions(
@@ -62,6 +64,8 @@ describe("calculatePeriodContributions", () => {
           value: createDecimalValueString("1000"),
         },
       ],
+      includeValue: true,
+      includeContributions: true,
     };
 
     const startDate = pensionStartDate;

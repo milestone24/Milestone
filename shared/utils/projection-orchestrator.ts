@@ -339,7 +339,9 @@ export async function orchestrateProjection(
   const { contributors, config, milestoneTarget, dateOfBirth } = input;
 
   // Filter contributors by milestone account type if specified
-  let contributorsToProject = contributors;
+  let contributorsToProject = contributors
+    .filter((contributor) => contributor.includeContributions);
+
   // if (milestoneTarget?.accountType) {
   //   contributorsToProject = contributors.filter(
   //     (contributor) => contributor.accountType === milestoneTarget.accountType
@@ -351,7 +353,8 @@ export async function orchestrateProjection(
   // Project each contributor
 
   const contributorProjections: ContributorProjection[] = await Promise.all(
-    contributorsToProject.map((contributor) =>
+    contributorsToProject
+      .map((contributor) =>
       projectSingleContributor(contributor, config, dateOfBirth)
     )
   );
@@ -372,7 +375,9 @@ export async function orchestrateProjection(
   //   (sum, asset) => sum + asset.currentValue,
   //   0
   // );
-  const totalCurrentValue = contributorsToProject.reduce(
+  const totalCurrentValue = contributors
+    .filter((contributor) => contributor.includeValue)
+    .reduce(
     (sum, contributor) =>
       Decimal(sum).add(Decimal(contributor.currentValue)).toNumber(),
     0
@@ -495,6 +500,8 @@ export async function projectAsset(
           //endDate is not implemented on recurring contributions yet, it should be
           //endDate: c.endDate,
         })),
+        includeValue: true,
+        includeContributions: true,
       },
     ],
     config,

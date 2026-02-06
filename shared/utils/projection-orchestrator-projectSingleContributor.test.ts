@@ -106,6 +106,8 @@ describe("projectSingleContributor", () => {
           annualContributionLimit: createDecimalValueString("4000"),
         },
       ],
+      includeValue: true,
+      includeContributions: true,
     };
 
     const config: ProjectionConfigWithDateRange = {

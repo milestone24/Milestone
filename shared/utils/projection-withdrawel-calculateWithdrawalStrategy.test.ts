@@ -54,6 +54,8 @@ describe("calculateWithdrawalStrategy", () => {
             endDate: null,
           },
         ],
+        includeValue: true,
+        includeContributions: true,
       },
     ];
 

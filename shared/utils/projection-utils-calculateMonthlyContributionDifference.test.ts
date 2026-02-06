@@ -24,6 +24,8 @@ describe("calculateMonthlyContributionDifference", () => {
             ),
           },
         ],
+        includeValue: true,
+        includeContributions: true,
       },
     ];
     const totalTargetDifference = 100000;

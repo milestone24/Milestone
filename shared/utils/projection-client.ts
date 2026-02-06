@@ -58,6 +58,7 @@ import { calculateYearsToTarget } from "./projection-utils";
 // ============================================================================
 
 /**
+ * @deprecated Do not use this it si legacy only being held for reference
  * Calculate client-side FIRE projection
  * Replaces tracking.ts calculateFireProjection with unified projection system
  */
@@ -103,6 +104,8 @@ export function computeClientFireProjection(
     schedules: scheduledContributions,
     valueReleases: [],
     bonusValues: [],
+    includeValue: true,
+    includeContributions: true,
   };
 
   // Create input for projection
@@ -301,6 +304,8 @@ export class ProjectionClient {
       schedules: this.state.scheduledContributions,
       valueReleases: [],
       bonusValues: [],
+      includeValue: true,
+      includeContributions: true,
     };
 
     // Use the shared implementation from projection-simple.ts

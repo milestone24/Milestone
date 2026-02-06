@@ -29,7 +29,7 @@ import {
 } from "@shared/utils/projection-milestone-tracker";
 import {
   projectToRetirement as hybridProjectToRetirement,
-  projectRetirementWithAccountAssets as hybridCheckFIREFeasibility,
+  projectRetirementWithContributors as hybridCheckFIREFeasibility,
 } from "@shared/utils/projection-fire-calculator";
 import { and, eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import {
@@ -147,7 +147,7 @@ export class ProjectionService {
   ): Promise<ProjectionResult> {
     const dataSource = defineDataSource(this.db, accountId);
     const assets = await dataSource.getAssets();
-    const contributors = mapAssetsToContributors(assets);
+    const contributors = mapAssetsToContributors(assets, true, true);
     return hybridProjectPortfolio(
       config,
       dataSource,
@@ -175,7 +175,7 @@ export class ProjectionService {
   ) {
     const dataSource = defineDataSource(this.db, accountId);
     const assets = await dataSource.getAssets();
-    const contributors = mapAssetsToContributors(assets);
+    const contributors = mapAssetsToContributors(assets, true, true);
     return hybridProjectToRetirement(fireConfig, config, contributors);
     //return hybridProjectToRetirement(fireConfig, config, dataSource);
   }
@@ -190,7 +190,7 @@ export class ProjectionService {
     const milestone = await dataSource.getMilestoneById(milestoneId);
 
     const assets = await dataSource.getAssets();
-    const contributors = mapAssetsToContributors(assets);
+    const contributors = mapAssetsToContributors(assets, true, true);
 
     if (!milestone) {
       throw new Error("Milestone not found");

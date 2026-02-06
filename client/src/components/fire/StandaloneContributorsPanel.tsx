@@ -53,27 +53,38 @@ const presets: Array<Omit<StandaloneContributor, "id">> = [
     accountType: "LISA",
     type: "asset",
     monthlyAmount: 100,
+    includeValue: true,
+    includeContributions: true,
   },
   {
     name: "SIPP £200/mo",
     accountType: "SIPP",
     type: "asset",
     monthlyAmount: 200,
+    includeValue: true,
+    includeContributions: true,
   },
   {
     name: "ISA £150/mo",
     accountType: "ISA",
     type: "asset",
     monthlyAmount: 150,
+    includeValue: true,
+    includeContributions: true,
   },
   {
     name: "Workplace Pension £250/mo",
     accountType: null,
     type: "workplace_pension",
     monthlyAmount: 250,
+    includeValue: true,
+    includeContributions: true,
   },
 ];
 
+/**
+ * @deprecated Do not use this it si legacy only being held for reference
+ */
 export function StandaloneContributorsPanel({
   mode,
   onModeChange,
@@ -100,6 +111,8 @@ export function StandaloneContributorsPanel({
       accountType: draft.accountType,
       type: draft.type,
       monthlyAmount: draft.monthlyAmount,
+      includeValue: true,
+      includeContributions: true,
     });
     setDraft((prev) => ({
       ...prev,

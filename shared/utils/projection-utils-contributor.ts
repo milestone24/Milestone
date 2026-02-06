@@ -221,7 +221,9 @@ export function defineContributorRulesForAssetType(
 }
 
 export function mapAssetToContributor(
-  asset: ProjectionOrchestratorAssetInput
+  asset: ProjectionOrchestratorAssetInput,
+  includeValue: boolean,
+  includeContributions: boolean
 ): Contributor {
   return {
     referenceId: asset.id,
@@ -233,13 +235,17 @@ export function mapAssetToContributor(
       asset.recurringContributions
     ),
     ...defineContributorRulesForAssetType(asset.accountType),
+    includeValue,
+    includeContributions,
   };
 }
 
 export function mapAssetsToContributors(
-  assets: ProjectionOrchestratorAssetInput[]
+  assets: ProjectionOrchestratorAssetInput[],
+  includeValue: boolean,
+  includeContributions: boolean
 ): Contributor[] {
-  return assets.map(mapAssetToContributor);
+  return assets.map((asset) => mapAssetToContributor(asset, includeValue, includeContributions));
 }
 
 export type StatePensionProps = {
@@ -248,7 +254,9 @@ export type StatePensionProps = {
 };
 
 export function defineStatePensionContributor(
-  props: StatePensionProps
+  props: StatePensionProps,
+  includeValue: boolean,
+  includeContributions: boolean
 ): Contributor {
   const { dateOfBirth, /*gender*/ } = props;
   const { age, startDate } = defineStatePensionDetailsUK(dateOfBirth/*, gender*/);
@@ -276,5 +284,7 @@ export function defineStatePensionContributor(
         value: createDecimalValueString("1000"),
       },
     ],
+    includeValue,
+    includeContributions,
   };
 }

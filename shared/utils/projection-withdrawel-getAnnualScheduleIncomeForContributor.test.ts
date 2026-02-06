@@ -55,6 +55,8 @@ describe("getAnnualScheduledIncomeForContributor", () => {
           value: createDecimalValueString("1000"),
         },
       ],
+      includeValue: true,
+      includeContributions: true,
     };
 
     const result = getAnnualScheduledIncomeForContributor(contributor);
