@@ -1,3 +1,4 @@
+//@ts-nocheck
 import { useMemo } from "react";
 import { useFIREProjection } from "@/hooks/use-projections";
 import type { SimpleProjectionConfig } from "@shared/schema/projections";
@@ -10,6 +11,10 @@ interface UseFireServerProjectionParams {
   enabled?: boolean;
 }
 
+/**
+ * @deprecated Do not use this. This is only here for legacy reference.
+ * @returns 
+ */
 export function useFireServerProjection({
   config,
   debounceMs = 500,

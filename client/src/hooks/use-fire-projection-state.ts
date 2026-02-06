@@ -1,3 +1,4 @@
+//@ts-nocheck
 import { useMemo } from "react";
 import {
   createDecimalValueString,
@@ -55,6 +56,10 @@ type UseFireProjectionStateResult = {
   fireNumber: number;
 };
 
+/**
+ * @deprecated Do not use this. This is only here for legacy reference.
+ * @returns 
+ */
 export function useFireProjectionState({
   expectedReturn,
   baseModifiers,
@@ -82,6 +87,7 @@ export function useFireProjectionState({
       interval: "yearly",
       modifiers,
       useContributorSpecificGrowthRates: growthMode === "contributor",
+      usePortfolioRecurringContributions: false,
     }),
     [growthMode, modifiers, normalizedReturn]
   );
