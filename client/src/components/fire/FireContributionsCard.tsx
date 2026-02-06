@@ -38,6 +38,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "../ui/dialog";
+import type { FireContributor } from "@/hooks/use-fire";
 
 function contributorMonthlyAmount(c: Contributor): number {
   return c.schedules.reduce((sum, s) => {
@@ -93,14 +94,6 @@ const presets: Array<Omit<StandaloneContributor, "id">> = [
   },
 ];
 
-const contributionPresets: Array<{ label: string; scale: number }> = [
-  { label: "50%", scale: 0.5 },
-  { label: "75%", scale: 0.75 },
-  { label: "100%", scale: 1 },
-  { label: "150%", scale: 1.5 },
-  { label: "200%", scale: 2 },
-];
-
 function ContributionsBreakDownDisplay({
   contributionBreakdown,
 }: {
@@ -137,16 +130,6 @@ function ContributionsBreakDownDisplay({
     </>
   );
 }
-
-type ContributorSource = "portfolio" | "preview" | "other";
-
-export type FireContributor = Pick<
-  Contributor,
-  "name" | "accountType" | "type" | "currentValue" | "schedules"
-> & {
-  id: string;
-  source: ContributorSource;
-};
 
 type FireContributionsCardProps = {
   contributors: FireContributor[];
