@@ -20,6 +20,7 @@ describe("projectToRetirement", () => {
       includeStatePension: false,
       incomeGoals: [
         {
+          key: "retirement_start",
           fromAge: 60,
           incomeGoal: createDecimalValueString("100000"),
         },

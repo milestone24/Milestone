@@ -65,6 +65,7 @@ describe("calculateWithdrawalStrategy", () => {
         includeStatePension: false,
         incomeGoals: [
           {
+            key: "retirement_start",
             fromAge: 67,
             incomeGoal: createDecimalValueString("10000"),
           },
@@ -77,6 +78,7 @@ describe("calculateWithdrawalStrategy", () => {
       createProjectionResult(),
       [
         {
+          key: "retirement_start",
           fromAge: 67,
           incomeGoal: createDecimalValueString("10000"),
         },

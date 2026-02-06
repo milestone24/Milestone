@@ -8,8 +8,8 @@ import { useFireSettings } from "./use-fire-settings";
 import { useForm, UseFormReturn, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FireSettingsFormValues } from "@/components/fire/FireSettingsForm";
-import { DEFAULT_TARGET_RETIREMENT_AGE, FireSettingsInsert, fireSettingsOrphanFormSchema } from "@shared/schema/portfolio-fire";
-import { IncomeGoal } from "@shared/utils/projection-withdrawal";
+import { DEFAULT_TARGET_RETIREMENT_AGE, FireSettingsInsert, fireSettingsOrphanFormSchema, IncomeGoalKey } from "@shared/schema/portfolio-fire";
+import type { IncomeGoal } from "@shared/schema/portfolio-fire";
 import { createDecimalValueString } from "@shared/schema/utils";
 import { Contributor, FireProjection, FIREProjectionConfig, FireProjectionData, MonthlyContributionDifference, ProjectionConfig, ProjectionModifier, SimpleProjectionConfig } from "@shared/schema";
 import Decimal from "decimal.js";
@@ -92,7 +92,7 @@ export type FireProjectionView = FireProjection & {
 // }
 
 const hasAt75IncomeGoal = (incomeGoals: IncomeGoal[]): boolean => {
-  return incomeGoals.some((goal) => goal.fromAge === 75);
+  return incomeGoals.some((incomeGoal) => incomeGoal.key === "reduced_spending_at_75");
 };
 
 type ContributorSource = "portfolio" | "preview" | "other";
@@ -233,6 +233,25 @@ const decimalStringToNumber = (decimalString: DecimalValueString | undefined, fa
   return decimalString ? Decimal(decimalString).toNumber() : fallback;
 }
 
+const baseIncomeGoals = (retirementAge: number, annualIncomeGoal: DecimalValueString, reducedSpendingAt75: boolean): IncomeGoal[] => {
+  return [
+    {
+      key: "retirement_start",
+      fromAge: retirementAge,
+      incomeGoal: annualIncomeGoal,
+    },
+    ...(reducedSpendingAt75
+      ? [
+        {
+          key: "reduced_spending_at_75" as IncomeGoalKey,
+          fromAge: 75,
+          incomeGoal: createDecimalValueString(Decimal.mul(annualIncomeGoal, 0.75).toString()),
+        },
+      ]
+      : []),
+  ];
+}
+
 export const useFireProjection = (): UseFireProjectionReturn => {
 
   const [includePortfolioRecurringContributions, setIncludePortfolioRecurringContributions] = useState(false);
@@ -272,11 +291,6 @@ export const useFireProjection = (): UseFireProjectionReturn => {
 
   const { data: fireSettings, isLoading: isLoadingFireSettings, isFetched, error: fireSettingsError } =
     useFireSettings();
-
-  console.log("fireSettings", fireSettings);
-  console.log("isLoadingFireSettings", isLoadingFireSettings);
-  console.log("isFetched", isFetched);
-  console.log("fireSettingsError", fireSettingsError);
 
   const fireSettingsAvailable = isFetched && !!fireSettings;
   const { mutateAsync: updateFireSettings } = usePatchFireSettings();
@@ -342,21 +356,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
       safeWithdrawalRate,
       adjustForInflation: adjustInflation,
       includeStatePension: includeStatePension,
-      incomeGoals: [
-        {
-          fromAge: targetRetirementAge,
-          incomeGoal: createDecimalValueString(annualIncomeGoal.toString()),
-        },
-        //If reduceSpendingAt75 is true, add an income goal of 75% of the annual income goal at age 75
-        ...(reduceSpendingAt75
-          ? [
-            {
-              fromAge: 75,
-              incomeGoal: createDecimalValueString(Decimal.mul(annualIncomeGoal, 0.75).toString()),
-            },
-          ]
-          : []),
-      ],
+      incomeGoals: baseIncomeGoals(targetRetirementAge, annualIncomeGoal, reduceSpendingAt75),
     } satisfies FIREProjectionConfig;
   }, [
     userDOB,
@@ -566,24 +566,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
   const handleSaveSettings = fireSettingsForm.handleSubmit(async (data) => {
     const settings: Omit<FireSettingsInsert, "id" | "userAccountId"> = {
       ...data,
-      incomeGoals: [
-        {
-          fromAge: data.targetRetirementAge,
-          incomeGoal: createDecimalValueString(
-            data.annualIncomeGoal.toString()
-          ),
-        },
-        ...(data.reduceSpendingAt75
-          ? [
-            {
-              fromAge: 75,
-              incomeGoal: createDecimalValueString(
-                Decimal(data.annualIncomeGoal).mul(0.75).toString()
-              ),
-            },
-          ]
-          : []),
-      ],
+      incomeGoals: baseIncomeGoals(data.targetRetirementAge, data.annualIncomeGoal, data.reduceSpendingAt75),
     };
 
     try {

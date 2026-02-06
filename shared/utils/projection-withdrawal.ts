@@ -11,10 +11,11 @@ import {
 import { AccountType } from "@shared/schema";
 import Decimal from "decimal.js";
 import { addYears, differenceInYears } from "date-fns";
-
+import type { IncomeGoal } from "@shared/schema/portfolio-fire";
 // Reuse existing helpers
 import { calculateAgeAtDate } from "./projection-value-release";
 import { calculatePeriodContributions } from "./projection-utils";
+
 
 // ============================================================================
 // WITHDRAWAL STRATEGY TYPES
@@ -53,11 +54,6 @@ export interface AccountAccessTimelineEntry {
   projectedValue: DecimalValueString;
   taxCharacteristics: string;
   isAccessible: boolean;
-}
-
-export interface IncomeGoal {
-  fromAge: number;
-  incomeGoal: DecimalValueString;
 }
 
 export interface WithdrawalStrategy {
