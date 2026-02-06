@@ -33,6 +33,7 @@ describe("projectToRetirement", () => {
       growthModel: "linear",
       interval: "yearly",
       modifiers: [],
+      usePortfolioRecurringContributions: true,
     };
 
     const contributor: Contributor = {

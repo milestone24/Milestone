@@ -16,6 +16,7 @@ function createProjectionSimpleConfig(): ProjectionConfig {
     interval: "monthly",
     modifiers: [],
     useContributorSpecificGrowthRates: false,
+    usePortfolioRecurringContributions: true,
     growthRate: 0,
   };
 }

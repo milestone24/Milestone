@@ -120,6 +120,7 @@ export const baseProjectionConfigSchema = z.object({
   growthModel: growthModelSchema,
   interval: projectionIntervalSchema.default("monthly"),
   modifiers: z.array(projectionModifierSchema).default([]),
+  usePortfolioRecurringContributions: z.boolean().optional().default(false),
   useContributorSpecificGrowthRates: z.boolean().optional().default(false),
 });
 

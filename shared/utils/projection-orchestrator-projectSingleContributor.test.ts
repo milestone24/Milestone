@@ -117,6 +117,7 @@ describe("projectSingleContributor", () => {
       startDate: startDate,
       endDate: endDate,
       useContributorSpecificGrowthRates: false,
+      usePortfolioRecurringContributions: true,
     };
 
     const projection = await projectSingleContributor(contributorOne, config);
