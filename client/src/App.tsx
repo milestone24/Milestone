@@ -19,7 +19,10 @@ const Portfolio = lazy(() => import("@/pages/portfolio"));
 const AssetPage = lazy(() => import("@/pages/asset"));
 const Goals = lazy(() => import("@/pages/goals"));
 const Track = lazy(() => import("@/pages/track"));
-const Fire = lazy(() => import("@/pages/fire-now"));
+const FireFirst = lazy(() => import("@/pages/fire-first"));
+const FireSecond = lazy(() => import("@/pages/fire-second"));
+const FireThird = lazy(() => import("@/pages/fire-third"));
+const FireNow = lazy(() => import("@/pages/fire-now"));
 const Profile = lazy(() => import("@/pages/profile"));
 const Settings = lazy(() => import("@/pages/settings"));
 const ApiConnections = lazy(() => import("@/pages/api-connections"));
@@ -84,10 +87,31 @@ function Router() {
               </ProtectedRoute>
             )}
           </Route>
+          <Route path="/fire-first">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={FireFirst} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/fire-second">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={FireSecond} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/fire-third">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={FireThird} />
+              </ProtectedRoute>
+            )}
+          </Route>
           <Route path="/fire">
             {() => (
               <ProtectedRoute>
-                <RouteWithLayout component={Fire} />
+                <RouteWithLayout component={FireNow} />
               </ProtectedRoute>
             )}
           </Route>

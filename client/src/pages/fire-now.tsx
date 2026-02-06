@@ -1,537 +1,104 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import {
-  DEFAULT_STATE_PENSION_AGE,
-  DEFAULT_TARGET_RETIREMENT_AGE,
-  FireSettingsInsert,
-  fireSettingsInsertSchema,
-  fireSettingsOrphanSchema,
-  createDecimalValueString,
-  fireSettingsOrphanFormSchema,
-} from "@shared/schema";
-import type {
-  FIREProjectionConfig,
-  ProjectionConfig,
-} from "@shared/schema/projections";
-import { useSession } from "@/hooks/use-session";
-import {
-  calculateAge,
-  defineStatePensionAgeForGenderUK,
-} from "@shared/utils/projection-utils";
-import { useFireSettings } from "@/hooks/use-fire-settings";
-import { usePatchFireSettings } from "@/hooks/use-fire-settings-patch";
-import { useCreateFireSettings } from "@/hooks/use-fire-settings-create";
-import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Link } from "wouter";
-import { FireSummarySection } from "@/components/fire/FireSummarySection";
-import { FireGrowthModeToggleCard } from "@/components/fire/FireGrowthModeToggleCard";
 import { FireProjectionChartCard } from "@/components/fire/FireProjectionChartCard";
 import { FireSettingsPanel } from "@/components/fire/FireSettingsPanel";
 import { FireSettingsSummaryCard } from "@/components/fire/FireSettingsSummaryCard";
-import { FireInflationCard } from "@/components/fire/FireInflationCard";
-import { StandaloneContributorsPanel } from "@/components/fire/StandaloneContributorsPanel";
-import { useFirePreferences } from "@/hooks/use-fire-preferences";
-import {
-  ContributionPreviewState,
-  DEFAULT_PREVIEW_INFLATION_RATE,
-  DEFAULT_PREVIEW_STATE,
-  InflationPreviewState,
-  useFirePreviewState,
-} from "@/hooks/use-fire-preview-state";
-import { useFireProjectionState } from "@/hooks/use-fire-projection-state";
-import { useFirePreviewProjection } from "@/hooks/use-fire-preview-projection";
+import { ContributionPreviewState } from "@/hooks/use-fire-preview-state";
 import { FirePageSkeleton } from "@/components/fire/FirePageSkeleton";
 import { FirePageError } from "@/components/fire/FirePageError";
-import { useStandaloneContributors } from "@/hooks/use-standalone-contributors";
-import { useQueryClient } from "@tanstack/react-query";
-import { fireProjection } from "@shared/api/queryKeys";
-import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
+import {
+  FireOverviewCard,
+  FireOverviewCardProps,
+} from "@/components/fire/FireOverviewCard";
 import { FireContributionsCard } from "@/components/fire/FireContributionsCard";
 import { WithdrawalStrategyCard } from "@/components/fire/WithdrawalStrategyCard";
-import Decimal from "decimal.js";
-import { FireSettingsFormValues } from "@/components/fire/FireSettingsForm";
-import { IncomeGoal } from "@shared/utils/projection-withdrawal";
-
-const hasAt75IncomeGoal = (incomeGoals: IncomeGoal[]): boolean => {
-  return incomeGoals.some((goal) => goal.fromAge === 75);
-};
+import { useFireProjection } from "@/hooks/use-fire-projection";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Link } from "wouter";
+import { createDecimalValueString } from "@shared/schema";
 
 export default function Fire() {
-  const { toast } = useToast();
-
-  const { user } = useSession();
-  const userDOB = user?.profile?.dob;
-  const userGender = user?.profile?.gender;
-  const currentAge = userDOB ? calculateAge(userDOB) : NaN;
-  const statePensionAge =
-    userDOB && userGender
-      ? defineStatePensionAgeForGenderUK(userDOB, userGender)
-      : NaN;
-  const queryClient = useQueryClient();
-
-  const { data: fireSettings, isLoading: isLoadingFireSettings } =
-    useFireSettings();
-  const { mutateAsync: updateFireSettings } = usePatchFireSettings();
-  const { mutateAsync: createFireSettings } = useCreateFireSettings();
-
-  // Single form instance for the entire page
-  const fireSettingsForm = useForm<FireSettingsFormValues>({
-    resolver: zodResolver(fireSettingsOrphanFormSchema),
-    values: fireSettings
-      ? {
-          annualIncomeGoal: fireSettings?.annualIncomeGoal ?? "0",
-          expectedAnnualReturn: fireSettings?.expectedAnnualReturn ?? "7",
-          safeWithdrawalRate: fireSettings?.safeWithdrawalRate ?? "4",
-          monthlyInvestment: fireSettings?.monthlyInvestment ?? "",
-          targetRetirementAge:
-            fireSettings?.targetRetirementAge ?? DEFAULT_TARGET_RETIREMENT_AGE,
-          adjustInflation: fireSettings?.adjustInflation ?? true,
-          includeStatePension: fireSettings?.includeStatePension ?? false,
-          reduceSpendingAt75: hasAt75IncomeGoal(
-            fireSettings?.incomeGoals ?? []
-          ),
-        }
-      : undefined,
-    defaultValues: {
-      annualIncomeGoal: "",
-      expectedAnnualReturn: "7",
-      safeWithdrawalRate: "4",
-      monthlyInvestment: "",
-      targetRetirementAge: DEFAULT_TARGET_RETIREMENT_AGE,
-      adjustInflation: true,
-      includeStatePension: false,
-      reduceSpendingAt75: false,
-    },
-  });
-
   const {
-    formState: { isSubmitting: isSubmittingFireSettings },
-    handleSubmit,
-    watch,
-  } = fireSettingsForm;
+    userStatus,
+    fireSettingsAvailable,
+    projectionContributors,
+    includePortfolioRecurringContributions,
+    setIncludePortfolioRecurringContributions,
 
-  // Watch values for calculations
-  const fireSettingsValues = watch();
+    fireSettingsForm,
+    handleSaveSettings,
 
-  // Helper variables for numeric conversions (used in calculations and display)
-  // These convert DecimalValueString form values to numbers where needed
-  const monthlyInvestment = Number(fireSettingsValues.monthlyInvestment || 0);
-  const expectedReturn = Number(fireSettingsValues.expectedAnnualReturn || 0);
-  const withdrawalRate = Number(fireSettingsValues.safeWithdrawalRate || 0);
-  const annualIncomeGoal = Number(fireSettingsValues.annualIncomeGoal || 0);
-  const targetRetirementAge = Number(
-    fireSettingsValues.targetRetirementAge || DEFAULT_TARGET_RETIREMENT_AGE
-  );
-  const adjustInflation = fireSettingsValues.adjustInflation ?? true;
-  const includeStatePension = fireSettingsValues.includeStatePension ?? false;
-  const reduceSpendingAt75 = fireSettingsValues.reduceSpendingAt75 ?? false;
+    error,
+
+    isLoadingFireSettings,
+    isLoadingProjection,
+    isLoading,
+    isSubmittingFireSettings,
+
+    activeProjection,
+
+    toggleChart,
+    showChart,
+    fireChartConfig,
+
+    setPreviewState,
+    resetPreviewState,
+
+    contributionBreakdown,
+
+    addAdjustmentContributor,
+    updateAdjustmentContributor,
+    removeAdjustmentContributor,
+    resetAdjustmentContributors,
+    adjustmentMonthlyAmount,
+
+    adjustmentsState,
+  } = useFireProjection();
+
+  //TODO: Why do we need this custom starting value?
   const [customStartingValue, setCustomStartingValue] = useState(0);
 
-  const firePreviewConfig = useMemo<FIREProjectionConfig | null>(() => {
-    if (!userDOB || !userGender) return null;
-
-    //Here we should should be be goig from Decimal string to number back to Decimal string.
-    //Always use createDecimalValueString to create the Decimal string.
-    return {
-      dateOfBirth: userDOB,
-      gender: userGender,
-      targetRetirementAge,
-      annualIncomeGoal: createDecimalValueString(annualIncomeGoal.toString()),
-      safeWithdrawalRate: createDecimalValueString(withdrawalRate.toString()),
-      adjustForInflation: adjustInflation,
-      includeStatePension: includeStatePension,
-      incomeGoals: [
-        {
-          fromAge: targetRetirementAge,
-          incomeGoal: createDecimalValueString(annualIncomeGoal.toString()),
-        },
-        //If reduceSpendingAt75 is true, add an income goal of 75% of the annual income goal at age 75
-        ...(reduceSpendingAt75
-          ? [
-              {
-                fromAge: 75,
-                incomeGoal: createDecimalValueString(
-                  (annualIncomeGoal * 0.75).toString()
-                ),
-              },
-            ]
-          : []),
-      ],
-    } satisfies FIREProjectionConfig;
-  }, [
-    userDOB,
-    userGender,
-    targetRetirementAge,
-    fireSettingsValues.annualIncomeGoal,
-    withdrawalRate,
-    adjustInflation,
-    statePensionAge,
-  ]);
-
-  const baseModifiers = useMemo(() => {
-    if (!adjustInflation) {
-      return [];
-    }
-
-    return [
-      {
-        type: "inflation" as const,
-        enabled: true,
-        rate: DEFAULT_PREVIEW_INFLATION_RATE,
-        description: "Inflation",
-      },
-    ];
-  }, [adjustInflation]);
-
-  const { growthMode, setGrowthMode, showChart, toggleChart } =
-    useFirePreferences();
-
-  const {
-    previewState,
-    setPreviewState,
-    setInflation,
-    previewModifiers,
-    resetPreviewState,
-  } = useFirePreviewState();
-
-  const {
-    mode: contributionMode,
-    setMode: setContributionMode,
-    contributors: standaloneContributors,
-    addContributor,
-    updateContributor,
-    removeContributor,
-    resetContributors,
-    mappedContributors,
-    totalMonthlyAmount: standaloneMonthlyAmount,
-    hasCustomContributors,
-  } = useStandaloneContributors();
+  const handleIncludePortfolioRecurringContributionsChange = useCallback(
+    (v: boolean) => {
+      setIncludePortfolioRecurringContributions?.(v);
+    },
+    [setIncludePortfolioRecurringContributions],
+  );
 
   const [isSettingsEditorOpen, setIsSettingsEditorOpen] = useState(false);
 
-  const handleOpenPreviewModifiers = useCallback(() => {
-    const anchor =
-      typeof document !== "undefined"
-        ? document.getElementById("preview-modifiers")
-        : null;
-    if (anchor) {
-      anchor.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, []);
-
-  // Update form when fireSettings loads
-  // useEffect(() => {
-  //   if (fireSettings) {
-  //     fireSettingsForm.reset({
-  //       ...fireSettings,
-  //       // Money fields: strip trailing zeros for cleaner display
-  //       annualIncomeGoal: parseFloat(fireSettings.annualIncomeGoal).toString(),
-  //       monthlyInvestment: parseFloat(
-  //         fireSettings.monthlyInvestment
-  //       ).toString(),
-  //       // Percentage fields: retain 2 decimal places
-  //       expectedAnnualReturn: parseFloat(
-  //         fireSettings.expectedAnnualReturn
-  //       ).toFixed(2),
-  //       safeWithdrawalRate: parseFloat(fireSettings.safeWithdrawalRate).toFixed(
-  //         2
-  //       ),
-  //       includeStatePension: fireSettings.includeStatePension ?? false,
-  //     });
-  //   }
-  // }, [fireSettings, fireSettingsForm, statePensionAge]);
-
-  useEffect(() => {
-    if (!adjustInflation && previewState.inflation.enabled) {
-      setInflation((prev) => ({
-        ...prev,
-        enabled: false,
-      }));
-    }
-  }, [adjustInflation, previewState.inflation.enabled, setInflation]);
-
-  const {
-    projectionConfig,
-    fireProjectionData,
-    currentProjection,
-    isLoading,
-    error,
-    refetch,
-    yearsToFire,
-    yearsRemainingToFireTarget,
-    contributorsForFire,
-    currentPortfolioValue,
-    fireChartConfig,
-    projectedRetirementAge,
-    monthlyContributionDifference,
-    fireNumber,
-  } = useFireProjectionState({
-    expectedReturn,
-    baseModifiers,
-    growthMode,
-    monthlyInvestment,
-    currentAge,
-    userDob: user?.profile?.dob,
-    portfolioFallbackValue: 0, //Number(portfolioOverview?.value ?? 0),
-  });
-
-  const isUsingCustomContributors =
-    contributionMode === "custom" && mappedContributors.length > 0;
-
-  const previewContributors = isUsingCustomContributors
-    ? mappedContributors
-    : contributorsForFire;
-
-  const previewModifiersActive =
-    previewState.contribution.scaleFactor !== 1 ||
-    previewState.contribution.enabled === false ||
-    previewState.inflation.enabled !== adjustInflation ||
-    Math.abs(previewState.inflation.rate - DEFAULT_PREVIEW_INFLATION_RATE) >
-      0.01;
-
-  const previewEnabled = previewModifiersActive || isUsingCustomContributors;
-
-  const previewProjectionConfig = useMemo<ProjectionConfig | null>(() => {
-    if (!projectionConfig) {
-      return null;
-    }
-
-    return {
-      ...projectionConfig,
-      modifiers: previewState.contribution.enabled
-        ? previewModifiers
-        : previewModifiers.filter(
-            (modifier) => modifier.type !== "contribution_scaler"
-          ),
-    } as ProjectionConfig;
-  }, [projectionConfig, previewModifiers, previewState.contribution.enabled]);
-
-  const { projection: previewProjection } = useFirePreviewProjection({
-    baseProjection: currentProjection,
-    fireConfig: firePreviewConfig ?? undefined,
-    projectionConfig: previewProjectionConfig,
-    contributors: previewContributors,
-    enabled: previewEnabled,
-  });
-
-  const previewActive = !!previewProjection;
-
-  const activeProjection = previewActive
-    ? previewProjection
-    : currentProjection;
-
-  const activeFireProjectionData = previewActive
-    ? previewProjection!.fireProjection
-    : fireProjectionData;
-
-  const activeFireNumber = activeProjection?.fireNumber ?? fireNumber;
-
-  //TODO
-  //TODO
-  const activeYearsToFire = Math.abs(23); //activeProjection?.yearsRemainingToFireTarget
-  //? Math.abs(activeProjection.yearsRemainingToFireTarget)
-  //: yearsRemainingToFireTarget;
-
-  const activeProjectedRetirementAge = activeProjection?.projectedRetirementAge
-    ? Math.round(activeProjection.projectedRetirementAge)
-    : projectedRetirementAge;
-  const activeMonthlyContributionDifference =
-    activeProjection?.monthlyContributionDifference
-      ? activeProjection.monthlyContributionDifference
-      : monthlyContributionDifference;
-
-  const activeCurrentPortfolioValue = previewActive
-    ? Number(
-        previewProjection?.projectionResult.totalCurrentValue ??
-          currentPortfolioValue
-      )
-    : currentPortfolioValue;
-
-  const activeFireChartConfig = useMemo(() => {
-    if (!previewActive) {
-      return fireChartConfig;
-    }
-
-    return {
-      ...fireChartConfig,
-      currentAmount: activeCurrentPortfolioValue,
-      targetAmount: activeFireNumber,
-    };
-  }, [
-    activeCurrentPortfolioValue,
-    activeFireNumber,
-    fireChartConfig,
-    previewActive,
-  ]);
-
-  const activeCurrentProjectedPortfolioValueDecimal =
-    activeProjection?.projectedValueAtRetirement
-      ? createDecimalValueString(activeProjection.projectedValueAtRetirement)
-      : null;
-
-  const summaryData = useMemo(() => {
-    const retirementPoint =
-      activeProjectedRetirementAge === null
-        ? undefined
-        : activeFireProjectionData.find(
-            (point) => point.age >= activeProjectedRetirementAge
-          ) ?? activeFireProjectionData[activeFireProjectionData.length - 1];
-
-    const firstAccessiblePoint = activeFireProjectionData.find(
-      (point) => point.accessibleValue && Number(point.accessibleValue) > 0
-    );
-
-    const accessibleValueAtRetirement = retirementPoint?.accessibleValue
-      ? Number(retirementPoint.accessibleValue)
-      : undefined;
-
-    const lockedValueAtRetirement = retirementPoint?.lockedValue
-      ? Number(retirementPoint.lockedValue)
-      : undefined;
-
-    const progressPercentage =
-      activeCurrentProjectedPortfolioValueDecimal && activeFireNumber > 0
-        ? Decimal(activeCurrentProjectedPortfolioValueDecimal)
-            .div(activeFireNumber)
-            .mul(10000)
-            .round()
-            .div(100)
-            .toNumber()
-        : 0;
-
-    const contributionTotals = new Map<string, number>();
-    previewContributors.forEach((contributor) => {
-      const total = contributor.schedules.reduce((sum, schedule) => {
-        const numeric = Number(schedule.value ?? 0);
-        return sum + (Number.isFinite(numeric) ? numeric : 0);
-      }, 0);
-      if (total > 0) {
-        contributionTotals.set(
-          contributor.accountType ?? "Unspecified",
-          (contributionTotals.get(contributor.accountType ?? "Unspecified") ??
-            0) + total
-        );
-      }
-    });
-
-    const contributionBreakdown = Array.from(contributionTotals.entries()).map(
-      ([accountType, amount]) => ({
-        accountType,
-        amount,
-      })
-    );
-
-    contributionBreakdown.sort((a, b) => b.amount - a.amount);
-
-    const statePensionIncluded = previewContributors.some(
-      (contributor) => contributor.type === "state_pension"
-    );
-
-    return {
-      accessibleValueAtRetirement,
-      lockedValueAtRetirement,
-      firstAccessibleAge: firstAccessiblePoint?.age,
-      progressPercentage,
-      previewActive: previewActive || previewEnabled,
-      contributionBreakdown,
-      statePensionIncluded,
-    };
-  }, [
-    activeCurrentPortfolioValue,
-    activeFireNumber,
-    activeFireProjectionData,
-    activeProjectedRetirementAge,
-    previewContributors,
-    previewActive,
-    previewEnabled,
-  ]);
-
   const setContributionPreviewState = useCallback(
     (state: ContributionPreviewState) => {
-      setPreviewState((prev) => ({
+      setPreviewState?.((prev) => ({
         ...prev,
         contribution: state,
       }));
     },
-    [setPreviewState]
+    [setPreviewState],
   );
 
   const resetContributionPreviewState = useCallback(() => {
-    resetPreviewState();
+    resetPreviewState?.();
   }, [resetPreviewState]);
 
-  const setInflationPreviewState = useCallback(
-    (state: InflationPreviewState) => {
-      setPreviewState((prev) => ({
-        ...prev,
-        inflation: state,
-      }));
-    },
-    [setPreviewState]
-  );
+  const handleSaveFireSettings = useCallback(async () => {
+    await handleSaveSettings?.();
+  }, [handleSaveSettings]);
 
-  const resetInflationPreviewState = useCallback(() => {
-    resetPreviewState();
-  }, [resetPreviewState]);
+  //console.log(fireSettingsForm);
+  console.log("fireSettingsAvailable", fireSettingsAvailable);
+  console.log("isLoadingFireSettings", isLoadingFireSettings);
+  console.log("isLoading", isLoading);
 
-  // Handle form submission
-  const handleSaveSettings = fireSettingsForm.handleSubmit(async (data) => {
-    const settings: Omit<FireSettingsInsert, "id" | "userAccountId"> = {
-      ...data,
-      incomeGoals: [
-        {
-          fromAge: data.targetRetirementAge,
-          incomeGoal: createDecimalValueString(
-            data.annualIncomeGoal.toString()
-          ),
-        },
-        ...(data.reduceSpendingAt75
-          ? [
-              {
-                fromAge: 75,
-                incomeGoal: createDecimalValueString(
-                  Decimal(data.annualIncomeGoal).mul(0.75).toString()
-                ),
-              },
-            ]
-          : []),
-      ],
-    };
-
-    try {
-      if (!fireSettings) {
-        await createFireSettings(settings);
-      } else {
-        await updateFireSettings(settings);
-      }
-      fireSettingsForm.reset(data);
-      setIsSettingsEditorOpen(false);
-      toast({
-        title: "Settings saved",
-        description: "Your FIRE settings have been saved successfully.",
-      });
-      await queryClient.invalidateQueries({ queryKey: fireProjection });
-    } catch (error) {
-      toast({
-        title: "Error saving settings",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    }
-  });
-
-  if (!userDOB || !userGender) {
+  if (userStatus?.status === "unsatisfied") {
     return (
       <div className="fire-screen mx-auto max-w-5xl px-4 pb-20">
         <Card className="mt-4">
           <CardContent className="p-4">
             <h2 className="mb-3 text-lg font-semibold">FIRE Calculator</h2>
             <p className="mb-6 text-sm text-gray-600">
-              You must set your date of birth and gender before you can use the
+              {userStatus.message}
               FIRE calculator. This should be done in your profile settings.
             </p>
             <Link href="/profile">Go to Profile</Link>
@@ -550,7 +117,7 @@ export default function Fire() {
   }
 
   // If no FIRE settings exist, show initial setup
-  if (!fireSettings) {
+  if (!fireSettingsAvailable) {
     return (
       <div className="fire-screen mx-auto max-w-5xl px-4 pb-20">
         <Card className="mt-4">
@@ -563,12 +130,13 @@ export default function Fire() {
               goals. This will help you track your progress towards financial
               independence.
             </p>
-
-            <FireSettingsPanel
-              form={fireSettingsForm}
-              onSubmit={handleSaveSettings}
-              isSubmitting={isSubmittingFireSettings}
-            />
+            {fireSettingsForm ? (
+              <FireSettingsPanel
+                form={fireSettingsForm}
+                onSubmit={handleSaveFireSettings}
+                isSubmitting={isSubmittingFireSettings}
+              />
+            ) : null}
           </CardContent>
         </Card>
       </div>
@@ -586,126 +154,112 @@ export default function Fire() {
           </p>
         </div>
 
-        <FireOverviewCard
-          //projectedRetirementAge={activeProjectedRetirementAge}
-          targetRetirementAge={activeProjection?.targetRetirementAge ?? null}
-          valueAtRetirement={
-            activeProjection?.projectedValueAtRetirement
-              ? Number(activeProjection.projectedValueAtRetirement)
-              : 0
-          }
-          fireNumber={activeFireNumber}
-          showChart={showChart}
-          onToggleChart={toggleChart}
-          currentPortfolioValue={activeCurrentPortfolioValue}
-          currentPortfolioValueGrowth={0}
-          progressPercentage={summaryData.progressPercentage}
-          currentAge={currentAge}
-          yearsToFire={
-            activeProjection?.yearsRemainingToFireTarget ?? activeYearsToFire
-          }
-        />
-        {showChart ? (
-          <FireProjectionChartCard
-            showChart={showChart}
-            onToggle={toggleChart}
-            projectionData={activeFireProjectionData}
-            yearsToFire={activeYearsToFire}
-            chartConfig={activeFireChartConfig}
-            targetRetirementAge={targetRetirementAge}
-            projectedRetirementAge={activeProjectedRetirementAge}
-          />
-        ) : null}
-
-        <FireSettingsSummaryCard
-          form={fireSettingsForm}
-          onSubmit={handleSaveSettings}
-          isSubmitting={isSubmittingFireSettings}
-          isDirty={fireSettingsForm.formState.isDirty}
-          open={isSettingsEditorOpen}
-          onOpenChange={setIsSettingsEditorOpen}
-          onOpenPreviewModifiers={handleOpenPreviewModifiers}
-        />
-
-        <WithdrawalStrategyCard
-          withdrawalStrategy={activeProjection?.withdrawalStrategy}
-        />
-
-        <FireContributionsCard
-          contributionBreakdown={summaryData.contributionBreakdown}
-          monthlyContributionDifference={
-            activeMonthlyContributionDifference ?? null
-          }
-          //StandalonePanelProps (Tochange)
-          mode={contributionMode}
-          onModeChange={setContributionMode}
-          contributors={standaloneContributors}
-          onAddContributor={addContributor}
-          onUpdateContributor={updateContributor}
-          onRemoveContributor={removeContributor}
-          onReset={resetContributors}
-          totalMonthlyAmount={standaloneMonthlyAmount}
-          contributionPreviewState={previewState.contribution}
-          onChangeContributionPreviewState={setContributionPreviewState}
-          onResetContributionPreviewState={resetContributionPreviewState}
-          customStartingValue={customStartingValue}
-          onCustomStartingValueChange={setCustomStartingValue}
-        />
-
         {error ? (
-          <FirePageError error={error as Error} onRetry={refetch} />
-        ) : (
-          <FireSummarySection
-            currentPortfolioValue={activeCurrentPortfolioValue}
-            fireNumber={activeFireNumber}
-            annualIncomeGoal={annualIncomeGoal}
-            withdrawalRate={withdrawalRate}
-            projectedRetirementAge={activeProjectedRetirementAge}
-            targetRetirementAge={targetRetirementAge}
-            yearsToFire={activeYearsToFire}
-            statePensionAge={statePensionAge}
-            firstAccessibleAge={summaryData.firstAccessibleAge}
-            accessibleValueAtRetirement={
-              summaryData.accessibleValueAtRetirement
-            }
-            lockedValueAtRetirement={summaryData.lockedValueAtRetirement}
-            monthlyContributionDifference={
-              activeMonthlyContributionDifference
-                ? activeMonthlyContributionDifference.monthlyContributionDifference
-                : undefined
-            }
-            progressPercentage={summaryData.progressPercentage}
-            previewActive={summaryData.previewActive}
-            customContributorsActive={isUsingCustomContributors}
-            contributionBreakdown={summaryData.contributionBreakdown}
-            statePensionIncluded={summaryData.statePensionIncluded}
-          />
-        )}
+          <FirePageError error={error} />
+        ) : !fireSettingsAvailable ? (
+          <div className="fire-screen mx-auto max-w-5xl px-4 pb-20">
+            <Card className="mt-4">
+              <CardContent className="p-4">
+                <p className="mb-6 text-sm text-gray-600">
+                  Let's set up your Financial Independence and Retire Early
+                  (FIRE) goals. This will help you track your progress towards
+                  financial independence.
+                </p>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <FireGrowthModeToggleCard
-            growthMode={growthMode}
-            onChange={setGrowthMode}
-          />
-          <div id="preview-modifiers">
-            <FireInflationCard
-              inflationPreviewState={previewState.inflation}
-              onChange={setInflationPreviewState}
-              onReset={resetPreviewState}
-            />
+                <FireSettingsPanel
+                  form={fireSettingsForm}
+                  onSubmit={handleSaveFireSettings}
+                  isSubmitting={isSubmittingFireSettings}
+                />
+              </CardContent>
+            </Card>
           </div>
-        </div>
+        ) : activeProjection ? (
+          <>
+            <FireOverviewCard
+              //projectedRetirementAge={activeProjectedRetirementAge}
+              targetRetirementAge={activeProjection.targetRetirementAge}
+              valueAtRetirement={
+                activeProjection?.projectedValueAtRetirement
+                  ? Number(activeProjection.projectedValueAtRetirement)
+                  : 0
+              }
+              fireNumber={activeProjection?.fireNumber ?? null}
+              showChart={showChart}
+              onToggleChart={toggleChart}
+              currentPortfolioValue={
+                activeProjection.projectionResult.totalCurrentValue
+              }
+              //TODO: Add current portfolio value growth
+              currentPortfolioValueGrowth={createDecimalValueString("0.00")}
+              progressPercentage={activeProjection.progressPercentage}
+              currentAge={userStatus.currentAge}
+              yearsToFire={activeProjection.yearsRemainingToFireTarget}
+            />
+            <>
+              <div>
+                <Checkbox
+                  checked={includePortfolioRecurringContributions}
+                  onCheckedChange={
+                    handleIncludePortfolioRecurringContributionsChange
+                  }
+                />
+                <Label
+                  htmlFor="include-portfolio-contributors"
+                  className="font-normal cursor-pointer"
+                >
+                  Include portfolio contributions
+                </Label>
+              </div>
+            </>
+            {showChart ? (
+              <FireProjectionChartCard
+                showChart={showChart}
+                onToggle={toggleChart}
+                projectionData={activeProjection.fireProjectionByAge}
+                yearsToFire={activeProjection.yearsRemainingToFireTarget}
+                chartConfig={fireChartConfig}
+                targetRetirementAge={activeProjection.targetRetirementAge}
+                projectedRetirementAge={activeProjection.projectedRetirementAge}
+              />
+            ) : null}
 
-        {/* <StandaloneContributorsPanel
-          mode={contributionMode}
-          onModeChange={setContributionMode}
-          contributors={standaloneContributors}
-          onAddContributor={addContributor}
-          onUpdateContributor={updateContributor}
-          onRemoveContributor={removeContributor}
-          onReset={resetContributors}
-          totalMonthlyAmount={standaloneMonthlyAmount}
-        /> */}
+            <FireSettingsSummaryCard
+              form={fireSettingsForm}
+              onSubmit={handleSaveFireSettings}
+              isSubmitting={isSubmittingFireSettings}
+              isDirty={fireSettingsForm.formState.isDirty}
+              open={isSettingsEditorOpen}
+              onOpenChange={setIsSettingsEditorOpen}
+            />
+
+            <WithdrawalStrategyCard
+              withdrawalStrategy={activeProjection.withdrawalStrategy}
+            />
+
+            <FireContributionsCard
+              contributionBreakdown={contributionBreakdown}
+              monthlyContributionDifference={
+                activeProjection.monthlyContributionDifference
+              }
+              //StandalonePanelProps (Tochange)
+              contributors={projectionContributors}
+              onAddContributor={addAdjustmentContributor}
+              onUpdateContributor={updateAdjustmentContributor}
+              onRemoveContributor={removeAdjustmentContributor}
+              onResetContributors={resetAdjustmentContributors}
+              //TODO this should not be the adjustment amount.
+              //Need to show the total monthly amount of all the contributors.
+              //And
+              totalMonthlyAmount={adjustmentMonthlyAmount}
+              contributionPreviewState={adjustmentsState.contribution}
+              onChangeContributionPreviewState={setContributionPreviewState}
+              onResetContributionPreviewState={resetContributionPreviewState}
+              customStartingValue={customStartingValue}
+              onCustomStartingValueChange={setCustomStartingValue}
+            />
+          </>
+        ) : null}
       </div>
     </div>
   );
