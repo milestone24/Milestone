@@ -585,7 +585,8 @@ export const fireProjectionSchema = z.object({
   yearsRemainingToFireTarget: z.number(), // Negative if ahead, positive if behind
   monthlyContributionDifference: monthlyContributionDifferenceSchema,
   projectionResult: projectionResultSchema,
-  fireProjection: z.array(fireProjectionDataSchema),
+  fireProjectionByTime: z.array(projectionTimePointSchema),
+  fireProjectionByAge: z.array(fireProjectionDataSchema),
   withdrawalStrategy: z.lazy(() => withdrawalStrategySchema).optional(), // Forward reference, added after schema definition
   warnings: z.array(z.string()).optional(),
 });

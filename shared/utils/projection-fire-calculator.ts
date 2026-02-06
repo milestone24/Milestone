@@ -208,7 +208,8 @@ This will cause the projection to be infinite years ahead of retirement.`);
     //We ise mius here because if the yearsAheadOrBehind is behind it would be a negative number and we want to show that as a positive number
     yearsRemainingToTargetAge - yearsAheadOrBehind;
 
-  const fireProjection = convertToAgeBasedProjection(
+
+  const fireProjectionByAge = convertToAgeBasedProjection(
     projectionResult.timePoints,
     fireConfig.dateOfBirth,
     createDecimalValueString(fireNumber.toString())
@@ -238,7 +239,8 @@ This will cause the projection to be infinite years ahead of retirement.`);
     progressPercentage,
     yearsRemainingToFireTarget,
     monthlyContributionDifference,
-    fireProjection,
+    fireProjectionByTime: projectionResult.timePoints,
+    fireProjectionByAge,
     projectionResult,
     withdrawalStrategy,
     warnings,
