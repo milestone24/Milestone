@@ -1,15 +1,6 @@
 import { useMemo, useState } from "react";
 import { Badge } from "../ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "../ui/card";
-// import {
-//   StandaloneContributorsPanel,
-// } from "./StandaloneContributorsPanel";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
   ContributionMode,
   StandaloneContributor,
@@ -23,9 +14,9 @@ import {
   accountType,
   ContributionTypes,
   contributionTypes,
-  DecimalValueString,
   MonthlyContributionDifference,
 } from "@shared/schema";
+import type { Contributor } from "@shared/schema/projections";
 import { Label } from "../ui/label";
 import {
   Select,
@@ -39,6 +30,21 @@ import { Slider } from "../ui/slider";
 import { ContributionPreviewState } from "@/hooks/use-fire-preview-state";
 import { PosNegNumber } from "../common/PosNegNumber";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+} from "../ui/dialog";
+
+function contributorMonthlyAmount(c: Contributor): number {
+  return c.schedules.reduce((sum, s) => {
+    const n = Number(s.value ?? 0);
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+}
 
 type DraftContributor = {
   name: string;
@@ -124,21 +130,18 @@ function ContributionsBreakDownDisplay({
   );
 }
 
-type StandaloneContributorsPanelProps = {
-  mode: ContributionMode;
-  onModeChange: (mode: ContributionMode) => void;
-  contributors: StandaloneContributor[];
-  onAddContributor: (input: Omit<StandaloneContributor, "id">) => void;
-  onUpdateContributor: (
-    id: string,
-    updates: Partial<Omit<StandaloneContributor, "id">>
-  ) => void;
-  onRemoveContributor: (id: string) => void;
-  onReset: () => void;
-  totalMonthlyAmount: number;
+type ContributorSource = "portfolio" | "preview" | "other";
+
+export type FireContributor = Pick<
+  Contributor,
+  "name" | "accountType" | "type" | "currentValue" | "schedules"
+> & {
+  id: string;
+  source: ContributorSource;
 };
 
-type FireContributionsCardProps = StandaloneContributorsPanelProps & {
+type FireContributionsCardProps = {
+  contributors: FireContributor[];
   contributionBreakdown: Array<{ accountType: string; amount: number }>;
   monthlyContributionDifference: MonthlyContributionDifference | null;
   contributionPreviewState: ContributionPreviewState;
@@ -146,28 +149,31 @@ type FireContributionsCardProps = StandaloneContributorsPanelProps & {
   onResetContributionPreviewState: () => void;
   customStartingValue: number;
   onCustomStartingValueChange: (value: number) => void;
+
+  onAddContributor: (input: Omit<StandaloneContributor, "id">) => void;
+  onUpdateContributor: (
+    id: string,
+    updates: Partial<Omit<StandaloneContributor, "id">>,
+  ) => void;
+  onRemoveContributor: (id: string) => void;
+  onResetContributors: () => void;
+  totalMonthlyAmount: number;
 };
 
-export function FireContributionsCard({
-  contributionBreakdown,
-  monthlyContributionDifference,
-  mode,
-  onModeChange,
-  contributors,
-  onAddContributor,
-  onUpdateContributor,
-  onRemoveContributor,
-  onReset,
-  totalMonthlyAmount,
-  contributionPreviewState,
-  onChangeContributionPreviewState,
-  customStartingValue,
-  onCustomStartingValueChange,
-}: FireContributionsCardProps) {
-  console.log(
-    "Contributions Card contributionBreakdown",
-    contributionBreakdown
-  );
+export function FireContributionsCard(props: FireContributionsCardProps) {
+  //const payload = fire.projectionPayload;
+
+  const {
+    contributors,
+    contributionBreakdown,
+    monthlyContributionDifference,
+    onAddContributor,
+    onUpdateContributor,
+    onRemoveContributor,
+    onResetContributors,
+    contributionPreviewState,
+    onChangeContributionPreviewState,
+  } = props;
 
   const contributionsCount = useMemo(() => {
     return contributionBreakdown.length;
@@ -182,7 +188,7 @@ export function FireContributionsCard({
   }, [contributionsCount]);
 
   const contributionPercentage = Math.round(
-    contributionPreviewState.scaleFactor * 100
+    contributionPreviewState.scaleFactor * 100,
   );
 
   const [draft, setDraft] = useState<DraftContributor>({
@@ -192,11 +198,14 @@ export function FireContributionsCard({
     monthlyAmount: 100,
   });
 
-  const isCustomMode = mode === "custom";
-  const isSettingsMode = mode === "settings";
-  const isPortfolioMode = mode === "portfolio";
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  // const includePortfolio = fire.includePortfolio;
+  // const setIncludePortfolio = fire.setIncludePortfolio;
+  // const togglePortfolioExcluded = fire.togglePortfolioExcluded;
+  /** Source of truth for UI and calculations (context). */
+  //const contributorsList = fire.contributors;
 
-  const handleAdd = () => {
+  const handleAddFromDialog = () => {
     if (!draft.name.trim() || draft.monthlyAmount <= 0) return;
     onAddContributor({
       name: draft.name.trim(),
@@ -208,16 +217,8 @@ export function FireContributionsCard({
       ...prev,
       name: "Custom Contribution",
     }));
+    setAddDialogOpen(false);
   };
-
-  const totalDisplay = useMemo(() => {
-    if (!isCustomMode) {
-      return "Using portfolio contributions";
-    }
-    return totalMonthlyAmount > 0
-      ? `Previewing £${totalMonthlyAmount.toLocaleString()}/mo`
-      : "No preview contributors configured";
-  }, [isCustomMode, totalMonthlyAmount]);
 
   const contributionPresets: Array<{ label: string; scale: number }> = [
     { label: "50%", scale: 0.5 },
@@ -239,432 +240,331 @@ export function FireContributionsCard({
       : null;
   }, [monthlyContributionDifference]);
 
-  const [customValueType, setCustomValueType] = useState<
-    "custom" | "portfolio"
-  >("portfolio");
-
   return (
-    <>
-      <Card className="flex flex-col gap-2 w-full">
-        <CardHeader>
+    <Card className="flex flex-col gap-2 w-full">
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base font-medium">
+            Fire Contributions
+          </CardTitle>
+          <Badge variant="secondary">{contributionsCountLabel}</Badge>
+        </div>
+        <span className="text-sm text-muted-foreground block">
+          Approximate monthly contribution:
+          {approximateMonthlyContributionNumber}
+        </span>
+        {monthlyContributionDifferenceNumber !== null ? (
+          monthlyContributionDifferenceNumber < 0 ? (
+            <div className="text-sm text-muted-foreground">
+              <span>
+                It is estimated that you are under contributing per month
+                by{" "}
+              </span>
+              <PosNegNumber
+                value={Number(monthlyContributionDifferenceNumber)}
+              />
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              <span>
+                It is estimated that you are over contributing per month by{" "}
+              </span>
+              <PosNegNumber
+                value={Number(monthlyContributionDifferenceNumber)}
+              />
+            </div>
+          )
+        ) : null}
+        <span className="text-sm text-muted-foreground block">
+          * This is an estimate. Different investment types will have different
+          effects on the projected total value of your portfolio.
+        </span>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <ContributionsBreakDownDisplay
+          contributionBreakdown={contributionBreakdown}
+        />
+
+        <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-base font-medium">
-              Fire Contributions
-            </CardTitle>
-            <Badge variant="secondary">{contributionsCountLabel}</Badge>
-          </div>
-          {/* <p className="text-sm text-muted-foreground">
-            Monthly contribution preview grouped by account type (including
-            custom scenarios).
-          </p> */}
-          <div className="flex gap-2 rounded-md bg-muted p-1">
-            <Button
-              variant={mode === "portfolio" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => onModeChange("portfolio")}
-            >
-              Use portfolio
-            </Button>
-            <Button
-              variant={mode === "custom" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => onModeChange("custom")}
-            >
-              Use Custom scenario
-            </Button>
-            <Button
-              variant={mode === "settings" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => onModeChange("settings")}
-            >
-              Use FIRE Setting
-            </Button>
-          </div>
-          <span className="text-sm text-muted-foreground block">
-            Approximate monthly contribution:
-            {approximateMonthlyContributionNumber}
-          </span>
-          {monthlyContributionDifferenceNumber !== null ? (
-            monthlyContributionDifferenceNumber < 0 ? (
-              <div className="text-sm text-muted-foreground">
-                <span>
-                  It is estimated that you are under contributing per month by{" "}
-                </span>
-                <PosNegNumber
-                  value={Number(monthlyContributionDifferenceNumber)}
-                />
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">
-                <span>
-                  It is estimated that you are over contributing per month by{" "}
-                </span>
-                <PosNegNumber
-                  value={Number(monthlyContributionDifferenceNumber)}
-                />
-              </div>
-            )
-          ) : null}
-          <span className="text-sm text-muted-foreground block">
-            * This is an estimate. Different investment types will have
-            different effects on the projected total value of your portfolio.
-          </span>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <>
-            {isCustomMode ? (
-              <>
-                <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-sm text-muted-foreground">
-                  Configure synthetic contributors to test how different
-                  accounts and amounts change your FIRE outlook. These changes
-                  are{" "}
-                  <span className="font-medium text-primary">preview-only</span>{" "}
-                  and do not modify your saved settings.
-                </div>
-
-                <div>
-                  <p>
-                    What initial value do you want to use for the custom
-                    scenario?
-                  </p>
-                  <Label htmlFor="custom-value-type">Custom value type</Label>
-                  <RadioGroup
-                    value={customValueType}
-                    onValueChange={(value) =>
-                      setCustomValueType(value as "custom" | "portfolio")
-                    }
-                    className="flex flex-row gap-2"
-                  >
-                    <div className="flex flex-row gap-2 items-start">
-                      <div className="flex flex-col gap-2 pt-2">
-                        <RadioGroupItem
-                          value="portfolio"
-                          id="portfolio"
-                          className="flex-shrink-0"
-                        />
-                      </div>
-                      <div className="flex flex-col pt-1">
-                        <label htmlFor="portfolio">Portfolio</label>
-                      </div>
-                    </div>
-                    <div className="flex flex-row gap-2 items-start">
-                      <div className="flex flex-col gap-2 pt-2">
-                        <RadioGroupItem
-                          value="custom"
-                          id="custom"
-                          className="flex-shrink-0"
-                        />
-                      </div>
-                      <div className="flex flex-col pt-1">
-                        <label htmlFor="custom">Custom</label>
-                      </div>
-                    </div>
-                  </RadioGroup>
-                  {customValueType === "portfolio" ? (
-                    <p>
-                      The initial value will be the current value of your
-                      portfolio.
-                    </p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      <Label htmlFor="custom-value">Custom value</Label>
-                      <Input
-                        id="custom-value"
-                        type="number"
-                        value={customStartingValue.toString()}
-                        onChange={(event) =>
-                          onCustomStartingValueChange(
-                            Number(event.target.value ?? "")
-                          )
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <ContributionsBreakDownDisplay
-                  contributionBreakdown={contributionBreakdown}
-                />
-
-                <div className="space-y-3 rounded-lg border bg-background p-3">
-                  <h3 className="text-sm font-medium text-foreground">
-                    Add preview contributor
-                  </h3>
-
-                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="preview-contributor-name">Label</Label>
-                      <Input
-                        id="preview-contributor-name"
-                        value={draft.name}
-                        placeholder="e.g. Custom LISA"
-                        onChange={(event) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            name: event.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="preview-contributor-account">
-                        Account type
-                      </Label>
-                      <Select
-                        value={draft.accountType}
-                        onValueChange={(value) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            accountType: value as AccountType,
-                          }))
-                        }
-                      >
-                        <SelectTrigger id="preview-contributor-account">
-                          <SelectValue placeholder="Account type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            {accountTypeOptions.map((option) => (
-                              <SelectItem key={option} value={option}>
-                                {option}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="preview-contributor-type">
-                        Contribution type
-                      </Label>
-                      <Select
-                        value={draft.type}
-                        onValueChange={(value) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            type: value as ContributionTypes,
-                          }))
-                        }
-                      >
-                        <SelectTrigger id="preview-contributor-type">
-                          <SelectValue placeholder="Contribution type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            {contributionTypeOptions.map((option) => (
-                              <SelectItem key={option} value={option}>
-                                {option.replace("_", " ")}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="preview-contributor-amount">
-                        Monthly amount (£)
-                      </Label>
-                      <Input
-                        id="preview-contributor-amount"
-                        type="number"
-                        min={0}
-                        value={draft.monthlyAmount}
-                        onChange={(event) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            monthlyAmount: Number(event.target.value ?? 0),
-                          }))
-                        }
-                      />
-                    </div>
+            <h3 className="text-sm font-medium text-foreground">
+              Contributors
+            </h3>
+            <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">Add preview contributor</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add preview contributor</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                  Add a synthetic contributor to test how different accounts and
+                  amounts change your FIRE outlook. Changes are preview-only.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="preview-contributor-name">Label</Label>
+                    <Input
+                      id="preview-contributor-name"
+                      value={draft.name}
+                      placeholder="e.g. Custom LISA"
+                      onChange={(event) =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          name: event.target.value,
+                        }))
+                      }
+                    />
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={handleAdd}
-                      disabled={
-                        !draft.name.trim() ||
-                        !Number.isFinite(draft.monthlyAmount) ||
-                        draft.monthlyAmount <= 0
+                  <div className="space-y-1.5">
+                    <Label htmlFor="preview-contributor-account">
+                      Account type
+                    </Label>
+                    <Select
+                      value={draft.accountType}
+                      onValueChange={(value) =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          accountType: value as AccountType,
+                        }))
                       }
                     >
-                      Add preview contributor
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={onReset}
-                      disabled={contributors.length === 0}
+                      <SelectTrigger id="preview-contributor-account">
+                        <SelectValue placeholder="Account type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {accountTypeOptions.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="preview-contributor-type">
+                      Contribution type
+                    </Label>
+                    <Select
+                      value={draft.type}
+                      onValueChange={(value) =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          type: value as ContributionTypes,
+                        }))
+                      }
                     >
-                      Reset preview
+                      <SelectTrigger id="preview-contributor-type">
+                        <SelectValue placeholder="Contribution type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {contributionTypeOptions.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {option.replace("_", " ")}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="preview-contributor-amount">
+                      Monthly amount (£)
+                    </Label>
+                    <Input
+                      id="preview-contributor-amount"
+                      type="number"
+                      min={0}
+                      value={draft.monthlyAmount}
+                      onChange={(event) =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          monthlyAmount: Number(event.target.value ?? 0),
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {presets.map((preset) => (
+                    <Button
+                      key={`${preset.accountType}-${preset.monthlyAmount}`}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        onAddContributor(preset);
+                        setAddDialogOpen(false);
+                      }}
+                    >
+                      {preset.name}
                     </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    {presets.map((preset) => (
-                      <Button
-                        key={`${preset.accountType}-${preset.monthlyAmount}`}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onAddContributor(preset)}
-                      >
-                        {preset.name}
-                      </Button>
-                    ))}
-                  </div>
+                  ))}
                 </div>
-
-                <Separator />
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-medium text-foreground">
-                      Preview contributors
-                    </h3>
-                    <Badge variant="secondary">
-                      {contributors.length > 0
-                        ? `${contributors.length} source${
-                            contributors.length === 1 ? "" : "s"
-                          }`
-                        : "None added"}
-                    </Badge>
-                  </div>
-                  {contributors.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No contributors added yet. Use the form above or choose a
-                      preset to get started.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {contributors.map((contributor) => (
-                        <div
-                          key={contributor.id}
-                          className="flex flex-col gap-3 rounded-lg border bg-background p-3 text-sm md:flex-row md:items-center md:justify-between"
-                        >
-                          <div>
-                            <p className="font-medium text-foreground">
-                              {contributor.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {contributor.accountType} •{" "}
-                              {contributor.type.replace("_", " ")}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1 text-sm">
-                              <span className="text-muted-foreground">£</span>
-                              <Input
-                                className="w-28"
-                                type="number"
-                                min={0}
-                                value={contributor.monthlyAmount}
-                                onChange={(event) =>
-                                  onUpdateContributor(contributor.id, {
-                                    monthlyAmount: Number(
-                                      event.target.value ?? 0
-                                    ),
-                                  })
-                                }
-                              />
-                              <span className="text-muted-foreground">/mo</span>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() =>
-                                onRemoveContributor(contributor.id)
-                              }
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : null}
-            {isPortfolioMode ? (
-              <>
-                <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-                  Your projection uses the recurring contributions saved against
-                  your portfolio assets. Switch to{" "}
-                  <span className="font-medium text-foreground">
-                    Custom scenario
-                  </span>{" "}
-                  to explore what-if contributions without updating your live
-                  settings.
-                </div>
-                <ContributionsBreakDownDisplay
-                  contributionBreakdown={contributionBreakdown}
-                />
-                <span className="text-sm text-muted-foreground block">
-                  TODO: Allow adding preview contributors to the portfolio
-                </span>
-              </>
-            ) : null}
-            {isSettingsMode ? (
-              <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-                Your projection uses the FIRE settings saved. Switch to{" "}
-                <span className="font-medium text-foreground">
-                  Custom scenario
-                </span>{" "}
-                to explore what-if contributions without updating your live
-                settings.
-              </div>
-            ) : null}
-            <section className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-sm font-medium text-foreground">
-                    Contribution multiplier
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Scale your monthly contributions for preview purposes.
-                  </p>
-                </div>
-                <Badge variant="secondary">{contributionPercentage}%</Badge>
-              </div>
-
-              <Slider
-                value={[contributionPreviewState.scaleFactor]}
-                min={0}
-                max={3}
-                step={0.05}
-                onValueChange={([scale]) => {
-                  if (typeof scale !== "number") return;
-                  onChangeContributionPreviewState({
-                    ...contributionPreviewState,
-                    scaleFactor: Number(scale.toFixed(2)),
-                  });
-                }}
-              />
-
-              <div className="flex flex-wrap gap-2">
-                {contributionPresets.map((preset) => (
+                <DialogFooter>
                   <Button
-                    key={preset.label}
-                    variant={
-                      contributionPreviewState.scaleFactor === preset.scale
-                        ? "default"
-                        : "outline"
-                    }
-                    size="sm"
-                    onClick={() =>
-                      onChangeContributionPreviewState({
-                        ...contributionPreviewState,
-                        scaleFactor: preset.scale,
-                      })
+                    onClick={handleAddFromDialog}
+                    disabled={
+                      !draft.name.trim() ||
+                      !Number.isFinite(draft.monthlyAmount) ||
+                      draft.monthlyAmount <= 0
                     }
                   >
-                    {preset.label}
+                    Add
                   </Button>
-                ))}
-              </div>
-            </section>
-          </>
-        </CardContent>
-      </Card>
-    </>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+          {contributors.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No contributor data available. Include portfolio contributions or
+              add preview contributors to see the breakdown.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {contributors.map((entry) => {
+                //const c = entry.contributor;
+                const monthly = contributorMonthlyAmount(entry);
+                const sourceLabel =
+                  entry.source === "portfolio"
+                    ? "Portfolio"
+                    : entry.source === "other"
+                      ? "Other"
+                      : "Preview";
+                const isPreview = entry.source === "preview";
+                const isPortfolio = entry.source === "portfolio";
+                return (
+                  <li
+                    key={entry.id}
+                    className={`flex flex-col gap-2 rounded-lg border p-3 text-sm md:flex-row md:items-center md:justify-between ${
+                      isPreview
+                        ? "bg-primary/5 border-primary/20"
+                        : "bg-background"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={
+                          entry.source === "portfolio" ? "secondary" : "outline"
+                        }
+                        className="shrink-0"
+                      >
+                        {sourceLabel}
+                      </Badge>
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {entry.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {entry.accountType ?? "—"} •{" "}
+                          {entry.type.replace("_", " ")} • £
+                          {monthly.toLocaleString()}/mo
+                        </p>
+                      </div>
+                    </div>
+                    {isPreview ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          className="w-24 h-8 text-sm"
+                          type="number"
+                          min={0}
+                          value={entry.schedules[0]?.value ?? 0}
+                          onChange={(e) =>
+                            onUpdateContributor(entry.id, {
+                              monthlyAmount: Number(e.target.value ?? 0),
+                            })
+                          }
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onRemoveContributor(entry.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : isPortfolio ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={
+                          () => undefined
+                          //TODO
+                          //togglePortfolioExcluded(entry.referenceId)
+                        }
+                      >
+                        Exclude
+                      </Button>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        {contributors.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={onResetContributors}>
+            Reset preview contributors
+          </Button>
+        )}
+
+        <Separator />
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-medium text-foreground">
+                Contribution multiplier
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Scale your monthly contributions for preview purposes.
+              </p>
+            </div>
+            <Badge variant="secondary">{contributionPercentage}%</Badge>
+          </div>
+
+          <Slider
+            value={[contributionPreviewState.scaleFactor]}
+            min={0}
+            max={3}
+            step={0.05}
+            onValueChange={([scale]) => {
+              if (typeof scale !== "number") return;
+              onChangeContributionPreviewState({
+                ...contributionPreviewState,
+                scaleFactor: Number(scale.toFixed(2)),
+              });
+            }}
+          />
+
+          <div className="flex flex-wrap gap-2">
+            {contributionPresets.map((preset) => (
+              <Button
+                key={preset.label}
+                variant={
+                  contributionPreviewState.scaleFactor === preset.scale
+                    ? "default"
+                    : "outline"
+                }
+                size="sm"
+                onClick={() =>
+                  onChangeContributionPreviewState({
+                    ...contributionPreviewState,
+                    scaleFactor: preset.scale,
+                  })
+                }
+              >
+                {preset.label}
+              </Button>
+            ))}
+          </div>
+        </section>
+      </CardContent>
+    </Card>
   );
 }
