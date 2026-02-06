@@ -24,13 +24,15 @@ export function AccountAccessCard({ entry }: AccountAccessCardProps) {
         "rounded-lg border p-4",
         isAccessible
           ? "border-green-200 bg-green-50"
-          : "border-muted bg-muted/30"
+          : "border-muted bg-muted/30",
       )}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-medium">{entry.accountType}</span>
+            <span className="font-medium">
+              {entry.contributorName ?? entry.accountType}
+            </span>
             <span className="text-sm text-muted-foreground">
               {isAccessible ? (
                 <span className="flex items-center gap-1 text-green-600">

@@ -40,7 +40,9 @@ export function AccountAccessTimeline({ entries }: AccountAccessTimelineProps) {
             <p className="text-sm font-medium">
               {entry.age === null ? "Now" : `Age ${entry.age}`}
             </p>
-            <p className="text-xs text-muted-foreground">{entry.accountType}</p>
+            <p className="text-xs text-muted-foreground">
+              {entry.contributorName}
+            </p>
           </div>
         </div>
       ))}
