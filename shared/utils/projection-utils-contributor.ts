@@ -244,14 +244,14 @@ export function mapAssetsToContributors(
 
 export type StatePensionProps = {
   dateOfBirth: Date;
-  gender: Gender;
+  //gender: Gender;
 };
 
 export function defineStatePensionContributor(
   props: StatePensionProps
 ): Contributor {
-  const { dateOfBirth, gender } = props;
-  const { age, startDate } = defineStatePensionDetailsUK(dateOfBirth, gender);
+  const { dateOfBirth, /*gender*/ } = props;
+  const { age, startDate } = defineStatePensionDetailsUK(dateOfBirth/*, gender*/);
   return {
     name: "State Pension",
     type: "state_pension",

@@ -289,7 +289,6 @@ export async function projectRetirementWithAccountAssets(
   // Create FIRE config from settings
   const fireConfig: FIREProjectionConfig = {
     dateOfBirth: userProfile.dob,
-    gender: userProfile.gender,
     targetRetirementAge: userFireSettings.targetRetirementAge,
     annualIncomeGoal: userFireSettings.annualIncomeGoal,
     safeWithdrawalRate: userFireSettings.safeWithdrawalRate,
@@ -309,7 +308,7 @@ export async function projectRetirementWithAccountAssets(
   if (fireConfig.includeStatePension) {
     const statePensionContributor = defineStatePensionContributor({
       dateOfBirth: fireConfig.dateOfBirth,
-      gender: fireConfig.gender,
+      //gender: fireConfig.gender,
     });
 
     contributors.push(statePensionContributor);

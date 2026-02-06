@@ -35,7 +35,7 @@ describe("calculatePeriodContributions", () => {
 
   it.only("should return the correct State Pension contributions for a monthly contribution of 10 for 12 months", () => {
     const { startDate: pensionStartDate, age: pensionAge } =
-      defineStatePensionDetailsUK(new Date("1979-05-15"), "male");
+      defineStatePensionDetailsUK(new Date("1979-05-15"));
 
     const contributor: Contributor = {
       name: "State Pension",

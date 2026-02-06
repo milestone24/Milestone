@@ -26,10 +26,9 @@ describe("getAnnualScheduledIncomeForContributor", () => {
     // };
 
     const dateOfBirth = new Date("1979-05-15");
-    const gender = "male";
 
     const { startDate: pensionStartDate, age: pensionAge } =
-      defineStatePensionDetailsUK(dateOfBirth, gender);
+      defineStatePensionDetailsUK(dateOfBirth);
 
     const contributor: Contributor = {
       name: "State Pension",

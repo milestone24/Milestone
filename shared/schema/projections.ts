@@ -214,7 +214,6 @@ export type MilestoneTarget = z.infer<typeof milestoneTargetSchema>;
  */
 export const fireProjectionConfigSchema = z.object({
   dateOfBirth: dateTransformedSchema,
-  gender: z.enum(["male", "female", "other"]),
   targetRetirementAge: z.number().min(18).max(100),
   annualIncomeGoal: decimalValueSchema.refine(isDecimalValueString, {
     message: "Annual income goal must be a valid decimal string",

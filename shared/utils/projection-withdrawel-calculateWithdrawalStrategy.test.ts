@@ -61,7 +61,6 @@ describe("calculateWithdrawalStrategy", () => {
       contributors,
       {
         dateOfBirth: new Date("1979-05-15"),
-        gender: "male",
         includeStatePension: false,
         incomeGoals: [
           {

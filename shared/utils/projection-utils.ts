@@ -727,31 +727,35 @@ export type Gender = "male" | "female" | "other";
 
 export const defineStatePensionAgeForGenderUK = (
   dateOfBirth: Date,
-  gender: Gender
+  //gender: Gender
 ): number => {
-  return gender === "male"
-    ? dateOfBirth.getFullYear() < 1960
+  return dateOfBirth.getFullYear() < 1960
       ? 66
       : 67
-    : gender === "female"
-    ? dateOfBirth.getFullYear() < 1960
-      ? 65
-      : 66
-    : gender === "other"
-    ? dateOfBirth.getFullYear() < 1960
-      ? 66
-      : 67
-    : 0;
+  // return gender === "male"
+  //   ? dateOfBirth.getFullYear() < 1960
+  //     ? 66
+  //     : 67
+  //   : gender === "female"
+  //   ? dateOfBirth.getFullYear() < 1960
+  //     ? 65
+  //     : 66
+  //   : gender === "other"
+  //   ? dateOfBirth.getFullYear() < 1960
+  //     ? 66
+  //     : 67
+  //   : 0;
 };
 
 export const defineStatePensionDetailsUK = (
   dateOfBirth: Date,
-  gender: Gender
+  //gender: Gender
 ): {
   age: number;
   startDate: Date;
 } => {
-  const statePensionAge = defineStatePensionAgeForGenderUK(dateOfBirth, gender);
+  //const statePensionAge = defineStatePensionAgeForGenderUK(dateOfBirth, gender);
+  const statePensionAge = defineStatePensionAgeForGenderUK(dateOfBirth);
   return {
     age: statePensionAge,
     startDate: addYears(dateOfBirth, statePensionAge),

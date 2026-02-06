@@ -262,12 +262,11 @@ export const useFireProjection = (): UseFireProjectionReturn => {
   const queryClient = useQueryClient();
 
   const userDOB = user?.profile?.dob;
-  const userGender = user?.profile?.gender;
   const currentAge = userDOB ? calculateAge(userDOB) : NaN;
 
   const statePensionAge =
-    userDOB && userGender
-      ? defineStatePensionAgeForGenderUK(userDOB, userGender)
+    userDOB
+      ? defineStatePensionAgeForGenderUK(userDOB)
       : NaN;
 
   const userStatus: UserStatus = useMemo(() => {
@@ -287,7 +286,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
       statePensionAge: statePensionAge,
       currentAge: currentAge,
     };
-  }, [userDOB, userGender]);
+  }, [userDOB]);
 
   const { data: fireSettings, isLoading: isLoadingFireSettings, isFetched, error: fireSettingsError } =
     useFireSettings();
@@ -344,13 +343,12 @@ export const useFireProjection = (): UseFireProjectionReturn => {
   } = watch()
 
   const firePreviewConfig = useMemo<FIREProjectionConfig | null>(() => {
-    if (!userDOB || !userGender) return null;
+    if (!userDOB) return null;
 
     //Here we should should be be goig from Decimal string to number back to Decimal string.
     //Always use createDecimalValueString to create the Decimal string.
     return {
       dateOfBirth: userDOB,
-      gender: userGender,
       targetRetirementAge,
       annualIncomeGoal,
       safeWithdrawalRate,
@@ -360,7 +358,6 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     } satisfies FIREProjectionConfig;
   }, [
     userDOB,
-    userGender,
     targetRetirementAge,
     annualIncomeGoal,
     safeWithdrawalRate,
