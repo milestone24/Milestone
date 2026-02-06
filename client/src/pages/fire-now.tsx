@@ -12,7 +12,7 @@ import {
 } from "@/components/fire/FireOverviewCard";
 import { FireContributionsCard } from "@/components/fire/FireContributionsCard";
 import { WithdrawalStrategyCard } from "@/components/fire/WithdrawalStrategyCard";
-import { useFireProjection } from "@/hooks/use-fire-projection";
+import { useFireProjection } from "@/hooks/use-fire";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
