@@ -100,22 +100,9 @@ const mapStandaloneToContributor = (item: StandaloneContributor): Contributor =>
 });
 
 export function useStandaloneContributors() {
-  const [mode, setModeState] = useState<ContributionMode>(() => parseStoredMode());
   const [contributors, setContributors] = useState<StandaloneContributor[]>(() =>
     parseStoredContributors(),
   );
-
-  useEffect(() => {
-    storeMode(mode);
-  }, [mode]);
-
-  useEffect(() => {
-    storeContributors(contributors);
-  }, [contributors]);
-
-  const setMode = useCallback((next: ContributionMode) => {
-    setModeState(next);
-  }, []);
 
   const addContributor = useCallback((input: Omit<StandaloneContributor, "id">) => {
     setContributors((prev) => [
@@ -158,8 +145,6 @@ export function useStandaloneContributors() {
   const hasCustomContributors = contributors.length > 0;
 
   return {
-    mode,
-    setMode,
     contributors,
     addContributor,
     updateContributor,
