@@ -4,11 +4,13 @@ import { PosNegNumber } from "../common/PosNegNumber";
 import { Button } from "../ui/button";
 import { ChartBar, ChartLine } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DecimalValueString } from "@shared/schema";
+import Decimal from "decimal.js";
 
 type FireOverviewPrimaryCardProps = {
   targetRetirementAge: number | null;
   valueAtRetirement: number | null;
-  fireNumber: number | null;
+  fireNumber: DecimalValueString | null;
   showChart: boolean;
   onToggleChart: () => void;
 };
@@ -22,8 +24,10 @@ function FireOverviewPrimaryCard({
 }: FireOverviewPrimaryCardProps) {
   const difference = useMemo(
     () =>
-      valueAtRetirement && fireNumber ? valueAtRetirement - fireNumber : null,
-    [fireNumber, valueAtRetirement]
+      valueAtRetirement && fireNumber
+        ? valueAtRetirement - Decimal(fireNumber).toNumber()
+        : null,
+    [fireNumber, valueAtRetirement],
   );
 
   return (
@@ -84,8 +88,8 @@ function FireOverviewPrimaryCard({
 }
 
 type FireOverviewCurrentPortfolioCardProps = {
-  currentPortfolioValue: number | null;
-  currentPortfolioValueGrowth: number | null;
+  currentPortfolioValue: DecimalValueString | null;
+  currentPortfolioValueGrowth: DecimalValueString | null;
 };
 
 function FireOverviewCurrentPortfolioCard({
@@ -105,12 +109,14 @@ function FireOverviewCurrentPortfolioCard({
                 ? Intl.NumberFormat("en-GB", {
                     style: "currency",
                     currency: "GBP",
-                  }).format(currentPortfolioValue)
+                  }).format(Decimal(currentPortfolioValue).toNumber())
                 : "—"}
             </span>
             <span className="text-medium block">
               {currentPortfolioValueGrowth !== null
-                ? PosNegNumber({ value: currentPortfolioValueGrowth })
+                ? PosNegNumber({
+                    value: Decimal(currentPortfolioValueGrowth).toNumber(),
+                  })
                 : "—"}
             </span>
           </div>
@@ -121,7 +127,7 @@ function FireOverviewCurrentPortfolioCard({
 }
 
 type FireOverviewFireNumberCardProps = {
-  fireNumber: number | null;
+  fireNumber: DecimalValueString | null;
 };
 
 function FireOverviewFireNumberCard({
@@ -140,7 +146,7 @@ function FireOverviewFireNumberCard({
                 ? Intl.NumberFormat("en-GB", {
                     style: "currency",
                     currency: "GBP",
-                  }).format(fireNumber)
+                  }).format(Decimal(fireNumber).toNumber())
                 : "—"}
             </span>
             <span className="text-medium block">NI + 75 (What is this?)</span>
@@ -152,7 +158,7 @@ function FireOverviewFireNumberCard({
 }
 
 type FireOverviewProgressCardProps = {
-  progressPercentage: number | null;
+  progressPercentage: DecimalValueString | null;
 };
 
 function FireOverviewProgressCard({
@@ -167,7 +173,9 @@ function FireOverviewProgressCard({
         <div className="flex items-start justify-start gap-10">
           <div className="flex flex-col gap-2 flex-1">
             <span className="text-4xl font-bold block">
-              {progressPercentage !== null ? `${progressPercentage}%` : "—"}
+              {progressPercentage !== null
+                ? `${Decimal(progressPercentage).toNumber()}%`
+                : "—"}
             </span>
           </div>
         </div>
@@ -226,15 +234,15 @@ function FireOverviewYearsToFireCard({
   );
 }
 
-type FireOverviewCardProps = {
+export type FireOverviewCardProps = {
   targetRetirementAge: number | null;
   valueAtRetirement: number | null;
-  fireNumber: number | null;
+  fireNumber: DecimalValueString | null;
   showChart: boolean;
   onToggleChart: () => void;
-  currentPortfolioValue: number | null;
-  currentPortfolioValueGrowth: number | null;
-  progressPercentage: number | null;
+  currentPortfolioValue: DecimalValueString | null;
+  currentPortfolioValueGrowth: DecimalValueString | null;
+  progressPercentage: DecimalValueString | null;
   currentAge: number | null;
   yearsToFire: number | null;
 };
