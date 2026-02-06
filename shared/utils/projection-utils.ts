@@ -440,23 +440,23 @@ export function calculateMonthlyContributionDifference(
   monthsRemaining: number,
   annualGrowthRate: number
 ): MonthlyContributionDifference {
-  console.log(
-    "calculateMonthlyContributionDifference totalTargetDifference",
-    totalTargetDifference
-  );
-  console.log(
-    "calculateMonthlyContributionDifference monthsRemaining",
-    monthsRemaining
-  );
-  console.log(
-    "calculateMonthlyContributionDifference annualGrowthRate",
-    annualGrowthRate
-  );
+  // console.log(
+  //   "calculateMonthlyContributionDifference totalTargetDifference",
+  //   totalTargetDifference
+  // );
+  // console.log(
+  //   "calculateMonthlyContributionDifference monthsRemaining",
+  //   monthsRemaining
+  // );
+  // console.log(
+  //   "calculateMonthlyContributionDifference annualGrowthRate",
+  //   annualGrowthRate
+  // );
 
-  console.log(
-    "calculateMonthlyContributionDifference contributors",
-    JSON.stringify(contributors, null, 2)
-  );
+  // console.log(
+  //   "calculateMonthlyContributionDifference contributors",
+  //   JSON.stringify(contributors, null, 2)
+  // );
 
   //First get an average monthly contribution from the contributors
   //Contributors can have random schedules of any freqquncy.
@@ -477,14 +477,14 @@ export function calculateMonthlyContributionDifference(
       startDate,
       oneYearFromNow
     );
-    console.log(
-      "calculateMonthlyContributionDifference contributor",
-      contributor.accountType
-    );
-    console.log(
-      "calculateMonthlyContributionDifference periodResult",
-      JSON.stringify(periodResult, null, 2)
-    );
+    // console.log(
+    //   "calculateMonthlyContributionDifference contributor",
+    //   contributor.accountType
+    // );
+    // console.log(
+    //   "calculateMonthlyContributionDifference periodResult",
+    //   JSON.stringify(periodResult, null, 2)
+    // );
     totalAnnualUserContributions = totalAnnualUserContributions.add(
       periodResult.contributions
     );

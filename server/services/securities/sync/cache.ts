@@ -6,7 +6,6 @@ import { factory as gatewayFactory } from "../gateway"
 import { differenceInDays } from "date-fns"
 import EventEmitter from "events";
 import { AssetPersistence } from "@server/services/assets/database";
-import { a } from "node_modules/vitest/dist/chunks/suite.d.BJWk38HB";
 
 /**
  * Fetch and process security history data for a date range

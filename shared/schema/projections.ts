@@ -187,17 +187,6 @@ export type ProjectionConfigWithDateRange = z.infer<
   typeof projectionConfigWithDateRangeSchema
 >;
 
-const c: ProjectionConfigWithDateRange = {
-  mode: "simple",
-  growthRate: 7.0,
-  growthModel: "compound",
-  startDate: new Date(),
-  endDate: new Date(),
-  interval: "yearly",
-  modifiers: [],
-  useContributorSpecificGrowthRates: false,
-};
-
 // ============================================================================
 // MILESTONE & FIRE INTEGRATION
 // ============================================================================
