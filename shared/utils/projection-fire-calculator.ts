@@ -56,10 +56,10 @@ export function calculateRetirementDate(
 export function calculateFIRENumber(
   annualIncomeGoal: number,
   safeWithdrawalRate: number
-): number {
-  return Decimal(annualIncomeGoal)
+): DecimalValueString {
+  return createDecimalValueString(Decimal(annualIncomeGoal)
     .div(Decimal(safeWithdrawalRate).div(100))
-    .toNumber();
+    .toNumber().toString());
 }
 
 /**

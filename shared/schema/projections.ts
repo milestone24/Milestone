@@ -568,7 +568,9 @@ export type MonthlyContributionDifference = z.infer<
  * FIRE progress result - retirement feasibility
  */
 export const fireProjectionSchema = z.object({
-  fireNumber: z.number(), // Required portfolio value to retire
+  fireNumber: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Fire number must be a valid decimal string",
+  }),
   projectedRetirementDate: dateTransformedSchema.nullable(),
   projectedRetirementAge: z.number().nullable(),
   targetRetirementAge: z.number(),
