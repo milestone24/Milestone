@@ -16,7 +16,6 @@ type FireSettingsSummaryCardProps = {
   isDirty: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onOpenPreviewModifiers?: () => void;
 };
 
 const formatCurrency = (value: string | number | null | undefined) => {
@@ -50,7 +49,6 @@ export function FireSettingsSummaryCard({
   isDirty,
   open,
   onOpenChange,
-  onOpenPreviewModifiers,
 }: FireSettingsSummaryCardProps) {
   const [
     annualIncomeGoal,
@@ -116,7 +114,7 @@ export function FireSettingsSummaryCard({
       includeStatePension,
       reduceSpendingAt75,
       adjustInflation,
-    ]
+    ],
   );
 
   return (
@@ -159,15 +157,6 @@ export function FireSettingsSummaryCard({
           <Button size="sm" onClick={() => onOpenChange(!open)}>
             {open ? "Close editor" : "Edit settings"}
           </Button>
-          {onOpenPreviewModifiers && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onOpenPreviewModifiers}
-            >
-              Adjust preview
-            </Button>
-          )}
         </div>
 
         <Collapsible open={open} onOpenChange={onOpenChange}>
