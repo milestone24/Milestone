@@ -304,6 +304,7 @@ export const contributionTypes = [
   "asset",
   "state_pension",
   "workplace_pension",
+  //"adjustment",
   "custom",
 ] as const;
 
@@ -641,6 +642,7 @@ export const accountAccessTimelineEntrySchema = z.object({
   }),
   taxCharacteristics: z.string(),
   isAccessible: z.boolean(),
+  type: z.enum(contributionTypes),
 });
 export type AccountAccessTimelineEntry = z.infer<
   typeof accountAccessTimelineEntrySchema
