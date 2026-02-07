@@ -1,10 +1,6 @@
 import { useMemo, useState } from "react";
 import { Badge } from "../ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import {
-  ContributionMode,
-  StandaloneContributor,
-} from "@/hooks/use-standalone-contributors";
 import { Button } from "../ui/button";
 import { Trash2 } from "lucide-react";
 import { Input } from "../ui/input";
@@ -14,6 +10,8 @@ import {
   accountType,
   ContributionTypes,
   contributionTypes,
+  createDecimalValueString,
+  DecimalValueString,
   MonthlyContributionDifference,
 } from "@shared/schema";
 import type { Contributor } from "@shared/schema/projections";
@@ -29,7 +27,6 @@ import {
 import { Slider } from "../ui/slider";
 import { ContributionPreviewState } from "@/hooks/use-fire-preview-state";
 import { PosNegNumber } from "../common/PosNegNumber";
-import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import {
   Dialog,
   DialogContent,
@@ -39,60 +36,24 @@ import {
   DialogTrigger,
 } from "../ui/dialog";
 import type { FireContributor } from "@/hooks/use-fire";
-
-function contributorMonthlyAmount(c: Contributor): number {
-  return c.schedules.reduce((sum, s) => {
-    const n = Number(s.value ?? 0);
-    return sum + (Number.isFinite(n) ? n : 0);
-  }, 0);
-}
+import {
+  contributionModifierPresets,
+  contributorFromPreset,
+  montlyScheduleWithValue,
+  presets,
+  singleMonthlyContributorAmount,
+} from "@shared/utils/contributor";
 
 type DraftContributor = {
   name: string;
   accountType: AccountType;
-  type: StandaloneContributor["type"];
+  type: ContributionTypes;
   monthlyAmount: number;
 };
 
 const accountTypeOptions = accountType as readonly AccountType[];
 const contributionTypeOptions =
   contributionTypes as readonly ContributionTypes[];
-
-const presets: Array<Omit<StandaloneContributor, "id">> = [
-  {
-    name: "LISA £100/mo",
-    accountType: "LISA",
-    type: "asset",
-    monthlyAmount: 100,
-    includeContributions: true,
-    includeValue: true,
-  },
-  {
-    name: "SIPP £200/mo",
-    accountType: "SIPP",
-    type: "asset",
-    monthlyAmount: 200,
-    includeContributions: true,
-    includeValue: true,
-  },
-  {
-    name: "ISA £150/mo",
-    accountType: "ISA",
-    type: "asset",
-    monthlyAmount: 150,
-    includeContributions: true,
-    includeValue: true,
-  },
-  {
-    name: "Workplace Pension £250/mo",
-    //TODO a workplace pension should not have to be a CISA
-    accountType: null,
-    type: "workplace_pension",
-    monthlyAmount: 250,
-    includeContributions: true,
-    includeValue: true,
-  },
-];
 
 function ContributionsBreakDownDisplay({
   contributionBreakdown,
@@ -141,19 +102,17 @@ type FireContributionsCardProps = {
   customStartingValue: number;
   onCustomStartingValueChange: (value: number) => void;
 
-  onAddContributor: (input: Omit<StandaloneContributor, "id">) => void;
+  onAddContributor: (input: Omit<FireContributor, "id">) => void;
   onUpdateContributor: (
     id: string,
-    updates: Partial<Omit<StandaloneContributor, "id">>,
+    updates: Partial<Omit<FireContributor, "id">>,
   ) => void;
   onRemoveContributor: (id: string) => void;
   onResetContributors: () => void;
-  totalMonthlyAmount: number;
+  totalMonthlyAmount: DecimalValueString;
 };
 
 export function FireContributionsCard(props: FireContributionsCardProps) {
-  //const payload = fire.projectionPayload;
-
   const {
     contributors,
     contributionBreakdown,
@@ -190,11 +149,6 @@ export function FireContributionsCard(props: FireContributionsCardProps) {
   });
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  // const includePortfolio = fire.includePortfolio;
-  // const setIncludePortfolio = fire.setIncludePortfolio;
-  // const togglePortfolioExcluded = fire.togglePortfolioExcluded;
-  /** Source of truth for UI and calculations (context). */
-  //const contributorsList = fire.contributors;
 
   const handleAddFromDialog = () => {
     if (!draft.name.trim() || draft.monthlyAmount <= 0) return;
@@ -202,9 +156,10 @@ export function FireContributionsCard(props: FireContributionsCardProps) {
       name: draft.name.trim(),
       accountType: draft.accountType,
       type: draft.type,
-      monthlyAmount: draft.monthlyAmount,
+      schedules: [montlyScheduleWithValue(draft.monthlyAmount)],
       includeContributions: true,
       includeValue: true,
+      currentValue: createDecimalValueString("0"),
     });
     setDraft((prev) => ({
       ...prev,
@@ -212,14 +167,6 @@ export function FireContributionsCard(props: FireContributionsCardProps) {
     }));
     setAddDialogOpen(false);
   };
-
-  const contributionPresets: Array<{ label: string; scale: number }> = [
-    { label: "50%", scale: 0.5 },
-    { label: "75%", scale: 0.75 },
-    { label: "100%", scale: 1 },
-    { label: "150%", scale: 1.5 },
-    { label: "200%", scale: 2 },
-  ];
 
   const monthlyContributionDifferenceNumber = useMemo(() => {
     return monthlyContributionDifference
@@ -281,19 +228,20 @@ export function FireContributionsCard(props: FireContributionsCardProps) {
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-medium text-foreground">
-              Contributors
+              Adjustment Contributor
             </h3>
             <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm">Add preview contributor</Button>
+                <Button size="sm">Add adjustment contributor</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Add preview contributor</DialogTitle>
+                  <DialogTitle>Add adjustment contributor</DialogTitle>
                 </DialogHeader>
                 <p className="text-sm text-muted-foreground">
                   Add a synthetic contributor to test how different accounts and
-                  amounts change your FIRE outlook. Changes are preview-only.
+                  amounts change your FIRE outlook. Changes are preview-only and
+                  will not affect your actual portfolio.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
@@ -389,7 +337,7 @@ export function FireContributionsCard(props: FireContributionsCardProps) {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        onAddContributor(preset);
+                        onAddContributor(contributorFromPreset(preset));
                         setAddDialogOpen(false);
                       }}
                     >
@@ -419,17 +367,18 @@ export function FireContributionsCard(props: FireContributionsCardProps) {
             </p>
           ) : (
             <ul className="space-y-2">
+              {/* TODO: make cards */}
               {contributors.map((entry) => {
                 //const c = entry.contributor;
-                const monthly = contributorMonthlyAmount(entry);
+                const monthly = singleMonthlyContributorAmount(entry);
                 const sourceLabel =
-                  entry.source === "portfolio"
+                  entry.type === "asset"
                     ? "Portfolio"
-                    : entry.source === "other"
+                    : entry.type === "custom"
                       ? "Other"
                       : "Preview";
-                const isPreview = entry.source === "preview";
-                const isPortfolio = entry.source === "portfolio";
+                const isPreview = entry.type === "custom";
+                const isPortfolio = entry.type === "asset";
                 return (
                   <li
                     key={entry.id}
@@ -442,7 +391,7 @@ export function FireContributionsCard(props: FireContributionsCardProps) {
                     <div className="flex items-center gap-2">
                       <Badge
                         variant={
-                          entry.source === "portfolio" ? "secondary" : "outline"
+                          entry.type === "asset" ? "secondary" : "outline"
                         }
                         className="shrink-0"
                       >
@@ -468,7 +417,11 @@ export function FireContributionsCard(props: FireContributionsCardProps) {
                           value={entry.schedules[0]?.value ?? 0}
                           onChange={(e) =>
                             onUpdateContributor(entry.id, {
-                              monthlyAmount: Number(e.target.value ?? 0),
+                              schedules: [
+                                montlyScheduleWithValue(
+                                  Number(e.target.value ?? 0),
+                                ),
+                              ],
                             })
                           }
                         />
@@ -536,7 +489,7 @@ export function FireContributionsCard(props: FireContributionsCardProps) {
           />
 
           <div className="flex flex-wrap gap-2">
-            {contributionPresets.map((preset) => (
+            {contributionModifierPresets.map((preset) => (
               <Button
                 key={preset.label}
                 variant={
