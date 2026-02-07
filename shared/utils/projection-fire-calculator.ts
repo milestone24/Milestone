@@ -309,7 +309,7 @@ export async function projectRetirementWithContributors(
     {
       id: crypto.randomUUID(),
       name: "Fire Settings Monthly Contribution",
-      type: "custom",
+      type: "fire-setting",
       accountType: "OTHER",
       currentValue: createDecimalValueString("0"),
       schedules: [{

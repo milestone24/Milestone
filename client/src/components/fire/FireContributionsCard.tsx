@@ -373,16 +373,16 @@ export function FireContributionsCard(props: FireContributionsCardProps) {
                 const sourceLabel =
                   entry.type === "asset"
                     ? "Portfolio"
-                    : entry.type === "custom"
-                      ? "Other"
+                    : entry.type === "adjustment"
+                      ? "Adjustment"
                       : "Preview";
-                const isPreview = entry.type === "custom";
+                const isAdjusment = entry.type === "adjustment";
                 const isPortfolio = entry.type === "asset";
                 return (
                   <li
                     key={entry.id}
                     className={`flex flex-col gap-2 rounded-lg border p-3 text-sm md:flex-row md:items-center md:justify-between ${
-                      isPreview
+                      isAdjusment
                         ? "bg-primary/5 border-primary/20"
                         : "bg-background"
                     }`}
@@ -407,7 +407,7 @@ export function FireContributionsCard(props: FireContributionsCardProps) {
                         </p>
                       </div>
                     </div>
-                    {isPreview ? (
+                    {isAdjusment ? (
                       <div className="flex items-center gap-2">
                         <Input
                           className="w-24 h-8 text-sm"

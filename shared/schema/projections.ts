@@ -304,8 +304,8 @@ export const contributionTypes = [
   "asset",
   "state_pension",
   "workplace_pension",
-  //"adjustment",
-  "custom",
+  "adjustment",
+  "fire-setting",
 ] as const;
 
 export const contributorProjectionSchema = z.object({
