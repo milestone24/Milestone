@@ -11,7 +11,7 @@ import { FireSettingsFormValues } from "@/components/fire/FireSettingsForm";
 import { DEFAULT_TARGET_RETIREMENT_AGE, FireSettingsInsert, fireSettingsOrphanFormSchema, IncomeGoalKey } from "@shared/schema/portfolio-fire";
 import type { IncomeGoal } from "@shared/schema/portfolio-fire";
 import { createDecimalValueString } from "@shared/schema/utils";
-import { Contributor, FireProjection, FIREProjectionConfig, FireProjectionData, MonthlyContributionDifference, ProjectionConfig, ProjectionModifier, SimpleProjectionConfig } from "@shared/schema";
+import { Contributor, FireProjection, FIREProjectionConfig, ProjectionConfig, ProjectionModifier, SimpleProjectionConfig } from "@shared/schema";
 import Decimal from "decimal.js";
 import { ContributionPreviewState, DEFAULT_PREVIEW_INFLATION_RATE, PreviewModifiersState, useFirePreviewState } from "./use-fire-preview-state";
 import { useFirePreferences } from "./use-fire-preferences";
@@ -95,14 +95,8 @@ const hasAt75IncomeGoal = (incomeGoals: IncomeGoal[]): boolean => {
   return incomeGoals.some((incomeGoal) => incomeGoal.key === "reduced_spending_at_75");
 };
 
-type ContributorSource = "portfolio" | "preview" | "other";
-
-export type FireContributor = Pick<
-  Contributor,
-  "name" | "accountType" | "type" | "currentValue" | "schedules" | "includeValue" | "includeContributions"
-> & {
+export type FireContributor = Contributor & {
   id: string;
-  source: ContributorSource;
 };
 
 type UserStatus = {
@@ -443,20 +437,14 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     updateContributor: updateAdjustmentContributor,
     removeContributor: removeAdjustmentContributor,
     resetContributors: resetAdjustmentContributors,
-    mappedContributors: mappedAdjustmentContributors,
+    //mappedContributors: mappedAdjustmentContributors,
     totalMonthlyAmount: adjustmentMonthlyAmount,
     hasCustomContributors: hasAdjustmentCustomContributors,
   } = useStandaloneContributors();
 
-  const projectionContributors: FireContributor[] = useMemo(() => {
-    //Add contributors from initial server state
-    //Add contributors from standalone contributors
-    return [];
-  }, []);
-
   const hasAdjustmentContributors = useMemo(() => {
-    return projectionContributors.some((contributor) => contributor.source === "preview");
-  }, [projectionContributors]);
+    return adjustmentContributors.length > 0;
+  }, [adjustmentContributors]);
 
 
   const previewModifiersActive =
@@ -482,6 +470,18 @@ export const useFireProjection = (): UseFireProjectionReturn => {
         ),
     } as ProjectionConfig;
   }, [projectionConfig, previewModifiers, previewState.contribution.enabled]);
+
+  const projectionContributors: FireContributor[] = useMemo(() => {
+    //Add contributors from initial server state
+    //Add contributors from standalone contributors
+    return [
+      ...currentProjection?.projectionResult.computationContext?.contributors ?? [],
+      ...adjustmentContributors
+    ].map((contributor) => ({
+      ...contributor,
+      id: crypto.randomUUID(),
+    })) as FireContributor[];
+  }, [currentProjection, adjustmentContributors]);
 
   const { projection: previewProjection } = useFirePreviewProjection({
     baseProjection: currentProjection,
