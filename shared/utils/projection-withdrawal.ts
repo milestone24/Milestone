@@ -1,8 +1,10 @@
 import {
+  AccountAccessTimelineEntry,
   Contributor,
   FIREProjectionConfig,
   ProjectionResult,
   ValueReleasePointInTime,
+  WithdrawalStrategy,
 } from "@shared/schema/projections";
 import {
   DecimalValueString,
@@ -46,21 +48,21 @@ export interface WithdrawalPhase {
   warnings?: string[];
 }
 
-export interface AccountAccessTimelineEntry {
-  age: number | null;
-  accountType: AccountType;
-  contributorName: string;
-  contributorReferenceId?: string;
-  projectedValue: DecimalValueString;
-  taxCharacteristics: string;
-  isAccessible: boolean;
-}
+// export interface AccountAccessTimelineEntry {
+//   age: number | null;
+//   accountType: AccountType;
+//   contributorName: string;
+//   contributorReferenceId?: string;
+//   projectedValue: DecimalValueString;
+//   taxCharacteristics: string;
+//   isAccessible: boolean;
+// }
 
-export interface WithdrawalStrategy {
-  phases: WithdrawalPhase[];
-  accountAccessTimeline: AccountAccessTimelineEntry[];
-  warnings?: string[];
-}
+// export interface WithdrawalStrategy {
+//   phases: WithdrawalPhase[];
+//   accountAccessTimeline: AccountAccessTimelineEntry[];
+//   warnings?: string[];
+// }
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -358,6 +360,8 @@ export function buildAccountAccessTimeline(
       projectedValue,
       taxCharacteristics: unlockInfo.taxCharacteristics,
       isAccessible,
+      type: contributor.type,
+      contributorId: contributor.id,
     });
   }
 
