@@ -217,7 +217,7 @@ This will cause the projection to be infinite years ahead of retirement.`);
 
   // Calculate withdrawal strategy
   const withdrawalStrategy = calculateWithdrawalStrategy(
-    contributors,
+    contributors.filter((c) => c.includeContributions),
     fireConfig,
     projectionResult,
     fireConfig.incomeGoals
