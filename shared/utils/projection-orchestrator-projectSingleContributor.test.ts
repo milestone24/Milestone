@@ -54,6 +54,7 @@ describe("projectSingleContributor", () => {
   console.log("endDate", endDate);
   it("should project a single contributor", async () => {
     const contributorOne: Contributor = {
+      id: crypto.randomUUID(),
       name: "Test Contributor",
       accountType: "LISA",
       type: "asset",

@@ -20,6 +20,7 @@ export const montlyScheduleWithValue = (value: number | DecimalValueString): Con
 export const contributorFromPreset = (
   preset: ContributorPreset,
 ): Contributor => ({
+  id: crypto.randomUUID(),
   name: preset.name,
   accountType: preset.accountType,
   type: preset.type,
@@ -29,7 +30,7 @@ export const contributorFromPreset = (
   currentValue: createDecimalValueString("0"),
 });
 
-type ContributorPreset = Omit<Contributor, "schedules"> & {
+type ContributorPreset = Omit<Contributor, "schedules" | "id"> & {
   monthlyAmount: number;
 };
 

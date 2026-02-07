@@ -39,6 +39,7 @@ describe("calculateWithdrawalStrategy", () => {
   it("should return the correct withdrawal strategy", () => {
     const contributors: Contributor[] = [
       {
+        id: crypto.randomUUID(),
         name: "Test Contributor",
         type: "asset",
         currentValue: createDecimalValueString("100000"),

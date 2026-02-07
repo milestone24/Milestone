@@ -3,7 +3,6 @@ import { accountType, createDecimalValueString } from "@shared/schema";
 import type { AccountType, DecimalValueString } from "@shared/schema";
 import type { Contributor, ContributionTypes } from "@shared/schema/projections";
 import { contributionTypes } from "@shared/schema/projections";
-import type { FireContributor } from "./use-fire";
 import Decimal from "decimal.js";
 
 const CUSTOM_CONTRIBUTORS_KEY = "fire-standalone-contributors";
@@ -27,7 +26,7 @@ const totalContributorsMonthly = (contributors: Contributor[]) => {
 };
 
 //TODO Would this work in a React Native app?
-const parseStoredContributors = (): FireContributor[] => {
+const parseStoredContributors = (): Contributor[] => {
 
   const win = getWindow();
   if (!win) return [];
@@ -38,13 +37,13 @@ const parseStoredContributors = (): FireContributor[] => {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     const filtered = parsed.filter(
-      (item): item is FireContributor =>
+      (item): item is Contributor =>
         typeof item === "object" &&
         item !== null &&
         typeof item.name === "string" &&
         isAccountType(item.accountType) &&
         isContributionType(item.type)
-    ) as FireContributor[];
+    ) as Contributor[];
     return filtered;
   } catch (error) {
     console.warn("Failed to parse stored standalone contributors", error);
@@ -53,7 +52,7 @@ const parseStoredContributors = (): FireContributor[] => {
 };
 
 //TODO Would this work in a React Native app?
-const storeContributors = (contributors: FireContributor[]) => {
+const storeContributors = (contributors: Contributor[]) => {
   const win = getWindow();
   if (!win) return;
   win.localStorage.setItem(CUSTOM_CONTRIBUTORS_KEY, JSON.stringify(contributors));
@@ -69,7 +68,7 @@ const generateId = () => {
 };
 
 export function useStandaloneContributors() {
-  const [contributors, setContributors] = useState<FireContributor[]>(() =>
+  const [contributors, setContributors] = useState<Contributor[]>(() =>
     parseStoredContributors(),
   );
 
@@ -78,7 +77,7 @@ export function useStandaloneContributors() {
     storeContributors(contributors);
   }, [contributors]);
 
-  const addContributor = useCallback((input: Omit<FireContributor, "id">) => {
+  const addContributor = useCallback((input: Omit<Contributor, "id">) => {
     setContributors((prev) => [
       ...prev,
       {
@@ -89,7 +88,7 @@ export function useStandaloneContributors() {
   }, []);
 
   const updateContributor = useCallback(
-    (id: string, updates: Partial<Omit<FireContributor, "id">>) => {
+    (id: string, updates: Partial<Omit<Contributor, "id">>) => {
       setContributors((prev) =>
         prev.map((contributor) =>
           contributor.id === id ? { ...contributor, ...updates } : contributor,

@@ -437,6 +437,7 @@ const contributorType = [...accountType, "PENSION"] as const;
 export type ContributorType = (typeof contributorType)[number];
 
 export const contributorSchema = z.object({
+  id: z.string().uuid(),
   referenceId: z.string().uuid().optional(),
   accountType: z.enum(contributorType).nullable(),
   name: z.string(),
@@ -630,6 +631,7 @@ export type WithdrawalPhase = z.infer<typeof withdrawalPhaseSchema>;
  * Account access timeline entry
  */
 export const accountAccessTimelineEntrySchema = z.object({
+  contributorId: z.string().uuid(),
   age: z.number().nullable(),
   accountType: z.enum(contributorType),
   contributorName: z.string(),

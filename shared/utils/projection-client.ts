@@ -97,6 +97,7 @@ export function computeClientFireProjection(
 
   // Create minimal contributor for client-side projection (no bonuses/releases)
   const contributor: Contributor = {
+    id: crypto.randomUUID(),
     name: "Client Projection",
     accountType: "GIA", // Default account type
     type: "asset",
@@ -297,6 +298,7 @@ export class ProjectionClient {
   compute(): ProjectionTimePoint[] {
     // Create minimal contributor for client-side projection (no bonuses/releases)
     const contributor: Contributor = {
+      id: crypto.randomUUID(),
       name: "Client Projection",
       accountType: "GIA", // Default account type
       type: "asset",

@@ -7,6 +7,7 @@ describe("calculateMonthlyContributionDifference", () => {
   it("should return 0 if the current portfolio value is equal to the target value", () => {
     const contributors: Contributor[] = [
       {
+        id: crypto.randomUUID(),
         name: "Test Contributor",
         type: "asset",
         currentValue: createDecimalValueString("100000.00"),

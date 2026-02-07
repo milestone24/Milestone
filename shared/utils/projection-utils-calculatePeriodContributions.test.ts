@@ -9,6 +9,7 @@ import { defineStatePensionDetailsUK } from "./projection-utils";
 describe("calculatePeriodContributions", () => {
   it("should return the correct LISA contributions for a monthly contribution of 10 for 12 months", () => {
     const contributor: Contributor = {
+      id: crypto.randomUUID(),
       name: "Test Contributor",
       accountType: "LISA",
       type: "asset",
@@ -40,6 +41,7 @@ describe("calculatePeriodContributions", () => {
       defineStatePensionDetailsUK(new Date("1979-05-15"));
 
     const contributor: Contributor = {
+      id: crypto.randomUUID(),
       name: "State Pension",
       type: "state_pension",
       currentValue: createDecimalValueString("0"),

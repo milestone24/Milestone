@@ -37,6 +37,7 @@ describe("projectToRetirement", () => {
     };
 
     const contributor: Contributor = {
+      id: crypto.randomUUID(),
       accountType: "LISA",
       currentValue: createDecimalValueString("100000.50"),
       name: "LISA",

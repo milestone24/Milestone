@@ -226,6 +226,7 @@ export function mapAssetToContributor(
   includeContributions: boolean
 ): Contributor {
   return {
+    id: crypto.randomUUID(),
     referenceId: asset.id,
     accountType: asset.accountType,
     name: asset.name,
@@ -261,6 +262,7 @@ export function defineStatePensionContributor(
   const { dateOfBirth, /*gender*/ } = props;
   const { age, startDate } = defineStatePensionDetailsUK(dateOfBirth/*, gender*/);
   return {
+    id: crypto.randomUUID(),
     name: "State Pension",
     type: "state_pension",
     currentValue: createDecimalValueString("0"),

@@ -35,7 +35,6 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "../ui/dialog";
-import type { FireContributor } from "@/hooks/use-fire";
 import {
   contributionModifierPresets,
   contributorFromPreset,
@@ -93,7 +92,7 @@ function ContributionsBreakDownDisplay({
 }
 
 type FireContributionsCardProps = {
-  contributors: FireContributor[];
+  contributors: Contributor[];
   contributionBreakdown: Array<{ accountType: string; amount: number }>;
   monthlyContributionDifference: MonthlyContributionDifference | null;
   contributionPreviewState: ContributionPreviewState;
@@ -102,10 +101,10 @@ type FireContributionsCardProps = {
   customStartingValue: number;
   onCustomStartingValueChange: (value: number) => void;
 
-  onAddContributor: (input: Omit<FireContributor, "id">) => void;
+  onAddContributor: (input: Omit<Contributor, "id">) => void;
   onUpdateContributor: (
     id: string,
-    updates: Partial<Omit<FireContributor, "id">>,
+    updates: Partial<Omit<Contributor, "id">>,
   ) => void;
   onRemoveContributor: (id: string) => void;
   onResetContributors: () => void;

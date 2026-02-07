@@ -12,6 +12,7 @@ describe("generateSimpleProjection and expect contributions to be correct", () =
     const constributionOneEndDate = new Date("2026-01-30");
 
     const contributor: Contributor = {
+      id: crypto.randomUUID(),
       name: "Test Asset",
       accountType: "GIA",
       type: "asset",

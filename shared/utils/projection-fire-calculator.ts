@@ -307,6 +307,7 @@ export async function projectRetirementWithContributors(
   */
   contributors.push(
     {
+      id: crypto.randomUUID(),
       name: "Fire Settings Monthly Contribution",
       type: "custom",
       accountType: "OTHER",

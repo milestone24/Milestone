@@ -485,6 +485,7 @@ export async function projectAsset(
     //recurringContributions,
     contributors: [
       {
+        id: crypto.randomUUID(),
         referenceId: assetId,
         //We have to cast here until the db is using enum type for accountType
         accountType: asset.accountType as AccountType,

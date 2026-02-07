@@ -31,6 +31,7 @@ describe("getAnnualScheduledIncomeForContributor", () => {
       defineStatePensionDetailsUK(dateOfBirth);
 
     const contributor: Contributor = {
+      id: crypto.randomUUID(),
       name: "State Pension",
       type: "state_pension",
       currentValue: createDecimalValueString("0"),

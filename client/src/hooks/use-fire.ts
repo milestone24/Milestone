@@ -26,10 +26,6 @@ const hasAt75IncomeGoal = (incomeGoals: IncomeGoal[]): boolean => {
   return incomeGoals.some((incomeGoal) => incomeGoal.key === "reduced_spending_at_75");
 };
 
-export type FireContributor = Contributor & {
-  id: string;
-};
-
 type UserStatus = {
   status: "satisfied",
   message: undefined;
@@ -63,7 +59,7 @@ type UseFireProjectionReturn = {
   fireSettingsForm: undefined,
   handleSaveSettings: undefined,
   isSubmittingFireSettings: false,
-  projectionContributors: FireContributor[]
+  projectionContributors: Contributor[]
   isLoading: false,
   isLoadingFireSettings: false,
   isLoadingProjection: false,
@@ -93,7 +89,7 @@ type UseFireProjectionReturn = {
   fireSettingsForm: UseFormReturn<FireSettingsFormValues>;
   handleSaveSettings: () => void;
   isSubmittingFireSettings: boolean;
-  projectionContributors: FireContributor[];
+  projectionContributors: Contributor[];
 
   isLoading: boolean;
   isLoadingFireSettings: boolean;
@@ -403,7 +399,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     } as ProjectionConfig;
   }, [projectionConfig, previewModifiers, previewState.contribution.enabled]);
 
-  const projectionContributors: FireContributor[] = useMemo(() => {
+  const projectionContributors: Contributor[] = useMemo(() => {
     //Add contributors from initial server state
     //Add contributors from standalone contributors
     return [
@@ -412,7 +408,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     ].map((contributor) => ({
       ...contributor,
       id: crypto.randomUUID(),
-    })) as FireContributor[];
+    })) as Contributor[];
   }, [currentProjection, adjustmentContributors]);
 
   const { projection: previewProjection } = useFirePreviewProjection({
