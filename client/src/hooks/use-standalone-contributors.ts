@@ -1,22 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { accountType, createDecimalValueString } from "@shared/schema";
-import type { AccountType } from "@shared/schema";
+import type { AccountType, DecimalValueString } from "@shared/schema";
 import type { Contributor, ContributionTypes } from "@shared/schema/projections";
 import { contributionTypes } from "@shared/schema/projections";
+import type { FireContributor } from "./use-fire";
+import Decimal from "decimal.js";
 
-export type ContributionMode = "portfolio" | "custom" | "settings";
-
-export type StandaloneContributor = {
-  id: string;
-  name: string;
-  accountType: AccountType | null;
-  type: ContributionTypes;
-  monthlyAmount: number;
-  includeValue: boolean;
-  includeContributions: boolean;
-};
-
-const CONTRIBUTION_MODE_KEY = "fire-contribution-mode";
 const CUSTOM_CONTRIBUTORS_KEY = "fire-standalone-contributors";
 
 const getWindow = () => (typeof window === "undefined" ? null : window);
@@ -27,7 +16,19 @@ const isAccountType = (value: unknown): value is AccountType =>
 const isContributionType = (value: unknown): value is ContributionTypes =>
   typeof value === "string" && (contributionTypes as readonly string[]).includes(value);
 
-const parseStoredContributors = (): StandaloneContributor[] => {
+const totalContributorMontly = (contributor: Contributor) => {
+  return contributor.schedules.reduce((scheduleTotal: number, schedule) =>
+    scheduleTotal + Decimal(schedule.value).toNumber(), 0);
+};
+
+const totalContributorsMonthly = (contributors: Contributor[]) => {
+  return contributors.reduce((total: number, contributor) =>
+    total + totalContributorMontly(contributor), 0);
+};
+
+//TODO Would this work in a React Native app?
+const parseStoredContributors = (): FireContributor[] => {
+
   const win = getWindow();
   if (!win) return [];
 
@@ -36,40 +37,28 @@ const parseStoredContributors = (): StandaloneContributor[] => {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (item): item is StandaloneContributor =>
+    const filtered = parsed.filter(
+      (item): item is FireContributor =>
         typeof item === "object" &&
         item !== null &&
-        typeof item.id === "string" &&
         typeof item.name === "string" &&
         isAccountType(item.accountType) &&
-        isContributionType(item.type) &&
-        typeof item.monthlyAmount === "number",
-    ) as StandaloneContributor[];
+        isContributionType(item.type)
+    ) as FireContributor[];
+    return filtered;
   } catch (error) {
     console.warn("Failed to parse stored standalone contributors", error);
     return [];
   }
 };
 
-const parseStoredMode = (): ContributionMode => {
-  const win = getWindow();
-  if (!win) return "portfolio";
-  const stored = win.localStorage.getItem(CONTRIBUTION_MODE_KEY);
-  return stored === "custom" ? "custom" : "portfolio";
-};
-
-const storeMode = (mode: ContributionMode) => {
-  const win = getWindow();
-  if (!win) return;
-  win.localStorage.setItem(CONTRIBUTION_MODE_KEY, mode);
-};
-
-const storeContributors = (contributors: StandaloneContributor[]) => {
+//TODO Would this work in a React Native app?
+const storeContributors = (contributors: FireContributor[]) => {
   const win = getWindow();
   if (!win) return;
   win.localStorage.setItem(CUSTOM_CONTRIBUTORS_KEY, JSON.stringify(contributors));
 };
+
 
 const generateId = () => {
   const win = getWindow();
@@ -79,36 +68,17 @@ const generateId = () => {
   return `contrib_${Math.random().toString(36).slice(2, 10)}`;
 };
 
-const defaultSchedule = () => ({
-  patternConfig: {
-    type: "rrule" as const,
-    expression: "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1", // first day of month
-  },
-  startDate: new Date(),
-  endDate: null,
-});
-
-const mapStandaloneToContributor = (item: StandaloneContributor): Contributor => ({
-  accountType: item.accountType,
-  name: item.name,
-  type: item.type,
-  currentValue: createDecimalValueString("0"),
-  schedules: [
-    {
-      ...defaultSchedule(),
-      value: createDecimalValueString(item.monthlyAmount.toString()),
-    },
-  ],
-  includeValue: item.includeValue,
-  includeContributions: item.includeContributions,
-});
-
 export function useStandaloneContributors() {
-  const [contributors, setContributors] = useState<StandaloneContributor[]>(() =>
+  const [contributors, setContributors] = useState<FireContributor[]>(() =>
     parseStoredContributors(),
   );
 
-  const addContributor = useCallback((input: Omit<StandaloneContributor, "id">) => {
+  useEffect(() => {
+    //TODO: Is doing this in a use Effect the correct way. Maybe causing to menay rerenders.
+    storeContributors(contributors);
+  }, [contributors]);
+
+  const addContributor = useCallback((input: Omit<FireContributor, "id">) => {
     setContributors((prev) => [
       ...prev,
       {
@@ -119,7 +89,7 @@ export function useStandaloneContributors() {
   }, []);
 
   const updateContributor = useCallback(
-    (id: string, updates: Partial<Omit<StandaloneContributor, "id">>) => {
+    (id: string, updates: Partial<Omit<FireContributor, "id">>) => {
       setContributors((prev) =>
         prev.map((contributor) =>
           contributor.id === id ? { ...contributor, ...updates } : contributor,
@@ -137,13 +107,8 @@ export function useStandaloneContributors() {
     setContributors([]);
   }, []);
 
-  const mappedContributors = useMemo<Contributor[]>(() => {
-    if (!contributors.length) return [];
-    return contributors.map(mapStandaloneToContributor);
-  }, [contributors]);
-
-  const totalMonthlyAmount = useMemo(() => {
-    return contributors.reduce((total, contributor) => total + contributor.monthlyAmount, 0);
+  const totalMonthlyAmount: DecimalValueString = useMemo(() => {
+    return createDecimalValueString(totalContributorsMonthly(contributors).toString());
   }, [contributors]);
 
   const hasCustomContributors = contributors.length > 0;
@@ -154,7 +119,6 @@ export function useStandaloneContributors() {
     updateContributor,
     removeContributor,
     resetContributors,
-    mappedContributors,
     totalMonthlyAmount,
     hasCustomContributors,
   };
