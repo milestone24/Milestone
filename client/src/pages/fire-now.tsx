@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { FireProjectionChartCard } from "@/components/fire/FireProjectionChartCard";
 import { FireSettingsPanel } from "@/components/fire/FireSettingsPanel";
@@ -7,9 +7,10 @@ import { ContributionPreviewState } from "@/hooks/use-fire-preview-state";
 import { FirePageSkeleton } from "@/components/fire/FirePageSkeleton";
 import { FirePageError } from "@/components/fire/FirePageError";
 import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
-import { FireContributionsCard } from "@/components/fire/FireContributionsCard";
+import { FireOverviewStickyBar } from "@/components/fire/FireOverviewStickyBar";
 import { WithdrawalStrategyCard } from "@/components/fire/WithdrawalStrategyCard";
 import { useFireProjection } from "@/hooks/use-fire";
+import { useElementInView } from "@/hooks/use-element-in-view";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
@@ -64,6 +65,10 @@ export default function Fire() {
   );
 
   const [isSettingsEditorOpen, setIsSettingsEditorOpen] = useState(false);
+  const overviewRef = useRef<HTMLDivElement>(null);
+  const overviewInView = useElementInView(overviewRef, {
+    enabled: !!activeProjection,
+  });
 
   const setContributionPreviewState = useCallback(
     (state: ContributionPreviewState) => {
@@ -168,26 +173,47 @@ export default function Fire() {
           </div>
         ) : activeProjection ? (
           <>
-            <FireOverviewCard
-              //projectedRetirementAge={activeProjectedRetirementAge}
-              targetRetirementAge={activeProjection.targetRetirementAge}
-              valueAtRetirement={
-                activeProjection?.projectedValueAtRetirement
-                  ? Number(activeProjection.projectedValueAtRetirement)
-                  : 0
-              }
-              fireNumber={activeProjection?.fireNumber ?? null}
-              showChart={showChart}
-              onToggleChart={toggleChart}
-              currentPortfolioValue={
-                activeProjection.projectionResult.totalCurrentValue
-              }
-              //TODO: Add current portfolio value growth
-              currentPortfolioValueGrowth={createDecimalValueString("0.00")}
-              progressPercentage={activeProjection.progressPercentage}
-              currentAge={userStatus.currentAge}
-              yearsToFire={activeProjection.yearsRemainingToFireTarget}
-            />
+            <div ref={overviewRef}>
+              <FireOverviewCard
+                targetRetirementAge={activeProjection.targetRetirementAge}
+                valueAtRetirement={
+                  activeProjection?.projectedValueAtRetirement
+                    ? Number(activeProjection.projectedValueAtRetirement)
+                    : 0
+                }
+                fireNumber={activeProjection?.fireNumber ?? null}
+                showChart={showChart}
+                onToggleChart={toggleChart}
+                currentPortfolioValue={
+                  activeProjection.projectionResult.totalCurrentValue
+                }
+                currentPortfolioValueGrowth={createDecimalValueString("0.00")}
+                progressPercentage={activeProjection.progressPercentage}
+                currentAge={userStatus.currentAge}
+                yearsToFire={activeProjection.yearsRemainingToFireTarget}
+              />
+            </div>
+            {!overviewInView ? (
+              <>
+                <FireOverviewStickyBar
+                  targetRetirementAge={activeProjection.targetRetirementAge}
+                  valueAtRetirement={
+                    activeProjection?.projectedValueAtRetirement
+                      ? Number(activeProjection.projectedValueAtRetirement)
+                      : 0
+                  }
+                  fireNumber={activeProjection?.fireNumber ?? null}
+                  showChart={showChart}
+                  onToggleChart={toggleChart}
+                  currentPortfolioValue={
+                    activeProjection.projectionResult.totalCurrentValue
+                  }
+                  progressPercentage={activeProjection.progressPercentage}
+                  yearsToFire={activeProjection.yearsRemainingToFireTarget}
+                />
+                <div aria-hidden className="h-12 shrink-0" />
+              </>
+            ) : null}
             <>
               <div>
                 <Checkbox
