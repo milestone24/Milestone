@@ -227,9 +227,21 @@ export default function Fire() {
 
             <WithdrawalStrategyCard
               withdrawalStrategy={activeProjection.withdrawalStrategy}
+              contributionsInfo={{
+                contributionBreakdown,
+                monthlyContributionDifference:
+                  activeProjection.monthlyContributionDifference,
+              }}
+              contributionPreviewState={adjustmentsState.contribution}
+              onChangeContributionPreviewState={setContributionPreviewState}
+              onResetContributionPreviewState={resetContributionPreviewState}
+              onAddContributor={addAdjustmentContributor}
+              onUpdateContributor={updateAdjustmentContributor}
+              onRemoveContributor={removeAdjustmentContributor}
+              onResetContributors={resetAdjustmentContributors}
             />
 
-            <FireContributionsCard
+            {/* <FireContributionsCard
               contributionBreakdown={contributionBreakdown}
               monthlyContributionDifference={
                 activeProjection.monthlyContributionDifference
@@ -249,7 +261,7 @@ export default function Fire() {
               onResetContributionPreviewState={resetContributionPreviewState}
               customStartingValue={customStartingValue}
               onCustomStartingValueChange={setCustomStartingValue}
-            />
+            /> */}
           </>
         ) : null}
       </div>

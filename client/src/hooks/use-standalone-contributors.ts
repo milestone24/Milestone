@@ -99,6 +99,10 @@ export function useStandaloneContributors() {
   );
 
   const removeContributor = useCallback((id: string) => {
+
+    console.log("contributors : ", contributors);
+    console.log("removeContributor : ", id);
+
     setContributors((prev) => prev.filter((contributor) => contributor.id !== id));
   }, []);
 
