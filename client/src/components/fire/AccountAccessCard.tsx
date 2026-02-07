@@ -31,7 +31,9 @@ export function AccountAccessCard({ entry }: AccountAccessCardProps) {
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <span className="font-medium">
-              {entry.contributorName ?? entry.accountType}
+              {entry.contributorName
+                ? `${entry.contributorName} - ${entry.accountType}`
+                : entry.accountType}
             </span>
             <span className="text-sm text-muted-foreground">
               {isAccessible ? (
