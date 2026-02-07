@@ -1,11 +1,11 @@
 import { useSession } from "@/context/SessionContext";
-import { calculateAge, convertToAgeBasedProjection, defineStatePensionAgeForGenderUK } from "@shared/utils/projection-utils";
+import { calculateAge, defineStatePensionAgeForGenderUK } from "@shared/utils/projection-utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useCreateFireSettings } from "./use-fire-settings-create";
 import { usePatchFireSettings } from "./use-fire-settings-patch";
 import { useFireSettings } from "./use-fire-settings";
-import { useForm, UseFormReturn, useWatch } from "react-hook-form";
+import { useForm, UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FireSettingsFormValues } from "@/components/fire/FireSettingsForm";
 import { DEFAULT_TARGET_RETIREMENT_AGE, FireSettingsInsert, fireSettingsOrphanFormSchema, IncomeGoalKey } from "@shared/schema/portfolio-fire";
@@ -21,75 +21,6 @@ import { useToast } from "./use-toast";
 import { fireProjection as fireProjectionQueryKey } from "@shared/api/queryKeys";
 import { useFIREProjection } from "./use-projections";
 import { DecimalValueString } from "@server/db/schema";
-
-export type FireProjectionView = FireProjection & {
-  state: "current" | "preview";
-};
-
-// type UseFireProjectionStateParams = {
-//   expectedReturn: number;
-//   baseModifiers: ProjectionModifier[];
-//   growthMode: FireGrowthMode;
-//   monthlyInvestment: number;
-//   currentAge: number;
-//   userDob: string | Date | null | undefined;
-//   portfolioFallbackValue?: number;
-//   debounceMs?: number;
-// };
-
-// type UseFireProjectionStateResult = {
-//   projectionConfig: Omit<SimpleProjectionConfig, "startDate" | "endDate">;
-//   fireProjectionData: FireProjectionData[];
-//   currentProjection: FireProjectionView | undefined;
-//   isLoading: boolean;
-//   error: ReturnType<typeof useFireServerProjection>["error"];
-//   refetch: ReturnType<typeof useFireServerProjection>["refetch"];
-//   yearsToFire: number;
-//   yearsRemainingToFireTarget: number;
-//   contributorsForFire: Contributor[];
-//   currentPortfolioValue: number;
-//   fireChartConfig: {
-//     currentAmount: number;
-//     monthlyInvestment: number;
-//     expectedReturn: number;
-//     targetAmount: number;
-//     currentAge: number;
-//   };
-//   projectedRetirementAge: number | null;
-//   projectedRetirementDate?: Date | null;
-//   monthlyContributionDifference?: MonthlyContributionDifference | null;
-//   fireNumber: number;
-// };
-
-// type ResolvedProjectionState = {
-//   yearsToFire: number;
-//   yearsRemainingToFireTarget: number;
-//   contributorsForFire: Contributor[];
-//   currentPortfolioValue: number;
-//   fireChartConfig: {
-//     currentAmount: number;
-//     monthlyInvestment: number;
-//     expectedReturn: number;
-//     targetAmount: number;
-//     currentAge: number;
-//   };
-//   projectedRetirementAge: number | null;
-//   projectedRetirementDate?: Date | null;
-//   monthlyContributionDifference?: MonthlyContributionDifference | null;
-//   fireNumber: number;
-// };
-
-// const resolveProjectionState = (projection: FireProjection): ResolvedProjectionState => {
-//   return {
-//     yearsToFire: Math.abs(projection.yearsRemainingToFireTarget),
-//     yearsRemainingToFireTarget: Math.abs(projection.yearsRemainingToFireTarget),
-//     contributorsForFire: projection.contributors,
-//     currentPortfolioValue: projection.currentPortfolioValue,
-//     fireChartConfig: projection.fireChartConfig,
-//     projectedRetirementAge: projection.projectedRetirementAge,
-//     projectedRetirementDate: projection.projectedRetirementDate,
-//   };
-// }
 
 const hasAt75IncomeGoal = (incomeGoals: IncomeGoal[]): boolean => {
   return incomeGoals.some((incomeGoal) => incomeGoal.key === "reduced_spending_at_75");
@@ -249,6 +180,7 @@ const baseIncomeGoals = (retirementAge: number, annualIncomeGoal: DecimalValueSt
 export const useFireProjection = (): UseFireProjectionReturn => {
 
   const [includePortfolioRecurringContributions, setIncludePortfolioRecurringContributions] = useState(false);
+  //TODO, complete visualisation of adjusment mode.
   const [isAdjustmentMode, setIsAdjustmentMode] = useState(false);
 
   const { user } = useSession();
@@ -397,7 +329,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
       usePortfolioRecurringContributions: includePortfolioRecurringContributions,
       useContributorSpecificGrowthRates: growthMode === "contributor",
     }),
-    [growthMode, modifiers, expectedAnnualReturn]
+    [growthMode, modifiers, expectedAnnualReturn, includePortfolioRecurringContributions]
   );
 
   const {
@@ -513,28 +445,6 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     ]
   );
 
-  // const activeFireChartConfig = useMemo(() => {
-  //   if (!previewActive) {
-  //     return fireChartConfig;
-  //   }
-
-  //   return {
-  //     ...fireChartConfig,
-  //     currentAmount: activeCurrentPortfolioValue,
-  //     targetAmount: activeProjection?.fireNumber ?? createDecimalValueString("0"),
-  //   };
-  // }, [
-  //   activeCurrentPortfolioValue,
-  //   activeProjection?.fireNumber,
-  //   fireChartConfig,
-  //   previewActive,
-  // ]);
-
-  // const activeCurrentProjectedPortfolioValueDecimal =
-  //   activeProjection?.projectedValueAtRetirement
-  //     ? createDecimalValueString(activeProjection.projectedValueAtRetirement)
-  //     : null;
-
   const contributionTotals = new Map<string, number>();
   projectionContributors.forEach((contributor) => {
     const total = contributor.schedules.reduce((sum, schedule) => {
@@ -559,7 +469,6 @@ export const useFireProjection = (): UseFireProjectionReturn => {
 
   contributionBreakdown.sort((a, b) => b.amount - a.amount);
 
-  // Handle form submission
   const handleSaveSettings = fireSettingsForm.handleSubmit(async (data) => {
     const settings: Omit<FireSettingsInsert, "id" | "userAccountId"> = {
       ...data,
@@ -593,8 +502,6 @@ export const useFireProjection = (): UseFireProjectionReturn => {
 
   //Question this
   const isLoading = isLoadingFireSettings || isLoadingProjection;
-
-  console.log("fireError", fireError);
 
   return fireError
     ? returnErrorState(fireError)
