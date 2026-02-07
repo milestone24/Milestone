@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { FireProjectionChartCard } from "@/components/fire/FireProjectionChartCard";
 import { FireSettingsPanel } from "@/components/fire/FireSettingsPanel";
@@ -6,10 +6,7 @@ import { FireSettingsSummaryCard } from "@/components/fire/FireSettingsSummaryCa
 import { ContributionPreviewState } from "@/hooks/use-fire-preview-state";
 import { FirePageSkeleton } from "@/components/fire/FirePageSkeleton";
 import { FirePageError } from "@/components/fire/FirePageError";
-import {
-  FireOverviewCard,
-  FireOverviewCardProps,
-} from "@/components/fire/FireOverviewCard";
+import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
 import { FireContributionsCard } from "@/components/fire/FireContributionsCard";
 import { WithdrawalStrategyCard } from "@/components/fire/WithdrawalStrategyCard";
 import { useFireProjection } from "@/hooks/use-fire";
@@ -85,11 +82,6 @@ export default function Fire() {
   const handleSaveFireSettings = useCallback(async () => {
     await handleSaveSettings?.();
   }, [handleSaveSettings]);
-
-  //console.log(fireSettingsForm);
-  console.log("fireSettingsAvailable", fireSettingsAvailable);
-  console.log("isLoadingFireSettings", isLoadingFireSettings);
-  console.log("isLoading", isLoading);
 
   if (userStatus?.status === "unsatisfied") {
     return (
@@ -206,9 +198,9 @@ export default function Fire() {
                 />
                 <Label
                   htmlFor="include-portfolio-contributors"
-                  className="font-normal cursor-pointer"
+                  className="font-normal cursor-pointer mx-2"
                 >
-                  Include portfolio contributions
+                  Use portfolio recurring contributions
                 </Label>
               </div>
             </>
