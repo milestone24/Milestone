@@ -27,6 +27,7 @@ import {
   convertToAgeBasedProjection,
   calculateMonthlyContributionDifference,
   defineStatePensionDetailsUK,
+  calculateYearsToTarget,
 } from "./projection-utils";
 import {
   defineStatePensionContributor,
@@ -94,25 +95,12 @@ export async function projectToRetirement(
   );
 
   // Create projection config with retirement date as end date
-  //There should not be a cast here
   const fullProjectionConfig: ProjectionConfigWithDateRange =
     addDateRengeToProjectionConfig(
-      projectionConfig as ProjectionConfig,
+      projectionConfig,
       new Date(),
       retirementDate
     );
-  // const fullProjectionConfig: ProjectionConfigWithDateRange = {
-  //   ...projectionConfig,
-  //   startDate: new Date(),
-  //   endDate: retirementDate,
-  // } as ProjectionConfigWithDateRange;
-
-  // const projectionResult = await projectPortfolio(
-  //   //userAccountId,
-  //   fullProjectionConfig,
-  //   dataSource,
-  //   contributors
-  // );
 
   // Run portfolio projection
   const projectionResult = await orchestrateProjection({
@@ -135,13 +123,9 @@ This will cause the projection to be infinite years ahead of retirement.`);
 
   const currentPortfolioValue = projectionResult.totalCurrentValue;
 
-  const currentDifference = Decimal(fireNumber)
-    .sub(currentPortfolioValue)
-    .toNumber();
-
   // This could be a positive or negative number
-  const targetDifference = Decimal(projectedValueAtRetirement)
-    .sub(Decimal(fireNumber))
+  const targetDifference = Decimal(fireNumber)
+    .sub(Decimal(projectedValueAtRetirement))
     .toNumber();
 
   const progressPercentage = createDecimalValueString(Decimal(currentPortfolioValue)
@@ -152,10 +136,10 @@ This will cause the projection to be infinite years ahead of retirement.`);
   // Calculate years until retirement
   const currentAge = calculateAge(fireConfig.dateOfBirth);
 
-  // Get current portfolio value
-
   // Extract schedules from contributors
-  const scheduledContributions = contributors.flatMap((c) => c.schedules);
+  const contributorSchedules = contributors
+    .filter((c) => c.includeContributions)
+    .flatMap((c) => c.schedules);
 
   // Use growth rate from config
   const growthRate =
@@ -163,12 +147,20 @@ This will cause the projection to be infinite years ahead of retirement.`);
       ? (projectionConfig as SimpleProjectionConfig).growthRate
       : 7; // Default 7% if advanced mode
 
+  const yearsToTarget = calculateYearsToTarget(
+    currentPortfolioValue,
+    contributorSchedules,
+    growthRate,
+    fireNumber,
+    {
+      startDate: new Date(),
+      maxYears: 100,
+    }
+  );
+
   // Calculate years ahead or behind using the new implementation
   const yearsAheadOrBehind = calculateYearsAheadOrBehind(
-    currentPortfolioValue,
-    createDecimalValueString(fireNumber.toString()),
-    scheduledContributions,
-    growthRate,
+    yearsToTarget,
     fireConfig.targetRetirementAge,
     currentAge
   );
@@ -204,11 +196,6 @@ This will cause the projection to be infinite years ahead of retirement.`);
       : calculateAge(fireConfig.dateOfBirth) +
         differenceInYears(projectedRetirementDate, new Date());
 
-  const yearsRemainingToFireTarget =
-    //We ise mius here because if the yearsAheadOrBehind is behind it would be a negative number and we want to show that as a positive number
-    yearsRemainingToTargetAge - yearsAheadOrBehind;
-
-
   const fireProjectionByAge = convertToAgeBasedProjection(
     projectionResult.timePoints,
     fireConfig.dateOfBirth,
@@ -237,7 +224,7 @@ This will cause the projection to be infinite years ahead of retirement.`);
     isOnTrack,
     yearsAheadOrBehind,
     progressPercentage,
-    yearsRemainingToFireTarget,
+    yearsRemainingToFireTarget: yearsToTarget,
     monthlyContributionDifference,
     fireProjectionByTime: projectionResult.timePoints,
     fireProjectionByAge,
