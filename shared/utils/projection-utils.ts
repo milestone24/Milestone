@@ -621,24 +621,11 @@ export function calculateMonthlyContributionDifference(
  * @returns Negative if ahead of schedule, positive if behind, 0 if on track, Infinity if unreachable
  */
 export function calculateYearsAheadOrBehind(
-  currentPortfolioValue: DecimalValueString,
-  targetValue: DecimalValueString,
-  scheduledContributions: ContributorSchedule[],
-  annualGrowthRate: number,
+  yearsToReachTarget: number,
   targetRetirementAge: number,
   currentAge: number
 ): number {
   // Calculate how many years it will take to reach the target
-  const yearsToReachTarget = calculateYearsToTarget(
-    currentPortfolioValue,
-    scheduledContributions,
-    annualGrowthRate,
-    targetValue,
-    {
-      startDate: new Date(),
-      maxYears: 100, // Reasonable max for retirement planning
-    }
-  );
 
   // If it's impossible to reach the target, return Infinity
   if (yearsToReachTarget === Infinity) {
