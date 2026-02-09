@@ -662,7 +662,7 @@ export function calculateYearsToTarget(
   const maxMonths = maxYears * 12;
 
   // Handle edge cases
-  if (presentValue >= targetValue) return 0;
+  if (Decimal(presentValue).gte(targetValue)) return 0;
   if (monthlyRate === 0) {
     // No growth, calculate based on contributions only
     const totalContributionAmount = scheduledContributions.reduce(
@@ -680,9 +680,9 @@ export function calculateYearsToTarget(
   // Use iterative approach similar to tracking.ts
   let months = 0;
   let currentValue = presentValue;
-  let currentDate = new Date(config.startDate);
+  let currentDate = new Date(config.startDate); 
 
-  while (currentValue < targetValue && months < maxMonths) {
+  while (Decimal(currentValue).lt(targetValue) && months < maxMonths) {
     // Apply growth
     currentValue = createDecimalValueString(
       Decimal(currentValue).mul(Decimal(1).add(monthlyRate)).toString()
