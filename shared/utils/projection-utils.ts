@@ -429,7 +429,8 @@ export function convertToAgeBasedProjection(
 }
 
 /**
- * Calculate additional monthly contribution needed to reach milestone* TODO: This method should now return a positive or negative number depending on whether the user is ahead or behind the target
+ * Calculate additional monthly contribution needed to reach milestone*
+ * TODO: This method should now return a positive or negative number depending on whether the user is ahead or behind the target
  * TODO: This method should consider if the current value exceeds the target.
  */
 export function calculateMonthlyContributionDifference(
@@ -561,8 +562,8 @@ export function calculateMonthlyContributionDifference(
   // Calculate the difference: existing user contributions - needed user contributions
   // Positive = contributing more than needed (over-investing)
   // Negative = contributing less than needed (under-investing)
-  const monthlyContributionDifference = approximateMonthlyContribution.sub(
-    neededUserMonthlyContribution
+  const monthlyContributionDifference = neededUserMonthlyContribution.sub(
+    approximateMonthlyContribution
   );
 
   return {
