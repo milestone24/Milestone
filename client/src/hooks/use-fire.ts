@@ -16,7 +16,7 @@ import Decimal from "decimal.js";
 import { ContributionPreviewState, DEFAULT_PREVIEW_INFLATION_RATE, PreviewModifiersState, useFirePreviewState } from "./use-fire-preview-state";
 import { useFirePreferences } from "./use-fire-preferences";
 import { useStandaloneContributors } from "./use-standalone-contributors";
-import { useFirePreviewProjection } from "./use-fire-preview-projection";
+import { useFirePreviewProjection, UseFirePreviewProjectionParams } from "./use-fire-preview-projection";
 import { useToast } from "./use-toast";
 import { fireProjection as fireProjectionQueryKey } from "@shared/api/queryKeys";
 import { useFIREProjection } from "./use-projections";
@@ -411,13 +411,16 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     })) as Contributor[];
   }, [currentProjection, adjustmentContributors]);
 
-  const { projection: previewProjection } = useFirePreviewProjection({
+  const previewParams: UseFirePreviewProjectionParams = useMemo(() => ({
     baseProjection: currentProjection,
     fireConfig: firePreviewConfig ?? undefined,
     projectionConfig: previewProjectionConfig,
     contributors: projectionContributors,
     enabled: previewEnabled,
-  });
+  }), [currentProjection, firePreviewConfig, previewProjectionConfig, projectionContributors, previewEnabled]);
+
+
+  const { projection: previewProjection } = useFirePreviewProjection(previewParams);
 
   const previewActive = !!previewProjection;
 
