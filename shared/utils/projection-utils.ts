@@ -677,7 +677,7 @@ export function calculateYearsToTarget(
     months++;
   }
 
-  return months / 12;
+  return Decimal(Decimal(months).div(12).toFixed(2)).toNumber();
 }
 
 export const defineStatePensionAgeForGenderUK = (
