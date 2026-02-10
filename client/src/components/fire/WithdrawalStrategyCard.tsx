@@ -36,8 +36,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectContent,
 } from "../ui/select";
-import { SelectContent } from "@radix-ui/react-select";
 import {
   contributionModifierPresets,
   contributorFromPreset,
