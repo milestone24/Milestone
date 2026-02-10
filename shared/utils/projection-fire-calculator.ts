@@ -178,7 +178,7 @@ This will cause the projection to be infinite years ahead of retirement.`);
   const monthsRemainingToTargetAge = yearsRemainingToTargetAge * 12;
 
   //Question if we should apply a growth rate to the target difference
-  const monthlyContributionDifference = calculateMonthlyContributionDifference(
+  const monthlyContributionDifference = await calculateMonthlyContributionDifference(
     contributors,
     targetDifference,
     monthsRemainingToTargetAge,

@@ -428,17 +428,19 @@ export function convertToAgeBasedProjection(
   return projectionData;
 }
 
+
+
 /**
  * Calculate additional monthly contribution needed to reach milestone*
  * TODO: This method should now return a positive or negative number depending on whether the user is ahead or behind the target
  * TODO: This method should consider if the current value exceeds the target.
  */
-export function calculateMonthlyContributionDifference(
+export async function calculateMonthlyContributionDifference(
   contributors: Contributor[],
   totalTargetDifference: number,
   monthsRemaining: number,
   annualGrowthRate: number
-): MonthlyContributionDifference {
+): Promise<MonthlyContributionDifference> {
 
   //First get an average monthly contribution from the contributors
   //Contributors can have random schedules of any freqquncy.
@@ -448,22 +450,17 @@ export function calculateMonthlyContributionDifference(
   const startDate = new Date();
   const oneYearFromNow = addYears(startDate, 1);
 
-  let totalAnnualUserContributions = Decimal(0);
-  let totalAnnualBonuses = Decimal(0);
-
-  // Calculate total annual contributions from all contributors
-  // This estimates monthly average by projecting one year ahead
-  for (const contributor of contributors) {
-    const periodResult = calculatePeriodContributions(
-      contributor,
-      startDate,
-      oneYearFromNow
-    );
-    totalAnnualUserContributions = totalAnnualUserContributions.add(
-      periodResult.contributions
-    );
-    totalAnnualBonuses = totalAnnualBonuses.add(periodResult.bonuses);
-  }
+  const {
+    contributions: totalAnnualUserContributions,
+    bonuses: totalAnnualBonuses,
+  } = await Promise.all(contributors.map(contributor => {
+    return calculatePeriodContributions(contributor, startDate, oneYearFromNow);
+  }))
+    .then(results => results.reduce((acc, result) => {
+      acc.contributions = acc.contributions.add(result.contributions);
+      acc.bonuses = acc.bonuses.add(result.bonuses);
+      return acc;
+    }, { contributions: Decimal(0), bonuses: Decimal(0) }));
 
   // Calculate existing monthly contributions
   // approximateMonthlyContribution should be user contributions only (no bonuses)
