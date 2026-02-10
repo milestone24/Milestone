@@ -665,10 +665,14 @@ export function calculateYearsToTarget(
 
     for (const contributor of contributors) {
 
-      const { contributions } = calculatePeriodContributions(contributor, currentDate, nextMonth, modifierChain, currentValue, currentDate);
+      //TODO check date ranges here
+      const { contributions, bonuses } = calculatePeriodContributions(contributor, currentDate, nextMonth, modifierChain, currentValue, currentDate);
 
       currentValue = createDecimalValueString(
-        Decimal(currentValue).add(contributions).toString()
+        Decimal(currentValue)
+          .add(contributions)
+          .add(bonuses)
+          .toString()
       );
 
     }
