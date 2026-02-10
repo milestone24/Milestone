@@ -338,15 +338,8 @@ export async function orchestrateProjection(
 ): Promise<ProjectionOrchestratorResult> {
   const { contributors, config, milestoneTarget, dateOfBirth } = input;
 
-  // Filter contributors by milestone account type if specified
   let contributorsToProject = contributors
     .filter((contributor) => contributor.includeContributions);
-
-  // if (milestoneTarget?.accountType) {
-  //   contributorsToProject = contributors.filter(
-  //     (contributor) => contributor.accountType === milestoneTarget.accountType
-  //   );
-  // }
 
   const warnings: string[] = [];
 
@@ -375,6 +368,8 @@ export async function orchestrateProjection(
   //   (sum, asset) => sum + asset.currentValue,
   //   0
   // );
+
+
   const totalCurrentValue = contributors
     .filter((contributor) => contributor.includeValue)
     .reduce(
@@ -397,7 +392,10 @@ export async function orchestrateProjection(
 
   // Build computation context for client-side adjustments
   const computationContext: ComputationContext = {
-    contributors: contributorsToProject,
+    //We need to include all contributors, not just the ones that are being projected
+    //So that when preview is running this code it can see all contributors
+    //for thos of invludeValue and includeContributions
+    contributors,
     // assets: contributionsToProject.map((asset) => ({
     //   id: asset.id,
     //   name: asset.name,
