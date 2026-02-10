@@ -35,6 +35,7 @@ import {
 } from "./projection-utils-contributor";
 import { createRRulePattern } from "./scheduling";
 import { calculateWithdrawalStrategy } from "./projection-withdrawal";
+import { createModifierChain } from "./projection-modifiers";
 
 // ============================================================================
 // FIRE PROJECTION CALCULATOR
@@ -136,10 +137,9 @@ This will cause the projection to be infinite years ahead of retirement.`);
   // Calculate years until retirement
   const currentAge = calculateAge(fireConfig.dateOfBirth);
 
-  // Extract schedules from contributors
-  const contributorSchedules = contributors
+  // Extract contributors for projection
+  const contributorsForProjection = contributors
     .filter((c) => c.includeContributions)
-    .flatMap((c) => c.schedules);
 
   // Use growth rate from config
   const growthRate =
@@ -147,11 +147,14 @@ This will cause the projection to be infinite years ahead of retirement.`);
       ? (projectionConfig as SimpleProjectionConfig).growthRate
       : 7; // Default 7% if advanced mode
 
+  const modifierChain = createModifierChain(projectionConfig.modifiers);
+
   const yearsToTarget = calculateYearsToTarget(
     currentPortfolioValue,
-    contributorSchedules,
+    contributorsForProjection,
     growthRate,
     fireNumber,
+    modifierChain,
     {
       startDate: new Date(),
       maxYears: 100,
@@ -204,7 +207,7 @@ This will cause the projection to be infinite years ahead of retirement.`);
 
   // Calculate withdrawal strategy
   const withdrawalStrategy = calculateWithdrawalStrategy(
-    contributors.filter((c) => c.includeContributions),
+    contributorsForProjection,
     fireConfig,
     projectionResult,
     fireConfig.incomeGoals

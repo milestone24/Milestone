@@ -649,9 +649,10 @@ export function calculateYearsAheadOrBehind(
  */
 export function calculateYearsToTarget(
   presentValue: DecimalValueString,
-  scheduledContributions: ContributorSchedule[],
+  contributors: Contributor[],
   annualRate: number,
   targetValue: DecimalValueString,
+  modifierChain: ModifierChain,
   config: {
     startDate: Date;
     maxYears?: number;
@@ -660,6 +661,8 @@ export function calculateYearsToTarget(
   const monthlyRate = annualRate / 100 / 12;
   const maxYears = config.maxYears || 100;
   const maxMonths = maxYears * 12;
+
+  const scheduledContributions = contributors.flatMap(c => c.schedules);
 
   // Handle edge cases
   if (Decimal(presentValue).gte(targetValue)) return 0;
@@ -690,16 +693,35 @@ export function calculateYearsToTarget(
 
     // Add contributions for this month
     const nextMonth = addMonths(currentDate, 1);
-    for (const contribution of scheduledContributions) {
-      for (const { amount } of projectRecurringContributions(
-        contribution,
-        currentDate,
-        nextMonth
-      )) {
-        currentValue = createDecimalValueString(
-          Decimal(currentValue).add(amount).toString()
-        );
-      }
+
+    for (const contributor of contributors) {
+
+      const { contributions } = calculatePeriodContributions(contributor, currentDate, nextMonth, modifierChain, currentValue, currentDate);
+
+      currentValue = createDecimalValueString(
+        Decimal(currentValue).add(contributions).toString()
+      );
+
+      // for (const schedule of contributor.schedules) {
+      //   for (const { amount } of projectRecurringContributions(
+      //     schedule,
+      //     currentDate,
+      //     nextMonth
+      //   )) {
+
+      //     const { contributions } = calculatePeriodContributions(contributor, currentDate, nextMonth, modifierChain, currentValue, config.startDate);
+
+      //     currentValue = createDecimalValueString(
+      //       Decimal(currentValue).add(contributions).toString()
+      //     );
+
+      //     // //modifierChain.apply(amount, createModifierContext(currentValue, currentDate, nextMonth));
+      //     // currentValue = createDecimalValueString(
+      //     //   Decimal(currentValue).add(amount).toString()
+      //     // );
+      //   }
+      // }
+
     }
 
     currentDate = nextMonth;
