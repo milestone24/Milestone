@@ -7,7 +7,7 @@ import type {
 } from "@shared/schema/projections";
 import { projectToRetirement } from "@shared/utils/projection-fire-calculator";
 
-interface UseFirePreviewProjectionParams {
+export type UseFirePreviewProjectionParams = {
   //baseProjection?: FireProjectionView;
   baseProjection?: FireProjection;
   fireConfig?: FIREProjectionConfig | null;
@@ -16,7 +16,7 @@ interface UseFirePreviewProjectionParams {
   enabled?: boolean;
 }
 
-interface PreviewState {
+export type PreviewState = {
   projection?: FireProjection;
   error: Error | null;
   status: "idle" | "loading" | "success" | "error";
