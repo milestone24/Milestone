@@ -403,8 +403,6 @@ export function WithdrawalStrategyCard({
     return accountAccessTimeline.filter((c) => c.type === "adjustment").length;
   }, [accountAccessTimeline]);
 
-  console.log("adjustmentContrinutorsLength : ", adjustmentContrinutorsLength);
-
   return (
     <Card>
       <CardHeader>

@@ -1,38 +1,25 @@
 import {
   ProjectionConfigWithDateRange,
   ProjectionResult,
-  AssetProjection,
   ProjectionTimePoint,
   MilestoneTarget,
   MilestoneProgress,
-  ProjectionOrchestratorAssetInput,
   ProjectionOrchestratorInput,
   ProjectionDataSource,
   Contributor,
   ContributorProjection,
-  contributorProjectionSchema,
-  ContributorSchedule,
   ComputationContext,
 } from "@shared/schema/projections";
 import {
-  UserAsset,
-  RecurringContribution,
   AccountType,
   createDecimalValueString,
 } from "@shared/schema";
-//import { Database } from "@server/db";
 import { createModifierChain } from "@shared/utils/projection-modifiers";
 import {
   generateSimpleProjection,
   SimpleProjectionInput,
   SimpleProjectionResult,
 } from "@shared/utils/projection-simple";
-import {
-  generateAdvancedProjection,
-  AdvancedProjectionInput,
-} from "./projection-advanced";
-//import { assetValues, userAssets } from "@server/db/schema";
-//import { desc, eq, getTableColumns, sql } from "drizzle-orm";
 import {
   findTimePointAtOrBefore,
   extractAndSortDates,
@@ -51,58 +38,11 @@ export interface ProjectionOrchestratorResult extends ProjectionResult {
 }
 
 // ============================================================================
-// SINGLE ASSET PROJECTION
+// SINGLE Contriutor PROJECTION
 // ============================================================================
 
 /**
- * Project a single asset
- */
-// async function projectSingleAsset(
-//   asset: ProjectionOrhesratorAssetInput,
-//   assetContributions: RecurringContribution[],
-//   config: ProjectionConfigWithDateRange
-//   //db: Database
-//   //dataSource: ProjectionDataSource
-// ): Promise<AssetProjection> {
-//   const modifierChain = createModifierChain(config.modifiers);
-
-//   let result: SimpleProjectionResult;
-
-//   if (config.mode === "simple") {
-//     const input: SimpleProjectionInput = {
-//       currentValue: asset.currentValue,
-//       currentDate: new Date(),
-//       recurringContributions: assetContributions,
-//       config,
-//       modifierChain,
-//     };
-//     result = generateSimpleProjection(input);
-//   } else {
-//     throw new Error("Advanced projection not implemented");
-//     // const input: AdvancedProjectionInput = {
-//     //   assetId: asset.id,
-//     //   currentValue: asset.currentValue,
-//     //   currentDate: new Date(),
-//     //   recurringContributions: assetContributions,
-//     //   config,
-//     //   modifierChain,
-//     //   db,
-//     // };
-//     // result = await generateAdvancedProjection(input);
-//   }
-
-//   return {
-//     assetId: asset.id,
-//     assetName: asset.name,
-//     accountType: asset.accountType,
-//     currentValue: asset.currentValue,
-//     projectedEndValue: result.finalValue,
-//     timePoints: result.timePoints,
-//   };
-// }
-
-/**
- * Project a single asset
+ * Project a single conributor
  */
 export async function projectSingleContributor(
   contribution: Contributor,
@@ -141,52 +81,6 @@ export async function projectSingleContributor(
 // ============================================================================
 // PORTFOLIO PROJECTION
 // ============================================================================
-
-/**
- * Aggregate time points from multiple assets into portfolio-wide time points
- */
-// function aggregateAssetTimePoints(
-//   assetProjections: AssetProjection[]
-// ): ProjectionTimePoint[] {
-//   if (assetProjections.length === 0) {
-//     return [];
-//   }
-
-//   // Extract all time series and get sorted unique dates
-//   const timeSeries = assetProjections.map((p) => p.timePoints);
-//   const sortedDates = extractAndSortDates(timeSeries);
-
-//   // For each date, sum values from all assets
-//   return sortedDates.map((date) => {
-//     const timestamp = date.getTime();
-//     let totalValue = 0;
-//     let totalContributions = 0;
-//     let totalGrowth = 0;
-//     let hasProjected = false;
-
-//     for (const projection of assetProjections) {
-//       // Find the time point for this asset at this date (or closest before)
-//       const point =
-//         projection.timePoints.find((p) => p.date.getTime() === timestamp) ||
-//         findTimePointAtOrBefore(projection.timePoints, date);
-
-//       if (point) {
-//         totalValue += point.value;
-//         totalContributions += point.contributions;
-//         totalGrowth += point.growth;
-//         hasProjected = hasProjected || point.projectedValue;
-//       }
-//     }
-
-//     return {
-//       date,
-//       value: totalValue,
-//       contributions: totalContributions,
-//       growth: totalGrowth,
-//       projectedValue: hasProjected,
-//     };
-//   });
-// }
 
 function aggregateContributionTimePoints(
   contributorProjections: ContributorProjection[]
@@ -352,7 +246,6 @@ export async function orchestrateProjection(
     )
   );
 
-  //if (assetProjections.length === 0) {
   if (contributorProjections.length === 0) {
     throw new Error("All asset projections failed");
   }
@@ -362,13 +255,6 @@ export async function orchestrateProjection(
   const portfolioTimePoints = aggregateContributionTimePoints(
     contributorProjections
   );
-
-  // Calculate totals
-  // const totalCurrentValue = assetsToProject.reduce(
-  //   (sum, asset) => sum + asset.currentValue,
-  //   0
-  // );
-
 
   const totalCurrentValue = contributors
     .filter((contributor) => contributor.includeValue)
@@ -396,23 +282,6 @@ export async function orchestrateProjection(
     //So that when preview is running this code it can see all contributors
     //for thos of invludeValue and includeContributions
     contributors,
-    // assets: contributionsToProject.map((asset) => ({
-    //   id: asset.id,
-    //   name: asset.name,
-    //   accountType: asset.accountType,
-    //   currentValue: asset.currentValue,
-    // })),
-    // recurringContributions: input.recurringContributions.map(
-    //   (contribution) => ({
-    //     id: contribution.id,
-    //     assetId: contribution.assetId,
-    //     amount: contribution.amount,
-    //     isActive: contribution.isActive,
-    //     startDate: contribution.startDate,
-    //     patternConfig: contribution.patternConfig,
-    //     process: contribution.process,
-    //   })
-    // ),
   };
 
   // Build result

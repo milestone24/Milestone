@@ -13,10 +13,8 @@ import { ModifierChain, createModifierContext } from "./projection-modifiers";
 import { getNextExecutionDate } from "./scheduling";
 import { addDays, addMonths, addWeeks, addYears } from "date-fns";
 import {
-  AccountType,
   createDecimalValueString,
   DecimalValueString,
-  RecurringContribution,
 } from "@shared/schema";
 import Decimal from "decimal.js";
 import {
@@ -440,23 +438,6 @@ export function calculateMonthlyContributionDifference(
   monthsRemaining: number,
   annualGrowthRate: number
 ): MonthlyContributionDifference {
-  // console.log(
-  //   "calculateMonthlyContributionDifference totalTargetDifference",
-  //   totalTargetDifference
-  // );
-  // console.log(
-  //   "calculateMonthlyContributionDifference monthsRemaining",
-  //   monthsRemaining
-  // );
-  // console.log(
-  //   "calculateMonthlyContributionDifference annualGrowthRate",
-  //   annualGrowthRate
-  // );
-
-  // console.log(
-  //   "calculateMonthlyContributionDifference contributors",
-  //   JSON.stringify(contributors, null, 2)
-  // );
 
   //First get an average monthly contribution from the contributors
   //Contributors can have random schedules of any freqquncy.
@@ -477,14 +458,6 @@ export function calculateMonthlyContributionDifference(
       startDate,
       oneYearFromNow
     );
-    // console.log(
-    //   "calculateMonthlyContributionDifference contributor",
-    //   contributor.accountType
-    // );
-    // console.log(
-    //   "calculateMonthlyContributionDifference periodResult",
-    //   JSON.stringify(periodResult, null, 2)
-    // );
     totalAnnualUserContributions = totalAnnualUserContributions.add(
       periodResult.contributions
     );
@@ -527,11 +500,6 @@ export function calculateMonthlyContributionDifference(
       ),
     };
   }
-
-  console.log(
-    "calculateMonthlyContributionDifference totalTargetDifference",
-    totalTargetDifference
-  );
 
   // Calculate what monthly contribution is needed to close the gap
   // Using future value of annuity formula solved for payment:
@@ -702,26 +670,6 @@ export function calculateYearsToTarget(
         Decimal(currentValue).add(contributions).toString()
       );
 
-      // for (const schedule of contributor.schedules) {
-      //   for (const { amount } of projectRecurringContributions(
-      //     schedule,
-      //     currentDate,
-      //     nextMonth
-      //   )) {
-
-      //     const { contributions } = calculatePeriodContributions(contributor, currentDate, nextMonth, modifierChain, currentValue, config.startDate);
-
-      //     currentValue = createDecimalValueString(
-      //       Decimal(currentValue).add(contributions).toString()
-      //     );
-
-      //     // //modifierChain.apply(amount, createModifierContext(currentValue, currentDate, nextMonth));
-      //     // currentValue = createDecimalValueString(
-      //     //   Decimal(currentValue).add(amount).toString()
-      //     // );
-      //   }
-      // }
-
     }
 
     currentDate = nextMonth;
@@ -731,55 +679,23 @@ export function calculateYearsToTarget(
   return months / 12;
 }
 
-//TODO: This is a placeholder for the gender of the user.
-export type Gender = "male" | "female" | "other";
-
 export const defineStatePensionAgeForGenderUK = (
   dateOfBirth: Date,
-  //gender: Gender
 ): number => {
   return dateOfBirth.getFullYear() < 1960
       ? 66
-      : 67
-  // return gender === "male"
-  //   ? dateOfBirth.getFullYear() < 1960
-  //     ? 66
-  //     : 67
-  //   : gender === "female"
-  //   ? dateOfBirth.getFullYear() < 1960
-  //     ? 65
-  //     : 66
-  //   : gender === "other"
-  //   ? dateOfBirth.getFullYear() < 1960
-  //     ? 66
-  //     : 67
-  //   : 0;
+    : 67
 };
 
 export const defineStatePensionDetailsUK = (
   dateOfBirth: Date,
-  //gender: Gender
 ): {
   age: number;
   startDate: Date;
-} => {
-  //const statePensionAge = defineStatePensionAgeForGenderUK(dateOfBirth, gender);
+  } => {
   const statePensionAge = defineStatePensionAgeForGenderUK(dateOfBirth);
   return {
     age: statePensionAge,
     startDate: addYears(dateOfBirth, statePensionAge),
-  };
-};
-
-export const defineStatePensionValueUK = (
-  dateOfBirth: Date,
-  gender: Gender,
-  contributionYears: number
-): {
-  value: DecimalValueString;
-} => {
-  //TODO: Calculate the value of the state pension based on the date of birth, gender and contribution years
-  return {
-    value: createDecimalValueString("1000"),
   };
 };

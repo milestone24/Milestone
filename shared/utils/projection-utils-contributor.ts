@@ -10,7 +10,7 @@ import {
   RecurringContribution,
   ValueReleasePointInTime,
 } from "@shared/schema";
-import { defineStatePensionDetailsUK, Gender } from "./projection-utils";
+import { defineStatePensionDetailsUK } from "./projection-utils";
 import { createRRulePattern } from "./scheduling";
 
 export function mapRecurringContributionToContributorSchedule(
@@ -251,7 +251,6 @@ export function mapAssetsToContributors(
 
 export type StatePensionProps = {
   dateOfBirth: Date;
-  //gender: Gender;
 };
 
 export function defineStatePensionContributor(
@@ -259,8 +258,8 @@ export function defineStatePensionContributor(
   includeValue: boolean,
   includeContributions: boolean
 ): Contributor {
-  const { dateOfBirth, /*gender*/ } = props;
-  const { age, startDate } = defineStatePensionDetailsUK(dateOfBirth/*, gender*/);
+  const { dateOfBirth, } = props;
+  const { age, startDate } = defineStatePensionDetailsUK(dateOfBirth);
   return {
     id: crypto.randomUUID(),
     name: "State Pension",
