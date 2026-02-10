@@ -405,10 +405,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     return [
       ...currentProjection?.projectionResult.computationContext?.contributors ?? [],
       ...adjustmentContributors
-    ].map((contributor) => ({
-      ...contributor,
-      id: crypto.randomUUID(),
-    })) as Contributor[];
+    ];
   }, [currentProjection, adjustmentContributors]);
 
   const previewParams: UseFirePreviewProjectionParams = useMemo(() => ({
