@@ -4,6 +4,7 @@ import type { AccountType, DecimalValueString } from "@shared/schema";
 import type { Contributor, ContributionTypes } from "@shared/schema/projections";
 import { contributionTypes } from "@shared/schema/projections";
 import Decimal from "decimal.js";
+import { defineContributorRulesForAssetType } from "@shared/utils/projection-utils-contributor";
 
 const CUSTOM_CONTRIBUTORS_KEY = "fire-standalone-contributors";
 
@@ -83,6 +84,7 @@ export function useStandaloneContributors() {
       {
         ...input,
         id: generateId(),
+        ...(input.accountType !== null ? defineContributorRulesForAssetType(input.accountType) : {}),
       },
     ]);
   }, []);
