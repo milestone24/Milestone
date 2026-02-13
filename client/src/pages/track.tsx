@@ -85,6 +85,7 @@ export default function Track() {
     interval: "yearly",
     modifiers,
     useContributorSpecificGrowthRates: false,
+    usePortfolioRecurringContributions: false,
   };
 
   const { data: fireProjection } = useFIREProjection(

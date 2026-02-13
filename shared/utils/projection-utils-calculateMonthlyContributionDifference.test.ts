@@ -4,9 +4,10 @@ import { Contributor } from "@shared/schema/projections";
 import { createDecimalValueString } from "@shared/schema/utils";
 
 describe("calculateMonthlyContributionDifference", () => {
-  it("should return 0 if the current portfolio value is equal to the target value", () => {
+  it("should return 0 if the current portfolio value is equal to the target value", async () => {
     const contributors: Contributor[] = [
       {
+        id: crypto.randomUUID(),
         name: "Test Contributor",
         type: "asset",
         currentValue: createDecimalValueString("100000.00"),
@@ -24,12 +25,14 @@ describe("calculateMonthlyContributionDifference", () => {
             ),
           },
         ],
+        includeValue: true,
+        includeContributions: true,
       },
     ];
     const totalTargetDifference = 100000;
     const monthsRemaining = 12;
     const annualGrowthRate = 7;
-    const result = calculateMonthlyContributionDifference(
+    const result = await calculateMonthlyContributionDifference(
       contributors,
       totalTargetDifference,
       monthsRemaining,

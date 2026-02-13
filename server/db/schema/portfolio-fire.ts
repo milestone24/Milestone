@@ -15,10 +15,16 @@ import {
 } from "./utils";
 import { InferSelectModel, sql } from "drizzle-orm";
 
+export const IncomeGoalKeys = ["retirement_start", "reduced_spending_at_75", "other"] as const;
+
+export type IncomeGoalKey = (typeof IncomeGoalKeys)[number];
+
 export type IncomeGoal = {
+  key?: IncomeGoalKey;
   fromAge: number;
   incomeGoal: DecimalValueString;
 };
+
 
 export const fireSettings = pgTable("fire_settings", {
   id: uuid("id")

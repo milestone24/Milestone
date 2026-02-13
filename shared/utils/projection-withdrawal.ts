@@ -1,8 +1,10 @@
 import {
+  AccountAccessTimelineEntry,
   Contributor,
   FIREProjectionConfig,
   ProjectionResult,
   ValueReleasePointInTime,
+  WithdrawalStrategy,
 } from "@shared/schema/projections";
 import {
   DecimalValueString,
@@ -11,10 +13,11 @@ import {
 import { AccountType } from "@shared/schema";
 import Decimal from "decimal.js";
 import { addYears, differenceInYears } from "date-fns";
-
+import type { IncomeGoal } from "@shared/schema/portfolio-fire";
 // Reuse existing helpers
 import { calculateAgeAtDate } from "./projection-value-release";
 import { calculatePeriodContributions } from "./projection-utils";
+
 
 // ============================================================================
 // WITHDRAWAL STRATEGY TYPES
@@ -45,26 +48,21 @@ export interface WithdrawalPhase {
   warnings?: string[];
 }
 
-export interface AccountAccessTimelineEntry {
-  age: number | null;
-  accountType: AccountType;
-  contributorName: string;
-  contributorReferenceId?: string;
-  projectedValue: DecimalValueString;
-  taxCharacteristics: string;
-  isAccessible: boolean;
-}
+// export interface AccountAccessTimelineEntry {
+//   age: number | null;
+//   accountType: AccountType;
+//   contributorName: string;
+//   contributorReferenceId?: string;
+//   projectedValue: DecimalValueString;
+//   taxCharacteristics: string;
+//   isAccessible: boolean;
+// }
 
-export interface IncomeGoal {
-  fromAge: number;
-  incomeGoal: DecimalValueString;
-}
-
-export interface WithdrawalStrategy {
-  phases: WithdrawalPhase[];
-  accountAccessTimeline: AccountAccessTimelineEntry[];
-  warnings?: string[];
-}
+// export interface WithdrawalStrategy {
+//   phases: WithdrawalPhase[];
+//   accountAccessTimeline: AccountAccessTimelineEntry[];
+//   warnings?: string[];
+// }
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -362,6 +360,8 @@ export function buildAccountAccessTimeline(
       projectedValue,
       taxCharacteristics: unlockInfo.taxCharacteristics,
       isAccessible,
+      type: contributor.type,
+      contributorId: contributor.id,
     });
   }
 

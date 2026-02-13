@@ -54,6 +54,7 @@ describe("projectSingleContributor", () => {
   console.log("endDate", endDate);
   it("should project a single contributor", async () => {
     const contributorOne: Contributor = {
+      id: crypto.randomUUID(),
       name: "Test Contributor",
       accountType: "LISA",
       type: "asset",
@@ -106,6 +107,8 @@ describe("projectSingleContributor", () => {
           annualContributionLimit: createDecimalValueString("4000"),
         },
       ],
+      includeValue: true,
+      includeContributions: true,
     };
 
     const config: ProjectionConfigWithDateRange = {
@@ -117,6 +120,7 @@ describe("projectSingleContributor", () => {
       startDate: startDate,
       endDate: endDate,
       useContributorSpecificGrowthRates: false,
+      usePortfolioRecurringContributions: true,
     };
 
     const projection = await projectSingleContributor(contributorOne, config);

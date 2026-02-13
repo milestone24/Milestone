@@ -10,7 +10,7 @@ import {
   RecurringContribution,
   ValueReleasePointInTime,
 } from "@shared/schema";
-import { defineStatePensionDetailsUK, Gender } from "./projection-utils";
+import { defineStatePensionDetailsUK } from "./projection-utils";
 import { createRRulePattern } from "./scheduling";
 
 export function mapRecurringContributionToContributorSchedule(
@@ -221,9 +221,12 @@ export function defineContributorRulesForAssetType(
 }
 
 export function mapAssetToContributor(
-  asset: ProjectionOrchestratorAssetInput
+  asset: ProjectionOrchestratorAssetInput,
+  includeValue: boolean,
+  includeContributions: boolean
 ): Contributor {
   return {
+    id: crypto.randomUUID(),
     referenceId: asset.id,
     accountType: asset.accountType,
     name: asset.name,
@@ -233,26 +236,32 @@ export function mapAssetToContributor(
       asset.recurringContributions
     ),
     ...defineContributorRulesForAssetType(asset.accountType),
+    includeValue,
+    includeContributions,
   };
 }
 
 export function mapAssetsToContributors(
-  assets: ProjectionOrchestratorAssetInput[]
+  assets: ProjectionOrchestratorAssetInput[],
+  includeValue: boolean,
+  includeContributions: boolean
 ): Contributor[] {
-  return assets.map(mapAssetToContributor);
+  return assets.map((asset) => mapAssetToContributor(asset, includeValue, includeContributions));
 }
 
 export type StatePensionProps = {
   dateOfBirth: Date;
-  gender: Gender;
 };
 
 export function defineStatePensionContributor(
-  props: StatePensionProps
+  props: StatePensionProps,
+  includeValue: boolean,
+  includeContributions: boolean
 ): Contributor {
-  const { dateOfBirth, gender } = props;
-  const { age, startDate } = defineStatePensionDetailsUK(dateOfBirth, gender);
+  const { dateOfBirth, } = props;
+  const { age, startDate } = defineStatePensionDetailsUK(dateOfBirth);
   return {
+    id: crypto.randomUUID(),
     name: "State Pension",
     type: "state_pension",
     currentValue: createDecimalValueString("0"),
@@ -276,5 +285,7 @@ export function defineStatePensionContributor(
         value: createDecimalValueString("1000"),
       },
     ],
+    includeValue,
+    includeContributions,
   };
 }

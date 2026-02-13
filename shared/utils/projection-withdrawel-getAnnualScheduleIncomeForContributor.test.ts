@@ -26,12 +26,12 @@ describe("getAnnualScheduledIncomeForContributor", () => {
     // };
 
     const dateOfBirth = new Date("1979-05-15");
-    const gender = "male";
 
     const { startDate: pensionStartDate, age: pensionAge } =
-      defineStatePensionDetailsUK(dateOfBirth, gender);
+      defineStatePensionDetailsUK(dateOfBirth);
 
     const contributor: Contributor = {
+      id: crypto.randomUUID(),
       name: "State Pension",
       type: "state_pension",
       currentValue: createDecimalValueString("0"),
@@ -56,6 +56,8 @@ describe("getAnnualScheduledIncomeForContributor", () => {
           value: createDecimalValueString("1000"),
         },
       ],
+      includeValue: true,
+      includeContributions: true,
     };
 
     const result = getAnnualScheduledIncomeForContributor(contributor);

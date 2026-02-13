@@ -2,6 +2,11 @@ import { z, ZodType } from "zod";
 import { InsertFireSettings as DBInsertFireSettings, SelectFireSettings as DBSelectFireSettings } from "@server/db/schema/portfolio-fire";
 import { IfConstructorEquals, isDecimalValueString, Orphan } from "./utils";
 import { decimalValueSchema } from "@server/db/schema/utils";
+import {
+  type IncomeGoalKey as DBIncomeGoalKey,
+  type IncomeGoal as DBIncomeGoal,
+  IncomeGoalKeys as DBIncomeGoalKeys,
+} from "@server/db/schema/portfolio-fire";
 
 export const DEFAULT_TARGET_RETIREMENT_AGE = 60;
 export const DEFAULT_ANNUAL_INCOME_GOAL = 48000;
@@ -23,12 +28,21 @@ export const defaultValues = {
   statePensionAge: DEFAULT_STATE_PENSION_AGE,
 };
 
+export type IncomeGoalKey = DBIncomeGoalKey;
+
 export const incomeGoalSchema = z.object({
+  //We provide a key so that we can add income goals by other means.
+  //ie fireSettings "reduced_spending_at_75"
+  key: z.enum(DBIncomeGoalKeys).optional(),
   fromAge: z.number().int(),
   incomeGoal: decimalValueSchema.refine(isDecimalValueString, {
     message: "Income goal must be a valid decimal string",
   }),
 });
+
+incomeGoalSchema._output satisfies DBIncomeGoal;
+
+export type IncomeGoal = z.infer<typeof incomeGoalSchema>;
 
 export const fireSettingsOrphanSchema = z.object({
   targetRetirementAge: z.coerce.number().int(),
@@ -52,6 +66,11 @@ export const fireSettingsOrphanSchema = z.object({
 fireSettingsOrphanSchema._output satisfies Omit<
   DBInsertFireSettings,
   "userAccountId"
+>;
+
+fireSettingsOrphanSchema._output satisfies Omit<
+  DBSelectFireSettings,
+  "userAccountId" | "id" | "createdAt" | "updatedAt"
 >;
 
 export const fireSettingsOrphanFormSchema = fireSettingsOrphanSchema

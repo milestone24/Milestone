@@ -9,6 +9,7 @@ import { defineStatePensionDetailsUK } from "./projection-utils";
 describe("calculatePeriodContributions", () => {
   it("should return the correct LISA contributions for a monthly contribution of 10 for 12 months", () => {
     const contributor: Contributor = {
+      id: crypto.randomUUID(),
       name: "Test Contributor",
       accountType: "LISA",
       type: "asset",
@@ -23,6 +24,8 @@ describe("calculatePeriodContributions", () => {
           endDate: addYears(new Date(), 1),
         },
       ],
+      includeValue: true,
+      includeContributions: true,
     };
 
     const result = calculatePeriodContributions(
@@ -35,9 +38,10 @@ describe("calculatePeriodContributions", () => {
 
   it.only("should return the correct State Pension contributions for a monthly contribution of 10 for 12 months", () => {
     const { startDate: pensionStartDate, age: pensionAge } =
-      defineStatePensionDetailsUK(new Date("1979-05-15"), "male");
+      defineStatePensionDetailsUK(new Date("1979-05-15"));
 
     const contributor: Contributor = {
+      id: crypto.randomUUID(),
       name: "State Pension",
       type: "state_pension",
       currentValue: createDecimalValueString("0"),
@@ -62,6 +66,8 @@ describe("calculatePeriodContributions", () => {
           value: createDecimalValueString("1000"),
         },
       ],
+      includeValue: true,
+      includeContributions: true,
     };
 
     const startDate = pensionStartDate;

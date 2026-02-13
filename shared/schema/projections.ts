@@ -120,6 +120,7 @@ export const baseProjectionConfigSchema = z.object({
   growthModel: growthModelSchema,
   interval: projectionIntervalSchema.default("monthly"),
   modifiers: z.array(projectionModifierSchema).default([]),
+  usePortfolioRecurringContributions: z.boolean().optional().default(false),
   useContributorSpecificGrowthRates: z.boolean().optional().default(false),
 });
 
@@ -187,17 +188,6 @@ export type ProjectionConfigWithDateRange = z.infer<
   typeof projectionConfigWithDateRangeSchema
 >;
 
-const c: ProjectionConfigWithDateRange = {
-  mode: "simple",
-  growthRate: 7.0,
-  growthModel: "compound",
-  startDate: new Date(),
-  endDate: new Date(),
-  interval: "yearly",
-  modifiers: [],
-  useContributorSpecificGrowthRates: false,
-};
-
 // ============================================================================
 // MILESTONE & FIRE INTEGRATION
 // ============================================================================
@@ -224,7 +214,6 @@ export type MilestoneTarget = z.infer<typeof milestoneTargetSchema>;
  */
 export const fireProjectionConfigSchema = z.object({
   dateOfBirth: dateTransformedSchema,
-  gender: z.enum(["male", "female", "other"]),
   targetRetirementAge: z.number().min(18).max(100),
   annualIncomeGoal: decimalValueSchema.refine(isDecimalValueString, {
     message: "Annual income goal must be a valid decimal string",
@@ -315,7 +304,8 @@ export const contributionTypes = [
   "asset",
   "state_pension",
   "workplace_pension",
-  "custom",
+  "adjustment",
+  "fire-setting",
 ] as const;
 
 export const contributorProjectionSchema = z.object({
@@ -448,6 +438,7 @@ const contributorType = [...accountType, "PENSION"] as const;
 export type ContributorType = (typeof contributorType)[number];
 
 export const contributorSchema = z.object({
+  id: z.string().uuid(),
   referenceId: z.string().uuid().optional(),
   accountType: z.enum(contributorType).nullable(),
   name: z.string(),
@@ -461,6 +452,8 @@ export const contributorSchema = z.object({
   }),
   schedules: z.array(contributorScheduleSchema),
   taxes: z.array(taxSchema).optional(),
+  includeValue: z.boolean(),
+  includeContributions: z.boolean(),
 });
 
 export type Contributor = z.infer<typeof contributorSchema>;
@@ -578,19 +571,25 @@ export type MonthlyContributionDifference = z.infer<
  * FIRE progress result - retirement feasibility
  */
 export const fireProjectionSchema = z.object({
-  fireNumber: z.number(), // Required portfolio value to retire
+  fireNumber: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Fire number must be a valid decimal string",
+  }),
   projectedRetirementDate: dateTransformedSchema.nullable(),
   projectedRetirementAge: z.number().nullable(),
   targetRetirementAge: z.number(),
   projectedValueAtRetirement: decimalValueSchema.refine(isDecimalValueString, {
     message: "Projected value at retirement must be a valid decimal string",
   }),
+  progressPercentage: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Progress percentage must be a valid decimal string",
+  }),
   isOnTrack: z.boolean(),
-  yearsAheadOrBehind: z.number().nullable(),
-  yearsRemainingToFireTarget: z.number().nullable(), // Negative if ahead, positive if behind
+  yearsAheadOrBehind: z.number(),
+  yearsRemainingToFireTarget: z.number(), // Negative if ahead, positive if behind
   monthlyContributionDifference: monthlyContributionDifferenceSchema,
   projectionResult: projectionResultSchema,
-  fireProjection: z.array(fireProjectionDataSchema),
+  fireProjectionByTime: z.array(projectionTimePointSchema),
+  fireProjectionByAge: z.array(fireProjectionDataSchema),
   withdrawalStrategy: z.lazy(() => withdrawalStrategySchema).optional(), // Forward reference, added after schema definition
   warnings: z.array(z.string()).optional(),
 });
@@ -633,6 +632,7 @@ export type WithdrawalPhase = z.infer<typeof withdrawalPhaseSchema>;
  * Account access timeline entry
  */
 export const accountAccessTimelineEntrySchema = z.object({
+  contributorId: z.string().uuid(),
   age: z.number().nullable(),
   accountType: z.enum(contributorType),
   contributorName: z.string(),
@@ -642,6 +642,7 @@ export const accountAccessTimelineEntrySchema = z.object({
   }),
   taxCharacteristics: z.string(),
   isAccessible: z.boolean(),
+  type: z.enum(contributionTypes),
 });
 export type AccountAccessTimelineEntry = z.infer<
   typeof accountAccessTimelineEntrySchema

@@ -5,7 +5,7 @@ import { AlertTriangle } from "lucide-react";
 
 type FirePageErrorProps = {
   error: Error;
-  onRetry: () => void;
+  onRetry?: () => void;
   className?: string;
 };
 
@@ -22,10 +22,12 @@ export function FirePageError({ error, onRetry, className }: FirePageErrorProps)
           <AlertTriangle className="h-4 w-4" aria-hidden />
         </div>
         <div>
-          <CardTitle className="text-destructive">Projection temporarily unavailable</CardTitle>
+          <CardTitle className="text-destructive">
+            Projection temporarily unavailable
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Don’t worry—your saved FIRE settings are safe. Try again in a few moments or adjust your
-            inputs below.
+            Don’t worry—your saved FIRE settings are safe. Try again in a few
+            moments or adjust your inputs below.
           </p>
         </div>
       </CardHeader>
@@ -39,9 +41,11 @@ export function FirePageError({ error, onRetry, className }: FirePageErrorProps)
             <li>Check your connection if the issue persists.</li>
           </ul>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={onRetry}>Retry calculation</Button>
-        </div>
+        {onRetry ? (
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={onRetry}>Retry calculation</Button>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

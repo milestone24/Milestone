@@ -494,6 +494,7 @@ export function useDefaultSimpleProjectionConfig(
     interval: "yearly",
     modifiers: [],
     useContributorSpecificGrowthRates: false,
+    usePortfolioRecurringContributions: false,
   };
 }
 
@@ -518,6 +519,7 @@ export function useDefaultAdvancedProjectionConfig(
     endDate,
     interval: "yearly",
     modifiers: [],
+    usePortfolioRecurringContributions: false,
   };
 }
 

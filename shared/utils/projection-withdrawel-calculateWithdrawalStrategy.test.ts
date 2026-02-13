@@ -16,6 +16,7 @@ function createProjectionSimpleConfig(): ProjectionConfig {
     interval: "monthly",
     modifiers: [],
     useContributorSpecificGrowthRates: false,
+    usePortfolioRecurringContributions: true,
     growthRate: 0,
   };
 }
@@ -38,6 +39,7 @@ describe("calculateWithdrawalStrategy", () => {
   it("should return the correct withdrawal strategy", () => {
     const contributors: Contributor[] = [
       {
+        id: crypto.randomUUID(),
         name: "Test Contributor",
         type: "asset",
         currentValue: createDecimalValueString("100000"),
@@ -53,6 +55,8 @@ describe("calculateWithdrawalStrategy", () => {
             endDate: null,
           },
         ],
+        includeValue: true,
+        includeContributions: true,
       },
     ];
 
@@ -60,10 +64,10 @@ describe("calculateWithdrawalStrategy", () => {
       contributors,
       {
         dateOfBirth: new Date("1979-05-15"),
-        gender: "male",
         includeStatePension: false,
         incomeGoals: [
           {
+            key: "retirement_start",
             fromAge: 67,
             incomeGoal: createDecimalValueString("10000"),
           },
@@ -76,6 +80,7 @@ describe("calculateWithdrawalStrategy", () => {
       createProjectionResult(),
       [
         {
+          key: "retirement_start",
           fromAge: 67,
           incomeGoal: createDecimalValueString("10000"),
         },

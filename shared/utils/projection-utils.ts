@@ -13,10 +13,8 @@ import { ModifierChain, createModifierContext } from "./projection-modifiers";
 import { getNextExecutionDate } from "./scheduling";
 import { addDays, addMonths, addWeeks, addYears } from "date-fns";
 import {
-  AccountType,
   createDecimalValueString,
   DecimalValueString,
-  RecurringContribution,
 } from "@shared/schema";
 import Decimal from "decimal.js";
 import {
@@ -430,33 +428,19 @@ export function convertToAgeBasedProjection(
   return projectionData;
 }
 
+
+
 /**
- * Calculate additional monthly contribution needed to reach milestone* TODO: This method should now return a positive or negative number depending on whether the user is ahead or behind the target
+ * Calculate additional monthly contribution needed to reach milestone*
+ * TODO: This method should now return a positive or negative number depending on whether the user is ahead or behind the target
  * TODO: This method should consider if the current value exceeds the target.
  */
-export function calculateMonthlyContributionDifference(
+export async function calculateMonthlyContributionDifference(
   contributors: Contributor[],
   totalTargetDifference: number,
   monthsRemaining: number,
   annualGrowthRate: number
-): MonthlyContributionDifference {
-  console.log(
-    "calculateMonthlyContributionDifference totalTargetDifference",
-    totalTargetDifference
-  );
-  console.log(
-    "calculateMonthlyContributionDifference monthsRemaining",
-    monthsRemaining
-  );
-  console.log(
-    "calculateMonthlyContributionDifference annualGrowthRate",
-    annualGrowthRate
-  );
-
-  console.log(
-    "calculateMonthlyContributionDifference contributors",
-    JSON.stringify(contributors, null, 2)
-  );
+): Promise<MonthlyContributionDifference> {
 
   //First get an average monthly contribution from the contributors
   //Contributors can have random schedules of any freqquncy.
@@ -466,30 +450,17 @@ export function calculateMonthlyContributionDifference(
   const startDate = new Date();
   const oneYearFromNow = addYears(startDate, 1);
 
-  let totalAnnualUserContributions = Decimal(0);
-  let totalAnnualBonuses = Decimal(0);
-
-  // Calculate total annual contributions from all contributors
-  // This estimates monthly average by projecting one year ahead
-  for (const contributor of contributors) {
-    const periodResult = calculatePeriodContributions(
-      contributor,
-      startDate,
-      oneYearFromNow
-    );
-    console.log(
-      "calculateMonthlyContributionDifference contributor",
-      contributor.accountType
-    );
-    console.log(
-      "calculateMonthlyContributionDifference periodResult",
-      JSON.stringify(periodResult, null, 2)
-    );
-    totalAnnualUserContributions = totalAnnualUserContributions.add(
-      periodResult.contributions
-    );
-    totalAnnualBonuses = totalAnnualBonuses.add(periodResult.bonuses);
-  }
+  const {
+    contributions: totalAnnualUserContributions,
+    bonuses: totalAnnualBonuses,
+  } = await Promise.all(contributors.map(contributor => {
+    return calculatePeriodContributions(contributor, startDate, oneYearFromNow);
+  }))
+    .then(results => results.reduce((acc, result) => {
+      acc.contributions = acc.contributions.add(result.contributions);
+      acc.bonuses = acc.bonuses.add(result.bonuses);
+      return acc;
+    }, { contributions: Decimal(0), bonuses: Decimal(0) }));
 
   // Calculate existing monthly contributions
   // approximateMonthlyContribution should be user contributions only (no bonuses)
@@ -527,11 +498,6 @@ export function calculateMonthlyContributionDifference(
       ),
     };
   }
-
-  console.log(
-    "calculateMonthlyContributionDifference totalTargetDifference",
-    totalTargetDifference
-  );
 
   // Calculate what monthly contribution is needed to close the gap
   // Using future value of annuity formula solved for payment:
@@ -593,8 +559,8 @@ export function calculateMonthlyContributionDifference(
   // Calculate the difference: existing user contributions - needed user contributions
   // Positive = contributing more than needed (over-investing)
   // Negative = contributing less than needed (under-investing)
-  const monthlyContributionDifference = approximateMonthlyContribution.sub(
-    neededUserMonthlyContribution
+  const monthlyContributionDifference = neededUserMonthlyContribution.sub(
+    approximateMonthlyContribution
   );
 
   return {
@@ -621,24 +587,11 @@ export function calculateMonthlyContributionDifference(
  * @returns Negative if ahead of schedule, positive if behind, 0 if on track, Infinity if unreachable
  */
 export function calculateYearsAheadOrBehind(
-  currentPortfolioValue: DecimalValueString,
-  targetValue: DecimalValueString,
-  scheduledContributions: ContributorSchedule[],
-  annualGrowthRate: number,
+  yearsToReachTarget: number,
   targetRetirementAge: number,
   currentAge: number
 ): number {
   // Calculate how many years it will take to reach the target
-  const yearsToReachTarget = calculateYearsToTarget(
-    currentPortfolioValue,
-    scheduledContributions,
-    annualGrowthRate,
-    targetValue,
-    {
-      startDate: new Date(),
-      maxYears: 100, // Reasonable max for retirement planning
-    }
-  );
 
   // If it's impossible to reach the target, return Infinity
   if (yearsToReachTarget === Infinity) {
@@ -662,9 +615,10 @@ export function calculateYearsAheadOrBehind(
  */
 export function calculateYearsToTarget(
   presentValue: DecimalValueString,
-  scheduledContributions: ContributorSchedule[],
+  contributors: Contributor[],
   annualRate: number,
   targetValue: DecimalValueString,
+  modifierChain: ModifierChain,
   config: {
     startDate: Date;
     maxYears?: number;
@@ -674,8 +628,10 @@ export function calculateYearsToTarget(
   const maxYears = config.maxYears || 100;
   const maxMonths = maxYears * 12;
 
+  const scheduledContributions = contributors.flatMap(c => c.schedules);
+
   // Handle edge cases
-  if (presentValue >= targetValue) return 0;
+  if (Decimal(presentValue).gte(targetValue)) return 0;
   if (monthlyRate === 0) {
     // No growth, calculate based on contributions only
     const totalContributionAmount = scheduledContributions.reduce(
@@ -693,9 +649,9 @@ export function calculateYearsToTarget(
   // Use iterative approach similar to tracking.ts
   let months = 0;
   let currentValue = presentValue;
-  let currentDate = new Date(config.startDate);
+  let currentDate = new Date(config.startDate); 
 
-  while (currentValue < targetValue && months < maxMonths) {
+  while (Decimal(currentValue).lt(targetValue) && months < maxMonths) {
     // Apply growth
     currentValue = createDecimalValueString(
       Decimal(currentValue).mul(Decimal(1).add(monthlyRate)).toString()
@@ -703,70 +659,45 @@ export function calculateYearsToTarget(
 
     // Add contributions for this month
     const nextMonth = addMonths(currentDate, 1);
-    for (const contribution of scheduledContributions) {
-      for (const { amount } of projectRecurringContributions(
-        contribution,
-        currentDate,
-        nextMonth
-      )) {
-        currentValue = createDecimalValueString(
-          Decimal(currentValue).add(amount).toString()
-        );
-      }
+
+    for (const contributor of contributors) {
+
+      //TODO check date ranges here
+      const { contributions, bonuses } = calculatePeriodContributions(contributor, currentDate, nextMonth, modifierChain, currentValue, currentDate);
+
+      currentValue = createDecimalValueString(
+        Decimal(currentValue)
+          .add(contributions)
+          .add(bonuses)
+          .toString()
+      );
+
     }
 
     currentDate = nextMonth;
     months++;
   }
 
-  return months / 12;
+  return Decimal(Decimal(months).div(12).toFixed(2)).toNumber();
 }
-
-//TODO: This is a placeholder for the gender of the user.
-export type Gender = "male" | "female" | "other";
 
 export const defineStatePensionAgeForGenderUK = (
   dateOfBirth: Date,
-  gender: Gender
 ): number => {
-  return gender === "male"
-    ? dateOfBirth.getFullYear() < 1960
+  return dateOfBirth.getFullYear() < 1960
       ? 66
-      : 67
-    : gender === "female"
-    ? dateOfBirth.getFullYear() < 1960
-      ? 65
-      : 66
-    : gender === "other"
-    ? dateOfBirth.getFullYear() < 1960
-      ? 66
-      : 67
-    : 0;
+    : 67
 };
 
 export const defineStatePensionDetailsUK = (
   dateOfBirth: Date,
-  gender: Gender
 ): {
   age: number;
   startDate: Date;
-} => {
-  const statePensionAge = defineStatePensionAgeForGenderUK(dateOfBirth, gender);
+  } => {
+  const statePensionAge = defineStatePensionAgeForGenderUK(dateOfBirth);
   return {
     age: statePensionAge,
     startDate: addYears(dateOfBirth, statePensionAge),
-  };
-};
-
-export const defineStatePensionValueUK = (
-  dateOfBirth: Date,
-  gender: Gender,
-  contributionYears: number
-): {
-  value: DecimalValueString;
-} => {
-  //TODO: Calculate the value of the state pension based on the date of birth, gender and contribution years
-  return {
-    value: createDecimalValueString("1000"),
   };
 };

@@ -19,7 +19,7 @@ const Portfolio = lazy(() => import("@/pages/portfolio"));
 const AssetPage = lazy(() => import("@/pages/asset"));
 const Goals = lazy(() => import("@/pages/goals"));
 const Track = lazy(() => import("@/pages/track"));
-const Fire = lazy(() => import("@/pages/fire-now"));
+const FireNow = lazy(() => import("@/pages/fire-now"));
 const Profile = lazy(() => import("@/pages/profile"));
 const Settings = lazy(() => import("@/pages/settings"));
 const ApiConnections = lazy(() => import("@/pages/api-connections"));
@@ -87,7 +87,7 @@ function Router() {
           <Route path="/fire">
             {() => (
               <ProtectedRoute>
-                <RouteWithLayout component={Fire} />
+                <RouteWithLayout component={FireNow} />
               </ProtectedRoute>
             )}
           </Route>

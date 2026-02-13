@@ -27,6 +27,7 @@ import {
   convertToAgeBasedProjection,
   calculateMonthlyContributionDifference,
   defineStatePensionDetailsUK,
+  calculateYearsToTarget,
 } from "./projection-utils";
 import {
   defineStatePensionContributor,
@@ -34,6 +35,7 @@ import {
 } from "./projection-utils-contributor";
 import { createRRulePattern } from "./scheduling";
 import { calculateWithdrawalStrategy } from "./projection-withdrawal";
+import { createModifierChain } from "./projection-modifiers";
 
 // ============================================================================
 // FIRE PROJECTION CALCULATOR
@@ -56,10 +58,10 @@ export function calculateRetirementDate(
 export function calculateFIRENumber(
   annualIncomeGoal: number,
   safeWithdrawalRate: number
-): number {
-  return Decimal(annualIncomeGoal)
+): DecimalValueString {
+  return createDecimalValueString(Decimal(annualIncomeGoal)
     .div(Decimal(safeWithdrawalRate).div(100))
-    .toNumber();
+    .toNumber().toString());
 }
 
 /**
@@ -94,25 +96,12 @@ export async function projectToRetirement(
   );
 
   // Create projection config with retirement date as end date
-  //There should not be a cast here
   const fullProjectionConfig: ProjectionConfigWithDateRange =
     addDateRengeToProjectionConfig(
-      projectionConfig as ProjectionConfig,
+      projectionConfig,
       new Date(),
       retirementDate
     );
-  // const fullProjectionConfig: ProjectionConfigWithDateRange = {
-  //   ...projectionConfig,
-  //   startDate: new Date(),
-  //   endDate: retirementDate,
-  // } as ProjectionConfigWithDateRange;
-
-  // const projectionResult = await projectPortfolio(
-  //   //userAccountId,
-  //   fullProjectionConfig,
-  //   dataSource,
-  //   contributors
-  // );
 
   // Run portfolio projection
   const projectionResult = await orchestrateProjection({
@@ -135,24 +124,22 @@ This will cause the projection to be infinite years ahead of retirement.`);
 
   const currentPortfolioValue = projectionResult.totalCurrentValue;
 
-  const currentDifference = Decimal(fireNumber)
-    .sub(currentPortfolioValue)
+  // This could be a positive or negative number
+  const targetDifference = Decimal(fireNumber)
+    .sub(Decimal(projectedValueAtRetirement))
     .toNumber();
 
-  // This could be a positive or negative number
-  const targetDifference = Decimal(projectedValueAtRetirement)
-    .sub(Decimal(fireNumber))
-    .toNumber();
+  const progressPercentage = createDecimalValueString(Decimal(currentPortfolioValue)
+    .div(Decimal(fireNumber)).toFixed(2).toString());
 
   const isOnTrack = targetDifference <= 0;
 
   // Calculate years until retirement
   const currentAge = calculateAge(fireConfig.dateOfBirth);
 
-  // Get current portfolio value
-
-  // Extract schedules from contributors
-  const scheduledContributions = contributors.flatMap((c) => c.schedules);
+  // Extract contributors for projection
+  const contributorsForProjection = contributors
+    .filter((c) => c.includeContributions)
 
   // Use growth rate from config
   const growthRate =
@@ -160,12 +147,23 @@ This will cause the projection to be infinite years ahead of retirement.`);
       ? (projectionConfig as SimpleProjectionConfig).growthRate
       : 7; // Default 7% if advanced mode
 
+  const modifierChain = createModifierChain(projectionConfig.modifiers);
+
+  const yearsToTarget = calculateYearsToTarget(
+    currentPortfolioValue,
+    contributorsForProjection,
+    growthRate,
+    fireNumber,
+    modifierChain,
+    {
+      startDate: new Date(),
+      maxYears: 100,
+    }
+  );
+
   // Calculate years ahead or behind using the new implementation
   const yearsAheadOrBehind = calculateYearsAheadOrBehind(
-    currentPortfolioValue,
-    createDecimalValueString(fireNumber.toString()),
-    scheduledContributions,
-    growthRate,
+    yearsToTarget,
     fireConfig.targetRetirementAge,
     currentAge
   );
@@ -180,7 +178,7 @@ This will cause the projection to be infinite years ahead of retirement.`);
   const monthsRemainingToTargetAge = yearsRemainingToTargetAge * 12;
 
   //Question if we should apply a growth rate to the target difference
-  const monthlyContributionDifference = calculateMonthlyContributionDifference(
+  const monthlyContributionDifference = await calculateMonthlyContributionDifference(
     contributors,
     targetDifference,
     monthsRemainingToTargetAge,
@@ -201,11 +199,7 @@ This will cause the projection to be infinite years ahead of retirement.`);
       : calculateAge(fireConfig.dateOfBirth) +
         differenceInYears(projectedRetirementDate, new Date());
 
-  const yearsRemainingToFireTarget =
-    //We ise mius here because if the yearsAheadOrBehind is behind it would be a negative number and we want to show that as a positive number
-    yearsRemainingToTargetAge - yearsAheadOrBehind;
-
-  const fireProjection = convertToAgeBasedProjection(
+  const fireProjectionByAge = convertToAgeBasedProjection(
     projectionResult.timePoints,
     fireConfig.dateOfBirth,
     createDecimalValueString(fireNumber.toString())
@@ -213,7 +207,7 @@ This will cause the projection to be infinite years ahead of retirement.`);
 
   // Calculate withdrawal strategy
   const withdrawalStrategy = calculateWithdrawalStrategy(
-    contributors,
+    contributorsForProjection,
     fireConfig,
     projectionResult,
     fireConfig.incomeGoals
@@ -232,9 +226,11 @@ This will cause the projection to be infinite years ahead of retirement.`);
     projectedValueAtRetirement,
     isOnTrack,
     yearsAheadOrBehind,
-    yearsRemainingToFireTarget,
+    progressPercentage,
+    yearsRemainingToFireTarget: yearsToTarget,
     monthlyContributionDifference,
-    fireProjection,
+    fireProjectionByTime: projectionResult.timePoints,
+    fireProjectionByAge,
     projectionResult,
     withdrawalStrategy,
     warnings,
@@ -246,7 +242,7 @@ This will cause the projection to be infinite years ahead of retirement.`);
  * This is called by the route checkFIREFeasibility as a consequence of a call the endpoint /api/projections/fire.
  * This in turn calls the projectToRetirement function to project the retirement feasibility the same as the client
  */
-export async function projectRetirementWithAccountAssets(
+export async function projectRetirementWithContributors(
   projectionConfig: ProjectionConfig,
   //db: Database
   dataSource: ProjectionDataSource
@@ -283,7 +279,6 @@ export async function projectRetirementWithAccountAssets(
   // Create FIRE config from settings
   const fireConfig: FIREProjectionConfig = {
     dateOfBirth: userProfile.dob,
-    gender: userProfile.gender,
     targetRetirementAge: userFireSettings.targetRetirementAge,
     annualIncomeGoal: userFireSettings.annualIncomeGoal,
     safeWithdrawalRate: userFireSettings.safeWithdrawalRate,
@@ -294,7 +289,33 @@ export async function projectRetirementWithAccountAssets(
 
   const assets = await dataSource.getAssets();
 
-  const contributors = mapAssetsToContributors(assets);
+  let contributors: Contributor[] = mapAssetsToContributors(assets, true, projectionConfig.usePortfolioRecurringContributions);
+
+  /*
+  We always push the fire settings montyl contriution
+  but we only include the value if the user has not selected to include the portfolio recurring contributions
+  */
+  contributors.push(
+    {
+      id: crypto.randomUUID(),
+      name: "Fire Settings Monthly Contribution",
+      type: "fire-setting",
+      accountType: "OTHER",
+      currentValue: createDecimalValueString("0"),
+      schedules: [{
+        startDate: new Date(),
+        endDate: null,
+        value: createDecimalValueString(userFireSettings.monthlyInvestment),
+        patternConfig: {
+          type: "rrule",
+          expression: createRRulePattern("FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1")
+            .expression,
+        },
+      }],
+      includeValue: !projectionConfig.usePortfolioRecurringContributions,
+      includeContributions: !projectionConfig.usePortfolioRecurringContributions,
+    },
+  )
 
   //If fire settings or other config has "include government pensions" set to true, then add the government pension to the contributors
   //We need to find all the details for the specifics of UK state pension withdrawels etc and rules
@@ -303,8 +324,8 @@ export async function projectRetirementWithAccountAssets(
   if (fireConfig.includeStatePension) {
     const statePensionContributor = defineStatePensionContributor({
       dateOfBirth: fireConfig.dateOfBirth,
-      gender: fireConfig.gender,
-    });
+      //gender: fireConfig.gender,
+    }, true, true);
 
     contributors.push(statePensionContributor);
   }
