@@ -56,7 +56,14 @@ export const isAssetValuesUpdateMessage = (
 
 export type SecuritiesDailyHistoryCacheUpdateMessageBase = {
   jobId: string;
+  groupId?: string;
+  accountId?: string;
 };
+
+type SecuritiesDailyHistoryCacheUpdateAbortMessage =
+  SecuritiesDailyHistoryCacheUpdateMessageBase & {
+    type: "securities-daily-history-cache-update-abort";
+  };
 
 type SecuritiesDailyHistoryCacheUpdateStartedMessage =
   SecuritiesDailyHistoryCacheUpdateMessageBase & {
@@ -83,6 +90,7 @@ type SecuritiesDailyHistoryCacheUpdateAbortedMessage =
   };
 
 export type SecuritiesDailyHistoryCacheUpdateMessage =
+  | SecuritiesDailyHistoryCacheUpdateAbortMessage
   | SecuritiesDailyHistoryCacheUpdateStartedMessage
   | SecuritiesDailyHistoryCacheUpdateCompletedMessage
   | SecuritiesDailyHistoryCacheUpdateFailedMessage

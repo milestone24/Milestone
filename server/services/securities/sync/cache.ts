@@ -15,7 +15,8 @@ import { AssetPersistence } from "@server/services/assets/database";
  */
 export const fetchFilteredSecurityHistoryForDates = async (
   securityIdentifier: { symbol: string; exchange?: string },
-  datesToFetch: [Date, Date]
+  datesToFetch: [Date, Date],
+  abortSignal: AbortSignal
 ): Promise<SecurityHistory[]> => {
   const gateway = gatewayFactory();
   const historyData: SecurityHistory[] = [];
@@ -69,7 +70,7 @@ export const fetchFilteredSecurityHistoryForDates = async (
 const populateSecurityDailyHistoryCache = async (
   securityContext: SecurityContext,
   jobId: string,
-  abortSignal: AbortSignal
+  abortSignal: AbortSignal,
 ): Promise<Date[]> => {
   if (abortSignal.aborted) {
     return [];
@@ -120,7 +121,8 @@ const populateSecurityDailyHistoryCache = async (
     },
     //We need to fill the security history from the last date we have,
     // or the start date of the security until today
-    dateRange
+    dateRange,
+    abortSignal
   );
 
   if (abortSignal.aborted) {

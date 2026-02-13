@@ -34,6 +34,17 @@ export const initUpdateChain = async () => {
         message: `Asset values update failed for assetId: ${message.assetId}`,
       });
     }
+    if (
+      message.type === "securities-daily-history-cache-update-completed" ||
+      message.type === "securities-daily-history-cache-update-failed" ||
+      message.type === "securities-daily-history-cache-update-aborted"
+    ) {
+      if (message.groupId) {
+        await assetValuesService.checkGroupCompleteAndTriggerAssetValues(
+          message.groupId
+        );
+      }
+    }
     if (message.type === "securities-daily-history-cache-update-exited") {
       console.log(
         "Securities daily history cache update exited, updating asset values for all assets of all accounts"

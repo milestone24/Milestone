@@ -774,7 +774,12 @@ export class DatabaseAssetService {
       return insertedUserAsset;
     });
 
-    this.assetValuesService.updateAssetValuesForAssetOfAccount(
+    // this.assetValuesService.updateAssetValuesForAssetOfAccount(
+    //   insertedUserAsset.userAccountId,
+    //   insertedUserAsset.id
+    // );
+
+    this.assetValuesService.initAssetValuesForAssetOfAccount(
       insertedUserAsset.userAccountId,
       insertedUserAsset.id
     );

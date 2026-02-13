@@ -1,7 +1,8 @@
 import { sendNotification } from "../comms/socket";
 import { Database } from "@server/db";
 import { and, eq, inArray, not, or, sql } from "drizzle-orm";
-import { processes, userAssets } from "@server/db/schema";
+import { processes, userAssets, userAssetSecurities } from "@server/db/schema";
+import { UUID_REGEX } from "@server/utils/uuid";
 import {
   ProcessSelect,
   UpdateAssetValuesProcess,
@@ -22,13 +23,60 @@ import {
 import { factory as queueFactory } from "@server/services/distributed/queue";
 import { mockLambdaHandler } from "./asset-values-mock-lambda";
 import { handler } from "./asset-values-distributed-handler";
+import { SecuritiesCacheUpdater } from "../securities/sync/cache";
+import { SecuritiesCacheService } from "./securities-cache";
 
 export class AssetValuesService {
+
+  private securitiesCacheService: SecuritiesCacheService;
+
   //TODO consider how to handle the abstraction of Db or
   constructor(
     //TODO maybe use job or process persistence factory instead of db?
-    private db: Database
-  ) { }
+    private db: Database,
+  ) {
+    this.securitiesCacheService = new SecuritiesCacheService(db);
+  }
+
+  async initAssetValuesForAssetOfAccount(
+    accountId: string,
+    assetId: string
+  ): Promise<void> {
+    const asset = await this.db.query.userAssets.findFirst({
+      where: eq(userAssets.userAccountId, accountId),
+    });
+
+    if (!asset) {
+      throw new Error("Asset not found");
+    }
+
+    const securityContexts = await this.db.query.userAssetSecurities.findMany({
+      where: eq(userAssetSecurities.userAssetId, asset.id),
+    });
+
+    const securityIds = securityContexts.map(
+      (securityContext) => securityContext.securityId
+    );
+
+    if (securityIds.length === 0) {
+      return;
+    }
+
+    const earliestStartDate = securityContexts.reduce(
+      (min, securityContext) =>
+        securityContext.startDate < min ? securityContext.startDate : min,
+      new Date()
+    );
+
+    await this.securitiesCacheService.updateSecuritiesDailyHistoryCacheForSecurities(
+      securityIds,
+      assetId,
+      accountId,
+      earliestStartDate
+    );
+
+    // Asset-values update is triggered when all cache jobs for this asset complete (check group complete in chain).
+  }
 
   async updateAssetValuesForAssetOfAccount(
     accountId: string,
@@ -287,5 +335,65 @@ export class AssetValuesService {
     for (const account of accounts) {
       await this.updateAssetValuesForAllAssetsOfAccount(account.id, startDate);
     }
+  }
+
+  /** Full-refresh group sentinel: when groupId equals this, trigger update for all assets of all accounts. */
+  static readonly FULL_REFRESH_GROUP_ID = "full-refresh";
+
+  /**
+   * Check if all cache jobs in the group are done (completed, failed, or aborted).
+   * If so, trigger asset-values update for that asset (or all assets when groupId is full-refresh).
+   */
+  async checkGroupCompleteAndTriggerAssetValues(groupId: string): Promise<void> {
+    const groupJobs = await this.db.query.processes.findMany({
+      where: and(
+        eq(processes.key, "update-securities-daily-history-cache"),
+        sql`payload->>'groupId' = ${groupId}`
+      ),
+      columns: { id: true, status: true, payload: true },
+    });
+
+    if (groupJobs.length === 0) {
+      return;
+    }
+
+    const terminalStatuses = ["completed", "failed", "aborted"] as const;
+    const allDone = groupJobs.every((j) =>
+      terminalStatuses.includes(j.status as (typeof terminalStatuses)[number])
+    );
+
+    console.log("checkGroupCompleteAndTriggerAssetValues", groupJobs);
+
+    console.log("checkGroupCompleteAndTriggerAssetValues", groupId, allDone);
+
+    if (!allDone) {
+      return;
+    }
+
+    if (groupId === AssetValuesService.FULL_REFRESH_GROUP_ID) {
+      await this.updateAssetValuesForAllAssetsOfAllAccounts();
+      return;
+    }
+
+    if (!UUID_REGEX.test(groupId)) {
+      return;
+    }
+
+    const assetId = groupId;
+    const firstWithAccountId = groupJobs.find(
+      (j) => j.payload && typeof j.payload === "object" && "accountId" in j.payload
+    );
+    const payload = firstWithAccountId?.payload as
+      | { accountId?: string; startDate?: string }
+      | undefined;
+    const accountId = payload?.accountId;
+    const startDateStr = payload?.startDate;
+    const startDate = startDateStr ? new Date(startDateStr) : undefined;
+
+    if (!accountId) {
+      return;
+    }
+
+    await this.updateAssetValuesForAssetOfAccount(accountId, assetId, startDate);
   }
 }

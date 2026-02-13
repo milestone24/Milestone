@@ -65,31 +65,51 @@ export const handler = async (event: Event) => {
   };
   queueService.subscribe(callback);
 
-  // run the update
-  //when the update fiished trigger the asset values update??
+  const payload = job.payload as
+    | { date: Date }
+    | { securityId: string; startDate: Date; groupId?: string; accountId?: string };
+  const isPerSecurityJob = "securityId" in payload && typeof payload.securityId === "string";
 
-  const userAccounts = await db.query.userAccounts.findMany();
+  let securityContexts: { securityId: string; startDate: Date; endDate: Date }[];
 
-  console.log("userAccounts", userAccounts);
-
-  const userAssetsForAllAccounts = await db.query.userAssets.findMany({
-    where: inArray(
-      userAssets.userAccountId,
-      userAccounts.map((userAccount) => userAccount.id)
-    ),
-  });
-
-  const securitiesForAllAccounts = await db.query.userAssetSecurities.findMany({
-    where: inArray(
-      userAssetSecurities.userAssetId,
-      userAssetsForAllAccounts.map((userAsset) => userAsset.id)
-    ),
-  });
+  if (isPerSecurityJob) {
+    const startDate =
+      payload.startDate instanceof Date
+        ? payload.startDate
+        : new Date(payload.startDate);
+    securityContexts = [
+      {
+        securityId: payload.securityId,
+        startDate,
+        endDate: new Date(),
+      },
+    ];
+  } else {
+    const userAccounts = await db.query.userAccounts.findMany();
+    const userAssetsForAllAccounts = await db.query.userAssets.findMany({
+      where: inArray(
+        userAssets.userAccountId,
+        userAccounts.map((userAccount) => userAccount.id)
+      ),
+    });
+    const securitiesForAllAccounts =
+      await db.query.userAssetSecurities.findMany({
+        where: inArray(
+          userAssetSecurities.userAssetId,
+          userAssetsForAllAccounts.map((userAsset) => userAsset.id)
+        ),
+      });
+    securityContexts = securitiesForAllAccounts.map((security) => ({
+      securityId: security.securityId,
+      startDate: security.startDate,
+      endDate: new Date(),
+    }));
+  }
 
   const updateJobWithStatus = async (status: ProcessStatus) => {
     if (job) {
       try {
-        const result = await db
+        await db
           .update(processes)
           .set(
             status === "completed"
@@ -104,7 +124,6 @@ export const handler = async (event: Event) => {
               ? {
                   status,
                   completedAt: new Date(),
-                  //error: "Asset values update aborted",
                 }
               : { status, completedAt: null }
           )
@@ -118,16 +137,18 @@ export const handler = async (event: Event) => {
 
   const securitiesCacheUpdater = new SecuritiesCacheUpdater(
     jobId,
-    securitiesForAllAccounts.map((security) => ({
-      securityId: security.securityId,
-      startDate: security.startDate,
-      endDate: new Date(),
-    })),
+    securityContexts,
     abortController.signal
   );
 
   const messageData: SecuritiesDailyHistoryCacheUpdateMessageBase = {
     jobId: jobId,
+    ...(isPerSecurityJob &&
+      "groupId" in payload &&
+      payload.groupId !== undefined && { groupId: payload.groupId }),
+    ...(isPerSecurityJob &&
+      "accountId" in payload &&
+      payload.accountId !== undefined && { accountId: payload.accountId }),
   };
 
   securitiesCacheUpdater.once("started", async () => {
