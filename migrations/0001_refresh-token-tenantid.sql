@@ -1,2 +1,0 @@
-ALTER TABLE "refresh_tokens" ADD COLUMN "tenant_id" uuid NOT NULL;--> statement-breakpoint
-ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_tenant_id_core_users_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."core_users"("id") ON DELETE no action ON UPDATE no action;
