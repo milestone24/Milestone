@@ -20,4 +20,4 @@ infrastructure/*.js
 infrastructure/*.d.ts
 
 # worktree files
-.wt/**/*.*
+.wt/*
