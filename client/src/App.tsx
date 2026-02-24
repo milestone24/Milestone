@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { PortfolioProvider } from "@/context/PortfolioContext";
 import { SessionProvider } from "@/context/SessionContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import ResponsiveLayout from "@/components/layout/ResponsiveLayout";
 import NotFound from "@/pages/not-found";
@@ -155,15 +156,17 @@ function Loading() {
 function App() {
   useSocket();
   return (
-    <QueryClientProvider client={queryClient}>
-      <SessionProvider>
-        <PortfolioProvider>
-          <Router />
-          <Toaster />
-        </PortfolioProvider>
-      </SessionProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <SessionProvider>
+          <PortfolioProvider>
+            <Router />
+            <Toaster />
+          </PortfolioProvider>
+        </SessionProvider>
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 
