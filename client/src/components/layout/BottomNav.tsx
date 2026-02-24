@@ -63,7 +63,7 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="bg-white border-t border-gray-200 fixed bottom-0 w-full z-10">
+    <nav className="bg-background border-t border-border fixed bottom-0 w-full z-10">
       <div className="max-w-5xl mx-auto">
         <ul className="flex justify-between">
           {navItems.map((item) => {
@@ -77,11 +77,11 @@ export default function BottomNav() {
                     "nav-item flex flex-col items-center pt-2 pb-1 w-full",
                     item.id === "record"
                       ? isActive
-                        ? "bg-[#0061ff] text-white mx-1"
-                        : "bg-black text-white mx-1"
+                        ? "bg-nav-cta-bg-active text-white mx-1"
+                        : "bg-nav-cta-bg text-white mx-1"
                       : isActive || isActiveHome
-                      ? "text-[#0061ff]"
-                      : "text-gray-500"
+                      ? "text-nav-active"
+                      : "text-muted-foreground"
                   )}
                   onClick={() => handleNavigation(item)}
                   aria-label={item.label}
