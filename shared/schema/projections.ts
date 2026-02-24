@@ -452,6 +452,7 @@ export const contributorSchema = z.object({
   }),
   schedules: z.array(contributorScheduleSchema),
   taxes: z.array(taxSchema).optional(),
+  modifiers: z.array(projectionModifierSchema).optional(),
   includeValue: z.boolean(),
   includeContributions: z.boolean(),
 });
