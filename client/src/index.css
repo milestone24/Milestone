@@ -39,6 +39,11 @@
   /* Financial semantic colors — theme-responsive */
   --positive: oklch(0.52 0.22 145);
   --negative: oklch(0.50 0.20 25);
+
+  /* Bottom nav tokens */
+  --nav-active: oklch(0.50 0.24 264);
+  --nav-cta-bg: oklch(0.15 0.01 286);
+  --nav-cta-bg-active: oklch(0.50 0.24 264);
 }
 
 .dark {
@@ -77,6 +82,11 @@
   /* Financial semantic colors — theme-responsive */
   --positive: oklch(0.72 0.26 145);
   --negative: oklch(0.68 0.22 25);
+
+  /* Bottom nav tokens */
+  --nav-active: oklch(0.72 0.20 264);
+  --nav-cta-bg: oklch(0.28 0.006 286);
+  --nav-cta-bg-active: oklch(0.65 0.22 264);
 }
 
 
@@ -128,6 +138,11 @@
   /* Financial semantic colors — theme-responsive via CSS variables */
   --color-positive: var(--positive);
   --color-negative: var(--negative);
+
+  /* Bottom nav tokens */
+  --color-nav-active: var(--nav-active);
+  --color-nav-cta-bg: var(--nav-cta-bg);
+  --color-nav-cta-bg-active: var(--nav-cta-bg-active);
 }
 
 
