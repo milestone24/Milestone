@@ -252,6 +252,41 @@ export class ModifierChain {
 }
 
 // ============================================================================
+// MODIFIER MERGE
+// ============================================================================
+
+/**
+ * Modifier types where only the first occurrence is kept during a merge.
+ * Subsequent duplicates of these types are discarded.
+ */
+const SINGULAR_MODIFIER_TYPES: ReadonlySet<ProjectionModifier["type"]> =
+  new Set(["inflation"]);
+
+function deduplicateModifiers(
+  modifiers: ProjectionModifier[]
+): ProjectionModifier[] {
+  const seen = new Set<ProjectionModifier["type"]>();
+  return modifiers.filter((modifier) => {
+    if (!SINGULAR_MODIFIER_TYPES.has(modifier.type)) return true;
+    if (seen.has(modifier.type)) return false;
+    seen.add(modifier.type);
+    return true;
+  });
+}
+
+/**
+ * Merges one or more modifier config arrays into a single ordered list.
+ * Modifiers are applied in the order the arrays are provided.
+ * For singular modifier types (e.g. inflation), only the first occurrence is
+ * kept — subsequent duplicates are discarded.
+ */
+export function mergeModifiers(
+  ...modifierSets: (ProjectionModifier[] | undefined)[]
+): ProjectionModifier[] {
+  return deduplicateModifiers(modifierSets.flatMap((set) => set ?? []));
+}
+
+// ============================================================================
 // MODIFIER FACTORY
 // ============================================================================
 
