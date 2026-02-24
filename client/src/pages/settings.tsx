@@ -3,14 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useMobilePlatform } from "@/hooks/use-mobile-platform";
 import MobileSettings from "@/components/mobile/MobileSettings";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useTheme } from "@/context/ThemeContext";
 import {
   Bell,
   Moon,
+  Sun,
+  Monitor,
   Download,
   LifeBuoy,
   FileJson,
@@ -32,9 +36,7 @@ import {
 export default function Settings() {
   const { toast } = useToast();
   const isMobile = useMobilePlatform();
-
-  // Settings states
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme, setTheme } = useTheme();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [appNotifications, setAppNotifications] = useState(true);
   const [autoUpdates, setAutoUpdates] = useState(true);
@@ -238,16 +240,28 @@ export default function Settings() {
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="dark-mode">Dark Mode</Label>
-                <p className="text-sm text-gray-500">
-                  Switch between dark and light theme
+                <Label>Theme</Label>
+                <p className="text-sm text-muted-foreground">
+                  Choose light, dark, or follow your system preference
                 </p>
               </div>
-              <Switch
-                id="dark-mode"
-                checked={darkMode}
-                onCheckedChange={setDarkMode}
-              />
+              <ToggleGroup
+                type="single"
+                value={theme}
+                onValueChange={(value) => {
+                  if (value) setTheme(value as typeof theme);
+                }}
+              >
+                <ToggleGroupItem value="light" aria-label="Light mode">
+                  <Sun className="h-4 w-4" />
+                </ToggleGroupItem>
+                <ToggleGroupItem value="system" aria-label="System preference">
+                  <Monitor className="h-4 w-4" />
+                </ToggleGroupItem>
+                <ToggleGroupItem value="dark" aria-label="Dark mode">
+                  <Moon className="h-4 w-4" />
+                </ToggleGroupItem>
+              </ToggleGroup>
             </div>
 
             <Separator />
