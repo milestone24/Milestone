@@ -147,6 +147,10 @@
 
 
 @layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
