@@ -17,9 +17,9 @@ export const RecurringContributionsList = ({
     return (
       <div className="space-y-3">
         {[1, 2].map((i) => (
-          <div key={i} className="p-4 bg-gray-50 rounded-lg animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
-            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+          <div key={i} className="p-4 bg-muted rounded-lg animate-pulse">
+            <div className="h-4 bg-muted-foreground/20 rounded w-1/3 mb-2"></div>
+            <div className="h-3 bg-muted-foreground/20 rounded w-1/2"></div>
           </div>
         ))}
       </div>
@@ -33,9 +33,9 @@ export const RecurringContributionsList = ({
         Recurring Contributions
       </h3>
       {!contributions || contributions.length === 0 ? (
-        <div className=" text-gray-500">
-          <p>No recurring contributions recorded for this account.</p>
-        </div>
+      <div className="text-muted-foreground">
+        <p>No recurring contributions recorded for this account.</p>
+      </div>
       ) : (
         <div className="space-y-2">
           {contributions.map((contribution) => (
