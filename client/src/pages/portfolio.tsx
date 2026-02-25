@@ -171,18 +171,22 @@ function Portfolio() {
         })
       : [];
 
+  const style = getComputedStyle(document.documentElement);
+  const assetColor = style.getPropertyValue("--asset").trim();
+  const txnColor = style.getPropertyValue("--txn").trim();
+
   const chartData: ChartData = [
     {
       id: "1",
       name: "Total Portfolio Value",
       data: valuesChartData,
-      color: "#3B82F6",
+      color: assetColor,
     },
     {
       id: "2",
       name: "Transactions Input Value",
       data: transactionChartData,
-      color: "#F59E0B",
+      color: txnColor,
     },
   ];
 
@@ -371,7 +375,7 @@ function Portfolio() {
               size="icon"
               className={`rounded-full w-10 h-10 flex items-center justify-center ${
                 isEditMode
-                  ? "bg-blue-100 border-blue-300 text-blue-600"
+                  ? "bg-primary/10 border-primary/30 text-primary"
                   : "text-primary"
               }`}
               onClick={() => setIsEditMode(!isEditMode)}
@@ -391,25 +395,27 @@ function Portfolio() {
 
       {isLoadingAssets ? (
         // Skeleton loading state for accounts
-        Array(3)
-          .fill(0)
-          .map((_, i) => (
-            <div key={i} className="border-b border-border py-3">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center">
-                  <Skeleton className="w-10 h-10 rounded-md mr-3" />
-                  <div>
-                    <Skeleton className="h-5 w-24 mb-1" />
-                    <Skeleton className="h-4 w-12" />
+        <div className="bg-card rounded-lg overflow-hidden">
+          {Array(3)
+            .fill(0)
+            .map((_, i) => (
+              <div key={i} className="py-3 px-4">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    <Skeleton className="w-10 h-10 rounded-md mr-3" />
+                    <div>
+                      <Skeleton className="h-5 w-24 mb-1" />
+                      <Skeleton className="h-4 w-12" />
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <Skeleton className="h-5 w-20 mb-1" />
+                    <Skeleton className="h-4 w-16" />
                   </div>
                 </div>
-                <div className="text-right">
-                  <Skeleton className="h-5 w-20 mb-1" />
-                  <Skeleton className="h-4 w-16" />
-                </div>
               </div>
-            </div>
-          ))
+            ))}
+        </div>
       ) : (
         // List of accounts
         <>
@@ -432,14 +438,15 @@ function Portfolio() {
               </Button>
             </div>
           ) : (
-            assets.map((asset) => {
+            <div className="bg-card rounded-lg overflow-hidden">
+            {assets.map((asset) => {
               const platformName = asset.platformId
                 ? getPlatformName(asset.platformId, brokerPlatforms ?? [])
                 : null;
               return (
                 <section
                   key={asset.id}
-                  className="border-b border-border py-3 cursor-pointer hover:bg-muted transition-colors relative"
+                  className="py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors relative"
                   onClick={(e) => {
                     if (!isEditMode) {
                       setLocation(`/asset/${asset.id}`);
@@ -493,7 +500,7 @@ function Portfolio() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="mr-2 text-red-600 hover:text-red-800 hover:bg-red-50"
+                          className="mr-2 text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={(e) => {
                             e.stopPropagation();
                             setAccountToDelete(asset.id);
@@ -529,7 +536,8 @@ function Portfolio() {
                   </div>
                 </section>
               );
-            })
+            })}
+            </div>
           )}
         </>
       )}
