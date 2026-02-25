@@ -17,9 +17,9 @@ export function PosNegNumber({
     defaultClassName,
     value !== null
       ? value > 0
-        ? "text-green-600"
+        ? "text-positive"
         : value < 0
-        ? "text-red-600"
+        ? "text-negative"
         : "text-muted-foreground"
       : "text-muted-foreground",
     className
