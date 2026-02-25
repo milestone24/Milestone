@@ -65,7 +65,7 @@ function FireOverviewPrimaryCard({
                     size="lg"
                     className={cn(
                       "cursor-pointer border rounded-full w-20 h-20 p-5 m-0 flex items-center justify-center [&_svg]:!w-full [&_svg]:!h-full",
-                      showChart ? "bg-gray-100" : "bg-transparent"
+                      showChart ? "bg-muted" : "bg-transparent"
                     )}
                     onClick={onToggleChart}
                   >

@@ -152,13 +152,13 @@ export default memo(({ className, data, milestones }: ValuesChartProps) => {
 
   return (
     <div
-      className={cn("w-full md:bg-white md:border md:rounded-lg", className)}
+      className={cn("w-full md:bg-card md:border md:rounded-lg", className)}
     >
       <div className="">
         <div className="flex justify-between items-center mb-4">
           <div className="flex space-x-3">
             {/* <div className="flex items-center">
-              <span className="text-sm text-neutral-700 mr-2">Chart</span>
+              <span className="text-sm text-foreground mr-2">Chart</span>
               <div className="relative inline-block w-10 mr-2 align-middle select-none">
                 <input
                   type="checkbox"
@@ -169,11 +169,11 @@ export default memo(({ className, data, milestones }: ValuesChartProps) => {
                 />
                 <label
                   htmlFor="toggle-chart"
-                  className="block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
+                  className="block overflow-hidden h-6 rounded-full bg-muted cursor-pointer"
                 >
                   <span
                     className={cn(
-                      "block h-6 w-6 rounded-full bg-white shadow transform transition-transform duration-200 ease-in-out",
+                      "block h-6 w-6 rounded-full bg-card shadow transform transition-transform duration-200 ease-in-out",
                       chartVisible ? "translate-x-4" : ""
                     )}
                   ></span>
@@ -182,7 +182,7 @@ export default memo(({ className, data, milestones }: ValuesChartProps) => {
             </div> */}
             {/* {chartVisible && (
               <div className="flex items-center">
-                <span className="text-sm text-neutral-700 mr-2">
+                <span className="text-sm text-foreground mr-2">
                   Milestones
                 </span>
                 <div className="relative inline-block w-10 mr-2 align-middle select-none">
@@ -197,11 +197,11 @@ export default memo(({ className, data, milestones }: ValuesChartProps) => {
                   />
                   <label
                     htmlFor="toggle-milestones"
-                    className="block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
+                    className="block overflow-hidden h-6 rounded-full bg-muted cursor-pointer"
                   >
                     <span
                       className={cn(
-                        "block h-6 w-6 rounded-full bg-white shadow transform transition-transform duration-200 ease-in-out",
+                        "block h-6 w-6 rounded-full bg-card shadow transform transition-transform duration-200 ease-in-out",
                         showMilestonesLocal ? "translate-x-4" : ""
                       )}
                     ></span>
@@ -334,19 +334,19 @@ export default memo(({ className, data, milestones }: ValuesChartProps) => {
                             const date = new Date(data.valueDate);
                             return (
                               <div
-                                className="bg-gray-100 border-none rounded-lg p-2 shadow-sm"
+                                className="bg-card border-none rounded-lg p-2 shadow-sm"
                                 key={index}
                               >
                                 {/* <p className="font-medium text-gray-900">
                                 {data.valueDate.}
                               </p> */}
-                                <p className="text-gray-700">
+                                <p className="text-foreground">
                                   £{data.value.toLocaleString()}
                                 </p>
-                                <p className="text-gray-700">
+                                <p className="text-foreground">
                                   {valueDateFormatter(data.valueDate)}
                                 </p>
-                                <p className="text-gray-700">
+                                <p className="text-foreground">
                                   {/* @ts-ignore */}
                                   {data.recordType}
                                 </p>
@@ -422,7 +422,7 @@ export default memo(({ className, data, milestones }: ValuesChartProps) => {
                       className="w-1 h-1 rounded-full"
                       style={{ backgroundColor: s.color }}
                     />
-                    <p className="text-xs text-gray-600">{s.name}</p>
+                    <p className="text-xs text-muted-foreground">{s.name}</p>
                   </div>
                 ))}
               </div>
@@ -433,7 +433,7 @@ export default memo(({ className, data, milestones }: ValuesChartProps) => {
             {selectedPoints &&
               selectedPoints.map((point) => (
                 <div
-                  className="mt-4 p-4 bg-gray-50 rounded-lg border"
+                  className="mt-4 p-4 bg-muted rounded-lg border"
                   key={new Date(point.valueDate).getTime()}
                 >
                   <div className="flex justify-between items-start mb-4">
@@ -441,13 +441,13 @@ export default memo(({ className, data, milestones }: ValuesChartProps) => {
                       {/* <h3 className="font-medium text-lg">
                         {selectedPoint.date}
                       </h3> */}
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Total Portfolio Value: £{point.value.toLocaleString()}
                       </p>
                     </div>
                     <button
                       onClick={() => setSelectedPoints(null)}
-                      className="text-gray-500 hover:text-gray-700"
+                      className="text-muted-foreground hover:text-foreground"
                     >
                       Close
                     </button>
@@ -468,7 +468,7 @@ export default memo(({ className, data, milestones }: ValuesChartProps) => {
 
                   {point.changes && point.changes.length > 0 && (
                     <div className="mt-4">
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">
+                      <h4 className="text-sm font-medium text-foreground mb-2">
                         Account Changes
                       </h4>
                       <div className="space-y-2">

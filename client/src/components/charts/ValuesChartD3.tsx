@@ -81,7 +81,7 @@ export default function ValuesChartD3({
 
   return (
     <div
-      className={cn("w-full md:bg-white md:border md:rounded-lg", className)}
+      className={cn("w-full md:bg-card md:border md:rounded-lg", className)}
     >
       <div className="">
         <div className="chart-container w-full mb-5 px-2 relative" ref={containerRef}>
@@ -98,7 +98,7 @@ export default function ValuesChartD3({
           {/* Tooltip */}
           {tooltipData && (
             <div
-              className="absolute bg-gray-100 border-none rounded-lg p-2 shadow-sm pointer-events-none"
+              className="absolute bg-card border-none rounded-lg p-2 shadow-sm pointer-events-none"
               style={{
                 left: tooltipData.x + 10,
                 top: tooltipData.y - 10,
@@ -107,13 +107,13 @@ export default function ValuesChartD3({
             >
               {tooltipData.points.map((point, index) => (
                 <div key={index}>
-                  <p className="text-gray-700">
+                  <p className="text-foreground">
                     £{Number(point.data.value).toLocaleString()}
                   </p>
-                  <p className="text-gray-700">
+                  <p className="text-foreground">
                     {valueDateFormatter(point.data.valueDate)}
                   </p>
-                  <p className="text-gray-700">
+                  <p className="text-foreground">
                     {/* @ts-ignore */}
                     {point.data.recordType}
                   </p>
@@ -131,7 +131,7 @@ export default function ValuesChartD3({
                 className="w-1 h-1 rounded-full"
                 style={{ backgroundColor: s.color }}
               />
-              <p className="text-xs text-gray-600">{s.name}</p>
+              <p className="text-xs text-muted-foreground">{s.name}</p>
             </div>
           ))}
         </div>
@@ -140,18 +140,18 @@ export default function ValuesChartD3({
         {selectedPoints &&
           selectedPoints.map((point) => (
             <div
-              className="mt-4 p-4 bg-gray-50 rounded-lg border"
+              className="mt-4 p-4 bg-muted rounded-lg border"
               key={new Date(point.valueDate).getTime()}
             >
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     Total Portfolio Value: £{Number(point.value).toLocaleString()}
                   </p>
                 </div>
                 <button
                   onClick={clearSelectedPoints}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   Close
                 </button>
@@ -159,7 +159,7 @@ export default function ValuesChartD3({
 
               {point.changes && point.changes.length > 0 && (
                 <div className="mt-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                  <h4 className="text-sm font-medium text-foreground mb-2">
                     Account Changes
                   </h4>
                   <div className="space-y-2">
@@ -169,7 +169,7 @@ export default function ValuesChartD3({
                         className="flex justify-between items-center text-sm"
                       >
                         <div className="flex items-center space-x-2">
-                          <span className="text-gray-500">
+                          <span className="text-muted-foreground">
                             £{Number(change.previousValue).toLocaleString()} → £
                             {Number(change.newValue).toLocaleString()}
                           </span>

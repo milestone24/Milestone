@@ -614,7 +614,7 @@ export function ScreenshotUpload({
                   ${
                     dragActive
                       ? "border-primary bg-primary/5"
-                      : "border-gray-300"
+                      : "border-border"
                   }
                 `}
                 onDragEnter={handleDrag}
@@ -623,8 +623,8 @@ export function ScreenshotUpload({
                 onDrop={handleDrop}
               >
                 <div className="flex flex-col items-center justify-center gap-2">
-                  <Upload size={32} className="text-gray-400" />
-                  <p className="text-sm text-center text-gray-600">
+                  <Upload size={32} className="text-muted-foreground" />
+                  <p className="text-sm text-center text-muted-foreground">
                     Drag and drop your screenshots here, or click to browse
                   </p>
                   <Button
@@ -649,12 +649,12 @@ export function ScreenshotUpload({
               </div>
 
               <div className="mt-2 space-y-1">
-                <p className="text-xs italic text-gray-500">
+                <p className="text-xs italic text-muted-foreground">
                   *We do not store screenshots for security reasons - they are
                   simply read by the AI using OCR to get the figures to make the
                   input process easier for you
                 </p>
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-muted-foreground">
                   <strong>Tip:</strong> For best results, ensure your
                   screenshots clearly show both the account name/type (ISA,
                   SIPP, etc.) and current balance.
@@ -707,7 +707,7 @@ export function ScreenshotUpload({
                             <img
                               src={img}
                               alt={`Screenshot ${index + 1}`}
-                              className="w-full rounded-md border border-gray-200 object-contain"
+                              className="w-full rounded-md border border-border object-contain"
                               style={{ maxHeight: "180px" }}
                             />
                             <Button
@@ -731,7 +731,7 @@ export function ScreenshotUpload({
                             )}
 
                             {!isProcessing && !result && (
-                              <div className="text-sm text-gray-500 border border-dashed rounded-md p-3 flex-grow flex items-center justify-center">
+                              <div className="text-sm text-muted-foreground border border-dashed rounded-md p-3 flex-grow flex items-center justify-center">
                                 <p>
                                   Click "Extract Account Values" to analyze this
                                   screenshot

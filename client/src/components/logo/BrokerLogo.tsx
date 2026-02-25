@@ -6,7 +6,7 @@ import { TrendingUp } from "lucide-react";
 export const DefaultBrokerLogo = () => {
   return (
     <TrendingUp
-      className="w-full h-full text-gray-200"
+      className="w-full h-full text-muted-foreground"
       strokeWidth={1}
       size={24}
     />
