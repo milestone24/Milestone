@@ -60,7 +60,7 @@ export const RecurringContributionItem = ({
     <>
       <div
         className={cn(
-          "flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 bg-gray-50 rounded-lg transition-opacity",
+          "flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 bg-muted rounded-lg transition-opacity",
           isBusy && "opacity-50 pointer-events-none"
         )}
       >
@@ -75,7 +75,7 @@ export const RecurringContributionItem = ({
               className={
                 contribution.isActive
                   ? "bg-green-100 text-green-800 hover:bg-green-100"
-                  : "bg-gray-100 text-gray-600"
+                  : "bg-muted text-muted-foreground"
               }
             >
               {contribution.isActive ? (

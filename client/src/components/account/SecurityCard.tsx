@@ -76,21 +76,21 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
   );
 
   return (
-    <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+    <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
       <div
         className="flex flex-1 flex-row justify-between cursor-pointer mr-4"
         onClick={() => onClick(security)}
       >
         <div className="flex flex-col items-start">
           <p className="font-medium">{security.security.name}</p>
-          <p className="text-sm text-gray-600">{security.security.symbol}</p>
-          <p className="text-sm text-gray-600">{security.startDate.toLocaleDateString()}</p>
+          <p className="text-sm text-muted-foreground">{security.security.symbol}</p>
+          <p className="text-sm text-muted-foreground">{security.startDate.toLocaleDateString()}</p>
         </div>
         <div className="flex flex-col items-end">
           <p className="font-medium">
             £{Number(security.calculatedValue.value).toLocaleString()}
           </p>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             {Number(security.calculatedValue.currentChange) >= 0 ? "+" : ""}
             {Number(security.calculatedValue.currentChange).toLocaleString()}
           </p>

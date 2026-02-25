@@ -85,7 +85,7 @@ export const AssetSecurityTransactionItem = ({
     <div
       key={transaction.id}
       className={cn(
-        "flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 bg-gray-50 rounded-lg transition-opacity",
+        "flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 bg-muted rounded-lg transition-opacity",
         isInProcess && "opacity-50 pointer-events-none"
       )}
     >

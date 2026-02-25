@@ -226,7 +226,7 @@ export const AssetSecurityEditForm = ({
         <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4">
           <AssetSecurityBaseFields {...baseFieldProps} />
           <p>
-            <em className="text-sm text-gray-500">
+            <em className="text-sm text-muted-foreground">
               *Note: When editing a security, you can only change the start date
               and prior gain/loss.
               <br />

@@ -156,14 +156,14 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
     <div>
       {/* Contribution Summary Section */}
       {contributions && contributions.length > 0 && (
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+        <div className="mb-6 p-4 bg-muted rounded-lg">
           <h3 className="text-lg font-medium mb-2 flex items-center">
             <BsPiggyBank className="h-5 w-5 mr-2 text-green-600" />
             Contribution Summary
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
             <div>
-              <p className="text-sm text-gray-600">Total Contributed</p>
+              <p className="text-sm text-muted-foreground">Total Contributed</p>
               <p className="text-xl font-semibold">
                 £
                 {contributions
@@ -175,11 +175,11 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Number of Contributions</p>
+              <p className="text-sm text-muted-foreground">Number of Contributions</p>
               <p className="text-xl font-semibold">{contributions.length}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">First Contribution</p>
+              <p className="text-sm text-muted-foreground">First Contribution</p>
               <p className="text-base font-medium">
                 {contributions.length > 0
                   ? new Date(
@@ -197,7 +197,7 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Latest Contribution</p>
+              <p className="text-sm text-muted-foreground">Latest Contribution</p>
               <p className="text-base font-medium">
                 {contributions.length > 0
                   ? new Date(
@@ -258,14 +258,14 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
           Contribution History
         </h3>
         {contributions?.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-muted-foreground">
             No contributions recorded for this account.
           </div>
         )}
         {contributions?.map((contribution) => (
           <div
             key={contribution.id}
-            className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 bg-gray-50 rounded-lg"
+            className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 bg-muted rounded-lg"
           >
             <div className="flex flex-col gap-1 min-w-0">
               <div className="flex flex-wrap items-center gap-1">
