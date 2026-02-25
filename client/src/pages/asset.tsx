@@ -36,6 +36,7 @@ import { assetGraphValues } from "@shared/api/queryKeys";
 import { useAssetValues } from "@/hooks/use-asset-values";
 import { AssetValueList } from "@/components/account/AssetValueList";
 import { AccountDetails } from "@/components/account/AccountDetails";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 function AssetPage() {
   const params = useParams();
@@ -148,18 +149,20 @@ function AssetPage() {
         })
       : [];
 
+  const [assetColor = "", txnColor = ""] = useThemeColors(["--asset", "--txn"]);
+
   const chartData: ChartData = [
     {
       id: "1",
       name: "Total Portfolio Value",
       data: valuesChartData,
-      color: "#3B82F6",
+      color: assetColor,
     },
     {
       id: "2",
       name: "Transactions Input Value",
       data: transactionChartData,
-      color: "#F59E0B",
+      color: txnColor,
     },
   ];
 
@@ -224,32 +227,30 @@ function AssetPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="flex flex-col items-start mb-6">
-        <div className="flex items-center gap-2">
-          <BrokerLogoBoxed
-            broker={
-              asset.platform
-                ? getBrokerSlugFromName(asset.platform.name)
-                : undefined
-            }
-            size="md"
-          />
-          <div>
-            {/* TODO: Being able to add a custom account name is temporarily disabled and so we do not display. */}
-            {/* <div className="mb-2">
-              <h1 className="text-xl ">{asset.name}</h1>
-            </div> */}
-            <h1 className="text-xl font-semibold">{asset.platform?.name}</h1>
-            <span className="text-sm text-muted-foreground">
-              {getBrokerAccountTypeFullName(asset.accountType)}
-            </span>
-          </div>
+      <div className="bg-card rounded-lg p-4 mb-4 flex items-center gap-2">
+        <BrokerLogoBoxed
+          broker={
+            asset.platform
+              ? getBrokerSlugFromName(asset.platform.name)
+              : undefined
+          }
+          size="md"
+        />
+        <div>
+          {/* TODO: Being able to add a custom account name is temporarily disabled and so we do not display. */}
+          {/* <div className="mb-2">
+            <h1 className="text-xl ">{asset.name}</h1>
+          </div> */}
+          <h1 className="text-xl font-semibold">{asset.platform?.name}</h1>
+          <span className="text-sm text-muted-foreground">
+            {getBrokerAccountTypeFullName(asset.accountType)}
+          </span>
         </div>
       </div>
 
-      <div className="w-full flex flex-row justify-between items-center">
+      <div className="bg-card rounded-lg p-4 mb-4 flex flex-row justify-between items-center">
         <div className="flex flex-col">
-          <span>Value</span>
+          <span className="text-sm text-muted-foreground">Value</span>
           <span className="text-2xl font-bold">
             £{Number(asset.currentValue).toLocaleString()}
           </span>
