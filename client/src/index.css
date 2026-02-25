@@ -62,7 +62,7 @@
   --accent: oklch(0.274 0.006 286.033);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  --border: transparent;
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.38 0.189 293.745);
   --chart-1: oklch(0.811 0.111 293.571);
@@ -76,7 +76,7 @@
   --sidebar-primary-foreground: oklch(0.969 0.016 293.756);
   --sidebar-accent: oklch(0.274 0.006 286.033);
   --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-border: transparent;
   --sidebar-ring: oklch(0.38 0.189 293.745);
 
   /* Financial semantic colors — theme-responsive */
