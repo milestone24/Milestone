@@ -41,6 +41,10 @@
   --positive: oklch(0.52 0.22 145);
   --negative: oklch(0.50 0.20 25);
 
+  /* Domain entity colors */
+  --asset: oklch(0.55 0.22 264);
+  --txn:   oklch(0.68 0.16 70);
+
   /* Bottom nav tokens */
   --nav-active: oklch(0.50 0.24 264);
   --nav-cta-bg: oklch(0.15 0.01 286);
@@ -83,6 +87,10 @@
   /* Financial semantic colors — theme-responsive */
   --positive: oklch(0.72 0.26 145);
   --negative: oklch(0.68 0.22 25);
+
+  /* Domain entity colors */
+  --asset: oklch(0.70 0.20 264);
+  --txn:   oklch(0.78 0.18 70);
 
   /* Bottom nav tokens */
   --nav-active: oklch(0.72 0.20 264);
@@ -145,6 +153,10 @@
   /* Financial semantic colors — theme-responsive via CSS variables */
   --color-positive: var(--positive);
   --color-negative: var(--negative);
+
+  /* Domain entity colors */
+  --color-asset: var(--asset);
+  --color-txn:   var(--txn);
 
   /* Bottom nav tokens */
   --color-nav-active: var(--nav-active);
