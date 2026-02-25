@@ -92,7 +92,7 @@ export const AssetSecurityTransactionItem = ({
       {/* Content Section */}
       <div className="flex flex-col gap-1 min-w-0">
         <div className="flex flex-wrap items-center gap-1">
-          <Layers2 className="h-4 w-4 text-green-600" />
+          <Layers2 className="h-4 w-4 text-txn" />
           <span className="text-sm text-muted-foreground">
             {transaction.securityName}
           </span>
@@ -100,7 +100,7 @@ export const AssetSecurityTransactionItem = ({
           <span
             className={cn(
               "font-semibold",
-              Number(transaction.value) > 0 ? "text-green-600" : "text-red-600"
+              Number(transaction.value) > 0 ? "text-positive" : "text-negative"
             )}
           >
             {Number(transaction.value) > 0 ? "+" : ""}
@@ -135,7 +135,7 @@ export const AssetSecurityTransactionItem = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
               disabled={isInProcess}
             >
               <Trash2 className="h-4 w-4" />
@@ -170,7 +170,7 @@ export const AssetSecurityTransactionItem = ({
           </DialogContent>
         </Dialog>
       </div>
-      {error && <p className="text-red-500 text-sm mt-2">{error.message}</p>}
+      {error && <p className="text-destructive text-sm mt-2">{error.message}</p>}
     </div>
   );
 };

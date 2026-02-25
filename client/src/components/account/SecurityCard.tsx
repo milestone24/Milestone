@@ -109,7 +109,7 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={handleDelete}
           disabled={isDeleting}
         >
@@ -135,7 +135,7 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
           <AlertDialogFooter>
             <AlertDialogCancel>No</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive hover:bg-destructive/90"
               onClick={() => continueDelete()}
             >
               Yes
