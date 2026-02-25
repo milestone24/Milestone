@@ -47,6 +47,7 @@ import { PosNegNumber } from "@/components/common/PosNegNumber";
 import { cn } from "@/lib/utils";
 import { useAssets } from "@/hooks/use-assets";
 import { usePortfolioValue } from "@/hooks/use-portfolio-value";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 function Portfolio() {
   const { dateRange } = useDateRange();
@@ -171,9 +172,7 @@ function Portfolio() {
         })
       : [];
 
-  const style = getComputedStyle(document.documentElement);
-  const assetColor = style.getPropertyValue("--asset").trim();
-  const txnColor = style.getPropertyValue("--txn").trim();
+  const [assetColor = "", txnColor = ""] = useThemeColors(["--asset", "--txn"]);
 
   const chartData: ChartData = [
     {
