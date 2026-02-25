@@ -168,7 +168,7 @@ export function AccountDetails({
         </div>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)}>
-            <div className="flex flex-col">
+            <div className="bg-card rounded-lg px-4 divide-y divide-border/30">
               {FIELD_CONFIGS.map(renderFieldEdit)}
             </div>
             <div className="flex justify-end gap-2 mt-4">
@@ -206,7 +206,7 @@ export function AccountDetails({
           </Button>
         )}
       </div>
-      <div className="flex flex-col">
+      <div className="bg-card rounded-lg px-4 divide-y divide-border/30">
         {FIELD_CONFIGS.map(renderFieldValue)}
       </div>
     </section>
