@@ -81,7 +81,7 @@ export default function ValuesChartD3({
 
   return (
     <div
-      className={cn("w-full md:bg-card md:border md:rounded-lg", className)}
+      className={cn("w-full bg-card rounded-lg", className)}
     >
       <div className="">
         <div className="chart-container w-full mb-5 px-2 relative" ref={containerRef}>
@@ -140,7 +140,7 @@ export default function ValuesChartD3({
         {selectedPoints &&
           selectedPoints.map((point) => (
             <div
-              className="mt-4 p-4 bg-muted rounded-lg border"
+              className="mt-4 p-4 bg-muted rounded-lg"
               key={new Date(point.valueDate).getTime()}
             >
               <div className="flex justify-between items-start mb-4">
