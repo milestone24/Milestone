@@ -26,7 +26,7 @@ export default function ResponsiveLayout({ children }: ResponsiveLayoutProps) {
     return (
       <div className="flex flex-col min-h-screen bg-background relative">
         <Header />
-        <main className="main-content p-2 md:p-4">{children}</main>
+        <main className="main-content p-2 md:p-4 pb-24">{children}</main>
         <BottomNav />
       </div>
     );
