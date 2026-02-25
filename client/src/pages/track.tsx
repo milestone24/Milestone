@@ -221,7 +221,7 @@ export default function Track() {
       <Card className="mt-4">
         <CardContent className="p-4">
           <h2 className="text-lg font-semibold mb-3">Track Your Progress</h2>
-          <p className="text-sm text-gray-600 mb-6">
+          <p className="text-sm text-muted-foreground mb-6">
             See if you're on track to reach your retirement goals
           </p>
 
@@ -236,12 +236,12 @@ export default function Track() {
           />
 
           {/* FIRE Goal Progress */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+          <div className="bg-muted rounded-lg p-4 mb-6">
             <div className="flex justify-between items-start mb-2">
               <div>
                 <h3 className="font-medium">FIRE Goal Progress</h3>
                 <div className="flex items-center">
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm text-muted-foreground">
                     £{currentValueNum.toLocaleString()} of £
                     {targetAmountNum.toLocaleString()}
                   </span>
@@ -254,16 +254,16 @@ export default function Track() {
                 style={{ width: `${onTrackStatus.percentageOfTarget}%` }}
               ></div>
             </div>
-            <p className="text-right text-xs text-gray-500 mt-1">
+                <p className="text-right text-xs text-muted-foreground mt-1">
               {onTrackStatus.percentageOfTarget.toFixed(1)}% complete
             </p>
           </div>
 
           {/* Current Progress vs Expected */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+          <div className="bg-muted rounded-lg p-4 mb-6">
             <h3 className="font-medium mb-3">Current Progress vs Expected</h3>
             <div className="flex justify-between items-center mb-1">
-              <span className="text-sm text-gray-600">Your current total:</span>
+                  <span className="text-sm text-muted-foreground">Your current total:</span>
               <span className="font-medium">
                 £{currentValueNum.toLocaleString()}
               </span>
@@ -280,7 +280,7 @@ export default function Track() {
               </span>
             </div>
             <div className="flex justify-between items-center mb-1">
-              <span className="text-sm text-gray-600">Difference:</span>
+              <span className="text-sm text-muted-foreground">Difference:</span>
               <span
                 className={`font-medium ${
                   onTrackStatus.isOnTrack ? "text-secondary" : "text-error"
@@ -294,7 +294,7 @@ export default function Track() {
             </div>
 
             {!onTrackStatus.isOnTrack && (
-              <div className="mt-3 pt-3 border-t border-gray-200">
+              <div className="mt-3 pt-3 border-t border-border">
                 <p className="text-sm">
                   To stay on track, consider increasing your monthly investment
                   by <span className="font-medium">£{monthlyAdjustment}</span>
@@ -304,13 +304,13 @@ export default function Track() {
           </div>
 
           {/* Adjust Goals */}
-          <div className="bg-gray-50 rounded-lg p-4">
+          <div className="bg-muted rounded-lg p-4">
             <h3 className="font-medium mb-3">Adjust Your Goals</h3>
 
             <div className="mb-4">
               <Label
                 htmlFor="retirement-age"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-foreground mb-1"
               >
                 Retirement Age
               </Label>
@@ -327,13 +327,13 @@ export default function Track() {
             <div className="mb-4">
               <Label
                 htmlFor="target-amount"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-foreground mb-1"
               >
                 Target FIRE Amount
               </Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500">£</span>
+                  <span className="text-muted-foreground">£</span>
                 </div>
                 <Input
                   id="target-amount"
@@ -350,7 +350,7 @@ export default function Track() {
             <div className="mb-4">
               <Label
                 htmlFor="expected-return"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-foreground mb-1"
               >
                 Expected Annual Return (%)
               </Label>

@@ -131,7 +131,7 @@ export default function AssetSecurityPage() {
       <div className="max-w-5xl mx-auto px-4 py-8">
         <Card>
           <CardContent className="p-4">
-            <p className="text-center text-gray-500">Security not found</p>
+            <p className="text-center text-muted-foreground">Security not found</p>
           </CardContent>
         </Card>
       </div>

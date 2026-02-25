@@ -137,7 +137,7 @@ export default function Record() {
   // Get color for account type
   const getAccountTypeColor = (type: string) => {
     // Return black for all account types
-    return "text-black font-semibold";
+    return "text-foreground font-semibold";
   };
 
   const { toast } = useToast();
@@ -636,7 +636,7 @@ export default function Record() {
                             <div className="flex items-center justify-end">
                               <div className="relative md:w-1/3 w-full">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                  <span className="text-gray-500">£</span>
+                                  <span className="text-muted-foreground">£</span>
                                 </div>
                                 <Input
                                   type="number"
@@ -667,7 +667,7 @@ export default function Record() {
                         isLoading ||
                         Object.keys(accountValues).length === 0
                       }
-                      className="md:w-1/3 w-full bg-black hover:bg-gray-800 text-white"
+                      className="md:w-1/3 w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                       {submitting ? (
                         <>
@@ -680,7 +680,7 @@ export default function Record() {
                     </Button>
                   </div>
 
-                  <div className="mt-4 text-center text-sm text-gray-500">
+                  <div className="mt-4 text-center text-sm text-muted-foreground">
                     <p>
                       Regularly updating your account values helps you track
                       your progress and keeps your portfolio data accurate.
@@ -740,7 +740,7 @@ export default function Record() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8 text-slate-500 rounded-full"
+                                  className="h-8 w-8 text-muted-foreground rounded-full"
                                   onClick={handleHideInfoBox}
                                 >
                                   <EyeOff className="h-4 w-4" />
@@ -809,7 +809,7 @@ export default function Record() {
                             <div className="flex items-center justify-end">
                               <div className="relative md:w-1/3 w-full">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                  <span className="text-gray-500">£</span>
+                                  <span className="text-muted-foreground">£</span>
                                 </div>
                                 <Input
                                   type="number"
@@ -851,7 +851,7 @@ export default function Record() {
                     </Button>
                   </div>
 
-                  <div className="mt-4 text-center text-sm text-gray-500">
+                  <div className="mt-4 text-center text-sm text-muted-foreground">
                     <p>
                       Recording your contributions helps track actual investment
                       performance separate from your deposits.

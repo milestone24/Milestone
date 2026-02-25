@@ -200,7 +200,7 @@ function AssetPage() {
       <div className="max-w-5xl mx-auto px-2 md:px-4 py-8">
         <Card>
           <CardContent className="p-4">
-            <p className="text-center text-gray-500">Account not found</p>
+            <p className="text-center text-muted-foreground">Account not found</p>
           </CardContent>
         </Card>
       </div>
@@ -240,7 +240,7 @@ function AssetPage() {
               <h1 className="text-xl ">{asset.name}</h1>
             </div> */}
             <h1 className="text-xl font-semibold">{asset.platform?.name}</h1>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-muted-foreground">
               {getBrokerAccountTypeFullName(asset.accountType)}
             </span>
           </div>

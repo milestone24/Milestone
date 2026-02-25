@@ -310,7 +310,7 @@ export default function Settings() {
                     Email Notifications
                   </Label>
                 </div>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Receive updates and alerts via email
                 </p>
               </div>
@@ -329,7 +329,7 @@ export default function Settings() {
                   <Bell className="h-4 w-4 mr-2" />
                   <Label htmlFor="app-notifications">App Notifications</Label>
                 </div>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Receive in-app notifications and alerts
                 </p>
               </div>
@@ -348,7 +348,7 @@ export default function Settings() {
                   <DatabaseBackup className="h-4 w-4 mr-2" />
                   <Label htmlFor="auto-updates">Automatic API Updates</Label>
                 </div>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Automatically update connected accounts
                 </p>
               </div>
@@ -369,7 +369,7 @@ export default function Settings() {
           <CardContent className="space-y-6">
             <div>
               <h3 className="text-md font-medium mb-3">Export Your Data</h3>
-              <p className="text-sm text-gray-500 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Download a copy of your investment data in various formats
               </p>
               <div className="flex flex-wrap gap-3">
@@ -447,7 +447,7 @@ export default function Settings() {
                 <Sparkles className="h-4 w-4 mr-2 text-blue-500" />
                 <h3 className="text-md font-medium">xAI / Grok API</h3>
               </div>
-              <p className="text-sm text-gray-500 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Connect to the xAI Grok API to generate intelligent milestone
                 suggestions based on your investment portfolio.
               </p>
@@ -499,7 +499,7 @@ export default function Settings() {
                       </p>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-muted-foreground">
                     <p>
                       <a
                         href="https://x.ai"
@@ -526,7 +526,7 @@ export default function Settings() {
                 <DatabaseBackup className="h-4 w-4 mr-2 text-blue-500" />
                 <h3 className="text-md font-medium">Trading212 API</h3>
               </div>
-              <p className="text-sm text-gray-500 mb-1">
+              <p className="text-sm text-muted-foreground mb-1">
                 API keys for investment platforms can be managed in the API
                 Connections page.
               </p>
@@ -555,7 +555,7 @@ export default function Settings() {
               <LifeBuoy className="h-4 w-4 mr-2" />
               Contact Support
             </Button>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Need help with Milestone? Our support team is available
               Monday-Friday, 9am-5pm GMT.
             </p>

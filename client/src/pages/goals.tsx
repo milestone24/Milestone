@@ -349,7 +349,7 @@ export default function Goals() {
               Array(3)
                 .fill(0)
                 .map((_, i) => (
-                  <div key={i} className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <div key={i} className="bg-muted rounded-lg p-4 mb-4">
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <Skeleton className="h-5 w-32 mb-1" />
@@ -365,7 +365,7 @@ export default function Goals() {
                 ))
             ) : milestones.length === 0 ? (
               <div className="py-8 text-center">
-                <p className="text-gray-500 mb-4">No milestones added yet.</p>
+                <p className="text-muted-foreground mb-4">No milestones added yet.</p>
                 <Button
                   onClick={() => setIsAddMilestoneOpen(true)}
                   className="bg-primary text-white"

@@ -94,7 +94,7 @@ export default function Fire() {
         <Card className="mt-4">
           <CardContent className="p-4">
             <h2 className="mb-3 text-lg font-semibold">FIRE Calculator</h2>
-            <p className="mb-6 text-sm text-gray-600">
+            <p className="mb-6 text-sm text-muted-foreground">
               {userStatus.message}
               FIRE calculator. This should be done in your profile settings.
             </p>
@@ -122,7 +122,7 @@ export default function Fire() {
             <h2 className="mb-3 text-lg font-semibold">
               Welcome to FIRE Planning
             </h2>
-            <p className="mb-6 text-sm text-gray-600">
+            <p className="mb-6 text-sm text-muted-foreground">
               Let's set up your Financial Independence and Retire Early (FIRE)
               goals. This will help you track your progress towards financial
               independence.
@@ -146,7 +146,7 @@ export default function Fire() {
       <div className="flex w-full flex-col space-y-6">
         <div>
           <h2 className="text-lg font-semibold">FIRE Calculator</h2>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             Plan your Financial Independence and Retire Early
           </p>
         </div>
@@ -157,7 +157,7 @@ export default function Fire() {
           <div className="fire-screen mx-auto max-w-5xl px-4 pb-20">
             <Card className="mt-4">
               <CardContent className="p-4">
-                <p className="mb-6 text-sm text-gray-600">
+                <p className="mb-6 text-sm text-muted-foreground">
                   Let's set up your Financial Independence and Retire Early
                   (FIRE) goals. This will help you track your progress towards
                   financial independence.
