@@ -86,7 +86,7 @@ export default function MobileBottomNav() {
                         className={`transition-colors ${
                           isActive
                             ? "text-[#0061ff]"
-                            : "text-black hover:text-[#0061ff]"
+                            : "text-foreground hover:text-nav-active"
                         }`}
                       >
                         {item.icon}
@@ -97,7 +97,7 @@ export default function MobileBottomNav() {
                         className={`text-xs ${
                           isActive
                             ? "text-[#0061ff] font-medium"
-                            : "text-black hover:text-[#0061ff]"
+                            : "text-foreground hover:text-nav-active"
                         }`}
                       >
                         {item.label}

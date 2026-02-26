@@ -174,7 +174,7 @@ export default function ApiConnections() {
   return (
     <div className="api-connections-page max-w-4xl mx-auto px-4 pb-20 pt-6">
       <h1 className="text-2xl font-semibold mb-4">API Connections</h1>
-      <p className="text-gray-500 mb-6">
+      <p className="text-muted-foreground mb-6">
         Connect your investment accounts to automatically update your portfolio
         values
       </p>
@@ -189,11 +189,11 @@ export default function ApiConnections() {
         {connectedAccounts.length === 0 ? (
           <Card>
             <CardContent className="p-6 text-center">
-              <div className="mb-4 text-gray-400">
+              <div className="mb-4 text-muted-foreground">
                 <LinkIcon className="w-12 h-12 mx-auto mb-2" />
                 <h3 className="text-md font-medium">No Connected Accounts</h3>
               </div>
-              <p className="text-gray-500 text-sm mb-4">
+              <p className="text-muted-foreground text-sm mb-4">
                 You don't have any accounts connected via API yet. Connect your
                 accounts to auto-update your portfolio values.
               </p>
@@ -275,7 +275,7 @@ export default function ApiConnections() {
         {disconnectedAccounts.length === 0 ? (
           <Card>
             <CardContent className="p-6 text-center">
-              <p className="text-gray-500">
+              <p className="text-muted-foreground">
                 All your compatible accounts are already connected.
               </p>
             </CardContent>
@@ -358,7 +358,7 @@ export default function ApiConnections() {
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="flex items-center p-3 border rounded-md">
-              <div className="w-8 h-8 bg-gray-100 rounded-md flex items-center justify-center mr-3">
+              <div className="w-8 h-8 bg-muted rounded-md flex items-center justify-center mr-3">
                 <SiTradingview className="w-5 h-5" />
               </div>
               <div>
@@ -375,7 +375,7 @@ export default function ApiConnections() {
             </div>
 
             <div className="flex items-center p-3 border rounded-md">
-              <div className="w-8 h-8 bg-gray-100 rounded-md flex items-center justify-center mr-3">
+              <div className="w-8 h-8 bg-muted rounded-md flex items-center justify-center mr-3">
                 <Briefcase className="w-5 h-5" />
               </div>
               <div>
@@ -392,7 +392,7 @@ export default function ApiConnections() {
             </div>
 
             <div className="flex items-center p-3 border rounded-md">
-              <div className="w-8 h-8 bg-gray-100 rounded-md flex items-center justify-center mr-3">
+              <div className="w-8 h-8 bg-muted rounded-md flex items-center justify-center mr-3">
                 <SiCoinbase className="w-5 h-5" />
               </div>
               <div>
@@ -436,12 +436,12 @@ export default function ApiConnections() {
                   className="pr-10"
                 />
                 <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                  <Lock className="h-4 w-4 text-gray-400" />
+                  <Lock className="h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
               <div className="flex items-start mt-3">
                 <Info className="h-4 w-4 text-blue-500 mt-0.5 mr-2 flex-shrink-0" />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   To find your API key, log in to your broker's website, go to
                   settings, and look for API access or developer options.
                 </p>

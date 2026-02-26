@@ -1,6 +1,7 @@
 @import "tailwindcss" source(".");
 
-/* Question if this is still needed */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --radius: 0.65rem;
   --background: oklch(1 0 0);
@@ -9,8 +10,9 @@
   --card-foreground: oklch(0.141 0.005 285.823);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.541 0.281 293.009);
-  --primary-foreground: oklch(0.969 0.016 293.756);
+  --primary: oklch(0.50 0.24 264);
+  --primary-lighter: oklch(from var(--primary) calc(l + 0.12) c h);
+  --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.967 0.001 286.375);
@@ -20,7 +22,7 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.702 0.183 293.541);
+  --ring: oklch(0.65 0.22 264);
   --chart-1: oklch(0.811 0.111 293.571);
   --chart-2: oklch(0.606 0.25 292.717);
   --chart-3: oklch(0.541 0.281 293.009);
@@ -28,12 +30,25 @@
   --chart-5: oklch(0.432 0.232 292.759);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.541 0.281 293.009);
-  --sidebar-primary-foreground: oklch(0.969 0.016 293.756);
+  --sidebar-primary: oklch(0.50 0.24 264);
+  --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.967 0.001 286.375);
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.702 0.183 293.541);
+
+  /* Financial semantic colors — theme-responsive */
+  --positive: oklch(0.52 0.22 145);
+  --negative: oklch(0.50 0.20 25);
+
+  /* Domain entity colors */
+  --asset: oklch(0.55 0.22 264);
+  --txn:   oklch(0.68 0.16 70);
+
+  /* Bottom nav tokens */
+  --nav-active: oklch(0.50 0.24 264);
+  --nav-cta-bg: oklch(0.15 0.01 286);
+  --nav-cta-bg-active: oklch(0.50 0.24 264);
 }
 
 .dark {
@@ -43,8 +58,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.21 0.006 285.885);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.606 0.25 292.717);
-  --primary-foreground: oklch(0.969 0.016 293.756);
+  --primary: oklch(0.65 0.22 264);
+  --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.274 0.006 286.033);
@@ -52,9 +67,9 @@
   --accent: oklch(0.274 0.006 286.033);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  --border: transparent;
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.38 0.189 293.745);
+  --ring: oklch(0.65 0.22 264);
   --chart-1: oklch(0.811 0.111 293.571);
   --chart-2: oklch(0.606 0.25 292.717);
   --chart-3: oklch(0.541 0.281 293.009);
@@ -62,97 +77,101 @@
   --chart-5: oklch(0.432 0.232 292.759);
   --sidebar: oklch(0.21 0.006 285.885);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.606 0.25 292.717);
-  --sidebar-primary-foreground: oklch(0.969 0.016 293.756);
+  --sidebar-primary: oklch(0.65 0.22 264);
+  --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.274 0.006 286.033);
   --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.38 0.189 293.745);
+  --sidebar-border: transparent;
+  --sidebar-ring: oklch(0.65 0.22 264);
+
+  /* Financial semantic colors — theme-responsive */
+  --positive: oklch(0.72 0.26 145);
+  --negative: oklch(0.68 0.22 25);
+
+  /* Domain entity colors */
+  --asset: oklch(0.70 0.20 264);
+  --txn:   oklch(0.78 0.18 70);
+
+  /* Bottom nav tokens */
+  --nav-active: oklch(0.72 0.20 264);
+  --nav-cta-bg: oklch(0.28 0.006 286);
+  --nav-cta-bg-active: oklch(0.65 0.22 264);
 }
 
 
-@theme {
+@theme inline {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 
-  /* Color palette for UI components */
-  --color-background: #ffffff;
-  --color-foreground: #0f172a;
-  --color-card: #ffffff;
-  --color-card-foreground: #0f172a;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #0f172a;
-  --color-primary: #0f172a;
-  --color-primary-foreground: #f8fafc;
-  --color-secondary: #f1f5f9;
-  --color-secondary-foreground: #0f172a;
-  --color-muted: #f1f5f9;
-  --color-muted-foreground: #64748b;
-  --color-accent: #f1f5f9;
-  --color-accent-foreground: #0f172a;
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #f8fafc;
-  --color-border: #e2e8f0;
-  --color-input: #e2e8f0;
-  --color-ring: #0f172a;
+  /* Core UI tokens — reference CSS variables so they respond to .dark */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-lighter: var(--primary-lighter);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius: var(--radius);
+  --radius-sm: 0.75rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+
+  /* Account type colors — consistent across light and dark */
+  --color-isa: oklch(0.72 0.14 200);
+  --color-sipp: oklch(0.72 0.17 150);
+  --color-lisa: oklch(0.65 0.18 290);
+  --color-gia: oklch(0.75 0.15 55);
+  --color-other: oklch(0.65 0.05 250);
+
+  /* Financial semantic colors — theme-responsive via CSS variables */
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+
+  /* Domain entity colors */
+  --color-asset: var(--asset);
+  --color-txn:   var(--txn);
+
+  /* Bottom nav tokens */
+  --color-nav-active: var(--nav-active);
+  --color-nav-cta-bg: var(--nav-cta-bg);
+  --color-nav-cta-bg-active: var(--nav-cta-bg-active);
 }
-
-/*@media (prefers-color-scheme: dark) {
-  @theme {
-    --color-background: #020617;
-    --color-foreground: #f8fafc;
-    --color-card: #020617;
-    --color-card-foreground: #f8fafc;
-    --color-popover: #020617;
-    --color-popover-foreground: #f8fafc;
-    --color-primary: #f8fafc;
-    --color-primary-foreground: #0f172a;
-    --color-secondary: #1e293b;
-    --color-secondary-foreground: #f8fafc;
-    --color-muted: #1e293b;
-    --color-muted-foreground: #94a3b8;
-    --color-accent: #1e293b;
-    --color-accent-foreground: #f8fafc;
-    --color-destructive: #7f1d1d;
-    --color-destructive-foreground: #f8fafc;
-    --color-border: #1e293b;
-    --color-input: #1e293b;
-    --color-ring: #f8fafc;
-  }
-}*/
-/*
-html,
-body {
-  @apply bg-background text-foreground;
-
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
-  }
-}
-
-* {
-  border-color: theme(colors.border);
-}
-
-body {
-  font-feature-settings: "rlig" 1, "calt" 1;
-}*/
-
-
 
 
 @layer base {
-  /* * {
-    @apply border;
-  } */
+  * {
+    border-color: var(--color-border);
+  }
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    /*font-feature-settings: "rlig" 1, "calt" 1;*/
-
-    /*@media (prefers-color-scheme: dark) {
-      color-scheme: dark;
-    }*/
   }
 }
 

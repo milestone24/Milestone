@@ -47,6 +47,7 @@ import { PosNegNumber } from "@/components/common/PosNegNumber";
 import { cn } from "@/lib/utils";
 import { useAssets } from "@/hooks/use-assets";
 import { usePortfolioValue } from "@/hooks/use-portfolio-value";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 function Portfolio() {
   const { dateRange } = useDateRange();
@@ -171,18 +172,20 @@ function Portfolio() {
         })
       : [];
 
+  const [assetColor = "", txnColor = ""] = useThemeColors(["--asset", "--txn"]);
+
   const chartData: ChartData = [
     {
       id: "1",
       name: "Total Portfolio Value",
       data: valuesChartData,
-      color: "#3B82F6",
+      color: assetColor,
     },
     {
       id: "2",
       name: "Transactions Input Value",
       data: transactionChartData,
-      color: "#F59E0B",
+      color: txnColor,
     },
   ];
 
@@ -197,7 +200,7 @@ function Portfolio() {
   // Get color for account type
   const getAccountTypeColor = (type: string) => {
     // Return black for all account types
-    return "text-black font-semibold";
+    return "text-foreground font-semibold";
   };
 
   // Find next milestone for the portfolio if any
@@ -282,7 +285,7 @@ function Portfolio() {
             size="lg"
             className={cn(
               "cursor-pointer border rounded-full w-10 h-10 p-2 m-0 flex items-center justify-center [&_svg]:!w-full [&_svg]:!h-full",
-              showChart ? "bg-gray-100" : "bg-transparent"
+              showChart ? "bg-muted" : "bg-transparent"
             )}
             onClick={onToggleChart}
           >
@@ -314,12 +317,12 @@ function Portfolio() {
       <div className="flex justify-between items-center my-4">
         <h2 className="text-lg font-semibold">Accounts</h2>
         <div className="flex items-center space-x-4">
-          <div className="flex bg-gray-200 rounded-lg shadow-md">
+          <div className="flex bg-muted rounded-lg shadow-md">
             <button
               className={`text-sm font-medium py-1 px-3 rounded-lg transition-all ${
                 !displayInPercentage
-                  ? "bg-white text-black shadow-inner"
-                  : "hover:bg-gray-300"
+                  ? "bg-card text-foreground shadow-inner"
+                  : "hover:bg-accent"
               }`}
               onClick={() => setDisplayInPercentage(false)}
             >
@@ -328,8 +331,8 @@ function Portfolio() {
             <button
               className={`text-sm font-medium py-1 px-3 rounded-lg transition-all ${
                 displayInPercentage
-                  ? "bg-white text-black shadow-inner"
-                  : "hover:bg-gray-300"
+                  ? "bg-card text-foreground shadow-inner"
+                  : "hover:bg-accent"
               }`}
               onClick={() => setDisplayInPercentage(true)}
             >
@@ -371,7 +374,7 @@ function Portfolio() {
               size="icon"
               className={`rounded-full w-10 h-10 flex items-center justify-center ${
                 isEditMode
-                  ? "bg-blue-100 border-blue-300 text-blue-600"
+                  ? "bg-primary/10 border-primary/30 text-primary"
                   : "text-primary"
               }`}
               onClick={() => setIsEditMode(!isEditMode)}
@@ -391,55 +394,58 @@ function Portfolio() {
 
       {isLoadingAssets ? (
         // Skeleton loading state for accounts
-        Array(3)
-          .fill(0)
-          .map((_, i) => (
-            <div key={i} className="border-b border-gray-200 py-3">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center">
-                  <Skeleton className="w-10 h-10 rounded-md mr-3" />
-                  <div>
-                    <Skeleton className="h-5 w-24 mb-1" />
-                    <Skeleton className="h-4 w-12" />
+        <div className="bg-card rounded-lg overflow-hidden">
+          {Array(3)
+            .fill(0)
+            .map((_, i) => (
+              <div key={i} className="py-3 px-4">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    <Skeleton className="w-10 h-10 rounded-md mr-3" />
+                    <div>
+                      <Skeleton className="h-5 w-24 mb-1" />
+                      <Skeleton className="h-4 w-12" />
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <Skeleton className="h-5 w-20 mb-1" />
+                    <Skeleton className="h-4 w-16" />
                   </div>
                 </div>
-                <div className="text-right">
-                  <Skeleton className="h-5 w-20 mb-1" />
-                  <Skeleton className="h-4 w-16" />
-                </div>
               </div>
-            </div>
-          ))
+            ))}
+        </div>
       ) : (
         // List of accounts
         <>
           {isErrorAssets ? (
             <div className="py-8 text-center">
-              <p className="text-gray-500 mb-4">
+              <p className="text-muted-foreground mb-4">
                 Error loading accounts: {assetsError?.message}
               </p>
             </div>
           ) : !assets || assets.length === 0 ? (
             <div className="py-8 text-center">
-              <p className="text-gray-500 mb-4">
+              <p className="text-muted-foreground mb-4">
                 No investment accounts added yet.
               </p>
               <Button
                 onClick={() => setIsAddAccountOpen(true)}
-                className="bg-black text-white hover:bg-gray-800"
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 Add Your First Account
               </Button>
             </div>
           ) : (
-            assets.map((asset) => {
+            <div className="bg-card rounded-lg overflow-hidden">
+            {assets.map((asset) => {
               const platformName = asset.platformId
                 ? getPlatformName(asset.platformId, brokerPlatforms ?? [])
                 : null;
               return (
                 <section
                   key={asset.id}
-                  className="border-b border-gray-200 py-3 cursor-pointer hover:bg-gray-50 transition-colors relative"
+                  className="py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors relative"
                   onClick={(e) => {
                     if (!isEditMode) {
                       setLocation(`/asset/${asset.id}`);
@@ -479,7 +485,7 @@ function Portfolio() {
                         >
                           {getBrokerAccountTypeFullName(asset.accountType)}
                         </span>
-                        <span className="text-xs text-gray-500 block">
+                        <span className="text-xs text-muted-foreground block">
                           {asset.startDate.toLocaleDateString("en-GB", {
                             day: "2-digit",
                             month: "short",
@@ -493,7 +499,7 @@ function Portfolio() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="mr-2 text-red-600 hover:text-red-800 hover:bg-red-50"
+                          className="mr-2 text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={(e) => {
                             e.stopPropagation();
                             setAccountToDelete(asset.id);
@@ -529,7 +535,8 @@ function Portfolio() {
                   </div>
                 </section>
               );
-            })
+            })}
+            </div>
           )}
         </>
       )}

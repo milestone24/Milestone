@@ -47,7 +47,7 @@ export const AssetValueListItem = ({
     <>
       <div
         className={cn(
-          "flex justify-between items-center p-4 bg-gray-50 rounded-lg transition-opacity",
+          "flex justify-between items-center p-4 bg-muted rounded-lg transition-opacity",
           isBusy && "opacity-50 pointer-events-none"
         )}
       >
@@ -57,10 +57,10 @@ export const AssetValueListItem = ({
               £{Number(value.value).toLocaleString()}
             </p>
             {isBusy && (
-              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
             )}
           </div>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             {new Date(value.valueDate).toLocaleDateString("en-GB", {
               day: "2-digit",
               month: "short",
@@ -82,7 +82,7 @@ export const AssetValueListItem = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={() => setIsDeleteOpen(true)}
               disabled={isBusy}
             >
@@ -117,7 +117,7 @@ export const AssetValueListItem = ({
               <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDelete}
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-destructive hover:bg-destructive/90"
                 disabled={isDeleting}
               >
                 {isDeleting ? (

@@ -60,7 +60,7 @@ export const RecurringContributionItem = ({
     <>
       <div
         className={cn(
-          "flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 bg-gray-50 rounded-lg transition-opacity",
+          "flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 bg-muted rounded-lg transition-opacity",
           isBusy && "opacity-50 pointer-events-none"
         )}
       >
@@ -74,8 +74,8 @@ export const RecurringContributionItem = ({
               variant={contribution.isActive ? "default" : "secondary"}
               className={
                 contribution.isActive
-                  ? "bg-green-100 text-green-800 hover:bg-green-100"
-                  : "bg-gray-100 text-gray-600"
+                  ? "bg-txn/10 text-txn hover:bg-txn/10"
+                  : "bg-muted text-muted-foreground"
               }
             >
               {contribution.isActive ? (
@@ -90,7 +90,7 @@ export const RecurringContributionItem = ({
             {formatRRuleSchedule(contribution.patternConfig)}
           </span>
           {contribution.process === "automatic" && (
-            <span className="text-xs text-blue-600">
+            <span className="text-xs text-primary">
               Auto-processing enabled
             </span>
           )}
@@ -106,7 +106,7 @@ export const RecurringContributionItem = ({
             disabled={isBusy}
           >
             {updateRecurringContribution.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
             ) : (
               <Pencil className="h-4 w-4" />
             )}
@@ -114,12 +114,12 @@ export const RecurringContributionItem = ({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={() => setIsDeleteOpen(true)}
             disabled={isBusy}
           >
             {deleteRecurringContribution.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin text-red-600" />
+              <Loader2 className="h-4 w-4 animate-spin text-destructive" />
             ) : (
               <Trash2 className="h-4 w-4" />
             )}

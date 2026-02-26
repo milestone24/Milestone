@@ -158,20 +158,20 @@ export const SecuritiesTransactionsPanel = ({
         <div>
           {/* Contribution Summary Section */}
           {transactions && transactions.length > 0 && (
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+            <div className="mb-6 p-4 bg-muted rounded-lg">
               <h3 className="text-lg font-medium mb-2 flex items-center">
-                <BsPiggyBank className="h-5 w-5 mr-2 text-green-600" />
+                <BsPiggyBank className="h-5 w-5 mr-2 text-txn" />
                 Contribution Summary
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
                 <div>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     Number of Contributions
                   </p>
                   <p className="text-xl font-semibold">{transactions.length}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">First Transaction</p>
+                  <p className="text-sm text-muted-foreground">First Transaction</p>
                   <p className="text-base font-medium">
                     {firstTransactionDate
                       ? firstTransactionDate.toLocaleDateString("en-GB", {
@@ -183,7 +183,7 @@ export const SecuritiesTransactionsPanel = ({
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Latest Transaction</p>
+                  <p className="text-sm text-muted-foreground">Latest Transaction</p>
                   <p className="text-base font-medium">
                     {lastTransactionDate
                       ? lastTransactionDate.toLocaleDateString("en-GB", {
@@ -233,7 +233,7 @@ export const SecuritiesTransactionsPanel = ({
               Transaction History
             </h3>
             {transactions?.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 No contributions recorded for this account.
               </div>
             )}

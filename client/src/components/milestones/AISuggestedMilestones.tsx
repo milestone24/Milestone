@@ -212,7 +212,7 @@ export default function AISuggestedMilestones() {
               .map((_, i) => (
                 <div
                   key={i}
-                  className="bg-gray-50 rounded-lg p-4 flex justify-between items-center"
+                  className="bg-muted rounded-lg p-4 flex justify-between items-center"
                 >
                   <div>
                     <Skeleton className="h-5 w-48 mb-2" />
@@ -225,11 +225,11 @@ export default function AISuggestedMilestones() {
         ) : !showSuggestions ? (
           // Prompt to generate suggestions
           <div className="py-6 text-center">
-            <p className="text-gray-500 mb-2">
+            <p className="text-muted-foreground mb-2">
               Use AI to generate smart milestone suggestions based on your
               portfolio
             </p>
-            <p className="text-sm text-gray-400 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               Our system analyzes your investments and creates personalized
               goals
             </p>
@@ -244,10 +244,10 @@ export default function AISuggestedMilestones() {
         ) : suggestions.length === 0 ? (
           // No suggestions case
           <div className="py-6 text-center">
-            <p className="text-gray-500">
+            <p className="text-muted-foreground">
               No new milestone suggestions at the moment.
             </p>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Try adding more accounts or check back later
             </p>
           </div>
@@ -257,7 +257,7 @@ export default function AISuggestedMilestones() {
             {suggestions.map((suggestion, index) => (
               <div
                 key={index}
-                className="bg-gray-50 rounded-lg p-4 flex justify-between items-start"
+                className="bg-muted rounded-lg p-4 flex justify-between items-start"
               >
                 <div className="flex-1">
                   <div className="flex items-center mb-1">
@@ -266,7 +266,7 @@ export default function AISuggestedMilestones() {
                       <span className="text-lg">{suggestion.icon}</span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-600 mb-1.5">
+                  <p className="text-sm text-muted-foreground mb-1.5">
                     {suggestion.description}
                   </p>
                   <div className="flex items-center">
@@ -277,7 +277,7 @@ export default function AISuggestedMilestones() {
                     >
                       {suggestion.accountType || "Portfolio"}
                     </span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-muted-foreground">
                       Target: £{Number(suggestion.targetValue).toLocaleString()}
                     </span>
                   </div>

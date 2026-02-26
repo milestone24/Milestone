@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { PortfolioProvider } from "@/context/PortfolioContext";
 import { SessionProvider } from "@/context/SessionContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import ResponsiveLayout from "@/components/layout/ResponsiveLayout";
 import NotFound from "@/pages/not-found";
@@ -145,9 +146,9 @@ function Router() {
 
 function Loading() {
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-      <Loader2 className="h-12 w-12 animate-spin text-indigo-600 mb-4" />
-      <p className="text-gray-600 text-lg font-medium">Loading your data...</p>
+    <div className="flex flex-col items-center justify-center h-screen bg-background">
+      <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+      <p className="text-muted-foreground text-lg font-medium">Loading your data...</p>
     </div>
   );
 }
@@ -155,15 +156,17 @@ function Loading() {
 function App() {
   useSocket();
   return (
-    <QueryClientProvider client={queryClient}>
-      <SessionProvider>
-        <PortfolioProvider>
-          <Router />
-          <Toaster />
-        </PortfolioProvider>
-      </SessionProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <SessionProvider>
+          <PortfolioProvider>
+            <Router />
+            <Toaster />
+          </PortfolioProvider>
+        </SessionProvider>
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

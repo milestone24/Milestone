@@ -21,7 +21,7 @@ const AddAccountDialogue: React.FC<AddAccountDialogueProps> = ({
         <Button
           variant="outline"
           size="icon"
-          className="rounded-full w-10 h-10 flex items-center justify-center bg-black text-white border-black"
+          className="rounded-full w-10 h-10 flex items-center justify-center bg-primary text-primary-foreground border-primary"
         >
           <Plus className="h-5 w-5" />
         </Button>

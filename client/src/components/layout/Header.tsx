@@ -95,7 +95,7 @@ const NotificationItem = ({
     const title = notification.title.toLowerCase();
 
     if (title.includes("milestone") && title.includes("portfolio")) {
-      return <Trophy className="w-5 h-5 text-blue-500 mr-2 flex-shrink-0" />;
+      return <Trophy className="w-5 h-5 text-blue-500 dark:text-blue-400 mr-2 flex-shrink-0" />;
     } else if (
       title.includes("milestone") &&
       (title.includes("isa") ||
@@ -103,11 +103,11 @@ const NotificationItem = ({
         title.includes("lisa") ||
         title.includes("gia"))
     ) {
-      return <Wallet className="w-5 h-5 text-green-500 mr-2 flex-shrink-0" />;
+      return <Wallet className="w-5 h-5 text-green-500 dark:text-green-400 mr-2 flex-shrink-0" />;
     } else if (title.includes("goal") || title.includes("progress")) {
-      return <Flag className="w-5 h-5 text-purple-500 mr-2 flex-shrink-0" />;
+      return <Flag className="w-5 h-5 text-purple-500 dark:text-purple-400 mr-2 flex-shrink-0" />;
     } else {
-      return <Bell className="w-5 h-5 text-gray-500 mr-2 flex-shrink-0" />;
+      return <Bell className="w-5 h-5 text-muted-foreground mr-2 flex-shrink-0" />;
     }
   };
 
@@ -118,7 +118,7 @@ const NotificationItem = ({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className={`relative mb-2 p-2 rounded-md text-sm cursor-pointer transition-colors bg-gray-50 hover:bg-gray-100
+      className={`relative mb-2 p-2 rounded-md text-sm cursor-pointer transition-colors bg-muted hover:bg-accent
       ${notification.isNew ? "notification-item-new" : ""}
         ${notification.isExiting ? "notification-item-exiting" : ""}`}
     >
@@ -129,7 +129,7 @@ const NotificationItem = ({
           </div>
           <div className={notification.isRead ? "opacity-70" : "opacity-100"}>
             <p className="font-medium">{notification.title}</p>
-            <p className="text-gray-500 text-xs">{notification.message}</p>
+            <p className="text-muted-foreground text-xs">{notification.message}</p>
           </div>
         </div>
         <button
@@ -137,7 +137,7 @@ const NotificationItem = ({
             e.stopPropagation();
             onDismiss(notification.id);
           }}
-          className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-200"
+          className="absolute top-2 right-2 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-accent"
         >
           <X className="w-3 h-3" />
         </button>
@@ -309,7 +309,7 @@ export default function Header() {
   //};
 
   return (
-    <header className="bg-white shadow-sm fixed top-0 left-0 right-0 z-50">
+    <header className="bg-background border-b border-border fixed top-0 left-0 right-0 z-50">
       <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
         <div className="flex-1">
           <DropdownMenu>
@@ -318,7 +318,7 @@ export default function Header() {
                 {profileImage ? (
                   <AvatarImage src={profileImage} alt="Profile" />
                 ) : (
-                  <AvatarFallback className="bg-gray-100 text-gray-500">
+                  <AvatarFallback className="bg-muted text-muted-foreground">
                     <User className="w-4 h-4" />
                   </AvatarFallback>
                 )}
@@ -352,14 +352,14 @@ export default function Header() {
         </div>
 
         <Link to="/portfolio" className="flex-1 text-center">
-          <h1 className="text-xl font-semibold text-neutral-900 inline-block cursor-pointer hover:text-blue-500 transition-colors">
+          <h1 className="text-xl font-semibold text-foreground inline-block cursor-pointer hover:text-primary transition-colors">
             Milestone
           </h1>
         </Link>
 
         <div className="flex-1 flex justify-end">
           <DropdownMenu>
-            <DropdownMenuTrigger className="text-neutral-700 hover:text-neutral-900 rounded-full p-1 hover:bg-gray-100 relative">
+            <DropdownMenuTrigger className="text-foreground hover:text-foreground rounded-full p-1 hover:bg-accent relative">
               <Bell className="w-6 h-6" />
               {notificationCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center notification-badge">
@@ -394,7 +394,7 @@ export default function Header() {
                     ))}
                   </>
                 ) : (
-                  <div className="text-center py-4 text-sm text-gray-500">
+                  <div className="text-center py-4 text-sm text-muted-foreground">
                     No new notifications
                   </div>
                 )}
@@ -407,7 +407,7 @@ export default function Header() {
                         e.stopPropagation();
                         clearAllNotifications();
                       }}
-                      className="flex-1 py-1 px-2 text-xs text-gray-500 hover:bg-gray-100 rounded-md transition-colors"
+                      className="flex-1 py-1 px-2 text-xs text-muted-foreground hover:bg-accent rounded-md transition-colors"
                     >
                       Clear all
                     </button>
@@ -419,7 +419,7 @@ export default function Header() {
                       e.stopPropagation(); // Prevent dropdown from closing
                       //addNotification();
                     }}
-                    className="flex-1 py-1 px-2 text-xs text-gray-500 hover:bg-gray-100 rounded-md transition-colors"
+                    className="flex-1 py-1 px-2 text-xs text-muted-foreground hover:bg-accent rounded-md transition-colors"
                   >
                     Simulate new
                   </button>

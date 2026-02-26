@@ -166,7 +166,7 @@ export default function Profile() {
               <h2 className="text-xl font-semibold mt-4">
                 {user?.account.fullName || "User"}
               </h2>
-              <p className="text-gray-500">
+              <p className="text-muted-foreground">
                 {user?.account.email || "Email not available"}
               </p>
 
@@ -185,23 +185,23 @@ export default function Profile() {
 
             <div className="space-y-4">
               <div className="flex items-center">
-                <Calendar className="w-5 h-5 mr-3 text-gray-500" />
+                <Calendar className="w-5 h-5 mr-3 text-muted-foreground" />
                 <div>
-                  <p className="text-sm text-gray-500">Member since</p>
+                  <p className="text-sm text-muted-foreground">Member since</p>
                   <p className="font-medium">{joinDate}</p>
                 </div>
               </div>
               <div className="flex items-center">
-                <Award className="w-5 h-5 mr-3 text-gray-500" />
+                <Award className="w-5 h-5 mr-3 text-muted-foreground" />
                 <div>
-                  <p className="text-sm text-gray-500">Experience</p>
+                  <p className="text-sm text-muted-foreground">Experience</p>
                   <p className="font-medium">Intermediate</p>
                 </div>
               </div>
               <div className="flex items-center">
-                <Target className="w-5 h-5 mr-3 text-gray-500" />
+                <Target className="w-5 h-5 mr-3 text-muted-foreground" />
                 <div>
-                  <p className="text-sm text-gray-500">Stats</p>
+                  <p className="text-sm text-muted-foreground">Stats</p>
                   <div className="flex flex-wrap gap-2 mt-1">
                     <Badge variant="outline">3 Accounts</Badge>
                     <Badge variant="outline">2 Milestones</Badge>
@@ -269,7 +269,7 @@ export default function Profile() {
                 <Label htmlFor="current-password">Current Password</Label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="w-4 h-4 text-gray-400" />
+                    <Lock className="w-4 h-4 text-muted-foreground" />
                   </div>
                   <Input
                     id="current-password"
@@ -285,7 +285,7 @@ export default function Profile() {
                 <Label htmlFor="new-password">New Password</Label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="w-4 h-4 text-gray-400" />
+                    <Lock className="w-4 h-4 text-muted-foreground" />
                   </div>
                   <Input
                     id="new-password"
@@ -301,7 +301,7 @@ export default function Profile() {
                 <Label htmlFor="confirm-password">Confirm New Password</Label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="w-4 h-4 text-gray-400" />
+                    <Lock className="w-4 h-4 text-muted-foreground" />
                   </div>
                   <Input
                     id="confirm-password"

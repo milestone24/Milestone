@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { 
   Dialog, 
   DialogContent, 
@@ -27,15 +28,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { getData, storeData, triggerHapticFeedback, isNativePlatform } from "../../capacitor";
+import { useTheme } from "@/context/ThemeContext";
+import { Sun, Moon, Monitor } from "lucide-react";
 
 /**
  * Mobile-specific settings component with haptic feedback
  * and persistent storage for preferences
  */
 export default function MobileSettings() {
+  const { theme, setTheme } = useTheme();
   const [enableOfflineMode, setEnableOfflineMode] = useState(false);
   const [enableNotifications, setEnableNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
   const [dataFreshness, setDataFreshness] = useState("1h");
   const [isMobileDevice, setIsMobileDevice] = useState(false);
   const [biometricAuth, setBiometricAuth] = useState(false);
@@ -52,9 +55,6 @@ export default function MobileSettings() {
       
       const notifications = await getData<boolean>("notifications");
       if (notifications !== null) setEnableNotifications(notifications);
-      
-      const theme = await getData<boolean>("darkMode");
-      if (theme !== null) setDarkMode(theme);
       
       const freshness = await getData<string>("dataFreshness");
       if (freshness !== null) setDataFreshness(freshness);
@@ -133,16 +133,31 @@ export default function MobileSettings() {
           
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="dark-mode">Dark Mode</Label>
+              <Label>Theme</Label>
               <p className="text-sm text-muted-foreground">
-                Enable dark theme for the app
+                Light, dark, or system preference
               </p>
             </div>
-            <Switch
-              id="dark-mode"
-              checked={darkMode}
-              onCheckedChange={(value) => handleToggleChange(setDarkMode, value, "darkMode")}
-            />
+            <ToggleGroup
+              type="single"
+              value={theme}
+              onValueChange={(value) => {
+                if (value) {
+                  setTheme(value as typeof theme);
+                  triggerHapticFeedback();
+                }
+              }}
+            >
+              <ToggleGroupItem value="light" aria-label="Light mode">
+                <Sun className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="system" aria-label="System preference">
+                <Monitor className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="dark" aria-label="Dark mode">
+                <Moon className="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
           
           <div className="flex items-center justify-between">

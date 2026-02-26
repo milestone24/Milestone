@@ -49,14 +49,14 @@ export const AssetSecuritiesList: FC<AssetSecuritiesListProps> = ({
         {isSecuritiesLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="p-4 bg-gray-50 rounded-lg animate-pulse">
-                <div className="h-5 bg-gray-200 rounded w-1/4 mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+              <div key={i} className="p-4 bg-muted rounded-lg animate-pulse">
+                <div className="h-5 bg-muted rounded w-1/4 mb-2"></div>
+                <div className="h-4 bg-muted rounded w-1/3"></div>
               </div>
             ))}
           </div>
         ) : securities.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-muted-foreground">
             No securities in this account.
           </div>
         ) : (

@@ -38,8 +38,8 @@ export default function DateRangeControl({ className }: DateRangeControlProps) {
           className={cn(
             "date-range-btn text-xs font-medium py-1 px-3 rounded-full transition-all",
             dateRange === range.value
-              ? "bg-gray-200 text-gray-900 font-semibold"
-              : "text-gray-600 hover:bg-gray-100"
+              ? "bg-muted text-foreground font-semibold"
+              : "text-muted-foreground hover:bg-muted"
           )}
           onClick={() => setDateRange(range.value as DateRangeOption)}
         >
