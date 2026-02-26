@@ -133,7 +133,8 @@ export function useFireHeroChart({
     // Defs
     const defs = svg.append("defs");
 
-    // Per-series linear gradients
+    // Per-series linear gradients — objectBoundingBox (default) so each area's
+    // gradient spans its own bounds: vivid at its top edge, faded at its bottom
     for (const key of keys) {
       const colorVar = getColorVar(key);
       const grad = defs
@@ -144,11 +145,11 @@ export function useFireHeroChart({
       grad.append("stop")
         .attr("offset", "0%")
         .attr("stop-color", `var(${colorVar})`)
-        .attr("stop-opacity", 0.75);
+        .attr("stop-opacity", 0.65);
       grad.append("stop")
         .attr("offset", "100%")
         .attr("stop-color", `var(${colorVar})`)
-        .attr("stop-opacity", 0.2);
+        .attr("stop-opacity", 0.12);
     }
 
     // Clip-path for enter animation
@@ -163,15 +164,23 @@ export function useFireHeroChart({
     // Chart group
     const g = svg.append("g").attr("transform", `translate(${marginLeft},${marginTop})`);
 
-    // Area generator
+    // Area + line generators (shared curve)
+    const curve = d3.curveCatmullRom.alpha(0.5);
+
     const area = d3
       .area<d3.SeriesPoint<StackDatum>>()
       .x(d => xScale(d.data["age"]!))
       .y0(d => yScale(d[0]))
       .y1(d => yScale(d[1]))
-      .curve(d3.curveCatmullRom.alpha(0.5));
+      .curve(curve);
 
-    // Stacked areas inside clip group
+    const lineGen = d3
+      .line<d3.SeriesPoint<StackDatum>>()
+      .x(d => xScale(d.data["age"]!))
+      .y(d => yScale(d[1]))
+      .curve(curve);
+
+    // Stacked filled areas
     const areasGroup = g.append("g").attr("clip-path", "url(#fhc-clip)");
     for (const s of series) {
       areasGroup
@@ -181,62 +190,59 @@ export function useFireHeroChart({
         .attr("d", d => area(d as d3.SeriesPoint<StackDatum>[]));
     }
 
-    // FIRE target dashed line
+    // Bright stroke lines along the top edge of each area
+    for (const s of series) {
+      const colorVar = getColorVar(s.key);
+      areasGroup
+        .append("path")
+        .datum(s)
+        .attr("fill", "none")
+        .attr("stroke", `var(${colorVar})`)
+        .attr("stroke-width", 1.5)
+        .attr("d", d => lineGen(d as d3.SeriesPoint<StackDatum>[]));
+    }
+
+    // FIRE target label + dashed line
     const targetY = yScale(fireNumber);
+    g.append("text")
+      .attr("x", 0).attr("y", targetY - 6)
+      .attr("fill", "var(--color-muted-foreground)")
+      .attr("font-size", "10px")
+      .text("FIRE target");
     g.append("line")
       .attr("x1", 0).attr("x2", boundedWidth)
       .attr("y1", targetY).attr("y2", targetY)
-      .attr("stroke", "var(--color-primary)")
-      .attr("stroke-width", 1.5)
+      .attr("stroke", "var(--color-muted-foreground)")
+      .attr("stroke-width", 1)
       .attr("stroke-dasharray", "4,4")
-      .attr("opacity", 0.7);
+      .attr("opacity", 0.6);
 
-    // Crossover point — first age where stacked total >= fireNumber
-    const crossoverDatum = stackData.find(d =>
-      keys.reduce((sum, k) => sum + (d[k] ?? 0), 0) >= fireNumber
-    );
+    // Starting point dot at current age (leftmost data point — "you are here")
+    const startTotal = keys.reduce((sum, k) => sum + (firstDatum[k] ?? 0), 0);
+    g.append("circle")
+      .attr("cx", xScale(firstDatum["age"]!))
+      .attr("cy", yScale(startTotal))
+      .attr("r", 5)
+      .attr("fill", "var(--color-primary)")
+      .attr("stroke", "var(--color-card)").attr("stroke-width", 2);
 
-    if (crossoverDatum) {
-      const cx = xScale(crossoverDatum["age"]!);
-      const cy = yScale(fireNumber);
-      const pillW = 36;
-      const pillH = 20;
-      const pillX = Math.min(Math.max(cx - pillW / 2, 0), boundedWidth - pillW);
-      const pillY = cy - pillH - 8;
-
-      g.append("circle")
-        .attr("cx", cx).attr("cy", cy).attr("r", 5)
-        .attr("fill", "var(--color-primary)")
-        .attr("stroke", "var(--color-card)").attr("stroke-width", 2);
-
-      g.append("rect")
-        .attr("x", pillX).attr("y", pillY)
-        .attr("width", pillW).attr("height", pillH)
-        .attr("rx", pillH / 2)
-        .attr("fill", "var(--color-primary)");
-
-      g.append("text")
-        .attr("x", pillX + pillW / 2).attr("y", pillY + pillH / 2)
-        .attr("text-anchor", "middle").attr("dominant-baseline", "middle")
-        .attr("fill", "var(--color-primary-foreground)")
-        .attr("font-size", "11px").attr("font-weight", "600")
-        .text(`${crossoverDatum["age"]}`);
-    }
-
-    // X-axis
+    // X-axis — "Age N" labels, 4 ticks
     g.append("g")
       .attr("transform", `translate(0,${boundedHeight})`)
       .call(
         d3.axisBottom(xScale)
-          .ticks(6)
-          .tickFormat(d => `${d}`)
+          .ticks(4)
+          .tickFormat(d => `Age ${d}`)
       )
       .call(ax => {
         ax.select(".domain").remove();
         ax.selectAll(".tick line").remove();
-        ax.selectAll("text")
+        ax.selectAll<SVGTextElement, unknown>("text")
           .attr("fill", "var(--color-muted-foreground)")
-          .attr("font-size", "11px");
+          .attr("font-size", "11px")
+          .attr("text-anchor", "middle");
+        ax.select<SVGTextElement>(".tick:first-of-type text").attr("text-anchor", "start");
+        ax.select<SVGTextElement>(".tick:last-of-type text").attr("text-anchor", "end");
       });
 
     // Hover tooltip

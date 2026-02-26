@@ -49,7 +49,13 @@ export function FireHeroCard({
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const dimensions = useChartDimensions(containerRef, { height: 220 });
+  const dimensions = useChartDimensions(containerRef, {
+    height: 220,
+    marginLeft: 8,
+    marginRight: 8,
+    marginTop: 24,
+    marginBottom: 28,
+  });
 
   const chartData: Map<string, FireProjectionData[]> =
     aggregateContributorBreakdownByAccountType(
@@ -71,9 +77,10 @@ export function FireHeroCard({
     <Card
       className={cn("overflow-hidden ambient-glow", className)}
       style={{
-        "--glow-color-a": "color-mix(in oklch, var(--color-sipp) 15%, transparent)",
-        "--glow-color-b": "color-mix(in oklch, var(--color-isa) 12%, transparent)",
-        "--glow-color-c": "color-mix(in oklch, var(--color-lisa) 10%, transparent)",
+        background: "linear-gradient(160deg, oklch(0.22 0.04 245) 0%, oklch(0.16 0.04 240) 100%)",
+        "--glow-color-a": "rgba(96,165,250,0.35)",
+        "--glow-color-b": "rgba(167,139,250,0.28)",
+        "--glow-color-c": "rgba(52,211,153,0.22)",
       } as React.CSSProperties}
     >
       <CardContent className="p-4 flex flex-col gap-4">

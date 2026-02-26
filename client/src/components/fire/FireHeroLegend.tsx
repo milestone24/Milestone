@@ -15,12 +15,15 @@ const FALLBACK_COLOR_CLASS = "bg-primary";
 const getColorClass = (accountType: string): string =>
   ACCOUNT_TYPE_COLOR_CLASS[accountType.toUpperCase()] ?? FALLBACK_COLOR_CLASS;
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-    maximumFractionDigits: 0,
-  }).format(value);
+const formatCurrencyAbbreviated = (value: number): string => {
+  if (value >= 1_000_000) {
+    return `£${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}m`;
+  }
+  if (value >= 1_000) {
+    return `£${(value / 1_000).toFixed(0)}k`;
+  }
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 }).format(value);
+};
 
 type FireHeroLegendProps = {
   legendValues: FireHeroLegendValues;
@@ -40,8 +43,9 @@ export function FireHeroLegend({ legendValues }: FireHeroLegendProps) {
           value={value}
         />
       ))}
-      <div className="ml-auto text-sm font-semibold text-foreground">
-        {formatCurrency(total)}
+      <div className="ml-auto flex items-center gap-1.5 text-sm font-semibold text-foreground">
+        <span className="text-muted-foreground font-normal">Total</span>
+        {formatCurrencyAbbreviated(total)}
       </div>
     </div>
   );
@@ -55,10 +59,10 @@ type LegendItemProps = {
 function LegendItem({ accountType, value }: LegendItemProps) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className={`h-2 w-2 rounded-full shrink-0 ${getColorClass(accountType)}`} />
+      <span className={`h-3 w-3 rounded-[3px] shrink-0 ${getColorClass(accountType)}`} />
       <span className="text-xs text-muted-foreground">{accountType}</span>
       <span className="text-xs font-medium text-foreground">
-        {formatCurrency(value)}
+        {formatCurrencyAbbreviated(value)}
       </span>
     </div>
   );

@@ -12,9 +12,9 @@ import { cn } from "@/lib/utils";
 export type FireScenario = "pessimistic" | "base" | "optimistic" | "custom";
 
 const PRESET_SCENARIOS: { id: FireScenario; label: string; rate: number }[] = [
-  { id: "pessimistic", label: "Pessimistic", rate: 5 },
-  { id: "base", label: "Base", rate: 8 },
-  { id: "optimistic", label: "Optimistic", rate: 10 },
+  { id: "base", label: "Base (8%)", rate: 8 },
+  { id: "optimistic", label: "Optimistic (10%)", rate: 10 },
+  { id: "pessimistic", label: "Pessimistic (5%)", rate: 5 },
 ];
 
 const SLIDER_MIN = 0;
@@ -68,11 +68,13 @@ export function FireScenarioSelector({
         {PRESET_SCENARIOS.map((scenario) => (
           <Button
             key={scenario.id}
-            variant={activeScenario === scenario.id ? "default" : "outline"}
+            variant="ghost"
             size="sm"
             className={cn(
-              "rounded-full text-xs font-medium",
-              activeScenario === scenario.id && "shadow-none"
+              "rounded-full text-xs font-medium border transition-all",
+              activeScenario === scenario.id
+                ? "border-foreground text-foreground font-semibold"
+                : "border-white/15 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
             )}
             onClick={() => handlePresetClick(scenario)}
           >
@@ -80,11 +82,13 @@ export function FireScenarioSelector({
           </Button>
         ))}
         <Button
-          variant={activeScenario === "custom" ? "default" : "outline"}
+          variant="ghost"
           size="sm"
           className={cn(
-            "rounded-full text-xs font-medium",
-            activeScenario === "custom" && "shadow-none"
+            "rounded-full text-xs font-medium border transition-all",
+            activeScenario === "custom"
+              ? "border-foreground text-foreground font-semibold"
+              : "border-white/15 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
           )}
           onClick={handleCustomOpen}
         >
