@@ -9,12 +9,15 @@ import { FirePageError } from "@/components/fire/FirePageError";
 import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
 import { FireOverviewStickyBar } from "@/components/fire/FireOverviewStickyBar";
 import { WithdrawalStrategyCard } from "@/components/fire/WithdrawalStrategyCard";
+import { FireHeroCard } from "@/components/fire/FireHeroCard";
 import { useFireProjection } from "@/hooks/use-fire";
 import { useElementInView } from "@/hooks/use-element-in-view";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
 import { createDecimalValueString } from "@shared/schema";
+import type { FireScenario } from "@/components/fire/FireScenarioSelector";
+import Decimal from "decimal.js";
 
 export default function Fire() {
   const {
@@ -52,7 +55,26 @@ export default function Fire() {
     adjustmentMonthlyAmount,
 
     adjustmentsState,
+
+    scenarioGrowthRate,
+    setScenarioGrowthRate,
+    resetScenarioGrowthRate,
   } = useFireProjection();
+
+  const [activeScenario, setActiveScenario] = useState<FireScenario | null>(null);
+
+  const handleScenarioSelect = useCallback(
+    (scenario: FireScenario, rate: number) => {
+      setActiveScenario(scenario);
+      setScenarioGrowthRate?.(rate);
+    },
+    [setScenarioGrowthRate]
+  );
+
+  const handleScenarioReset = useCallback(() => {
+    setActiveScenario(null);
+    resetScenarioGrowthRate?.();
+  }, [resetScenarioGrowthRate]);
 
   //TODO: Why do we need this custom starting value?
   const [customStartingValue, setCustomStartingValue] = useState(0);
@@ -94,7 +116,7 @@ export default function Fire() {
         <Card className="mt-4">
           <CardContent className="p-4">
             <h2 className="mb-3 text-lg font-semibold">FIRE Calculator</h2>
-            <p className="mb-6 text-sm text-muted-foreground">
+            <p className="mb-6 text-sm text-gray-600">
               {userStatus.message}
               FIRE calculator. This should be done in your profile settings.
             </p>
@@ -122,7 +144,7 @@ export default function Fire() {
             <h2 className="mb-3 text-lg font-semibold">
               Welcome to FIRE Planning
             </h2>
-            <p className="mb-6 text-sm text-muted-foreground">
+            <p className="mb-6 text-sm text-gray-600">
               Let's set up your Financial Independence and Retire Early (FIRE)
               goals. This will help you track your progress towards financial
               independence.
@@ -146,7 +168,7 @@ export default function Fire() {
       <div className="flex w-full flex-col space-y-6">
         <div>
           <h2 className="text-lg font-semibold">FIRE Calculator</h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-gray-600">
             Plan your Financial Independence and Retire Early
           </p>
         </div>
@@ -157,7 +179,7 @@ export default function Fire() {
           <div className="fire-screen mx-auto max-w-5xl px-4 pb-20">
             <Card className="mt-4">
               <CardContent className="p-4">
-                <p className="mb-6 text-sm text-muted-foreground">
+                <p className="mb-6 text-sm text-gray-600">
                   Let's set up your Financial Independence and Retire Early
                   (FIRE) goals. This will help you track your progress towards
                   financial independence.
@@ -173,6 +195,26 @@ export default function Fire() {
           </div>
         ) : activeProjection ? (
           <>
+            {userStatus?.status === "satisfied" && (
+              <FireHeroCard
+                projectedValue={Decimal(activeProjection.projectedValueAtRetirement).toNumber()}
+                projectedRetirementAge={activeProjection.projectedRetirementAge}
+                targetRetirementAge={activeProjection.targetRetirementAge}
+                fireNumber={Decimal(activeProjection.fireNumber).toNumber()}
+                fireNumberDecimal={activeProjection.fireNumber}
+                contributorBreakdown={activeProjection.projectionResult.contributorBreakdown}
+                dateOfBirth={userStatus.dob}
+                activeScenario={activeScenario}
+                activeGrowthRate={scenarioGrowthRate}
+                baseGrowthRate={
+                  activeProjection.projectionResult.config.mode === "simple"
+                    ? activeProjection.projectionResult.config.growthRate
+                    : 8
+                }
+                onScenarioSelect={handleScenarioSelect}
+                onScenarioReset={handleScenarioReset}
+              />
+            )}
             <div ref={overviewRef}>
               <FireOverviewCard
                 targetRetirementAge={activeProjection.targetRetirementAge}
