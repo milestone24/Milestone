@@ -347,4 +347,31 @@
     border-radius: 9999px;
     object-fit: cover;
   }
+
+  /* Ambient glow — reusable animated radial gradient overlay.
+     Override --glow-color-a/b/c inline to theme per consumer. */
+  @keyframes ambientGlow {
+    0%, 100% { opacity: 0.6; }
+    50%       { opacity: 1; }
+  }
+
+  .ambient-glow {
+    @apply relative overflow-hidden;
+    isolation: isolate;
+    --glow-color-a: color-mix(in oklch, var(--color-primary) 15%, transparent);
+    --glow-color-b: color-mix(in oklch, var(--color-primary) 12%, transparent);
+    --glow-color-c: color-mix(in oklch, var(--color-primary) 10%, transparent);
+  }
+
+  .ambient-glow::before {
+    content: '';
+    @apply absolute pointer-events-none;
+    inset: -60%;
+    background:
+      radial-gradient(ellipse 60% 50% at 30% 40%, var(--glow-color-a) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 60% at 75% 65%, var(--glow-color-b) 0%, transparent 70%),
+      radial-gradient(ellipse 55% 45% at 55% 20%, var(--glow-color-c) 0%, transparent 70%);
+    animation: ambientGlow 14s ease-in-out infinite alternate;
+    z-index: -1;
+  }
 }

@@ -80,6 +80,10 @@ type UseFireProjectionReturn = {
   setAdjustmentsState: undefined,
   resetAdjustmentsState: undefined,
 
+  scenarioGrowthRate: null,
+  setScenarioGrowthRate: undefined,
+  resetScenarioGrowthRate: undefined,
+
 } | {
   error: undefined;
   userStatus: UserStatus;
@@ -115,6 +119,10 @@ type UseFireProjectionReturn = {
   setAdjustmentsState: ReturnType<typeof useFirePreviewState>["setPreviewState"];
   resetAdjustmentsState: ReturnType<typeof useFirePreviewState>["resetPreviewState"];
 
+  scenarioGrowthRate: number | null;
+  setScenarioGrowthRate: (rate: number | null) => void;
+  resetScenarioGrowthRate: () => void;
+
 }
 
 const returnErrorState = (error: Error): UseFireProjectionReturn => ({
@@ -148,6 +156,10 @@ const returnErrorState = (error: Error): UseFireProjectionReturn => ({
   adjustmentsState: undefined,
   setAdjustmentsState: undefined,
   resetAdjustmentsState: undefined,
+
+  scenarioGrowthRate: null,
+  setScenarioGrowthRate: undefined,
+  resetScenarioGrowthRate: undefined,
 })
 
 const decimalStringToNumber = (decimalString: DecimalValueString | undefined, fallback: number): number => {
@@ -178,6 +190,9 @@ export const useFireProjection = (): UseFireProjectionReturn => {
   const [includePortfolioRecurringContributions, setIncludePortfolioRecurringContributions] = useState(false);
   //TODO, complete visualisation of adjusment mode.
   const [isAdjustmentMode, setIsAdjustmentMode] = useState(false);
+  const [scenarioGrowthRate, setScenarioGrowthRate] = useState<number | null>(null);
+
+  const resetScenarioGrowthRate = useCallback(() => setScenarioGrowthRate(null), []);
 
   const { user } = useSession();
   const { toast } = useToast();
@@ -382,7 +397,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     Math.abs(previewState.inflation.rate - DEFAULT_PREVIEW_INFLATION_RATE) >
     0.01;
 
-  const previewEnabled = previewModifiersActive || hasAdjustmentContributors;
+  const previewEnabled = previewModifiersActive || hasAdjustmentContributors || scenarioGrowthRate !== null;
 
   const previewProjectionConfig = useMemo<ProjectionConfig | null>(() => {
     if (!projectionConfig) {
@@ -391,13 +406,14 @@ export const useFireProjection = (): UseFireProjectionReturn => {
 
     return {
       ...projectionConfig,
+      ...(scenarioGrowthRate !== null ? { growthRate: scenarioGrowthRate } : {}),
       modifiers: previewState.contribution.enabled
         ? previewModifiers
         : previewModifiers.filter(
           (modifier) => modifier.type !== "contribution_scaler"
         ),
     } as ProjectionConfig;
-  }, [projectionConfig, previewModifiers, previewState.contribution.enabled]);
+  }, [projectionConfig, previewModifiers, previewState.contribution.enabled, scenarioGrowthRate]);
 
   const projectionContributors: Contributor[] = useMemo(() => {
     //Add contributors from initial server state
@@ -539,6 +555,10 @@ export const useFireProjection = (): UseFireProjectionReturn => {
       adjustmentsState: previewState,
       setAdjustmentsState: setPreviewState,
       resetAdjustmentsState: resetPreviewState,
+
+      scenarioGrowthRate,
+      setScenarioGrowthRate,
+      resetScenarioGrowthRate,
     }
 
 
