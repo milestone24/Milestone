@@ -1,8 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Settings } from "lucide-react";
 import { FireProjectionChartCard } from "@/components/fire/FireProjectionChartCard";
 import { FireSettingsPanel } from "@/components/fire/FireSettingsPanel";
 import { FireSettingsSummaryCard } from "@/components/fire/FireSettingsSummaryCard";
+import { FireSettingsDialog } from "@/components/fire/FireSettingsDialog";
 import { ContributionPreviewState } from "@/hooks/use-fire-preview-state";
 import { FirePageSkeleton } from "@/components/fire/FirePageSkeleton";
 import { FirePageError } from "@/components/fire/FirePageError";
@@ -87,6 +90,7 @@ export default function Fire() {
   );
 
   const [isSettingsEditorOpen, setIsSettingsEditorOpen] = useState(false);
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const overviewRef = useRef<HTMLDivElement>(null);
   const overviewInView = useElementInView(overviewRef, {
     enabled: !!activeProjection,
@@ -166,11 +170,21 @@ export default function Fire() {
   return (
     <div className="fire-screen mx-auto max-w-5xl px-2 pb-20 md:px-4">
       <div className="flex w-full flex-col space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold">FIRE Calculator</h2>
-          <p className="text-sm text-muted-foreground">
-            Plan your Financial Independence and Retire Early
-          </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">FIRE Calculator</h2>
+            <p className="text-sm text-muted-foreground">
+              Plan your Financial Independence and Retire Early
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Open FIRE settings"
+            onClick={() => setIsSettingsDialogOpen(true)}
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
         </div>
 
         {error ? (
@@ -341,6 +355,15 @@ export default function Fire() {
           </>
         ) : null}
       </div>
+      {fireSettingsForm && (
+        <FireSettingsDialog
+          open={isSettingsDialogOpen}
+          onOpenChange={setIsSettingsDialogOpen}
+          form={fireSettingsForm}
+          onSave={handleSaveFireSettings}
+          isSubmitting={isSubmittingFireSettings ?? false}
+        />
+      )}
     </div>
   );
 }
