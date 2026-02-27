@@ -1,6 +1,7 @@
 import { UseFormReturn } from "react-hook-form";
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -32,19 +33,30 @@ export const FireSettingsDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>FIRE Settings</DialogTitle>
+          <DialogTitle className="text-xl font-bold">FIRE Settings</DialogTitle>
         </DialogHeader>
+        <Separator />
         <Form {...form}>
           <FireSettingsForm />
         </Form>
-        <DialogFooter>
-          <Button variant="outline" onClick={handleCancel} disabled={isSubmitting}>
+        <Separator />
+        <DialogFooter className="gap-3 sm:gap-3">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={handleCancel}
+            disabled={isSubmitting}
+          >
             Cancel
           </Button>
-          <Button onClick={onSave} disabled={isSubmitting}>
-            {isSubmitting ? "Saving…" : "Save"}
+          <Button
+            className="flex-1"
+            onClick={onSave}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Saving…" : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>
