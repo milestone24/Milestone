@@ -21,6 +21,8 @@ const AssetPage = lazy(() => import("@/pages/asset"));
 const Goals = lazy(() => import("@/pages/goals"));
 const Track = lazy(() => import("@/pages/track"));
 const FireNow = lazy(() => import("@/pages/fire-now"));
+//TODO: Remove this route once we have migrated all users to the new FIRE calculator.
+const FireLast = lazy(() => import("@/pages/fire-last"));
 const Profile = lazy(() => import("@/pages/profile"));
 const Settings = lazy(() => import("@/pages/settings"));
 const ApiConnections = lazy(() => import("@/pages/api-connections"));
@@ -89,6 +91,14 @@ function Router() {
             {() => (
               <ProtectedRoute>
                 <RouteWithLayout component={FireNow} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          {/* Legacy route for now, to be removed later */}
+          <Route path="/fire-last">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={FireLast} />
               </ProtectedRoute>
             )}
           </Route>
