@@ -1,7 +1,7 @@
 import { useSession } from "@/context/SessionContext";
 import { calculateAge, defineStatePensionAgeForGenderUK } from "@shared/utils/projection-utils";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useCreateFireSettings } from "./use-fire-settings-create";
 import { usePatchFireSettings } from "./use-fire-settings-patch";
 import { useFireSettings } from "./use-fire-settings";
@@ -167,18 +167,19 @@ const decimalStringToNumber = (decimalString: DecimalValueString | undefined, fa
 }
 
 const baseIncomeGoals = (retirementAge: number, annualIncomeGoal: DecimalValueString, reducedSpendingAt75: boolean): IncomeGoal[] => {
+  const safeIncomeGoal = annualIncomeGoal || createDecimalValueString("0");
   return [
     {
       key: "retirement_start",
       fromAge: retirementAge,
-      incomeGoal: annualIncomeGoal,
+      incomeGoal: safeIncomeGoal,
     },
     ...(reducedSpendingAt75
       ? [
         {
           key: "reduced_spending_at_75" as IncomeGoalKey,
           fromAge: 75,
-          incomeGoal: createDecimalValueString(Decimal.mul(annualIncomeGoal, 0.75).toString()),
+          incomeGoal: createDecimalValueString(Decimal.mul(safeIncomeGoal, 0.75).toString()),
         },
       ]
       : []),
@@ -234,6 +235,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
 
   // Single form instance for the entire page
   const fireSettingsForm = useForm<FireSettingsFormValues>({
+    mode: "all",
     resolver: zodResolver(fireSettingsOrphanFormSchema),
     values: fireSettings
       ? {
@@ -281,6 +283,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
 
   const firePreviewConfig = useMemo<FIREProjectionConfig | null>(() => {
     if (!userDOB) return null;
+    if (!annualIncomeGoal || !safeWithdrawalRate) return null;
 
     //Here we should should be be goig from Decimal string to number back to Decimal string.
     //Always use createDecimalValueString to create the Decimal string.
@@ -303,6 +306,11 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     reduceSpendingAt75,
     statePensionAge,
   ]);
+
+  const lastValidFirePreviewConfigRef = useRef<FIREProjectionConfig | null>(null);
+  if (firePreviewConfig !== null) {
+    lastValidFirePreviewConfigRef.current = firePreviewConfig;
+  }
 
   const baseModifiers = useMemo(() => {
     if (!adjustInflation) {
@@ -430,7 +438,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
 
   const previewParams: UseFirePreviewProjectionParams = useMemo(() => ({
     baseProjection: currentProjection,
-    fireConfig: firePreviewConfig ?? undefined,
+    fireConfig: lastValidFirePreviewConfigRef.current ?? undefined,
     projectionConfig: previewProjectionConfig,
     contributors: projectionContributors,
     enabled: previewEnabled,
