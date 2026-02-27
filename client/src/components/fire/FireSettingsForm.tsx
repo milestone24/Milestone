@@ -100,7 +100,7 @@ export const FireSettingsForm = () => {
         )}
       />
 
-      <FormField
+      {/* <FormField
         control={form.control}
         name="monthlyInvestment"
         render={({ field }) => (
@@ -123,7 +123,7 @@ export const FireSettingsForm = () => {
             <FormMessage />
           </FormItem>
         )}
-      />
+      /> */}
 
       <FormField
         control={form.control}

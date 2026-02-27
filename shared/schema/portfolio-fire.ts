@@ -55,9 +55,10 @@ export const fireSettingsOrphanSchema = z.object({
   safeWithdrawalRate: decimalValueSchema.refine(isDecimalValueString, {
     message: "Safe withdrawal rate must be a valid decimal string",
   }),
-  monthlyInvestment: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Monthly investment must be a valid decimal string",
-  }),
+  //Temporarily satisfy the type whilst we remove monthlyInvestment from the settings.
+  // monthlyInvestment: decimalValueSchema.refine(isDecimalValueString, {
+  //   message: "Monthly investment must be a valid decimal string",
+  // }),
   adjustInflation: z.boolean().optional().default(DEFAULT_ADJUST_INFLATION),
   includeStatePension: z.boolean().optional().default(false),
   incomeGoals: incomeGoalSchema.array(),
@@ -65,12 +66,12 @@ export const fireSettingsOrphanSchema = z.object({
 
 fireSettingsOrphanSchema._output satisfies Omit<
   DBInsertFireSettings,
-  "userAccountId"
+  "userAccountId" | "monthlyInvestment"
 >;
 
 fireSettingsOrphanSchema._output satisfies Omit<
   DBSelectFireSettings,
-  "userAccountId" | "id" | "createdAt" | "updatedAt"
+  "userAccountId" | "id" | "createdAt" | "updatedAt" | "monthlyInvestment"
 >;
 
 export const fireSettingsOrphanFormSchema = fireSettingsOrphanSchema
@@ -85,7 +86,7 @@ export const fireSettingsInsertSchema = fireSettingsOrphanSchema.extend({
   userAccountId: z.string(),
 });
 
-fireSettingsInsertSchema._output satisfies DBInsertFireSettings;
+fireSettingsInsertSchema._output satisfies Omit<DBInsertFireSettings, "monthlyInvestment">;
 
 export type FireSettingsInsert = z.infer<typeof fireSettingsInsertSchema>;
 

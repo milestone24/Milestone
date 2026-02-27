@@ -54,7 +54,7 @@ export function FireSettingsSummaryCard({
     annualIncomeGoal,
     expectedAnnualReturn,
     safeWithdrawalRate,
-    monthlyInvestment,
+    //monthlyInvestment,
     targetRetirementAge,
     includeStatePension,
     reduceSpendingAt75,
@@ -63,7 +63,7 @@ export function FireSettingsSummaryCard({
     "annualIncomeGoal",
     "expectedAnnualReturn",
     "safeWithdrawalRate",
-    "monthlyInvestment",
+    //"monthlyInvestment",
     "targetRetirementAge",
     "includeStatePension",
     "reduceSpendingAt75",
@@ -84,10 +84,10 @@ export function FireSettingsSummaryCard({
         label: "Safe withdrawal rate",
         value: formatPercentage(safeWithdrawalRate),
       },
-      {
-        label: "Monthly investment",
-        value: formatCurrency(monthlyInvestment),
-      },
+      // {
+      //   label: "Monthly investment",
+      //   value: formatCurrency(monthlyInvestment),
+      // },
       {
         label: "Target retirement age",
         value: formatAge(targetRetirementAge),
@@ -108,7 +108,7 @@ export function FireSettingsSummaryCard({
     [
       annualIncomeGoal,
       expectedAnnualReturn,
-      monthlyInvestment,
+      //monthlyInvestment,
       safeWithdrawalRate,
       targetRetirementAge,
       includeStatePension,

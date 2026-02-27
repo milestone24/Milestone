@@ -282,7 +282,11 @@ export default function Fire() {
                 onToggle={toggleChart}
                 projectionData={activeProjection.fireProjectionByAge}
                 yearsToFire={activeProjection.yearsRemainingToFireTarget}
-                chartConfig={fireChartConfig}
+                //Temporarily satisfy the type whilst we remove monthlyInvestment from the config.
+                chartConfig={{
+                  ...fireChartConfig,
+                  monthlyInvestment: 0,
+                }}
                 targetRetirementAge={activeProjection.targetRetirementAge}
                 projectedRetirementAge={activeProjection.projectedRetirementAge}
               />

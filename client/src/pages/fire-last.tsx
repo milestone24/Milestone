@@ -16,6 +16,11 @@ import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
 import { createDecimalValueString } from "@shared/schema";
 
+/**
+ * @deprecated This page is no longer used. It is only kept here for reference.
+ * The only puepose of this page is so the old components can be visualised in the browser
+ * for refrence.
+ */
 export default function Fire() {
   const {
     userStatus,
@@ -236,7 +241,11 @@ export default function Fire() {
                 onToggle={toggleChart}
                 projectionData={activeProjection.fireProjectionByAge}
                 yearsToFire={activeProjection.yearsRemainingToFireTarget}
-                chartConfig={fireChartConfig}
+                //Temporarily satisfy the type whilst we remove monthlyInvestment from the config.
+                chartConfig={{
+                  ...fireChartConfig,
+                  monthlyInvestment: 0,
+                }}
                 targetRetirementAge={activeProjection.targetRetirementAge}
                 projectedRetirementAge={activeProjection.projectedRetirementAge}
               />

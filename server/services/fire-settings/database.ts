@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { fireSettings, InsertFireSettings } from "@server/db/schema/portfolio-fire";
-import { FireSettings, FireSettingsInsert, UserAccount } from "@shared/schema";
+import { createDecimalValueString, FireSettings, FireSettingsInsert, UserAccount } from "@shared/schema";
 import { type Database } from "../../db/index";
 
 export class DatabaseFireSettingsService {
@@ -23,7 +23,11 @@ export class DatabaseFireSettingsService {
   }
 
   async create(data: FireSettingsInsert): Promise<FireSettings> {
-    const [settings] = await this.db.insert(fireSettings).values(data).returning();
+    const [settings] = await this.db.insert(fireSettings).values({
+      ...data,
+      //Temporarily satisfy the type whilst we remove monthlyInvestment from the settings.
+      monthlyInvestment: createDecimalValueString("0"),
+    }).returning();
 
     if (!settings) {
       throw new Error("Failed to create FIRE settings");
