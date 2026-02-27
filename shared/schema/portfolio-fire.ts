@@ -47,14 +47,14 @@ export type IncomeGoal = z.infer<typeof incomeGoalSchema>;
 export const fireSettingsOrphanSchema = z.object({
   targetRetirementAge: z.coerce.number().int(),
   annualIncomeGoal: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Annual income goal must be a valid decimal string",
+    message: "Annual income goal is required",
   }),
   //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
   // expectedAnnualReturn: decimalValueSchema.refine(isDecimalValueString, {
   //   message: "Expected annual return must be a valid decimal string",
   // }),
   safeWithdrawalRate: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Safe withdrawal rate must be a valid decimal string",
+    message: "Safe withdrawal rate is required",
   }),
   //Temporarily satisfy the type whilst we remove monthlyInvestment from the settings.
   // monthlyInvestment: decimalValueSchema.refine(isDecimalValueString, {
