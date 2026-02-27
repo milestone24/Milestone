@@ -164,9 +164,10 @@ export default function Track() {
             (Number(fireSettings.safeWithdrawalRate) / 100)
           ).toString(),
         ),
-        expectedAnnualReturn: createDecimalValueString(
-          formState.expectedReturn.toString(),
-        ),
+        //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
+        // expectedAnnualReturn: createDecimalValueString(
+        //   formState.expectedReturn.toString(),
+        // ),
         safeWithdrawalRate: fireSettings.safeWithdrawalRate,
         //Temporarily satisfy the type whilst we remove monthlyInvestment from the settings.
         //monthlyInvestment: fireSettings.monthlyInvestment,

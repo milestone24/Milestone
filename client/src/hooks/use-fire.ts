@@ -238,7 +238,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     values: fireSettings
       ? {
         annualIncomeGoal: fireSettings?.annualIncomeGoal ?? "0",
-        expectedAnnualReturn: fireSettings?.expectedAnnualReturn ?? "7",
+        //expectedAnnualReturn: fireSettings?.expectedAnnualReturn ?? "7",
         safeWithdrawalRate: fireSettings?.safeWithdrawalRate ?? "4",
         //monthlyInvestment: fireSettings?.monthlyInvestment ?? "",
         targetRetirementAge:
@@ -252,7 +252,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
       : undefined,
     defaultValues: {
       annualIncomeGoal: "0",
-      expectedAnnualReturn: "7",
+      //expectedAnnualReturn: "7",
       safeWithdrawalRate: "4",
       //monthlyInvestment: "0",
       targetRetirementAge: DEFAULT_TARGET_RETIREMENT_AGE,
@@ -276,7 +276,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     adjustInflation,
     includeStatePension,
     reduceSpendingAt75,
-    expectedAnnualReturn
+    //expectedAnnualReturn
   } = watch()
 
   const firePreviewConfig = useMemo<FIREProjectionConfig | null>(() => {
@@ -333,14 +333,18 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     () => ({
       mode: "simple",
       //TODO make growth rate a decimal value string
-      growthRate: Decimal(expectedAnnualReturn).toNumber(),
+      //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
+      //growthRate: Decimal(expectedAnnualReturn).toNumber(),
+      growthRate: 7,
       growthModel: "linear",
       interval: "yearly",
       modifiers,
       usePortfolioRecurringContributions: includePortfolioRecurringContributions,
       useContributorSpecificGrowthRates: growthMode === "contributor",
     }),
-    [growthMode, modifiers, expectedAnnualReturn, includePortfolioRecurringContributions]
+    //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
+    //[growthMode, modifiers, expectedAnnualReturn, includePortfolioRecurringContributions]
+    [growthMode, modifiers, includePortfolioRecurringContributions]
   );
 
   const {
@@ -446,7 +450,9 @@ export const useFireProjection = (): UseFireProjectionReturn => {
       currentAmount: decimalStringToNumber(activeProjection?.projectionResult.totalCurrentValue, 0),
       //Temporarily satisfy the type whilst we remove monthlyInvestment from the settings.
       //monthlyInvestment: decimalStringToNumber(monthlyInvestment, 0),
-      expectedReturn: decimalStringToNumber(expectedAnnualReturn, 0),
+      //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
+      //expectedReturn: decimalStringToNumber(expectedAnnualReturn, 0),
+      expectedReturn: 7,
       targetAmount: decimalStringToNumber(activeProjection?.fireNumber, 0),
       currentAge: currentAge,
     }),
@@ -454,7 +460,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
       currentAge,
       activeProjection,
       //monthlyInvestment,
-      expectedAnnualReturn,
+      //expectedAnnualReturn,
     ]
   );
 

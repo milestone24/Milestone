@@ -49,9 +49,10 @@ export const fireSettingsOrphanSchema = z.object({
   annualIncomeGoal: decimalValueSchema.refine(isDecimalValueString, {
     message: "Annual income goal must be a valid decimal string",
   }),
-  expectedAnnualReturn: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Expected annual return must be a valid decimal string",
-  }),
+  //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
+  // expectedAnnualReturn: decimalValueSchema.refine(isDecimalValueString, {
+  //   message: "Expected annual return must be a valid decimal string",
+  // }),
   safeWithdrawalRate: decimalValueSchema.refine(isDecimalValueString, {
     message: "Safe withdrawal rate must be a valid decimal string",
   }),
@@ -66,12 +67,12 @@ export const fireSettingsOrphanSchema = z.object({
 
 fireSettingsOrphanSchema._output satisfies Omit<
   DBInsertFireSettings,
-  "userAccountId" | "monthlyInvestment"
+  "userAccountId" | "monthlyInvestment" | "expectedAnnualReturn"
 >;
 
 fireSettingsOrphanSchema._output satisfies Omit<
   DBSelectFireSettings,
-  "userAccountId" | "id" | "createdAt" | "updatedAt" | "monthlyInvestment"
+  "userAccountId" | "id" | "createdAt" | "updatedAt" | "monthlyInvestment" | "expectedAnnualReturn"
 >;
 
 export const fireSettingsOrphanFormSchema = fireSettingsOrphanSchema
@@ -86,7 +87,7 @@ export const fireSettingsInsertSchema = fireSettingsOrphanSchema.extend({
   userAccountId: z.string(),
 });
 
-fireSettingsInsertSchema._output satisfies Omit<DBInsertFireSettings, "monthlyInvestment">;
+fireSettingsInsertSchema._output satisfies Omit<DBInsertFireSettings, "monthlyInvestment" | "expectedAnnualReturn">;
 
 export type FireSettingsInsert = z.infer<typeof fireSettingsInsertSchema>;
 

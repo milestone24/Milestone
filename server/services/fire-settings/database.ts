@@ -27,6 +27,8 @@ export class DatabaseFireSettingsService {
       ...data,
       //Temporarily satisfy the type whilst we remove monthlyInvestment from the settings.
       monthlyInvestment: createDecimalValueString("0"),
+      //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
+      expectedAnnualReturn: createDecimalValueString("0"),
     }).returning();
 
     if (!settings) {

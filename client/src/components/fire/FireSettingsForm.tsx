@@ -13,7 +13,7 @@ import {
 
 export type FireSettingsFormValues = Omit<
   FireSettingsInsert,
-  "incomeGoals" | "userAccountId"
+  "incomeGoals" | "userAccountId" | "monthlyInvestment" | "expectedAnnualReturn"
 > & {
   reduceSpendingAt75: boolean;
 };
@@ -50,7 +50,7 @@ export const FireSettingsForm = () => {
         )}
       />
 
-      <FormField
+      {/* <FormField
         control={form.control}
         name="expectedAnnualReturn"
         render={({ field }) => (
@@ -73,7 +73,7 @@ export const FireSettingsForm = () => {
             <FormMessage />
           </FormItem>
         )}
-      />
+      /> */}
 
       <FormField
         control={form.control}
