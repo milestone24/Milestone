@@ -5,6 +5,12 @@ import { Separator } from "@/components/ui/separator";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Info } from "lucide-react";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   FormField,
   FormItem,
   FormLabel,
@@ -106,10 +112,21 @@ export const FireSettingsForm = () => {
           name="adjustInflation"
           render={({ field }) => (
             <FormItem className="flex items-center justify-between py-4">
-              <FormLabel className="flex items-center gap-1.5 text-sm font-medium cursor-pointer">
-                Adjust for inflation
-                <Info className="h-3.5 w-3.5 text-muted-foreground" />
-              </FormLabel>
+              <div className="flex items-center gap-1.5">
+                <FormLabel className="text-sm font-medium cursor-pointer">
+                  Adjust for inflation
+                </FormLabel>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger className="text-muted-foreground cursor-help">
+                      <Info className="h-3.5 w-3.5" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Adjusts projections to account for inflation over time (average 2.8% over the past 30 years)
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <FormControl>
                 <Switch checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
@@ -122,10 +139,21 @@ export const FireSettingsForm = () => {
           name="includeStatePension"
           render={({ field }) => (
             <FormItem className="flex items-center justify-between py-4">
-              <FormLabel className="flex items-center gap-1.5 text-sm font-medium cursor-pointer">
-                Include State Pension
-                <Info className="h-3.5 w-3.5 text-muted-foreground" />
-              </FormLabel>
+              <div className="flex items-center gap-1.5">
+                <FormLabel className="text-sm font-medium cursor-pointer">
+                  Include State Pension
+                </FormLabel>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger className="text-muted-foreground cursor-help">
+                      <Info className="h-3.5 w-3.5" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Includes estimated UK State Pension income based on your date of birth and gender
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <FormControl>
                 <Switch checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
@@ -138,10 +166,21 @@ export const FireSettingsForm = () => {
           name="reduceSpendingAt75"
           render={({ field }) => (
             <FormItem className="flex items-center justify-between py-4">
-              <FormLabel className="flex items-center gap-1.5 text-sm font-medium cursor-pointer">
-                Reduced spending at 75
-                <Info className="h-3.5 w-3.5 text-muted-foreground" />
-              </FormLabel>
+              <div className="flex items-center gap-1.5">
+                <FormLabel className="text-sm font-medium cursor-pointer">
+                  Reduced spending at 75
+                </FormLabel>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger className="text-muted-foreground cursor-help">
+                      <Info className="h-3.5 w-3.5" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Assumes you will spend 75% of your desired annual income from age 75 onwards
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <FormControl>
                 <Switch checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
