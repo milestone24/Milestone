@@ -1,220 +1,193 @@
 import { useFormContext } from "react-hook-form";
 import { FireSettingsInsert } from "@shared/schema";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { NumericInput } from "@/components/ui/numeric-input";
+import { Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   FormField,
   FormItem,
   FormLabel,
   FormControl,
   FormMessage,
-  FormDescription,
 } from "@/components/ui/form";
 
 export type FireSettingsFormValues = Omit<
   FireSettingsInsert,
-  "incomeGoals" | "userAccountId"
+  "incomeGoals" | "userAccountId" | "monthlyInvestment" | "expectedAnnualReturn"
 > & {
   reduceSpendingAt75: boolean;
 };
+
+const numericInputClassName = "text-lg font-semibold border-none shadow-none bg-transparent p-0 focus-visible:ring-0 w-full";
 
 export const FireSettingsForm = () => {
   const form = useFormContext<FireSettingsFormValues>();
 
   return (
-    <div className="space-y-4">
-      <FormField
-        control={form.control}
-        name="annualIncomeGoal"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className="block text-sm font-medium text-gray-700 mb-1">
-              Desired Annual Income in Retirement
-            </FormLabel>
-            <FormDescription>
-              Your desired annual income in today's money.
-            </FormDescription>
-            <FormControl>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500">£</span>
-                </div>
-                <Input {...field} type="number" step="500" className="pl-7" />
-              </div>
-            </FormControl>
-            <p className="text-xs text-gray-500 mt-1">
-              Your desired annual income in today's money.
-            </p>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={form.control}
-        name="expectedAnnualReturn"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className="block text-sm font-medium text-gray-700 mb-1">
-              Expected Annual Return (%)
-            </FormLabel>
-            <FormDescription>
-              This is the rate at which you expect your investments to grow each
-              year (Linear not compounded).
-            </FormDescription>
-            <FormControl>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500">%</span>
-                </div>
-                <Input {...field} type="number" step="0.1" className="pl-8" />
-              </div>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={form.control}
-        name="safeWithdrawalRate"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className="block text-sm font-medium text-gray-700 mb-1">
-              Safe Withdrawal Rate (%)
-            </FormLabel>
-            <FormDescription>
-              This is the rate at which you hope to safely withdraw from your
-              pensions in retirement.
-            </FormDescription>
-            <FormControl>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500">%</span>
-                </div>
-                <Input {...field} type="number" step="0.1" className="pl-8" />
-              </div>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={form.control}
-        name="monthlyInvestment"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className="block text-sm font-medium text-gray-700 mb-1">
-              Intended Monthly Investment
-            </FormLabel>
-            <FormDescription>
-              This is your intent, and will be compared to your actual monthly
-              contributions.
-            </FormDescription>
-            <FormControl>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500">£</span>
-                </div>
-                <Input {...field} type="number" step="10" className="pl-7" />
-              </div>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={form.control}
-        name="targetRetirementAge"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className="block text-sm font-medium text-gray-700 mb-1">
-              Desired Retirement Age
-            </FormLabel>
-            <FormDescription>
-              This is the age you hope to retire at.
-            </FormDescription>
-            <FormControl>
-              <Input {...field} type="number" step="1" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={form.control}
-        name="includeStatePension"
-        render={({ field }) => (
-          <FormItem>
-            <div className="flex items-center space-x-2">
+    <div className="space-y-6">
+      <div className="grid grid-cols-3 divide-x divide-border border border-border rounded-lg overflow-hidden">
+        <FormField
+          control={form.control}
+          name="annualIncomeGoal"
+          render={({ field }) => (
+            <FormItem className="p-4 space-y-2">
+              <FormLabel className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                Income Goal
+              </FormLabel>
               <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
+                <div className="flex items-baseline gap-0.5">
+                  <span className="text-lg font-semibold">£</span>
+                  <NumericInput
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    decimalScale={0}
+                    className={numericInputClassName}
+                  />
+                  <span className="text-sm text-muted-foreground">/yr</span>
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="targetRetirementAge"
+          render={({ field }) => (
+            <FormItem className="p-4 space-y-2">
+              <FormLabel className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                Target Age
+              </FormLabel>
+              <FormControl>
+                <NumericInput
+                  value={field.value}
+                  onValueChange={(val) => field.onChange(val === "" ? "" : Number(val))}
+                  decimalScale={0}
+                  thousandSeparator={false}
+                  className={numericInputClassName}
                 />
               </FormControl>
-              <FormLabel className="text-sm cursor-pointer !mt-0">
-                Include State Pension{" "}
-                <span className="italic font-normal text-gray-500">
-                  (based on your date of birth and gender)
-                </span>
-              </FormLabel>
-            </div>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      <FormField
-        control={form.control}
-        name="reduceSpendingAt75"
-        render={({ field }) => (
-          <FormItem>
-            <div className="flex items-center space-x-2">
-              <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-              </FormControl>
-              <FormLabel className="text-sm cursor-pointer !mt-0">
-                Reduce spending at 75{" "}
-                <span className="italic font-normal text-gray-500">
-                  (75% of desired annual income at age 75)
-                </span>
+        <FormField
+          control={form.control}
+          name="safeWithdrawalRate"
+          render={({ field }) => (
+            <FormItem className="p-4 space-y-2">
+              <FormLabel className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                Withdrawal Rate
               </FormLabel>
-            </div>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+              <FormControl>
+                <div className="flex items-baseline gap-0.5">
+                  <NumericInput
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    decimalScale={1}
+                    thousandSeparator={false}
+                    className={numericInputClassName}
+                  />
+                  <span className="text-lg font-semibold">%</span>
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
 
-      <FormField
-        control={form.control}
-        name="adjustInflation"
-        render={({ field }) => (
-          <FormItem>
-            <div className="flex items-center space-x-2">
+      <div>
+        <FormField
+          control={form.control}
+          name="adjustInflation"
+          render={({ field }) => (
+            <FormItem className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-1.5">
+                <FormLabel className="text-sm font-medium cursor-pointer">
+                  Adjust for inflation
+                </FormLabel>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger className="text-muted-foreground cursor-help">
+                      <Info className="h-3.5 w-3.5" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Adjusts projections to account for inflation over time (average 2.8% over the past 30 years)
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
-              <FormLabel className="text-sm cursor-pointer !mt-0">
-                Adjust for inflation{" "}
-                <span className="italic font-normal text-gray-500">
-                  (average 2.8% over the past 30 years)
-                </span>
-              </FormLabel>
-            </div>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+            </FormItem>
+          )}
+        />
+        <Separator />
+        <FormField
+          control={form.control}
+          name="includeStatePension"
+          render={({ field }) => (
+            <FormItem className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-1.5">
+                <FormLabel className="text-sm font-medium cursor-pointer">
+                  Include State Pension
+                </FormLabel>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger className="text-muted-foreground cursor-help">
+                      <Info className="h-3.5 w-3.5" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Includes estimated UK State Pension income based on your date of birth and gender
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <FormControl>
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <Separator />
+        <FormField
+          control={form.control}
+          name="reduceSpendingAt75"
+          render={({ field }) => (
+            <FormItem className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-1.5">
+                <FormLabel className="text-sm font-medium cursor-pointer">
+                  Reduced spending at 75
+                </FormLabel>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger className="text-muted-foreground cursor-help">
+                      <Info className="h-3.5 w-3.5" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Assumes you will spend 75% of your desired annual income from age 75 onwards
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <FormControl>
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+      </div>
     </div>
   );
 };

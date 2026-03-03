@@ -1,4 +1,35 @@
+export const integerInputProps = (field: {
+  value: string | number | undefined;
+  onChange: (value: string) => void;
+}) => ({
+  value: field.value !== undefined ? Math.round(Number(field.value)) : "",
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+    field.onChange(String(Math.round(Number(e.target.value || 0)))),
+});
 
+export const decimalInputProps = (
+  field: {
+    value: string | number | undefined;
+    onChange: (value: string) => void;
+  },
+  options?: { precision?: number }
+) => {
+  const num = field.value !== undefined ? parseFloat(String(field.value)) : undefined;
+  const displayValue = num !== undefined && !isNaN(num) ? num : "";
+
+  if (options?.precision !== undefined) {
+    const precision = options.precision;
+    return {
+      value: displayValue,
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+        const raw = parseFloat(e.target.value);
+        field.onChange(!isNaN(raw) ? parseFloat(raw.toFixed(precision)).toString() : "");
+      },
+    };
+  }
+
+  return { value: displayValue };
+};
 
 export const numberProps = (field: {
   value: number;

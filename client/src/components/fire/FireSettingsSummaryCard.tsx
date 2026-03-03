@@ -52,18 +52,18 @@ export function FireSettingsSummaryCard({
 }: FireSettingsSummaryCardProps) {
   const [
     annualIncomeGoal,
-    expectedAnnualReturn,
+    //expectedAnnualReturn,
     safeWithdrawalRate,
-    monthlyInvestment,
+    //monthlyInvestment,
     targetRetirementAge,
     includeStatePension,
     reduceSpendingAt75,
     adjustInflation,
   ] = form.watch([
     "annualIncomeGoal",
-    "expectedAnnualReturn",
+    //"expectedAnnualReturn",
     "safeWithdrawalRate",
-    "monthlyInvestment",
+    //"monthlyInvestment",
     "targetRetirementAge",
     "includeStatePension",
     "reduceSpendingAt75",
@@ -76,18 +76,18 @@ export function FireSettingsSummaryCard({
         label: "Annual income goal",
         value: formatCurrency(annualIncomeGoal),
       },
-      {
-        label: "Expected annual return",
-        value: formatPercentage(expectedAnnualReturn),
-      },
+      // {
+      //   label: "Expected annual return",
+      //   value: formatPercentage(expectedAnnualReturn),
+      // },
       {
         label: "Safe withdrawal rate",
         value: formatPercentage(safeWithdrawalRate),
       },
-      {
-        label: "Monthly investment",
-        value: formatCurrency(monthlyInvestment),
-      },
+      // {
+      //   label: "Monthly investment",
+      //   value: formatCurrency(monthlyInvestment),
+      // },
       {
         label: "Target retirement age",
         value: formatAge(targetRetirementAge),
@@ -107,8 +107,8 @@ export function FireSettingsSummaryCard({
     ],
     [
       annualIncomeGoal,
-      expectedAnnualReturn,
-      monthlyInvestment,
+      //expectedAnnualReturn,
+      //monthlyInvestment,
       safeWithdrawalRate,
       targetRetirementAge,
       includeStatePension,

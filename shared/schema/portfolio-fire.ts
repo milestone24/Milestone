@@ -47,17 +47,19 @@ export type IncomeGoal = z.infer<typeof incomeGoalSchema>;
 export const fireSettingsOrphanSchema = z.object({
   targetRetirementAge: z.coerce.number().int(),
   annualIncomeGoal: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Annual income goal must be a valid decimal string",
+    message: "Annual income goal is required",
   }),
-  expectedAnnualReturn: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Expected annual return must be a valid decimal string",
-  }),
+  //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
+  // expectedAnnualReturn: decimalValueSchema.refine(isDecimalValueString, {
+  //   message: "Expected annual return must be a valid decimal string",
+  // }),
   safeWithdrawalRate: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Safe withdrawal rate must be a valid decimal string",
+    message: "Safe withdrawal rate is required",
   }),
-  monthlyInvestment: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Monthly investment must be a valid decimal string",
-  }),
+  //Temporarily satisfy the type whilst we remove monthlyInvestment from the settings.
+  // monthlyInvestment: decimalValueSchema.refine(isDecimalValueString, {
+  //   message: "Monthly investment must be a valid decimal string",
+  // }),
   adjustInflation: z.boolean().optional().default(DEFAULT_ADJUST_INFLATION),
   includeStatePension: z.boolean().optional().default(false),
   incomeGoals: incomeGoalSchema.array(),
@@ -65,12 +67,12 @@ export const fireSettingsOrphanSchema = z.object({
 
 fireSettingsOrphanSchema._output satisfies Omit<
   DBInsertFireSettings,
-  "userAccountId"
+  "userAccountId" | "monthlyInvestment" | "expectedAnnualReturn"
 >;
 
 fireSettingsOrphanSchema._output satisfies Omit<
   DBSelectFireSettings,
-  "userAccountId" | "id" | "createdAt" | "updatedAt"
+  "userAccountId" | "id" | "createdAt" | "updatedAt" | "monthlyInvestment" | "expectedAnnualReturn"
 >;
 
 export const fireSettingsOrphanFormSchema = fireSettingsOrphanSchema
@@ -85,7 +87,7 @@ export const fireSettingsInsertSchema = fireSettingsOrphanSchema.extend({
   userAccountId: z.string(),
 });
 
-fireSettingsInsertSchema._output satisfies DBInsertFireSettings;
+fireSettingsInsertSchema._output satisfies Omit<DBInsertFireSettings, "monthlyInvestment" | "expectedAnnualReturn">;
 
 export type FireSettingsInsert = z.infer<typeof fireSettingsInsertSchema>;
 

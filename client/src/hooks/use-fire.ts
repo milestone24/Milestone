@@ -1,7 +1,7 @@
 import { useSession } from "@/context/SessionContext";
 import { calculateAge, defineStatePensionAgeForGenderUK } from "@shared/utils/projection-utils";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useCreateFireSettings } from "./use-fire-settings-create";
 import { usePatchFireSettings } from "./use-fire-settings-patch";
 import { useFireSettings } from "./use-fire-settings";
@@ -44,7 +44,7 @@ type ContributionBreakdown = { accountType: string; amount: number }[];
 
 type FireChartConfig = {
   currentAmount: number;
-  monthlyInvestment: number;
+  //monthlyInvestment: number;
   expectedReturn: number;
   targetAmount: number;
   currentAge: number;
@@ -167,18 +167,19 @@ const decimalStringToNumber = (decimalString: DecimalValueString | undefined, fa
 }
 
 const baseIncomeGoals = (retirementAge: number, annualIncomeGoal: DecimalValueString, reducedSpendingAt75: boolean): IncomeGoal[] => {
+  const safeIncomeGoal = annualIncomeGoal || createDecimalValueString("0");
   return [
     {
       key: "retirement_start",
       fromAge: retirementAge,
-      incomeGoal: annualIncomeGoal,
+      incomeGoal: safeIncomeGoal,
     },
     ...(reducedSpendingAt75
       ? [
         {
           key: "reduced_spending_at_75" as IncomeGoalKey,
           fromAge: 75,
-          incomeGoal: createDecimalValueString(Decimal.mul(annualIncomeGoal, 0.75).toString()),
+          incomeGoal: createDecimalValueString(Decimal.mul(safeIncomeGoal, 0.75).toString()),
         },
       ]
       : []),
@@ -234,13 +235,14 @@ export const useFireProjection = (): UseFireProjectionReturn => {
 
   // Single form instance for the entire page
   const fireSettingsForm = useForm<FireSettingsFormValues>({
+    mode: "all",
     resolver: zodResolver(fireSettingsOrphanFormSchema),
     values: fireSettings
       ? {
         annualIncomeGoal: fireSettings?.annualIncomeGoal ?? "0",
-        expectedAnnualReturn: fireSettings?.expectedAnnualReturn ?? "7",
+        //expectedAnnualReturn: fireSettings?.expectedAnnualReturn ?? "7",
         safeWithdrawalRate: fireSettings?.safeWithdrawalRate ?? "4",
-        monthlyInvestment: fireSettings?.monthlyInvestment ?? "",
+        //monthlyInvestment: fireSettings?.monthlyInvestment ?? "",
         targetRetirementAge:
           fireSettings?.targetRetirementAge ?? DEFAULT_TARGET_RETIREMENT_AGE,
         adjustInflation: fireSettings?.adjustInflation ?? true,
@@ -252,9 +254,9 @@ export const useFireProjection = (): UseFireProjectionReturn => {
       : undefined,
     defaultValues: {
       annualIncomeGoal: "0",
-      expectedAnnualReturn: "7",
+      //expectedAnnualReturn: "7",
       safeWithdrawalRate: "4",
-      monthlyInvestment: "0",
+      //monthlyInvestment: "0",
       targetRetirementAge: DEFAULT_TARGET_RETIREMENT_AGE,
       adjustInflation: true,
       includeStatePension: false,
@@ -269,18 +271,19 @@ export const useFireProjection = (): UseFireProjectionReturn => {
   } = fireSettingsForm;
 
   const {
-    monthlyInvestment,
+    //monthlyInvestment,
     targetRetirementAge,
     annualIncomeGoal,
     safeWithdrawalRate,
     adjustInflation,
     includeStatePension,
     reduceSpendingAt75,
-    expectedAnnualReturn
+    //expectedAnnualReturn
   } = watch()
 
   const firePreviewConfig = useMemo<FIREProjectionConfig | null>(() => {
     if (!userDOB) return null;
+    if (!annualIncomeGoal || !safeWithdrawalRate) return null;
 
     //Here we should should be be goig from Decimal string to number back to Decimal string.
     //Always use createDecimalValueString to create the Decimal string.
@@ -303,6 +306,11 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     reduceSpendingAt75,
     statePensionAge,
   ]);
+
+  const lastValidFirePreviewConfigRef = useRef<FIREProjectionConfig | null>(null);
+  if (firePreviewConfig !== null) {
+    lastValidFirePreviewConfigRef.current = firePreviewConfig;
+  }
 
   const baseModifiers = useMemo(() => {
     if (!adjustInflation) {
@@ -333,14 +341,18 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     () => ({
       mode: "simple",
       //TODO make growth rate a decimal value string
-      growthRate: Decimal(expectedAnnualReturn).toNumber(),
+      //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
+      //growthRate: Decimal(expectedAnnualReturn).toNumber(),
+      growthRate: 7,
       growthModel: "linear",
       interval: "yearly",
       modifiers,
       usePortfolioRecurringContributions: includePortfolioRecurringContributions,
       useContributorSpecificGrowthRates: growthMode === "contributor",
     }),
-    [growthMode, modifiers, expectedAnnualReturn, includePortfolioRecurringContributions]
+    //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
+    //[growthMode, modifiers, expectedAnnualReturn, includePortfolioRecurringContributions]
+    [growthMode, modifiers, includePortfolioRecurringContributions]
   );
 
   const {
@@ -426,7 +438,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
 
   const previewParams: UseFirePreviewProjectionParams = useMemo(() => ({
     baseProjection: currentProjection,
-    fireConfig: firePreviewConfig ?? undefined,
+    fireConfig: lastValidFirePreviewConfigRef.current ?? undefined,
     projectionConfig: previewProjectionConfig,
     contributors: projectionContributors,
     enabled: previewEnabled,
@@ -444,16 +456,19 @@ export const useFireProjection = (): UseFireProjectionReturn => {
   const fireChartConfig: FireChartConfig = useMemo(
     () => ({
       currentAmount: decimalStringToNumber(activeProjection?.projectionResult.totalCurrentValue, 0),
-      monthlyInvestment: decimalStringToNumber(monthlyInvestment, 0),
-      expectedReturn: decimalStringToNumber(expectedAnnualReturn, 0),
+      //Temporarily satisfy the type whilst we remove monthlyInvestment from the settings.
+      //monthlyInvestment: decimalStringToNumber(monthlyInvestment, 0),
+      //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
+      //expectedReturn: decimalStringToNumber(expectedAnnualReturn, 0),
+      expectedReturn: 7,
       targetAmount: decimalStringToNumber(activeProjection?.fireNumber, 0),
       currentAge: currentAge,
     }),
     [
       currentAge,
       activeProjection,
-      monthlyInvestment,
-      expectedAnnualReturn,
+      //monthlyInvestment,
+      //expectedAnnualReturn,
     ]
   );
 
