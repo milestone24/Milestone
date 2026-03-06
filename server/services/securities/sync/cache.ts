@@ -5,7 +5,6 @@ import { eq, sql } from "drizzle-orm"
 import { factory as gatewayFactory } from "../gateway"
 import { differenceInDays } from "date-fns"
 import EventEmitter from "events";
-import { AssetPersistence } from "@server/services/assets/database";
 
 /**
  * Fetch and process security history data for a date range
@@ -19,7 +18,6 @@ export const fetchFilteredSecurityHistoryForDates = async (
   abortSignal: AbortSignal
 ): Promise<SecurityHistory[]> => {
   const gateway = gatewayFactory();
-  const historyData: SecurityHistory[] = [];
 
   try {
     const gatewayData = await gateway.getSecurityHistoryForDateRange(
@@ -43,8 +41,6 @@ export const fetchFilteredSecurityHistoryForDates = async (
     //     date.toISOString().split('T')[0] === item.date.toISOString().split('T')[0]
     //   ))
 
-    // historyData.push(...filteredData)
-
     return gatewayData;
   } catch (error) {
     throw new Error(
@@ -53,8 +49,6 @@ export const fetchFilteredSecurityHistoryForDates = async (
       }`
     );
   }
-
-  return historyData;
 };
 
 /**

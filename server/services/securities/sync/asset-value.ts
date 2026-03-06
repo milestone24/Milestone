@@ -187,8 +187,6 @@ type EmitEvents = {
   [k in EventType]: [data: Data];
 };
 
-type B = EventEmitter;
-
 const __updateAssetValues = async (
   assetId: string,
   accountId: string,
