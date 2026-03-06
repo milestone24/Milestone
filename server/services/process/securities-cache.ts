@@ -1,9 +1,13 @@
 import { Database } from "@server/db";
-import { and, eq, inArray, not, or, SQL, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { UpdateSecuritiesDailyHistoryCacheProcess } from "@shared/schema/process";
 import { processes, ProcessSelect } from "@server/db/schema";
 import { handler } from "./securities-cache-distributed-handler";
 import { factory as queueFactory } from "@server/services/distributed/queue";
+import {
+  findRunningOrPendingProcesses,
+  waitForProcessesToAbort,
+} from "./process-abort-wait";
 
 export class SecuritiesCacheService {
   //TODO consider how to handle the abstraction of Db or
@@ -11,75 +15,6 @@ export class SecuritiesCacheService {
     //TODO maybe use job or process persistence factory instead of db?
     private db: Database
   ) {}
-
-  private async findExistingProcesses(
-    processKey: string,
-    excludeIds?: string[],
-    metaCondition?: SQL<unknown>
-  ): Promise<UpdateSecuritiesDailyHistoryCacheProcess[]> {
-    const jobs: UpdateSecuritiesDailyHistoryCacheProcess[] = await this.db.query.processes.findMany({
-      where: and(
-        eq(processes.key, processKey),
-        or(
-          eq(processes.status, "running"),
-          eq(processes.status, "pending")
-        ),
-        excludeIds ? not(inArray(processes.id, excludeIds)) : undefined,
-        metaCondition ? metaCondition : undefined,
-      )
-    }) as UpdateSecuritiesDailyHistoryCacheProcess[] ?? [];
-    return jobs;
-  }
-
-  private async waitForJobsToAbort(processKey: string, excludeIds?: string[], metaCondition?: SQL<unknown>) {
-    const timeout = 20000;
-    let timedOut = false;
-    const timeoutId = setTimeout(() => {
-      timedOut = true;
-    }, timeout);
-    let iterations = 0;
-
-    while (true) {
-      iterations++;
-
-      const jobs = await this.findExistingProcesses(processKey, excludeIds, metaCondition);
-
-      console.log(`Iteration ${iterations}: found ${jobs.length} jobs, timedOut=${timedOut}`);
-
-      if (jobs.length === 0) {
-        clearTimeout(timeoutId);
-        return;
-      }
-
-      //wait for 5 second before checking again
-      if (timedOut) {
-        break;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-    }
-    clearTimeout(timeoutId);
-    throw new Error("Jobs did not abort in time");
-  };
-
-  private async findAndWaitForExistingProcessesAbort(processKey: string, excludeIds?: string[], metaCondition?: SQL<unknown>): Promise<ProcessSelect[]> {
-    const jobs: UpdateSecuritiesDailyHistoryCacheProcess[] = await this.findExistingProcesses(processKey, excludeIds, metaCondition);
-
-    if (jobs.length > 0) {
-      const queueService = queueFactory();
-      for (const job of jobs) {
-        queueService.publish({
-          type: "securities-daily-history-cache-update-abort",
-          jobId: job.id,
-        });
-      }
-      try {
-        await this.waitForJobsToAbort(processKey, excludeIds, metaCondition);
-      } catch (error) {
-        throw new Error("Error waiting for jobs to abort");
-      }
-    }
-    return jobs;
-  }
 
   async updateSecuritiesDailyHistoryCacheForSecurity(
     securityId: string,
@@ -113,23 +48,44 @@ export class SecuritiesCacheService {
         throw new Error("Failed to create job");
       }
 
-      try {
-        await this.findAndWaitForExistingProcessesAbort(
+      const existingJobs =
+        await findRunningOrPendingProcesses<UpdateSecuritiesDailyHistoryCacheProcess>(
+          this.db,
           "update-securities-daily-history-cache",
-          [job.id],
-          sql`payload->>'securityId' = ${securityId}`
+          {
+            excludeIds: [job.id],
+            metaCondition: sql`payload->>'securityId' = ${securityId}`,
+          }
         );
-      } catch (error) {
-        await this.db
-          .update(processes)
-          .set({ status: "failed", completedAt: new Date() })
-          .where(eq(processes.id, job.id));
-        queueService.publish({
-          type: "securities-daily-history-cache-update-failed",
-          jobId: job.id,
-          message: "Error waiting for jobs to abort",
-        });
-        throw new Error("Error waiting for jobs to abort");
+
+      if (existingJobs.length > 0) {
+        for (const existing of existingJobs) {
+          queueService.publish({
+            type: "securities-daily-history-cache-update-abort",
+            jobId: existing.id,
+          });
+        }
+        try {
+          await waitForProcessesToAbort(
+            this.db,
+            "update-securities-daily-history-cache",
+            {
+              excludeIds: [job.id],
+              metaCondition: sql`payload->>'securityId' = ${securityId}`,
+            }
+          );
+        } catch (error) {
+          await this.db
+            .update(processes)
+            .set({ status: "failed", completedAt: new Date() })
+            .where(eq(processes.id, job.id));
+          queueService.publish({
+            type: "securities-daily-history-cache-update-failed",
+            jobId: job.id,
+            message: "Error waiting for jobs to abort",
+          });
+          throw new Error("Error waiting for jobs to abort");
+        }
       }
 
       if (distributed) {
@@ -175,28 +131,17 @@ export class SecuritiesCacheService {
     //   message: "Updating securities daily history cache...",
     // });
 
-    const findExistingProcesses = async (excludeIds?: string[]) => {
-      const jobs: UpdateSecuritiesDailyHistoryCacheProcess[] = await this.db.query.processes.findMany({
-        where: and(
-          eq(processes.key, "update-securities-daily-history-cache"),
-          or(
-            eq(processes.status, "running"),
-            eq(processes.status, "pending")
-          ),
-          excludeIds ? not(inArray(processes.id, excludeIds)) : undefined,
-        )
-      }) as UpdateSecuritiesDailyHistoryCacheProcess[] ?? [];
-      return jobs;
-    };
-
     const queueService = queueFactory();
 
     let job: ProcessSelect | undefined;
 
     try {
 
-      const existingJobs: UpdateSecuritiesDailyHistoryCacheProcess[] =
-        await findExistingProcesses();
+      const existingJobs =
+        await findRunningOrPendingProcesses<UpdateSecuritiesDailyHistoryCacheProcess>(
+          this.db,
+          "update-securities-daily-history-cache"
+        );
 
       if (existingJobs.length > 0) {
         queueService.publish({

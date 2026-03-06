@@ -1,6 +1,6 @@
 import { sendNotification } from "../comms/socket";
 import { Database } from "@server/db";
-import { and, eq, inArray, not, or, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { processes, userAssets, userAssetSecurities } from "@server/db/schema";
 import { UUID_REGEX } from "@server/utils/uuid";
 import {
@@ -25,6 +25,10 @@ import { mockLambdaHandler } from "./asset-values-mock-lambda";
 import { handler } from "./asset-values-distributed-handler";
 import { SecuritiesCacheUpdater } from "../securities/sync/cache";
 import { SecuritiesCacheService } from "./securities-cache";
+import {
+  findRunningOrPendingProcesses,
+  waitForProcessesToAbort,
+} from "./process-abort-wait";
 
 export class AssetValuesService {
 
@@ -119,51 +123,6 @@ export class AssetValuesService {
       return earliestStartDate;
     };
 
-    const findExistingProcesses = async (excludeIds?: string[]) => {
-      const jobs: UpdateAssetValuesProcess[] = await this.db.query.processes.findMany({
-        where: and(
-          eq(processes.key, "update-asset-values"),
-          or(
-            eq(processes.status, "running"),
-            eq(processes.status, "pending")
-          ),
-          excludeIds ? not(inArray(processes.id, excludeIds)) : undefined,
-          sql`payload ->> 'assetId' = ${assetId}`
-        )
-      }) as UpdateAssetValuesProcess[] ?? [];
-      return jobs;
-    };
-
-    const waitForJobsToAbort = async (excludeIds?: string[]) => {
-      const timeout = 20000;
-      let timedOut = false;
-      const timeoutId = setTimeout(() => {
-        timedOut = true;
-      }, timeout);
-      let iterations = 0;
-
-      while (true) {
-        iterations++;
-
-        const jobs = await findExistingProcesses(excludeIds);
-
-        console.log(`Iteration ${iterations}: found ${jobs.length} jobs, timedOut=${timedOut}`);
-
-        if (jobs.length === 0) {
-          clearTimeout(timeoutId);
-          return;
-        }
-
-        //wait for 5 second before checking again
-        if (timedOut) {
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-      }
-      clearTimeout(timeoutId);
-      throw new Error("Jobs did not abort in time");
-    };
-
     let job: ProcessSelect | undefined;
 
     const queueService = queueFactory();
@@ -197,7 +156,14 @@ export class AssetValuesService {
       }
 
       //First find an existing job for this assets that is running
-      const existingJobs = await findExistingProcesses([job.id]);
+      const existingJobs = await findRunningOrPendingProcesses<UpdateAssetValuesProcess>(
+        this.db,
+        "update-asset-values",
+        {
+          excludeIds: [job.id],
+          metaCondition: sql`payload ->> 'assetId' = ${assetId}`,
+        }
+      );
 
       console.log("Asset Values Service Existing jobs", existingJobs.length);
 
@@ -223,7 +189,10 @@ export class AssetValuesService {
         console.log("Start date for asset values update", startDate, assetId);
 
         try {
-          await waitForJobsToAbort([job.id])
+          await waitForProcessesToAbort(this.db, "update-asset-values", {
+            excludeIds: [job.id],
+            metaCondition: sql`payload ->> 'assetId' = ${assetId}`,
+          });
         } catch (error) {
           console.error("Error waiting for jobs to abort", error);
 
