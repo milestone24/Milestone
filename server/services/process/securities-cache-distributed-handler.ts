@@ -3,7 +3,6 @@ import { SecuritiesCacheUpdater } from "../securities/sync/cache";
 import { db } from "@server/db";
 import {
   ProcessSelect,
-  ProcessStatus,
   processes,
   userAssetSecurities,
   userAssets,
@@ -12,6 +11,10 @@ import {
   factory as queueFactory,
   SecuritiesDailyHistoryCacheUpdateMessageBase,
 } from "@server/services/distributed/queue";
+import {
+  createAbortCompletionPromise,
+  updateProcessStatus,
+} from "./job-helpers";
 import { registerShutdownHandler, DEFAULT_SHUTDOWN_TIMEOUT_MS } from "@server/utils/shutdown";
 
 /**
@@ -72,72 +75,8 @@ export const handler = async (event: Event) => {
 
   let job: ProcessSelect | undefined;
 
-  /**
-   * Updates the job record in the DB with the given status.
-   * Sets `completedAt` for terminal states (completed, failed, aborted)
-   * and clears it for non-terminal states (e.g. running).
-   */
-  const updateJobWithStatus = async (jobId: string, status: ProcessStatus) => {
-    try {
-      await db
-        .update(processes)
-        .set(
-          status === "completed"
-            ? { status, completedAt: new Date() }
-            : status === "failed"
-            ? { status, completedAt: new Date(), error: "Error updating securities cache" }
-            : status === "aborted"
-            ? { status, completedAt: new Date() }
-            : { status, completedAt: null }
-        )
-        .where(eq(processes.id, jobId))
-        .returning();
-    } catch (error) {
-      console.error("Error updating job with status", error);
-    }
-  };
-
-  /**
-   * Polls the DB to confirm the job status is `"aborted"`.
-   * Acts as the distributed source-of-truth check — not a local flag.
-   * Only triggered via `resolveAbort()`, never called directly from
-   * the shutdown handler.
-   *
-   * Poll interval and max tries are derived from `DEFAULT_SHUTDOWN_TIMEOUT_MS`
-   * to stay within the coordinator's overall timeout budget.
-   */
-  const POLL_INTERVAL_MS = 1_000;
-  const MAX_TRIES = Math.floor(DEFAULT_SHUTDOWN_TIMEOUT_MS / POLL_INTERVAL_MS);
-
-  const checkAborted = (() => {
-    let tries = 0;
-    return async (): Promise<boolean> => {
-      const current = await db.query.processes.findFirst({
-        where: and(eq(processes.id, jobId)),
-      });
-      if (current?.status === "aborted") {
-        return true;
-      }
-      if (tries >= MAX_TRIES) {
-        throw new Error(`checkAborted: job ${jobId} not aborted after ${MAX_TRIES} tries`);
-      }
-      tries++;
-      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-      return checkAborted();
-    };
-  })();
-
-  /**
-   * Deferred Promise that resolves only after the full abort sequence has
-   * completed: DB updated, queue published, and DB state confirmed via poll.
-   *
-   * `resolveAbort` is always defined — the Promise executor runs synchronously.
-   * The `!` assertion reflects this; `| undefined` would mask real call-site errors.
-   */
-  let resolveAbort!: () => void;
-  const abortCompletePromise = new Promise<void>((resolve, reject) => {
-    resolveAbort = () => checkAborted().then(() => resolve()).catch(reject);
-  });
+  const { promise: abortCompletePromise, resolve: resolveAbort } =
+    createAbortCompletionPromise(jobId);
 
   /**
    * Registers with the central shutdown coordinator so the process does not
@@ -240,7 +179,7 @@ export const handler = async (event: Event) => {
   };
 
   securitiesCacheUpdater.once("started", async () => {
-    await updateJobWithStatus(jobId, "running");
+    await updateProcessStatus(jobId, "running");
     queueService.publish({
       type: "securities-daily-history-cache-update-started",
       ...messageData,
@@ -248,7 +187,7 @@ export const handler = async (event: Event) => {
   });
 
   securitiesCacheUpdater.once("completed", async () => {
-    await updateJobWithStatus(jobId, "completed");
+    await updateProcessStatus(jobId, "completed");
     processListenersOff();
     queueService.publish({
       type: "securities-daily-history-cache-update-completed",
@@ -257,7 +196,7 @@ export const handler = async (event: Event) => {
   });
 
   securitiesCacheUpdater.once("failed", async () => {
-    await updateJobWithStatus(jobId, "failed");
+    await updateProcessStatus(jobId, "failed", "Error updating securities cache");
     processListenersOff();
     queueService.publish({
       type: "securities-daily-history-cache-update-failed",
@@ -277,7 +216,7 @@ export const handler = async (event: Event) => {
    */
   securitiesCacheUpdater.once("aborted", async () => {
     console.log("Securities cache update aborted for job", jobId);
-    await updateJobWithStatus(jobId, "aborted");
+    await updateProcessStatus(jobId, "aborted");
     processListenersOff();
     queueService.publish({
       type: "securities-daily-history-cache-update-aborted",
