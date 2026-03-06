@@ -233,19 +233,11 @@ export const populateSecuritiesDailyHistoryCache = async (
     )
   );
 
-  const results = await populatePromises
-    .then((results) => {
-      if (abortSignal.aborted) {
-        eventEmitter.emit("aborted", { jobId });
-        return [];
-      }
-      eventEmitter.emit("completed", { jobId });
-      return results;
-    })
-    .catch((error) => {
-      eventEmitter.emit("failed", { jobId });
-      throw error;
-    });
+  const results = await populatePromises;
+
+  if (abortSignal.aborted) {
+    return [];
+  }
 
   console.log("populateSecuritiesDailyHistoryCache results", results);
   return results;
@@ -269,6 +261,11 @@ export class SecuritiesCacheUpdater extends EventEmitter<EmitEvents> {
       this
     )
       .then(() => {
+        if (this.abortSignal.aborted) {
+          this.emit("aborted", { jobId: this.jobId });
+          this.emit("exited", { jobId: this.jobId });
+          return;
+        }
         this.emit("completed", { jobId: this.jobId });
         this.emit("exited", { jobId: this.jobId });
       })
