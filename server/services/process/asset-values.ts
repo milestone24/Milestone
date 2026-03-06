@@ -230,7 +230,7 @@ export class AssetValuesService {
           await this.db
             .update(processes)
             .set({ status: "failed", completedAt: new Date() })
-            .where(eq(processes.id, job?.id));
+            .where(eq(processes.id, job.id));
 
           queueService.publish({
             accountId,
@@ -265,6 +265,15 @@ export class AssetValuesService {
           accountId,
           jobId: job.id,
           startDate,
+        }).catch((error) => {
+          const jobIdText = job
+            ? job.id
+            : "undefined (job not defined when logging handler error)";
+          console.error(
+            "Error in asset values distributed handler for job",
+            jobIdText,
+            error
+          );
         });
       }
     } catch (error) {

@@ -135,7 +135,16 @@ export class SecuritiesCacheService {
       if (distributed) {
         // mockLambdaHandler({ jobId: job.id });
       } else {
-        handler({ jobId: job.id });
+        handler({ jobId: job.id }).catch((error) => {
+          const jobIdText = job
+            ? job.id
+            : "undefined (job not defined when logging handler error)";
+          console.error(
+            "Error in securities cache distributed handler for job",
+            jobIdText,
+            error
+          );
+        });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -228,7 +237,16 @@ export class SecuritiesCacheService {
         //   jobId: job.id,
         // });
       } else {
-        handler({ jobId: job.id })
+        handler({ jobId: job.id }).catch((error) => {
+          const jobIdText = job
+            ? job.id
+            : "undefined (job not defined when logging handler error)";
+          console.error(
+            "Error in securities cache distributed handler for job",
+            jobIdText,
+            error
+          );
+        });
       }
     } catch (error) {
       if (job) {
