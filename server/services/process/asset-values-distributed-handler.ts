@@ -9,7 +9,7 @@ import {
   DatabaseAssetService,
 } from "../assets/database";
 import { db } from "@server/db";
-import { processes, ProcessStatus } from "@server/db/schema";
+import { processes, ProcessSelect, ProcessStatus } from "@server/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 
 /**
@@ -31,28 +31,97 @@ export const handler = async (event: Event) => {
 
   let exitSignalTriggered = false;
 
-  console.log("Asset values update started for start date", startDate);
+  console.log("Asset values update started for asset %s with start date %s", assetId, startDate);
 
   let abortController: AbortController = new AbortController();
 
-  const signalTermCallback = () => {
-    console.log("SIGINT or SIGTERM received");
-    exitSignalTriggered = true;
-    abortController.abort("SIGINT or SIGTERM received");
-    process.off("SIGTERM", signalTermCallback);
+  let job: ProcessSelect | undefined;
+
+  const checkAborted = (() => {
+
+    let tries = 0;
+
+    return async () => {
+      console.log("Checking if job is aborted on try %s", tries);
+      const job = await db.query.processes.findFirst({
+        where: and(eq(processes.id, jobId)),
+      });
+      if (job?.status === "aborted") {
+        return true;
+      }
+      if (tries > 10) {
+        throw new Error("Job not aborted after 10 tries");
+      }
+      tries++;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return checkAborted();
+    }
+  })();
+
+  const updateJobWithStatus = async (jobId: string, status: ProcessStatus) => {
+    try {
+      await db
+        .update(processes)
+        .set(
+          status === "completed"
+            ? { status, completedAt: new Date() }
+            : status === "failed"
+              ? {
+                status,
+                completedAt: new Date(),
+                error: "Error updating asset values",
+              }
+              : status === "aborted"
+                ? {
+                  status,
+                  completedAt: new Date(),
+                  //error: "Asset values update aborted",
+                }
+                : { status, completedAt: null }
+        )
+        .where(eq(processes.id, jobId))
+        .returning();
+    } catch (error) {
+      console.error("Error updating job with status", error);
+    }
   };
 
-  const signalIntCallback = () => {
+  const signalTermCallback = async () => {
+    console.log("SIGTERM received");
+    exitSignalTriggered = true;
+
+    //signalling the abort contrller is useless as it is an async event that would never trigger.
+    abortController.abort("SIGINT or SIGTERM received");
+    //await updateJobWithStatus(jobId, "aborted");
+    const aborted = await checkAborted();
+
+    console.log("SIGTERM received, job aborted", aborted);
+
+    process.off("SIGTERM", signalTermCallback);
+
+    console.log("SIGTERM received, Complete");
+  };
+
+  const signalIntCallback = async () => {
     console.log("SIGINT received");
     exitSignalTriggered = true;
+    //await updateJobWithStatus(jobId, "aborted");
+
+    //signalling the abort contrller is useless as it is an async event that would never trigger.
     abortController.abort("SIGINT received");
+    await checkAborted();
     process.off("SIGINT", signalIntCallback);
   };
 
   process.on("SIGINT", signalIntCallback);
   process.on("SIGTERM", signalTermCallback);
 
-  const job = await db.query.processes.findFirst({
+  const processListenersOff = () => {
+    process.off("SIGINT", signalIntCallback);
+    process.off("SIGTERM", signalTermCallback);
+  };
+
+  job = await db.query.processes.findFirst({
     where: and(eq(processes.id, jobId)),
   });
 
@@ -86,36 +155,6 @@ export const handler = async (event: Event) => {
     abortController.signal
   );
 
-  const updateJobWithStatus = async (status: ProcessStatus) => {
-    if (job) {
-      try {
-        const result = await db
-          .update(processes)
-          .set(
-            status === "completed"
-              ? { status, completedAt: new Date() }
-              : status === "failed"
-              ? {
-                  status,
-                  completedAt: new Date(),
-                  error: "Error updating asset values",
-                }
-              : status === "aborted"
-              ? {
-                  status,
-                  completedAt: new Date(),
-                  //error: "Asset values update aborted",
-                }
-              : { status, completedAt: null }
-          )
-          .where(eq(processes.id, job.id))
-          .returning();
-      } catch (error) {
-        console.error("Error updating job with status", error);
-      }
-    }
-  };
-
   const messageData: AssetValuesUpdateMessageBase = {
     jobId: jobId,
     accountId: accountId,
@@ -124,7 +163,7 @@ export const handler = async (event: Event) => {
   };
 
   updater.once("started", async () => {
-    await updateJobWithStatus("running");
+    await updateJobWithStatus(jobId, "running");
     queueService.publish({
       ...messageData,
       type: "asset-values-update-started",
@@ -132,33 +171,36 @@ export const handler = async (event: Event) => {
   });
 
   updater.once("completed", async () => {
-    await updateJobWithStatus("completed");
+    await updateJobWithStatus(jobId, "completed");
+    processListenersOff();
     queueService.publish({
       ...messageData,
       type: "asset-values-update-completed",
     });
   });
   updater.once("failed", async () => {
-    await updateJobWithStatus("failed");
+    await updateJobWithStatus(jobId, "failed");
+    processListenersOff();
     queueService.publish({
       ...messageData,
       type: "asset-values-update-failed",
     });
   });
   updater.once("aborted", async () => {
-    await updateJobWithStatus("aborted");
-    if (exitSignalTriggered) {
-      console.log("Abort listener, SIGINT or SIGTERM received, exiting");
-      process.exit(0);
-    }
+    console.log("Asset values update aborted for job", jobId);
+    await updateJobWithStatus(jobId, "aborted");
+    // if (exitSignalTriggered) {
+    //   console.log("Abort listener, SIGINT or SIGTERM received, exiting");
+    //   process.exit(0);
+    // }
+    processListenersOff();
     queueService.publish({
       ...messageData,
       type: "asset-values-update-aborted",
     });
   });
   updater.once("exited", async () => {
-    process.off("SIGINT", signalIntCallback);
-    process.off("SIGTERM", signalTermCallback);
+    processListenersOff();
     queueService.publish({
       ...messageData,
       type: "asset-values-update-exited",

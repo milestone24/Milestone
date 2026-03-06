@@ -212,11 +212,15 @@ export class AssetValuesService {
             jobId: ejob.id,
           });
         }
+
+        console.log("Existing jobs for asset", assetId, existingJobs);
         //We have to consider start dates here.
         //If a running job has a start date that is before the start date of the new job,
         //we need to start the new job from the start date of the running job.
         startDate = await defineEarliestStartDate(existingJobs);
         //Wait for the jobs to abort
+
+        console.log("Start date for asset values update", startDate, assetId);
 
         try {
           await waitForJobsToAbort([job.id])
@@ -240,7 +244,7 @@ export class AssetValuesService {
         }
       }
 
-      console.log("Continuing with update asset values startDate", startDate);
+      console.log("Continuing with update asset values for %s with startDate %s", assetId, startDate);
 
       //TODO job needs some kind of identifier for what resources are affected
       //Should the creation of a job be done through a message queue to prevent race conditions?
@@ -317,8 +321,12 @@ export class AssetValuesService {
     const assets = await this.db.query.userAssets.findMany({
       where: eq(userAssets.userAccountId, accountId),
     });
+
+    const filteredAssets = assets.filter((asset) => asset.id === "c2190f32-89b5-47f6-81bb-cea2be66ec69");
+    console.log("updateAssetValuesForAllAssetsOfAccount Filtered assets", filteredAssets.map((asset) => asset.id));
     //Could this be done in a parallel manner?
-    for (const asset of assets) {
+    //for (const asset of assets) {
+    for (const asset of filteredAssets) {
       await this.updateAssetValuesForAssetOfAccount(
         accountId,
         asset.id,
@@ -331,8 +339,11 @@ export class AssetValuesService {
     startDate?: Date
   ): Promise<void> {
     const accounts = await this.db.query.userAccounts.findMany();
+
+    const filteredAccounts = accounts.filter((account) => account.id === "5d4f0f7f-723c-4296-a4cf-d4a7e41db225");
     //Could this be done in a parallel manner?
-    for (const account of accounts) {
+    //for (const account of accounts) {
+    for (const account of filteredAccounts) {
       await this.updateAssetValuesForAllAssetsOfAccount(account.id, startDate);
     }
   }

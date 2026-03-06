@@ -81,8 +81,8 @@ export class SecuritiesCacheService {
     return jobs;
   }
 
-  async updateSecuritiesDailyHistoryCacheForSecurities(
-    securityIds: string[],
+  async updateSecuritiesDailyHistoryCacheForSecurity(
+    securityId: string,
     groupId?: string,
     accountId?: string,
     startDate?: Date
@@ -91,59 +91,73 @@ export class SecuritiesCacheService {
     const queueService = queueFactory();
     const distributed = process.env.DISTRIBUTED === "true";
 
-    for (const securityId of securityIds) {
-      let job: ProcessSelect | undefined;
+    let job: ProcessSelect | undefined;
+
+    try {
+      [job] = await this.db
+        .insert(processes)
+        .values({
+          key: "update-securities-daily-history-cache",
+          status: "running",
+          startedAt: new Date(),
+          payload: {
+            securityId,
+            startDate: resolvedStartDate,
+            ...(groupId !== undefined && { groupId }),
+            ...(accountId !== undefined && { accountId }),
+          },
+        })
+        .returning();
+
+      if (!job) {
+        throw new Error("Failed to create job");
+      }
 
       try {
-        [job] = await this.db
-          .insert(processes)
-          .values({
-            key: "update-securities-daily-history-cache",
-            status: "running",
-            startedAt: new Date(),
-            payload: {
-              securityId,
-              startDate: resolvedStartDate,
-              ...(groupId !== undefined && { groupId }),
-              ...(accountId !== undefined && { accountId }),
-            },
-          })
-          .returning();
-
-        if (!job) {
-          throw new Error("Failed to create job");
-        }
-
-        try {
-          await this.findAndWaitForExistingProcessesAbort(
-            "update-securities-daily-history-cache",
-            [job.id],
-            sql`payload->>'securityId' = ${securityId}`
-          );
-        } catch (error) {
-          await this.db
-            .update(processes)
-            .set({ status: "failed", completedAt: new Date() })
-            .where(eq(processes.id, job.id));
-          queueService.publish({
-            type: "securities-daily-history-cache-update-failed",
-            jobId: job.id,
-            message: "Error waiting for jobs to abort",
-          });
-          throw new Error("Error waiting for jobs to abort");
-        }
-
-        if (distributed) {
-          // mockLambdaHandler({ jobId: job.id });
-        } else {
-          handler({ jobId: job.id });
-        }
+        await this.findAndWaitForExistingProcessesAbort(
+          "update-securities-daily-history-cache",
+          [job.id],
+          sql`payload->>'securityId' = ${securityId}`
+        );
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
-        throw new Error(`Error creating job for security ${securityId}: ${message}`);
+        await this.db
+          .update(processes)
+          .set({ status: "failed", completedAt: new Date() })
+          .where(eq(processes.id, job.id));
+        queueService.publish({
+          type: "securities-daily-history-cache-update-failed",
+          jobId: job.id,
+          message: "Error waiting for jobs to abort",
+        });
+        throw new Error("Error waiting for jobs to abort");
       }
+
+      if (distributed) {
+        // mockLambdaHandler({ jobId: job.id });
+      } else {
+        handler({ jobId: job.id });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      throw new Error(`Error creating job for security ${securityId}: ${message}`);
     }
   }
+
+  async updateSecuritiesDailyHistoryCacheForSecurities(
+    securityIds: string[],
+    groupId?: string,
+    accountId?: string,
+    startDate?: Date
+  ): Promise<void> {
+    const uniqueSecurityIds = [...new Set(securityIds)];
+    await Promise.all(
+      uniqueSecurityIds.map((securityId) =>
+        this.updateSecuritiesDailyHistoryCacheForSecurity(securityId, groupId, accountId, startDate)
+      )
+    );
+  }
+
+  
 
   async updateSecuritiesDailyHistoryCacheForAllSecurities(): Promise<void> {
     //Send notification to all accounts that the securities daily history cache is being updated.

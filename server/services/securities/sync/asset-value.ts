@@ -259,19 +259,26 @@ const __updateAssetValues = async (
 
     const assetSecuritiesWithShareHolding: CalculatedAssetSecurity[] =
       assetSecurities.map((security) => {
+        console.log("security", security);
         const shareholding = assetSecurityShareHoldings.find(
           (shareholding) => shareholding.securityId === security.securityId
         );
+        console.log("shareholding", shareholding);
         return {
           ...security,
           shareHolding: shareholding?.shareHolding ?? 0,
         };
       });
 
+    console.log("assetSecuritiesWithShareHolding", assetSecuritiesWithShareHolding.map((security) => security.securityId));
+    console.log("currentDate", currentDate);
+
     const assetValueResult = await calculateAssetValueForDateFromCache(
       assetSecuritiesWithShareHolding,
       currentDate
     );
+
+    console.log("assetValueResult", assetValueResult);
 
     if (abortSignal.aborted) {
       break;
@@ -307,7 +314,7 @@ const __updateAssetValues = async (
     );
     eventEmitter.emit("completed", emitData);
   } else {
-    console.log("NO ASSET VALUES TO INSERT");
+    console.log("NO ASSET VALUES TO INSERT", assetId, accountId, jobId);
     eventEmitter.emit("completed", emitData);
   }
 };
