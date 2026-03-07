@@ -44,8 +44,7 @@ export const fetchFilteredSecurityHistoryForDates = async (
     return gatewayData;
   } catch (error) {
     throw new Error(
-      `Gateway API error: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Gateway API error: ${error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
@@ -61,12 +60,25 @@ export const fetchFilteredSecurityHistoryForDates = async (
  * and so a start date will be needed.
  * @returns Promise with cache population results
  */
+/**
+ * Returns true if work should continue, false if it should stop.
+ * When provided to the updater, the implementation must use the **same** AbortSignal
+ * as the updater's `abortSignal` (e.g. `() => shouldContinue(abortSignal, { jobId })`),
+ * optionally combined with DB state. When not provided, `abortSignal.aborted` should
+ * be checked where appropriate.
+ */
+type AbortCheck = () => Promise<boolean>;
+
 const populateSecurityDailyHistoryCache = async (
   securityContext: SecurityContext,
   jobId: string,
   abortSignal: AbortSignal,
+  abortCheck?: AbortCheck
 ): Promise<Date[]> => {
-  if (abortSignal.aborted) {
+  const shouldStop = async (): Promise<boolean> =>
+    abortCheck ? !(await abortCheck()) : abortSignal.aborted;
+
+  if (await shouldStop()) {
     return [];
   }
 
@@ -89,7 +101,7 @@ const populateSecurityDailyHistoryCache = async (
     orderBy: sql`${securityDailyHistory.date} DESC`,
   });
 
-  if (abortSignal.aborted) {
+  if (await shouldStop()) {
     return [];
   }
 
@@ -119,7 +131,7 @@ const populateSecurityDailyHistoryCache = async (
     abortSignal
   );
 
-  if (abortSignal.aborted) {
+  if (await shouldStop()) {
     return [];
   }
 
@@ -172,7 +184,7 @@ const populateSecurityDailyHistoryCache = async (
     }
   }
 
-  if (abortSignal.aborted) {
+  if (await shouldStop()) {
     return [];
   }
 
@@ -188,12 +200,12 @@ const populateSecurityDailyHistoryCache = async (
         source: record.sourceIdentifier,
       }))
     );
-    if (abortSignal.aborted) {
+    if (await shouldStop()) {
       tx.rollback();
     }
   });
 
-  if (abortSignal.aborted) {
+  if (await shouldStop()) {
     return [];
   }
 
@@ -217,8 +229,12 @@ export const populateSecuritiesDailyHistoryCache = async (
   jobId: string,
   abortSignal: AbortSignal,
   eventEmitter: EventEmitter<EmitEvents>,
-  touchProcess?: TouchProcess
+  touchProcess?: TouchProcess,
+  abortCheck?: AbortCheck
 ): Promise<Date[][]> => {
+  const shouldStop = async (): Promise<boolean> =>
+    abortCheck ? !(await abortCheck()) : abortSignal.aborted;
+
   console.log(
     "populateSecuritiesDailyHistoryCache securityContexts",
     securityContexts
@@ -230,7 +246,8 @@ export const populateSecuritiesDailyHistoryCache = async (
       populateSecurityDailyHistoryCache(
         securityContext,
         jobId,
-        abortSignal
+        abortSignal,
+        abortCheck
       ).then((result) => {
         touchProcess?.();
         return result;
@@ -240,7 +257,7 @@ export const populateSecuritiesDailyHistoryCache = async (
 
   const results = await populatePromises;
 
-  if (abortSignal.aborted) {
+  if (await shouldStop()) {
     return [];
   }
 
@@ -253,11 +270,16 @@ export const populateSecuritiesDailyHistoryCache = async (
  * "started" is emitted at most once when work begins. No two outcome types for the same run.
  */
 export class SecuritiesCacheUpdater extends EventEmitter<EmitEvents> {
+  /**
+   * @param abortCheck - Optional. When provided, must be implemented using the same `abortSignal`
+   * (e.g. `() => shouldContinue(abortSignal, { jobId })`). When omitted, `abortSignal.aborted` should be checked where appropriate.
+   */
   constructor(
     private jobId: string,
     private securityContexts: SecurityContext[],
     private abortSignal: AbortSignal,
-    private touchProcess?: TouchProcess
+    private touchProcess?: TouchProcess,
+    private abortCheck?: AbortCheck
   ) {
     super();
   }
@@ -269,10 +291,14 @@ export class SecuritiesCacheUpdater extends EventEmitter<EmitEvents> {
       this.jobId,
       this.abortSignal,
       this,
-      this.touchProcess
+      this.touchProcess,
+      this.abortCheck
     )
-      .then(() => {
-        if (this.abortSignal.aborted) {
+      .then(async () => {
+        const stopped = this.abortCheck
+          ? !(await this.abortCheck())
+          : this.abortSignal.aborted;
+        if (stopped) {
           this.emit("aborted", { jobId: this.jobId });
           this.emit("exited", { jobId: this.jobId });
           return;
@@ -336,8 +362,7 @@ export const bulkPopulateSecurityDailyHistory = async (
         success: false,
         recordsAdded: [],
         errors: [
-          `Failed to process: ${
-            error instanceof Error ? error.message : "Unknown error"
+          `Failed to process: ${error instanceof Error ? error.message : "Unknown error"
           }`,
         ],
       };
@@ -359,8 +384,7 @@ export const bulkPopulateSecurityDailyHistory = async (
         success: false,
         recordsAdded: [],
         errors: [
-          `Batch processing failed: ${
-            error instanceof Error ? error.message : "Unknown error"
+          `Batch processing failed: ${error instanceof Error ? error.message : "Unknown error"
           }`,
         ],
       }));

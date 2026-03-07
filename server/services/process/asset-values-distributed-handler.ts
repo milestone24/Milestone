@@ -15,6 +15,7 @@ import { processes, ProcessSelect } from "@server/db/schema";
 import { eq } from "drizzle-orm";
 import {
   createAbortCompletionPromise,
+  shouldContinue,
   updateProcessStatus,
   waitForTerminalEvent,
 } from "./job-helpers";
@@ -150,7 +151,8 @@ export const handler = async (event: Event) => {
     startDate ?? null,
     assetPersistence,
     abortController.signal,
-    () => updateProcessStatus(jobId, "running")
+    () => updateProcessStatus(jobId, "running"),
+    () => shouldContinue(abortController.signal, { jobId })
   );
 
   const messageData: AssetValuesUpdateMessageBase = {

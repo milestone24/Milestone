@@ -15,6 +15,7 @@ import {
 } from "@server/services/distributed/queue";
 import {
   createAbortCompletionPromise,
+  shouldContinue,
   updateProcessStatus,
   waitForTerminalEvent,
 } from "./job-helpers";
@@ -179,7 +180,8 @@ export const handler = async (event: Event) => {
     jobId,
     securityContexts,
     abortController.signal,
-    () => updateProcessStatus(jobId, "running")
+    () => updateProcessStatus(jobId, "running"),
+    () => shouldContinue(abortController.signal, { jobId })
   );
 
   const messageData: SecuritiesDailyHistoryCacheUpdateMessageBase = {
