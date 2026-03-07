@@ -12,6 +12,14 @@
  * safeguards: reconciliation or stale-job sweep (periodic job or cron that marks
  * jobs failed when running/pending longer than a TTL based on startedAt). Do not
  * make handler invocation synchronous — that would break trigger-and-forget.
+ *
+ * ## Timeouts
+ *
+ * createAbortCompletionPromise polls the DB every POLL_INTERVAL_MS (1s) until the job
+ * is aborted or MAX_TRIES is reached. MAX_TRIES is derived from DEFAULT_SHUTDOWN_TIMEOUT_MS
+ * (30s) so the poll fits within the shutdown handler's timeout. Reconciliation TTLs
+ * (process-reconcile) must be greater than this so we do not mark a job stale during
+ * normal shutdown. See process-abort-wait.ts for the full timeout overview.
  */
 import { db } from "@server/db";
 import { processes, ProcessStatus } from "@server/db/schema";
