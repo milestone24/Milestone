@@ -67,6 +67,15 @@ type Event = {
  * `resolveAbort()` — never called directly from the shutdown handler. The
  * poll interval and max tries are derived from `DEFAULT_SHUTDOWN_TIMEOUT_MS`
  * to stay within the coordinator's overall timeout budget.
+ *
+ * ## Scope-based cleanup
+ *
+ * The handler uses `await using jobScope = createJobScope(...)` so that when
+ * the handler returns (after awaiting `waitForTerminalEvent(securitiesCacheUpdater)`),
+ * the job scope is disposed: unregisterShutdown and queue unsubscribe run, allowing
+ * GC of listeners and subscriptions. The handler awaits a terminal event
+ * (completed, failed, aborted, or exited) before returning so disposal always
+ * runs at the right time.
  */
 export const handler = async (event: Event) => {
   const { jobId } = event;
@@ -210,10 +219,10 @@ export const handler = async (event: Event) => {
    *
    * Guarantees the following order before signalling completion:
    * 1. DB status set to "aborted"
-   * 2. Shutdown handler unregistered
-   * 3. Abort message published — receivers can trust the DB state is correct
-   * 4. `resolveAbort()` triggers `checkAborted()` to confirm DB as source of truth,
-   *    then resolves `abortCompletePromise` to unblock the shutdown coordinator
+   * 2. Abort message published — receivers can trust the DB state is correct
+   * 3. `resolveAbort()` triggers `checkAborted()` to confirm DB as source of truth,
+   *    then resolves `abortCompletePromise` to unblock the shutdown coordinator.
+   * Shutdown unregister and queue unsubscribe run via job-scope disposal when the handler returns.
    */
   securitiesCacheUpdater.once("aborted", async () => {
     console.log("Securities cache update aborted for job", jobId);
