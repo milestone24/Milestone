@@ -45,7 +45,7 @@ export class SecuritiesCacheService {
         .insert(processes)
         .values({
           key: "update-securities-daily-history-cache",
-          status: "running",
+          status: "pending",
           startedAt: new Date(),
           payload: {
             securityId,
@@ -169,8 +169,7 @@ export class SecuritiesCacheService {
         .insert(processes)
         .values({
           key: "update-securities-daily-history-cache",
-          //Should this not be pending?
-          status: "running",
+          status: "pending",
           startedAt: new Date(),
           payload: {
             date: new Date(),
