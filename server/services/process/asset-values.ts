@@ -1,3 +1,8 @@
+/**
+ * Asset values process service: orchestrates asset value updates and
+ * securities cache coordination. Uses trigger-and-forget handler invocation;
+ * coordination is via DB state and queue events for distributed readiness.
+ */
 import { sendNotification } from "../comms/socket";
 import { Database } from "@server/db";
 import { and, eq, sql } from "drizzle-orm";
@@ -30,8 +35,13 @@ import {
   waitForProcessesToAbort,
 } from "./process-abort-wait";
 
+/**
+ * Service for creating and running asset-value update jobs. Inserts process
+ * rows, invokes the distributed handler (trigger-and-forget), and uses
+ * findRunningOrPendingProcesses / waitForProcessesToAbort to avoid duplicate
+ * work. Callers rely on queue events and DB state for completion.
+ */
 export class AssetValuesService {
-
   private securitiesCacheService: SecuritiesCacheService;
 
   //TODO consider how to handle the abstraction of Db or

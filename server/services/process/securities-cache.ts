@@ -1,3 +1,8 @@
+/**
+ * Securities cache process service: orchestrates securities daily history
+ * cache updates. Uses trigger-and-forget handler invocation; coordination
+ * is via DB state and queue events for distributed readiness.
+ */
 import { Database } from "@server/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { UpdateSecuritiesDailyHistoryCacheProcess } from "@shared/schema/process";
@@ -9,6 +14,13 @@ import {
   waitForProcessesToAbort,
 } from "./process-abort-wait";
 
+/**
+ * Service for creating and running securities daily history cache update
+ * jobs. Inserts process rows, invokes the distributed handler (trigger-and-forget),
+ * and uses findRunningOrPendingProcesses / waitForProcessesToAbort to avoid
+ * duplicate work per security or for full refresh. Callers rely on queue
+ * events and DB state for completion.
+ */
 export class SecuritiesCacheService {
   //TODO consider how to handle the abstraction of Db or
   constructor(

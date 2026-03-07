@@ -1,7 +1,8 @@
 /**
- * Job-scope disposable for Phase 7: ensures shutdown unregistration and queue
- * unsubscribe run when the handler scope exits (e.g. via `await using`).
- * Cleanup is idempotent — safe to run more than once.
+ * Job-scope disposable for distributed handlers: ensures shutdown unregistration
+ * and queue unsubscribe run when the handler scope exits (e.g. via `await using`).
+ * Cleanup is idempotent — safe to run more than once. Used by asset-values and
+ * securities-cache distributed handlers.
  */
 export type JobScopeCleanup = {
   unregisterShutdown: () => void;

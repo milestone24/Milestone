@@ -1,3 +1,8 @@
+/**
+ * Shared job/process helpers for distributed handlers: status updates,
+ * abort-completion promise (DB poll), and terminal-event wait. Used by
+ * asset-values and securities-cache distributed handlers.
+ */
 import { db } from "@server/db";
 import { processes, ProcessStatus } from "@server/db/schema";
 import { and, eq } from "drizzle-orm";

@@ -1,3 +1,8 @@
+/**
+ * Shared process abort-wait utilities for the process module. Used by
+ * AssetValuesService and SecuritiesCacheService to find running/pending jobs
+ * and wait for them to abort (e.g. before starting a replacement job).
+ */
 import type { Database } from "@server/db";
 import { processes } from "@server/db/schema";
 import type { ProcessSelect } from "@shared/schema/process";
