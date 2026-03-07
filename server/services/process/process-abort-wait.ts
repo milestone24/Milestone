@@ -2,6 +2,15 @@
  * Shared process abort-wait utilities for the process module. Used by
  * AssetValuesService and SecuritiesCacheService to find running/pending jobs
  * and wait for them to abort (e.g. before starting a replacement job).
+ *
+ * ## Process status semantics (pending vs running)
+ *
+ * - **pending:** Job row created; handler may not have been invoked yet or has
+ *   not yet signalled that work has started (no "started" event from updater).
+ *   Insert should always use pending when creating a process row.
+ * - **running:** Handler has started the job (updater has emitted "started").
+ *   Work is in progress until a terminal event (completed, failed, aborted).
+ *   Only the distributed handler sets status to running, when the updater emits "started".
  */
 import type { Database } from "@server/db";
 import { processes } from "@server/db/schema";
