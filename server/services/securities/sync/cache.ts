@@ -69,11 +69,14 @@ export const fetchFilteredSecurityHistoryForDates = async (
  */
 type AbortCheck = () => Promise<boolean>;
 
+type TouchProcess = (() => void) | (() => Promise<void>);
+
 const populateSecurityDailyHistoryCache = async (
   securityContext: SecurityContext,
   jobId: string,
   abortSignal: AbortSignal,
-  abortCheck?: AbortCheck
+  abortCheck?: AbortCheck,
+  touchProcess?: TouchProcess
 ): Promise<Date[]> => {
   const shouldStop = async (): Promise<boolean> =>
     abortCheck ? !(await abortCheck()) : abortSignal.aborted;
@@ -81,6 +84,8 @@ const populateSecurityDailyHistoryCache = async (
   if (await shouldStop()) {
     return [];
   }
+
+  touchProcess?.();
 
   // console.log("populateSecurityDailyHistoryCache SECURITY CONTEXT", securityContext)
 
@@ -130,6 +135,8 @@ const populateSecurityDailyHistoryCache = async (
     dateRange,
     abortSignal
   );
+
+  touchProcess?.();
 
   if (await shouldStop()) {
     return [];
@@ -205,6 +212,8 @@ const populateSecurityDailyHistoryCache = async (
     }
   });
 
+  touchProcess?.();
+
   if (await shouldStop()) {
     return [];
   }
@@ -222,8 +231,6 @@ type EmitEvents = {
   [k in EventType]: [data: Data];
 };
 
-type TouchProcess = (() => void) | (() => Promise<void>);
-
 export const populateSecuritiesDailyHistoryCache = async (
   securityContexts: SecurityContext[],
   jobId: string,
@@ -240,14 +247,15 @@ export const populateSecuritiesDailyHistoryCache = async (
     securityContexts
   );
 
-  // Heartbeat: touch process row after each security so updatedAt advances for TTL/reconciliation. A timer-based touch (e.g. every N min) is a possible future improvement for long batches.
+  // Heartbeat: touch process row at boundaries (per-security start, after fetch, after insert) so updatedAt advances for TTL/reconciliation. A timer-based touch (e.g. every N min) is a possible future improvement for long batches.
   const populatePromises = Promise.all(
     securityContexts.map((securityContext) =>
       populateSecurityDailyHistoryCache(
         securityContext,
         jobId,
         abortSignal,
-        abortCheck
+        abortCheck,
+        touchProcess
       ).then((result) => {
         touchProcess?.();
         return result;
