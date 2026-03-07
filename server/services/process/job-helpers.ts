@@ -76,3 +76,21 @@ export function createAbortCompletionPromise(jobId: string): {
 
   return { promise, resolve: resolveAbort };
 }
+
+const TERMINAL_EVENTS = ["completed", "failed", "aborted", "exited"] as const;
+
+/**
+ * Returns a promise that resolves when the emitter fires any terminal event
+ * (completed, failed, aborted, or exited). Used so the handler can await
+ * job completion before returning and allow scope-based cleanup (e.g. await using).
+ */
+export function waitForTerminalEvent(emitter: {
+  once(event: string, listener: (...args: unknown[]) => void): void;
+}): Promise<void> {
+  return new Promise((resolve) => {
+    const onTerminal = () => resolve();
+    for (const event of TERMINAL_EVENTS) {
+      emitter.once(event, onTerminal);
+    }
+  });
+}
