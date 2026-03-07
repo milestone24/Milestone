@@ -13,6 +13,11 @@ import {
   findRunningOrPendingProcesses,
   waitForProcessesToAbort,
 } from "./process-abort-wait";
+import {
+  DEFAULT_PENDING_TTL_MS,
+  DEFAULT_RUNNING_TTL_MS,
+  startPeriodicReconciliationForResource,
+} from "./process-reconcile";
 
 /**
  * Service for creating and running securities daily history cache update
@@ -114,6 +119,14 @@ export class SecuritiesCacheService {
           );
         });
       }
+
+      // Periodic reconciliation: check this job by id against TTL until terminal or max duration.
+      // See process-reconcile.ts.
+      startPeriodicReconciliationForResource({
+        jobId: job.id,
+        pendingTtlMs: DEFAULT_PENDING_TTL_MS,
+        runningTtlMs: DEFAULT_RUNNING_TTL_MS,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       throw new Error(`Error creating job for security ${securityId}: ${message}`);
@@ -148,7 +161,6 @@ export class SecuritiesCacheService {
     let job: ProcessSelect | undefined;
 
     try {
-
       const existingJobs =
         await findRunningOrPendingProcesses<UpdateSecuritiesDailyHistoryCacheProcess>(
           this.db,
@@ -204,6 +216,14 @@ export class SecuritiesCacheService {
           );
         });
       }
+
+      // Periodic reconciliation: check this job by id against TTL until terminal or max duration.
+      // See process-reconcile.ts.
+      startPeriodicReconciliationForResource({
+        jobId: job.id,
+        pendingTtlMs: DEFAULT_PENDING_TTL_MS,
+        runningTtlMs: DEFAULT_RUNNING_TTL_MS,
+      });
     } catch (error) {
       if (job) {
         await this.db

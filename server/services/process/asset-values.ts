@@ -34,6 +34,11 @@ import {
   findRunningOrPendingProcesses,
   waitForProcessesToAbort,
 } from "./process-abort-wait";
+import {
+  DEFAULT_PENDING_TTL_MS,
+  DEFAULT_RUNNING_TTL_MS,
+  startPeriodicReconciliationForResource,
+} from "./process-reconcile";
 
 /**
  * Service for creating and running asset-value update jobs. Inserts process
@@ -138,7 +143,6 @@ export class AssetValuesService {
     const queueService = queueFactory();
 
     try {
-
       [job] = await this.db
         .insert(processes)
         .values({
@@ -255,6 +259,15 @@ export class AssetValuesService {
           );
         });
       }
+
+      // Periodic reconciliation: check this job by id against TTL every RECONCILE_INTERVAL_MS
+      // for up to RECONCILE_MAX_DURATION_MS. If the handler dies or stops touching the row,
+      // the job is marked failed so it does not stay running indefinitely. See process-reconcile.ts.
+      startPeriodicReconciliationForResource({
+        jobId: job.id,
+        pendingTtlMs: DEFAULT_PENDING_TTL_MS,
+        runningTtlMs: DEFAULT_RUNNING_TTL_MS,
+      });
     } catch (error) {
       console.error("Error updating asset values", error);
 
