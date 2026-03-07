@@ -2,6 +2,16 @@
  * Shared job/process helpers for distributed handlers: status updates,
  * abort-completion promise (DB poll), and terminal-event wait. Used by
  * asset-values and securities-cache distributed handlers.
+ *
+ * ## Risk of job left in running (or pending) state
+ *
+ * Trigger-and-forget handler invocation means a job can stay non-terminal if:
+ * the process dies before emitting "started" (stays pending), or after "started"
+ * but before a terminal event (stays running); or if updateProcessStatus fails
+ * (DB/network) and only logs. Running and pending are best-effort. Intended
+ * safeguards: reconciliation or stale-job sweep (periodic job or cron that marks
+ * jobs failed when running/pending longer than a TTL based on startedAt). Do not
+ * make handler invocation synchronous — that would break trigger-and-forget.
  */
 import { db } from "@server/db";
 import { processes, ProcessStatus } from "@server/db/schema";
