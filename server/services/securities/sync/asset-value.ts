@@ -187,6 +187,8 @@ type EmitEvents = {
   [k in EventType]: [data: Data];
 };
 
+type TouchProcess = (() => void) | (() => Promise<void>);
+
 const __updateAssetValues = async (
   assetId: string,
   accountId: string,
@@ -194,7 +196,8 @@ const __updateAssetValues = async (
   startDate: Date | null,
   assetPersistence: AssetPersistence,
   abortSignal: AbortSignal,
-  eventEmitter: EventEmitter<EmitEvents>
+  eventEmitter: EventEmitter<EmitEvents>,
+  touchProcess?: TouchProcess
 ) => {
   if (startDate) {
     await assetPersistence.removeAssetValuesFromDate(startDate);
@@ -284,6 +287,9 @@ const __updateAssetValues = async (
       //TODO: Handle this
     }
 
+    // Heartbeat: touch process row so updatedAt advances for TTL/reconciliation. A timer-based touch (e.g. every N min) is a possible future improvement for long batches.
+    await touchProcess?.();
+
     currentDate = addDays(currentDate, 1);
   }
 
@@ -325,7 +331,8 @@ export class AssetValuesUpdater extends EventEmitter<EmitEvents> {
     private jobId: string,
     private startDate: Date | null,
     private assetPersistence: AssetPersistence,
-    private abortSignal: AbortSignal
+    private abortSignal: AbortSignal,
+    private touchProcess?: TouchProcess
   ) {
     super();
   }
@@ -343,7 +350,8 @@ export class AssetValuesUpdater extends EventEmitter<EmitEvents> {
       this.startDate,
       this.assetPersistence,
       this.abortSignal,
-      this
+      this,
+      this.touchProcess
     ).catch(() => {
       this.emit("failed", emitData);
       this.emit("exited", emitData);

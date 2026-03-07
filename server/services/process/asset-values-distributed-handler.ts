@@ -142,13 +142,15 @@ export const handler = async (event: Event) => {
     assetId
   );
 
+  // Heartbeat: touch process row at batch boundaries so updatedAt advances for TTL/reconciliation. A timer-based touch (e.g. every N min) is a possible future improvement for long batches.
   const updater = new AssetValuesUpdater(
     assetId,
     accountId,
     jobId,
     startDate ?? null,
     assetPersistence,
-    abortController.signal
+    abortController.signal,
+    () => updateProcessStatus(jobId, "running")
   );
 
   const messageData: AssetValuesUpdateMessageBase = {

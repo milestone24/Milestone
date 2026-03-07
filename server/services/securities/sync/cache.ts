@@ -210,20 +210,31 @@ type EmitEvents = {
   [k in EventType]: [data: Data];
 };
 
+type TouchProcess = (() => void) | (() => Promise<void>);
+
 export const populateSecuritiesDailyHistoryCache = async (
   securityContexts: SecurityContext[],
   jobId: string,
   abortSignal: AbortSignal,
-  eventEmitter: EventEmitter<EmitEvents>
+  eventEmitter: EventEmitter<EmitEvents>,
+  touchProcess?: TouchProcess
 ): Promise<Date[][]> => {
   console.log(
     "populateSecuritiesDailyHistoryCache securityContexts",
     securityContexts
   );
 
+  // Heartbeat: touch process row after each security so updatedAt advances for TTL/reconciliation. A timer-based touch (e.g. every N min) is a possible future improvement for long batches.
   const populatePromises = Promise.all(
     securityContexts.map((securityContext) =>
-      populateSecurityDailyHistoryCache(securityContext, jobId, abortSignal)
+      populateSecurityDailyHistoryCache(
+        securityContext,
+        jobId,
+        abortSignal
+      ).then((result) => {
+        touchProcess?.();
+        return result;
+      })
     )
   );
 
@@ -245,7 +256,8 @@ export class SecuritiesCacheUpdater extends EventEmitter<EmitEvents> {
   constructor(
     private jobId: string,
     private securityContexts: SecurityContext[],
-    private abortSignal: AbortSignal
+    private abortSignal: AbortSignal,
+    private touchProcess?: TouchProcess
   ) {
     super();
   }
@@ -256,7 +268,8 @@ export class SecuritiesCacheUpdater extends EventEmitter<EmitEvents> {
       this.securityContexts,
       this.jobId,
       this.abortSignal,
-      this
+      this,
+      this.touchProcess
     )
       .then(() => {
         if (this.abortSignal.aborted) {
