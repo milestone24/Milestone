@@ -14,7 +14,9 @@ import { eq } from "drizzle-orm";
 import {
   createAbortCompletionPromise,
   updateProcessStatus,
+  waitForTerminalEvent,
 } from "./job-helpers";
+import { createJobScope } from "./job-scope";
 import { registerShutdownHandler, DEFAULT_SHUTDOWN_TIMEOUT_MS } from "@server/utils/shutdown";
 
 /**
@@ -95,10 +97,6 @@ export const handler = async (event: Event) => {
     console.log("Job confirmed aborted in DB for job", jobId);
   }, { timeout: DEFAULT_SHUTDOWN_TIMEOUT_MS });
 
-  const processListenersOff = () => {
-    unregisterShutdown();
-  };
-
   job = await db.query.processes.findFirst({
     where: eq(processes.id, jobId),
   });
@@ -124,6 +122,11 @@ export const handler = async (event: Event) => {
     }
   };
   queueService.subscribe(callback);
+
+  await using jobScope = createJobScope({
+    unregisterShutdown,
+    unsubscribe: () => queueService.unsubscribe(callback),
+  });
 
   const assetPersistence: AssetPersistence = assetPersistenceFactory(
     new DatabaseAssetService(db),
@@ -156,7 +159,6 @@ export const handler = async (event: Event) => {
 
   updater.once("completed", async () => {
     await updateProcessStatus(jobId, "completed");
-    processListenersOff();
     queueService.publish({
       ...messageData,
       type: "asset-values-update-completed",
@@ -165,7 +167,6 @@ export const handler = async (event: Event) => {
 
   updater.once("failed", async () => {
     await updateProcessStatus(jobId, "failed", "Error updating asset values");
-    processListenersOff();
     queueService.publish({
       ...messageData,
       type: "asset-values-update-failed",
@@ -185,7 +186,6 @@ export const handler = async (event: Event) => {
   updater.once("aborted", async () => {
     console.log("Asset values update aborted for job", jobId);
     await updateProcessStatus(jobId, "aborted");
-    processListenersOff();
     queueService.publish({
       ...messageData,
       type: "asset-values-update-aborted",
@@ -194,7 +194,6 @@ export const handler = async (event: Event) => {
   });
 
   updater.once("exited", async () => {
-    processListenersOff();
     queueService.publish({
       ...messageData,
       type: "asset-values-update-exited",
@@ -203,5 +202,6 @@ export const handler = async (event: Event) => {
 
   updater.update();
 
+  await waitForTerminalEvent(updater);
   return updater;
 };

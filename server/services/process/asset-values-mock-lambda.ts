@@ -10,18 +10,12 @@ type Event = {
 export const mockLambdaHandler = async (event: Event) => {
   const { assetId, accountId, jobId, startDate } = event;
 
-  await new Promise(async (resolve, reject) => {
-    const updater = await handler({
-      assetId,
-      accountId,
-      jobId,
-      startDate,
-    });
-
-    updater.once("exited", async () => {
-      resolve(void 0);
-    });
+  await handler({
+    assetId,
+    accountId,
+    jobId,
+    startDate,
   });
 
-  return {}; //Will be lambda response object
+  return {}; // Will be lambda response object
 };
