@@ -57,6 +57,35 @@ export async function updateProcessStatus(
   }
 }
 
+const TERMINAL_STATUSES: ProcessStatus[] = ["completed", "failed", "aborted"];
+
+/**
+ * Returns whether the caller should continue work. Implements cooperative cancellation:
+ * checks the AbortSignal and, when jobId is provided, the job's status in the DB.
+ * If the signal is aborted or the job is already terminal (completed/failed/aborted),
+ * returns false so the updater can exit cleanly. When jobId is omitted, only the
+ * signal is checked (no DB read). See docs/process-stale-jobs-industry-patterns.md
+ * (ownership / job still valid).
+ */
+export async function shouldContinue(
+  abortSignal: AbortSignal,
+  options?: { jobId?: string }
+): Promise<boolean> {
+  if (abortSignal.aborted) {
+    return false;
+  }
+  if (options?.jobId) {
+    const job = await db.query.processes.findFirst({
+      where: eq(processes.id, options.jobId),
+      columns: { status: true },
+    });
+    if (job && TERMINAL_STATUSES.includes(job.status)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 const POLL_INTERVAL_MS = 1_000;
 const MAX_TRIES = Math.floor(DEFAULT_SHUTDOWN_TIMEOUT_MS / POLL_INTERVAL_MS);
 
