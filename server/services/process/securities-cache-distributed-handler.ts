@@ -14,7 +14,9 @@ import {
 import {
   createAbortCompletionPromise,
   updateProcessStatus,
+  waitForTerminalEvent,
 } from "./job-helpers";
+import { createJobScope } from "./job-scope";
 import { registerShutdownHandler, DEFAULT_SHUTDOWN_TIMEOUT_MS } from "@server/utils/shutdown";
 
 /**
@@ -92,10 +94,6 @@ export const handler = async (event: Event) => {
     console.log("Job confirmed aborted in DB for job", jobId);
   }, { timeout: DEFAULT_SHUTDOWN_TIMEOUT_MS });
 
-  const processListenersOff = () => {
-    unregisterShutdown();
-  };
-
   job = await db.query.processes.findFirst({
     where: and(eq(processes.id, jobId)),
   });
@@ -121,6 +119,11 @@ export const handler = async (event: Event) => {
     }
   };
   queueService.subscribe(callback);
+
+  await using jobScope = createJobScope({
+    unregisterShutdown,
+    unsubscribe: () => queueService.unsubscribe(callback),
+  });
 
   const payload = job.payload as
     | { date: Date }
@@ -188,7 +191,6 @@ export const handler = async (event: Event) => {
 
   securitiesCacheUpdater.once("completed", async () => {
     await updateProcessStatus(jobId, "completed");
-    processListenersOff();
     queueService.publish({
       type: "securities-daily-history-cache-update-completed",
       ...messageData,
@@ -197,7 +199,6 @@ export const handler = async (event: Event) => {
 
   securitiesCacheUpdater.once("failed", async () => {
     await updateProcessStatus(jobId, "failed", "Error updating securities cache");
-    processListenersOff();
     queueService.publish({
       type: "securities-daily-history-cache-update-failed",
       ...messageData,
@@ -217,7 +218,6 @@ export const handler = async (event: Event) => {
   securitiesCacheUpdater.once("aborted", async () => {
     console.log("Securities cache update aborted for job", jobId);
     await updateProcessStatus(jobId, "aborted");
-    processListenersOff();
     queueService.publish({
       type: "securities-daily-history-cache-update-aborted",
       ...messageData,
@@ -226,7 +226,6 @@ export const handler = async (event: Event) => {
   });
 
   securitiesCacheUpdater.once("exited", async () => {
-    processListenersOff();
     queueService.publish({
       type: "securities-daily-history-cache-update-exited",
       ...messageData,
@@ -235,5 +234,6 @@ export const handler = async (event: Event) => {
 
   securitiesCacheUpdater.update();
 
+  await waitForTerminalEvent(securitiesCacheUpdater);
   return securitiesCacheUpdater;
 };
