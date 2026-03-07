@@ -7,6 +7,12 @@ import { DEFAULT_SHUTDOWN_TIMEOUT_MS } from "@server/utils/shutdown";
  * Updates the job record in the DB with the given status.
  * Sets `completedAt` for terminal states (completed, failed, aborted)
  * and clears it for non-terminal states (e.g. running).
+ *
+ * Errors are caught and logged by design; they are not rethrown. This supports
+ * trigger-and-forget and distributed architecture: a single job's DB update
+ * failure must not propagate (unhandled rejections, process exit). Workers
+ * stay available for other work. Job state inconsistency is an accepted
+ * trade-off; use monitoring, timeouts, or reconciliation for visibility.
  */
 export async function updateProcessStatus(
   jobId: string,
