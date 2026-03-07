@@ -11,6 +11,17 @@
  * - **running:** Handler has started the job (updater has emitted "started").
  *   Work is in progress until a terminal event (completed, failed, aborted).
  *   Only the distributed handler sets status to running, when the updater emits "started".
+ *
+ * ## Timeouts and polling (process module)
+ *
+ * - **Shutdown** (server/utils/shutdown): DEFAULT_SHUTDOWN_TIMEOUT_MS = 30s. Handlers
+ *   register with this; abort-completion poll in job-helpers is sized to fit within it.
+ * - **Wait for processes to abort** (this file): DEFAULT_WAIT_TIMEOUT_MS = 20s,
+ *   DEFAULT_POLL_INTERVAL_MS = 5s. Callers can override via WaitOptions so a process
+ *   can specify its own wait times.
+ * - **Reconciliation** (process-reconcile): TTLs (pending 5 min, running 15 min) must be
+ *   greater than the above so we do not mark a job stale while it is still within
+ *   normal shutdown or wait-for-abort windows.
  */
 import type { Database } from "@server/db";
 import { processes } from "@server/db/schema";
@@ -18,18 +29,23 @@ import type { ProcessSelect } from "@shared/schema/process";
 import type { SQL } from "drizzle-orm";
 import { and, eq, inArray, not, or } from "drizzle-orm";
 
-type FindOptions = {
+export type FindOptions = {
   excludeIds?: string[];
   metaCondition?: SQL<unknown>;
 };
 
-type WaitOptions = FindOptions & {
+/** Options for waitForProcessesToAbort. Callers can pass timeoutMs and pollIntervalMs to use process-specific wait times. */
+export type WaitOptions = FindOptions & {
+  /** Max time to wait for running/pending jobs to disappear. Default 20s. */
   timeoutMs?: number;
+  /** Interval between DB polls. Default 5s. */
   pollIntervalMs?: number;
 };
 
-const DEFAULT_WAIT_TIMEOUT_MS = 20_000;
-const DEFAULT_POLL_INTERVAL_MS = 5_000;
+/** Default max wait for other jobs to abort before starting a replacement. 20s. */
+export const DEFAULT_WAIT_TIMEOUT_MS = 20_000;
+/** Default interval between polls when waiting for jobs to abort. 5s. */
+export const DEFAULT_POLL_INTERVAL_MS = 5_000;
 
 /**
  * Finds processes for a given key that are currently running or pending.
@@ -62,9 +78,10 @@ export async function findRunningOrPendingProcesses<
 /**
  * Polls until there are no running/pending processes for the given key
  * (respecting optional excludeIds/metaCondition), or until timeout.
+ * Does not publish abort messages itself — callers send abort events before calling.
  *
- * Does not publish abort messages itself — callers are responsible for
- * sending abort events before waiting.
+ * @param options.timeoutMs - Override default wait time (DEFAULT_WAIT_TIMEOUT_MS).
+ * @param options.pollIntervalMs - Override default poll interval (DEFAULT_POLL_INTERVAL_MS).
  */
 export async function waitForProcessesToAbort(
   db: Database,
