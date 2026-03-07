@@ -1,6 +1,8 @@
 import {
   AssetValuesUpdateMessageBase,
   factory as queueFactory,
+  isAssetValuesUpdateMessage,
+  Message,
 } from "@server/services/distributed/queue";
 import { AssetValuesUpdater } from "../securities/sync/asset-value";
 import {
@@ -121,13 +123,11 @@ export const handler = async (event: Event) => {
    * Allows the job to be cancelled from outside this process
    * (e.g. from a distributed coordinator or admin action).
    */
-  const callback = async (message: any) => {
-    if (message.type === "asset-values-update-abort") {
-      if (message.jobId === jobId) {
-        console.log("External abort message received for job", message.jobId);
-        abortController.abort();
-        queueService.unsubscribe(callback);
-      }
+  const callback = async (message: Message) => {
+    if (!isAssetValuesUpdateMessage(message)) return;
+    if (message.type === "asset-values-update-abort" && message.jobId === jobId) {
+      console.log("External abort message received for job", message.jobId);
+      abortController.abort();
     }
   };
   queueService.subscribe(callback);

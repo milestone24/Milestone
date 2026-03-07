@@ -9,6 +9,8 @@ import {
 } from "@server/db/schema";
 import {
   factory as queueFactory,
+  isSecuritiesDailyHistoryCacheUpdateMessage,
+  Message,
   SecuritiesDailyHistoryCacheUpdateMessageBase,
 } from "@server/services/distributed/queue";
 import {
@@ -118,13 +120,11 @@ export const handler = async (event: Event) => {
    * Allows the job to be cancelled from outside this process
    * (e.g. from a distributed coordinator or admin action).
    */
-  const callback = async (message: any) => {
-    if (message.type === "securities-cache-update-abort") {
-      if (message.jobId === jobId) {
-        console.log("External abort message received for job", message.jobId);
-        abortController.abort();
-        queueService.unsubscribe(callback);
-      }
+  const callback = async (message: Message) => {
+    if (!isSecuritiesDailyHistoryCacheUpdateMessage(message)) return;
+    if (message.type === "securities-daily-history-cache-update-abort" && message.jobId === jobId) {
+      console.log("External abort message received for job", message.jobId);
+      abortController.abort();
     }
   };
   queueService.subscribe(callback);
