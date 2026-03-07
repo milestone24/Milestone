@@ -237,6 +237,10 @@ export const populateSecuritiesDailyHistoryCache = async (
   return results;
 };
 
+/**
+ * Emits exactly one outcome (completed | failed | aborted) per run, then "exited".
+ * "started" is emitted at most once when work begins. No two outcome types for the same run.
+ */
 export class SecuritiesCacheUpdater extends EventEmitter<EmitEvents> {
   constructor(
     private jobId: string,

@@ -314,6 +314,10 @@ const __updateAssetValues = async (
   }
 };
 
+/**
+ * Emits exactly one outcome (completed | failed | aborted) per run, then "exited".
+ * "started" is emitted at most once when work begins. No two outcome types for the same run.
+ */
 export class AssetValuesUpdater extends EventEmitter<EmitEvents> {
   constructor(
     private assetId: string,
@@ -326,6 +330,12 @@ export class AssetValuesUpdater extends EventEmitter<EmitEvents> {
     super();
   }
   async update() {
+    const emitData: Data = {
+      assetId: this.assetId,
+      accountId: this.accountId,
+      jobId: this.jobId,
+      ...(this.startDate !== null && { startDate: this.startDate }),
+    };
     __updateAssetValues(
       this.assetId,
       this.accountId,
@@ -334,7 +344,10 @@ export class AssetValuesUpdater extends EventEmitter<EmitEvents> {
       this.assetPersistence,
       this.abortSignal,
       this
-    );
+    ).catch(() => {
+      this.emit("failed", emitData);
+      this.emit("exited", emitData);
+    });
     return this;
   }
 }
