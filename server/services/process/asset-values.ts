@@ -128,16 +128,6 @@ export class AssetValuesService {
     //and then swap the temporary table with the final table.
     //Therefore if the swap process is already in process, we must wait for it to complete before continuing.      //Do we then need to pu the rest of the folling code in a callback.
 
-    const defineEarliestStartDate = async (
-      processes: UpdateAssetValuesProcess[]
-    ) => {
-      const earliestStartDate = processes.reduce((min, process) => {
-        const startDate = new Date(process.payload.startDate);
-        return startDate < min ? startDate : min;
-      }, new Date());
-      return earliestStartDate;
-    };
-
     let job: ProcessSelect | undefined;
 
     const queueService = queueFactory();
@@ -194,13 +184,10 @@ export class AssetValuesService {
         }
 
         console.log("Existing jobs for asset", assetId, existingJobs);
-        //We have to consider start dates here.
-        //If a running job has a start date that is before the start date of the new job,
-        //we need to start the new job from the start date of the running job.
-        startDate = await defineEarliestStartDate(existingJobs);
-        //Wait for the jobs to abort
 
-        console.log("Start date for asset values update", startDate, assetId);
+        // Wait for the jobs to abort. startDate is not redefined from running/pending
+        // jobs (they are aborted and never commit); downstream derives range from
+        // the latest asset value in the DB (getLastAssetValue).
 
         try {
           await waitForProcessesToAbort(this.db, "update-asset-values", {
