@@ -104,6 +104,37 @@ export const projectionModifierSchema = z.discriminatedUnion("type", [
 ]);
 export type ProjectionModifier = z.infer<typeof projectionModifierSchema>;
 
+/**
+ * Optional predicate on a modifier: which contributors the modifier applies to.
+ * Absent = applies to all contributors.
+ */
+export const contributorMatchPredicateSchema = z.object({
+  accountType: z
+    .union([z.string(), z.array(z.string())])
+    .optional(),
+  contributorType: z
+    .union([z.string(), z.array(z.string())])
+    .optional(),
+  referenceId: z.string().uuid().optional(),
+});
+export type ContributorMatchPredicate = z.infer<
+  typeof contributorMatchPredicateSchema
+>;
+
+/**
+ * Modifier config with optional match: each entry in config.modifiers
+ * can optionally restrict which contributors it applies to.
+ */
+export const modifierWithOptionalMatchSchema = z.intersection(
+  projectionModifierSchema,
+  z.object({
+    match: contributorMatchPredicateSchema.optional(),
+  })
+);
+export type ModifierWithOptionalMatch = z.infer<
+  typeof modifierWithOptionalMatchSchema
+>;
+
 // ============================================================================
 // PROJECTION CONFIGURATION
 // ============================================================================
@@ -119,7 +150,7 @@ export const configDateRangeSchema = z.object({
 export const baseProjectionConfigSchema = z.object({
   growthModel: growthModelSchema,
   interval: projectionIntervalSchema.default("monthly"),
-  modifiers: z.array(projectionModifierSchema).default([]),
+  modifiers: z.array(modifierWithOptionalMatchSchema).default([]),
   usePortfolioRecurringContributions: z.boolean().optional().default(false),
   useContributorSpecificGrowthRates: z.boolean().optional().default(false),
 });
@@ -452,7 +483,6 @@ export const contributorSchema = z.object({
   }),
   schedules: z.array(contributorScheduleSchema),
   taxes: z.array(taxSchema).optional(),
-  modifiers: z.array(projectionModifierSchema).optional(),
   includeValue: z.boolean(),
   includeContributions: z.boolean(),
 });
@@ -729,6 +759,8 @@ export const ProjectionSchemas = {
   assetProjectionRequest: assetProjectionRequestSchema,
   portfolioProjectionRequest: portfolioProjectionRequestSchema,
   modifier: projectionModifierSchema,
+  modifierWithOptionalMatch: modifierWithOptionalMatchSchema,
+  contributorMatchPredicate: contributorMatchPredicateSchema,
   taxModifier: taxModifierSchema,
   inflationModifier: inflationModifierSchema,
   contributionScalerModifier: contributionScalerModifierSchema,

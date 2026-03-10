@@ -14,7 +14,10 @@ import {
   AccountType,
   createDecimalValueString,
 } from "@shared/schema";
-import { createModifierChain, mergeModifiers } from "@shared/utils/projection-modifiers";
+import {
+  createModifierChain,
+  unifyModifiersForContributor,
+} from "@shared/utils/projection-modifiers";
 import {
   generateSimpleProjection,
   SimpleProjectionInput,
@@ -50,7 +53,7 @@ export async function projectSingleContributor(
   dateOfBirth?: Date
 ): Promise<ContributorProjection> {
   const modifierChain = createModifierChain(
-    mergeModifiers(config.modifiers, contribution.modifiers)
+    unifyModifiersForContributor(contribution, config.modifiers)
   );
 
   let result: SimpleProjectionResult;

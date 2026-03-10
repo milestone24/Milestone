@@ -5,6 +5,9 @@ import {
   InflationModifier,
   ContributionScalerModifier,
   FeeModifier,
+  Contributor,
+  ModifierWithOptionalMatch,
+  ContributorMatchPredicate,
 } from "@shared/schema/projections";
 import Decimal from "decimal.js";
 
@@ -252,11 +255,47 @@ export class ModifierChain {
 }
 
 // ============================================================================
-// MODIFIER MERGE
+// MODIFIER PREDICATE & UNIFY
 // ============================================================================
 
 /**
- * Modifier types where only the first occurrence is kept during a merge.
+ * Returns true if the contributor is matched by the predicate.
+ * If match is undefined, returns true (modifier applies to all).
+ */
+export function contributorMatches(
+  contributor: Contributor,
+  match: ContributorMatchPredicate | undefined
+): boolean {
+  if (!match) return true;
+
+  if (match.accountType !== undefined) {
+    const allowed = Array.isArray(match.accountType)
+      ? match.accountType
+      : [match.accountType];
+    if (
+      contributor.accountType == null ||
+      !allowed.includes(contributor.accountType)
+    ) {
+      return false;
+    }
+  }
+
+  if (match.contributorType !== undefined) {
+    const allowed = Array.isArray(match.contributorType)
+      ? match.contributorType
+      : [match.contributorType];
+    if (!allowed.includes(contributor.type)) return false;
+  }
+
+  if (match.referenceId !== undefined) {
+    if (contributor.referenceId !== match.referenceId) return false;
+  }
+
+  return true;
+}
+
+/**
+ * Modifier types where only the first occurrence is kept when unifying.
  * Subsequent duplicates of these types are discarded.
  */
 const SINGULAR_MODIFIER_TYPES: ReadonlySet<ProjectionModifier["type"]> =
@@ -275,10 +314,45 @@ function deduplicateModifiers(
 }
 
 /**
+ * Builds the list of modifiers that apply to a contributor from config.modifiers.
+ * Filters by optional match, strips match from entries, deduplicates singular types.
+ */
+export function unifyModifiersForContributor(
+  contributor: Contributor,
+  modifierEntries: ModifierWithOptionalMatch[]
+): ProjectionModifier[] {
+  const filtered = modifierEntries.filter((entry) =>
+    contributorMatches(contributor, entry.match)
+  );
+  const stripped: ProjectionModifier[] = filtered.map(
+    ({ match: _match, ...modifier }) => modifier
+  );
+  return deduplicateModifiers(stripped);
+}
+
+/**
+ * Returns modifiers as a plain list (strip match, dedupe). Use when there is no
+ * contributor context and all config modifiers should apply (e.g. fire calculator).
+ */
+export function getModifiersAsGlobalList(
+  modifierEntries: ModifierWithOptionalMatch[]
+): ProjectionModifier[] {
+  const stripped: ProjectionModifier[] = modifierEntries.map(
+    ({ match: _match, ...modifier }) => modifier
+  );
+  return deduplicateModifiers(stripped);
+}
+
+// ============================================================================
+// MODIFIER MERGE (legacy – prefer unifyModifiersForContributor for config.modifiers)
+// ============================================================================
+
+/**
  * Merges one or more modifier config arrays into a single ordered list.
  * Modifiers are applied in the order the arrays are provided.
  * For singular modifier types (e.g. inflation), only the first occurrence is
  * kept — subsequent duplicates are discarded.
+ * @deprecated Use unifyModifiersForContributor when building chain from config.modifiers with optional match.
  */
 export function mergeModifiers(
   ...modifierSets: (ProjectionModifier[] | undefined)[]
