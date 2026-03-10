@@ -205,7 +205,7 @@ const baseIncomeGoals = (retirementAge: number, annualIncomeGoal: DecimalValueSt
 
 export const useFireProjection = (): UseFireProjectionReturn => {
 
-  const [includePortfolioRecurringContributions, setIncludePortfolioRecurringContributions] = useState(false);
+  const [includePortfolioRecurringContributions, setIncludePortfolioRecurringContributions] = useState(true);
   //TODO, complete visualisation of adjusment mode.
   const [isAdjustmentMode, setIsAdjustmentMode] = useState(false);
   const [scenarioGrowthRate, setScenarioGrowthRate] = useState<number | null>(null);
