@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
@@ -13,6 +13,10 @@ import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
 import { FireOverviewStickyBar } from "@/components/fire/FireOverviewStickyBar";
 import { WithdrawalStrategyCard } from "@/components/fire/WithdrawalStrategyCard";
 import { FireHeroCard } from "@/components/fire/FireHeroCard";
+import {
+  FireAccountTypeContributionAdjuster,
+  type AccountTypeRowData,
+} from "@/components/fire/FireAccountTypeContributionAdjuster";
 import { useFireProjection } from "@/hooks/use-fire";
 import { useElementInView } from "@/hooks/use-element-in-view";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -62,6 +66,11 @@ export default function Fire() {
     scenarioGrowthRate,
     setScenarioGrowthRate,
     resetScenarioGrowthRate,
+
+    accountTypeOffsets,
+    setAccountTypeOffset,
+    resetAccountTypeOffsets,
+    baselineProjection,
   } = useFireProjection();
 
   const [activeScenario, setActiveScenario] = useState<FireScenario | null>(null);
@@ -88,6 +97,58 @@ export default function Fire() {
     },
     [setIncludePortfolioRecurringContributions],
   );
+
+  // Build per-account-type rows for the contribution adjuster.
+  // Only include "asset" contributors so that our own offset contributors
+  // (type "adjustment") and fire-setting contributors are excluded from
+  // the baseline grouping.
+  const accountTypeRows = useMemo((): AccountTypeRowData[] => {
+    if (!projectionContributors) return [];
+    const assetContributors = projectionContributors.filter(
+      (c) => c.type === "asset",
+    );
+    const grouped = new Map<
+      string,
+      { total: number; withSchedules: number; baselineMonthly: number }
+    >();
+    for (const c of assetContributors) {
+      const at = c.accountType ?? "OTHER";
+      const existing = grouped.get(at) ?? {
+        total: 0,
+        withSchedules: 0,
+        baselineMonthly: 0,
+      };
+      const monthly = c.schedules.reduce(
+        (sum, s) => sum + Math.max(0, Number(s.value ?? 0)),
+        0,
+      );
+      grouped.set(at, {
+        total: existing.total + 1,
+        withSchedules:
+          existing.withSchedules + (c.schedules.length > 0 ? 1 : 0),
+        baselineMonthly: existing.baselineMonthly + monthly,
+      });
+    }
+    return Array.from(grouped.entries()).map(
+      ([accountType, { total, withSchedules, baselineMonthly }]) => ({
+        accountType,
+        baselineMonthly,
+        totalContributors: total,
+        contributorsWithSchedules: withSchedules,
+      }),
+    );
+  }, [projectionContributors]);
+
+  const handleAccountTypeOffsetChange = useCallback(
+    (accountType: string, delta: number) => {
+      setAccountTypeOffset?.(accountType, delta);
+    },
+    [setAccountTypeOffset],
+  );
+
+  const handleAccountTypeReset = useCallback(() => {
+    resetAccountTypeOffsets?.();
+  }, [resetAccountTypeOffsets]);
 
   const [isSettingsEditorOpen, setIsSettingsEditorOpen] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
@@ -231,6 +292,16 @@ export default function Fire() {
                 }
                 onScenarioSelect={handleScenarioSelect}
                 onScenarioReset={handleScenarioReset}
+              />
+            )}
+            {accountTypeRows.length > 0 && activeProjection && (
+              <FireAccountTypeContributionAdjuster
+                projection={activeProjection}
+                baselineProjection={baselineProjection}
+                accountTypeRows={accountTypeRows}
+                offsets={accountTypeOffsets ?? new Map()}
+                onChangeOffset={handleAccountTypeOffsetChange}
+                onReset={handleAccountTypeReset}
               />
             )}
             <div ref={overviewRef}>
