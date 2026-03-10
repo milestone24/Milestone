@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
@@ -72,6 +72,9 @@ export default function Fire() {
     resetAccountTypeOffsets,
     baselineProjection,
   } = useFireProjection();
+
+  const deferredProjection = useDeferredValue(activeProjection);
+  const projectionForHero = deferredProjection ?? activeProjection;
 
   const [activeScenario, setActiveScenario] = useState<FireScenario | null>(null);
 
@@ -270,24 +273,24 @@ export default function Fire() {
           </div>
         ) : activeProjection ? (
           <>
-            {userStatus?.status === "satisfied" && (
+            {userStatus?.status === "satisfied" && projectionForHero && (
               <FireHeroCard
                 projectedValue={Decimal(
-                  activeProjection.projectedValueAtRetirement,
+                  projectionForHero.projectedValueAtRetirement,
                 ).toNumber()}
-                projectedRetirementAge={activeProjection.projectedRetirementAge}
-                targetRetirementAge={activeProjection.targetRetirementAge}
-                fireNumber={Decimal(activeProjection.fireNumber).toNumber()}
-                fireNumberDecimal={activeProjection.fireNumber}
+                projectedRetirementAge={projectionForHero.projectedRetirementAge}
+                targetRetirementAge={projectionForHero.targetRetirementAge}
+                fireNumber={Decimal(projectionForHero.fireNumber).toNumber()}
+                fireNumberDecimal={projectionForHero.fireNumber}
                 contributorBreakdown={
-                  activeProjection.projectionResult.contributorBreakdown
+                  projectionForHero.projectionResult.contributorBreakdown
                 }
                 dateOfBirth={userStatus.dob}
                 activeScenario={activeScenario}
                 activeGrowthRate={scenarioGrowthRate}
                 baseGrowthRate={
-                  activeProjection.projectionResult.config.mode === "simple"
-                    ? activeProjection.projectionResult.config.growthRate
+                  projectionForHero.projectionResult.config.mode === "simple"
+                    ? projectionForHero.projectionResult.config.growthRate
                     : 8
                 }
                 onScenarioSelect={handleScenarioSelect}

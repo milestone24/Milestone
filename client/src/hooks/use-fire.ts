@@ -2,6 +2,7 @@ import { useSession } from "@/context/SessionContext";
 import { calculateAge, defineStatePensionAgeForGenderUK } from "@shared/utils/projection-utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useDebouncedValue } from "./use-debounced-value";
 import { useCreateFireSettings } from "./use-fire-settings-create";
 import { usePatchFireSettings } from "./use-fire-settings-patch";
 import { useFireSettings } from "./use-fire-settings";
@@ -232,6 +233,8 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     setAccountTypeOffsetsMap(new Map());
   }, []);
 
+  const debouncedAccountTypeOffsets = useDebouncedValue(accountTypeOffsets, 250);
+
   const { user } = useSession();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -439,7 +442,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
   }, [adjustmentContributors]);
 
   const accountTypeOffsetContributors: Contributor[] = useMemo(() => {
-    return Array.from(accountTypeOffsets.entries())
+    return Array.from(debouncedAccountTypeOffsets.entries())
       .filter(([, delta]) => delta !== 0)
       .map(([accType, delta]) => {
         if (!accountTypeOffsetIdsRef.current.has(accType)) {
@@ -465,7 +468,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
           ...defineContributorRulesForAssetType(accType as Parameters<typeof defineContributorRulesForAssetType>[0]),
         };
       });
-  }, [accountTypeOffsets, offsetsStartDate]);
+  }, [debouncedAccountTypeOffsets, offsetsStartDate]);
 
 
   const previewModifiersActive =

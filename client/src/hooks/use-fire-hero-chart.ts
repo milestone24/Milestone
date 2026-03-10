@@ -1,4 +1,4 @@
-import { useEffect, useMemo, RefObject } from "react";
+import { useEffect, useMemo, RefObject, useRef } from "react";
 import * as d3 from "d3";
 import type { ChartDimensions } from "./use-chart-dimensions";
 import type { FireProjectionData } from "@shared/schema/projections";
@@ -73,6 +73,7 @@ export function useFireHeroChart({
 }: UseFireHeroChartOptions): FireHeroLegendValues {
   const keys = useMemo(() => [...chartData.keys()], [chartData]);
   const stackData = useMemo(() => buildStackData(chartData, keys), [chartData, keys]);
+  const hasAnimatedOnceRef = useRef(false);
 
   const legendValues = useMemo<FireHeroLegendValues>(() => {
     const target =
@@ -315,13 +316,17 @@ export function useFireHeroChart({
         activeTooltipTexts.length = 0;
       });
 
-    // Enter animation
-    clipRect
-      .transition()
-      .duration(1200)
-      .ease(d3.easeCubicOut)
-      .attr("width", boundedWidth);
-
+    // Enter animation only on first draw; skip on updates to avoid flicker
+    if (hasAnimatedOnceRef.current) {
+      clipRect.attr("width", boundedWidth);
+    } else {
+      hasAnimatedOnceRef.current = true;
+      clipRect
+        .transition()
+        .duration(1200)
+        .ease(d3.easeCubicOut)
+        .attr("width", boundedWidth);
+    }
   }, [svgRef, dimensions, stackData, keys, fireNumber, targetRetirementAge, projectedRetirementAge]);
 
   return legendValues;
