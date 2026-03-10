@@ -94,6 +94,22 @@ export const feeModifierSchema = z.object({
 export type FeeModifier = z.infer<typeof feeModifierSchema>;
 
 /**
+ * Contribution Offset Modifier - Adds or subtracts a fixed amount per contribution.
+ * Applied only in contribution context (e.g. +100 to all ISA contributions).
+ */
+export const contributionOffsetModifierSchema = z.object({
+  type: z.literal("contribution_offset"),
+  enabled: z.boolean(),
+  amount: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Amount must be a valid decimal string",
+  }),
+  description: z.string().optional(),
+});
+export type ContributionOffsetModifier = z.infer<
+  typeof contributionOffsetModifierSchema
+>;
+
+/**
  * Union of all modifier types
  */
 export const projectionModifierSchema = z.discriminatedUnion("type", [
@@ -101,6 +117,7 @@ export const projectionModifierSchema = z.discriminatedUnion("type", [
   inflationModifierSchema,
   contributionScalerModifierSchema,
   feeModifierSchema,
+  contributionOffsetModifierSchema,
 ]);
 export type ProjectionModifier = z.infer<typeof projectionModifierSchema>;
 
@@ -765,6 +782,7 @@ export const ProjectionSchemas = {
   inflationModifier: inflationModifierSchema,
   contributionScalerModifier: contributionScalerModifierSchema,
   feeModifier: feeModifierSchema,
+  contributionOffsetModifier: contributionOffsetModifierSchema,
 };
 
 export type ProjectionOrchestratorAssetInput = {

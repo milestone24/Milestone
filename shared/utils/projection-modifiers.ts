@@ -5,6 +5,7 @@ import {
   InflationModifier,
   ContributionScalerModifier,
   FeeModifier,
+  ContributionOffsetModifier as ContributionOffsetModifierConfig,
   Contributor,
   ModifierWithOptionalMatch,
   ContributorMatchPredicate,
@@ -180,6 +181,40 @@ export class FeeDeductorModifier implements ApplicableModifier {
 
   getName(): string {
     return `Management Fees (${this.config.annualRate}% p.a.)`;
+  }
+
+  isEnabled(): boolean {
+    return this.config.enabled;
+  }
+}
+
+// ============================================================================
+// CONTRIBUTION OFFSET MODIFIER
+// ============================================================================
+
+/**
+ * Adds or subtracts a fixed amount per contribution.
+ * Applied only in contribution context (e.g. +100 to all ISA contributions).
+ */
+export class ContributionOffsetModifier implements ApplicableModifier {
+  constructor(private config: ContributionOffsetModifierConfig) {}
+
+  apply(
+    value: DecimalValueString,
+    context: ModifierContext
+  ): DecimalValueString {
+    if (!this.config.enabled || !context.contributionAmount) {
+      return value;
+    }
+    return createDecimalValueString(
+      Decimal(value).add(this.config.amount).toString()
+    );
+  }
+
+  getName(): string {
+    const amount = Decimal(this.config.amount);
+    const sign = amount.gte(0) ? "+" : "";
+    return `Contribution Offset (${sign}${this.config.amount})`;
   }
 
   isEnabled(): boolean {
@@ -385,6 +420,9 @@ export function createModifierChain(
         break;
       case "fee":
         chain.addModifier(new FeeDeductorModifier(config));
+        break;
+      case "contribution_offset":
+        chain.addModifier(new ContributionOffsetModifier(config));
         break;
     }
   }
