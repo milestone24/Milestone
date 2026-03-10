@@ -108,7 +108,10 @@ export async function waitForProcessesToAbort(
     });
 
     console.log(
-      `waitForProcessesToAbort(${processKey}) iteration ${iterations}: found ${jobs.length} jobs`
+      "[process-abort-wait] key=%s iteration=%s found=%s jobs",
+      processKey,
+      iterations,
+      jobs.length
     );
 
     if (jobs.length === 0) {

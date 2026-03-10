@@ -168,9 +168,12 @@ export function startPeriodicReconciliationForResource(
   intervalMs: number = RECONCILE_INTERVAL_MS,
   maxDurationMs: number = RECONCILE_MAX_DURATION_MS
 ): void {
+  const scope = options.jobId
+    ? `jobId=${options.jobId}`
+    : `key=${options.processKey ?? "all"}`;
   const intervalId = setInterval(() => {
     reconcileStaleProcesses(options).catch((err) => {
-      console.error("Periodic reconciliation error", err);
+      console.error("[process-reconcile] Periodic reconciliation error %s", scope, err);
     });
   }, intervalMs);
 

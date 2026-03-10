@@ -86,7 +86,13 @@ type Event = {
 export const handler = async (event: Event) => {
   const { assetId, accountId, jobId, startDate } = event;
 
-  console.log("Asset values update started for asset %s with start date %s", assetId, startDate);
+  console.log(
+    "[update-asset-values] Handler started accountId=%s assetId=%s jobId=%s startDate=%s",
+    accountId,
+    assetId,
+    jobId,
+    startDate ?? "undefined"
+  );
 
   let abortController: AbortController = new AbortController();
 
@@ -102,11 +108,11 @@ export const handler = async (event: Event) => {
    * encapsulates the DB update, queue publish, and DB confirmation poll.
    */
   const unregisterShutdown = registerShutdownHandler(async (signal) => {
-    console.log("Shutdown signal %s received for job %s", signal, jobId);
+    console.log("[update-asset-values] Shutdown signal=%s jobId=%s", signal, jobId);
     abortController.abort(`shutdown signal: ${signal}`);
-    console.log("Abort controller signalled for job", jobId, "- waiting for abort sequence to complete");
+    console.log("[update-asset-values] Abort signalled jobId=%s waiting for abort sequence", jobId);
     await abortCompletePromise;
-    console.log("Job confirmed aborted in DB for job", jobId);
+    console.log("[update-asset-values] Job confirmed aborted in DB jobId=%s", jobId);
   }, { timeout: DEFAULT_SHUTDOWN_TIMEOUT_MS });
 
   job = await db.query.processes.findFirst({
@@ -127,7 +133,7 @@ export const handler = async (event: Event) => {
   const callback = async (message: Message) => {
     if (!isAssetValuesUpdateMessage(message)) return;
     if (message.type === "asset-values-update-abort" && message.jobId === jobId) {
-      console.log("External abort message received for job", message.jobId);
+      console.log("[update-asset-values] External abort received jobId=%s", message.jobId);
       abortController.abort();
     }
   };
@@ -197,7 +203,7 @@ export const handler = async (event: Event) => {
    * Shutdown unregister and queue unsubscribe run via job-scope disposal when the handler returns.
    */
   updater.once("aborted", async () => {
-    console.log("Asset values update aborted for job", jobId);
+    console.log("[update-asset-values] Handler aborted accountId=%s assetId=%s jobId=%s", accountId, assetId, jobId);
     await updateProcessStatus(jobId, "aborted");
     queueService.publish({
       ...messageData,

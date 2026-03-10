@@ -113,7 +113,8 @@ export class SecuritiesCacheService {
             ? job.id
             : "undefined (job not defined when logging handler error)";
           console.error(
-            "Error in securities cache distributed handler for job",
+            "[update-securities-daily-history-cache] Distributed handler error securityId=%s jobId=%s",
+            securityId,
             jobIdText,
             error
           );
@@ -210,7 +211,7 @@ export class SecuritiesCacheService {
             ? job.id
             : "undefined (job not defined when logging handler error)";
           console.error(
-            "Error in securities cache distributed handler for job",
+            "[update-securities-daily-history-cache] Distributed handler error scope=all jobId=%s",
             jobIdText,
             error
           );

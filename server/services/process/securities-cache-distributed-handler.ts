@@ -83,7 +83,7 @@ type Event = {
 export const handler = async (event: Event) => {
   const { jobId } = event;
 
-  console.log("Securities cache update started for job %s", jobId);
+  console.log("[update-securities-daily-history-cache] Handler started jobId=%s", jobId);
 
   let abortController: AbortController = new AbortController();
 
@@ -99,11 +99,11 @@ export const handler = async (event: Event) => {
    * encapsulates the DB update, queue publish, and DB confirmation poll.
    */
   const unregisterShutdown = registerShutdownHandler(async (signal) => {
-    console.log("Shutdown signal %s received for job %s", signal, jobId);
+    console.log("[update-securities-daily-history-cache] Shutdown signal=%s jobId=%s", signal, jobId);
     abortController.abort(`shutdown signal: ${signal}`);
-    console.log("Abort controller signalled for job", jobId, "- waiting for abort sequence to complete");
+    console.log("[update-securities-daily-history-cache] Abort signalled jobId=%s waiting for abort sequence", jobId);
     await abortCompletePromise;
-    console.log("Job confirmed aborted in DB for job", jobId);
+    console.log("[update-securities-daily-history-cache] Job confirmed aborted in DB jobId=%s", jobId);
   }, { timeout: DEFAULT_SHUTDOWN_TIMEOUT_MS });
 
   job = await db.query.processes.findFirst({
@@ -124,7 +124,7 @@ export const handler = async (event: Event) => {
   const callback = async (message: Message) => {
     if (!isSecuritiesDailyHistoryCacheUpdateMessage(message)) return;
     if (message.type === "securities-daily-history-cache-update-abort" && message.jobId === jobId) {
-      console.log("External abort message received for job", message.jobId);
+      console.log("[update-securities-daily-history-cache] External abort received jobId=%s", message.jobId);
       abortController.abort();
     }
   };
@@ -139,6 +139,10 @@ export const handler = async (event: Event) => {
     | { date: Date }
     | { securityId: string; startDate: Date; groupId?: string; accountId?: string };
   const isPerSecurityJob = "securityId" in payload && typeof payload.securityId === "string";
+  const scope =
+    isPerSecurityJob
+      ? `securityId=${payload.securityId}${payload.groupId ? ` groupId=${payload.groupId}` : ""}${payload.accountId ? ` accountId=${payload.accountId}` : ""}`
+      : "scope=all";
 
   let securityContexts: { securityId: string; startDate: Date; endDate: Date }[];
 
@@ -229,7 +233,7 @@ export const handler = async (event: Event) => {
    * Shutdown unregister and queue unsubscribe run via job-scope disposal when the handler returns.
    */
   securitiesCacheUpdater.once("aborted", async () => {
-    console.log("Securities cache update aborted for job", jobId);
+    console.log("[update-securities-daily-history-cache] Handler aborted jobId=%s %s", jobId, scope);
     await updateProcessStatus(jobId, "aborted");
     queueService.publish({
       type: "securities-daily-history-cache-update-aborted",

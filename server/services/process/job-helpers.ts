@@ -61,7 +61,12 @@ export async function updateProcessStatus(
       .where(eq(processes.id, jobId))
       .returning();
   } catch (error) {
-    console.error("Error updating job with status", error);
+    console.error(
+      "[job-helpers] Error updating process status jobId=%s status=%s",
+      jobId,
+      status,
+      error
+    );
   }
 }
 

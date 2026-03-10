@@ -104,12 +104,10 @@ export class AssetValuesService {
   ): Promise<void> {
 
     console.log(
-      "Updating asset values for accountId",
+      "[update-asset-values] accountId=%s assetId=%s startDate=%s",
       accountId,
-      "and assetId",
       assetId,
-      "and start date",
-      startDate
+      startDate ?? "undefined"
     );
 
     //Now we manually trigger the distributed event to signal to other asset update jobs for the same asset to abort.
@@ -169,7 +167,12 @@ export class AssetValuesService {
         }
       );
 
-      console.log("Asset Values Service Existing jobs", existingJobs.length);
+      console.log(
+        "[update-asset-values] assetId=%s existing running/pending count=%s newJobId=%s",
+        assetId,
+        existingJobs.length,
+        job.id
+      );
 
       if (existingJobs.length > 0) {
         //Dispatch an event to abort the jobs
@@ -183,7 +186,12 @@ export class AssetValuesService {
           });
         }
 
-        console.log("Existing jobs for asset", assetId, existingJobs);
+        console.log(
+          "[update-asset-values] assetId=%s aborting jobIds=%s newJobId=%s",
+          assetId,
+          existingJobs.map((j) => j.id).join(","),
+          job.id
+        );
 
         // Wait for the jobs to abort. startDate is not redefined from running/pending
         // jobs (they are aborted and never commit); downstream derives range from
@@ -195,7 +203,13 @@ export class AssetValuesService {
             metaCondition: sql`payload ->> 'assetId' = ${assetId}`,
           });
         } catch (error) {
-          console.error("Error waiting for jobs to abort", error);
+          console.error(
+            "[update-asset-values] Error waiting for jobs to abort accountId=%s assetId=%s jobId=%s",
+            accountId,
+            assetId,
+            job.id,
+            error
+          );
 
           await this.db
             .update(processes)
@@ -214,7 +228,13 @@ export class AssetValuesService {
         }
       }
 
-      console.log("Continuing with update asset values for %s with startDate %s", assetId, startDate);
+      console.log(
+        "[update-asset-values] Continuing accountId=%s assetId=%s jobId=%s startDate=%s",
+        accountId,
+        assetId,
+        job.id,
+        startDate ?? "undefined"
+      );
 
       //TODO job needs some kind of identifier for what resources are affected
       //Should the creation of a job be done through a message queue to prevent race conditions?
@@ -240,7 +260,9 @@ export class AssetValuesService {
             ? job.id
             : "undefined (job not defined when logging handler error)";
           console.error(
-            "Error in asset values distributed handler for job",
+            "[update-asset-values] Distributed handler error accountId=%s assetId=%s jobId=%s",
+            accountId,
+            assetId,
             jobIdText,
             error
           );
@@ -256,7 +278,13 @@ export class AssetValuesService {
         runningTtlMs: DEFAULT_RUNNING_TTL_MS,
       });
     } catch (error) {
-      console.error("Error updating asset values", error);
+      console.error(
+        "[update-asset-values] Error updating asset values accountId=%s assetId=%s jobId=%s",
+        accountId,
+        assetId,
+        job?.id ?? "none",
+        error
+      );
 
       if (job) {
         await this.db
@@ -311,7 +339,11 @@ export class AssetValuesService {
     });
 
     const filteredAssets = assets.filter((asset) => asset.id === "c2190f32-89b5-47f6-81bb-cea2be66ec69");
-    console.log("updateAssetValuesForAllAssetsOfAccount Filtered assets", filteredAssets.map((asset) => asset.id));
+    console.log(
+      "[update-asset-values] updateAssetValuesForAllAssetsOfAccount accountId=%s filteredAssetIds=%s",
+      accountId,
+      filteredAssets.map((a) => a.id).join(",")
+    );
     //Could this be done in a parallel manner?
     //for (const asset of assets) {
     for (const asset of filteredAssets) {
@@ -361,9 +393,12 @@ export class AssetValuesService {
       terminalStatuses.includes(j.status as (typeof terminalStatuses)[number])
     );
 
-    console.log("checkGroupCompleteAndTriggerAssetValues", groupJobs);
-
-    console.log("checkGroupCompleteAndTriggerAssetValues", groupId, allDone);
+    console.log(
+      "[update-asset-values] checkGroupCompleteAndTriggerAssetValues groupId=%s jobCount=%s allDone=%s",
+      groupId,
+      groupJobs.length,
+      allDone
+    );
 
     if (!allDone) {
       return;
