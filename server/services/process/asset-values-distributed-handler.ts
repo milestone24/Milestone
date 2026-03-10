@@ -1,6 +1,8 @@
 import {
   AssetValuesUpdateMessageBase,
   factory as queueFactory,
+  isAssetValuesUpdateMessage,
+  Message,
 } from "@server/services/distributed/queue";
 import { AssetValuesUpdater } from "../securities/sync/asset-value";
 import {
@@ -9,16 +11,21 @@ import {
   DatabaseAssetService,
 } from "../assets/database";
 import { db } from "@server/db";
-import { processes, ProcessStatus } from "@server/db/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { processes, ProcessSelect } from "@server/db/schema";
+import { eq } from "drizzle-orm";
+import {
+  createAbortCompletionPromise,
+  shouldContinue,
+  updateProcessStatus,
+  waitForTerminalEvent,
+} from "./job-helpers";
+import { createJobScope } from "./job-scope";
+import { registerShutdownHandler, DEFAULT_SHUTDOWN_TIMEOUT_MS } from "@server/utils/shutdown";
 
 /**
- * This handler is used to behave a distributed manner.
- * It is designed to mimic distributed behaviour but actually
- * can be used locally in a non distributed environment or
- * delegated to from a distributed lambda function
+ * Describes the input event required to start an asset values update job.
+ * Can be dispatched locally or forwarded from a distributed Lambda function.
  */
-
 type Event = {
   assetId: string;
   accountId: string;
@@ -26,34 +33,90 @@ type Event = {
   startDate?: Date;
 };
 
+/**
+ * Handles an asset values update job in a distributed-compatible manner.
+ *
+ * Designed to run locally or be delegated to from a distributed environment
+ * (e.g. a Lambda function). The handler coordinates the full lifecycle of
+ * an asset values update: starting, running, completing, failing, or aborting.
+ *
+ * ## Shutdown / Abort Flow
+ *
+ * When a shutdown signal (SIGINT/SIGTERM) is received while a job is active,
+ * the following sequence is guaranteed before the process exits:
+ *
+ * 1. The `AbortController` is signalled, which propagates cancellation into
+ *    the `AssetValuesUpdater` via its `AbortSignal`.
+ * 2. The updater emits `"aborted"`, triggering the aborted event handler.
+ * 3. The DB job status is updated to `"aborted"`.
+ * 4. The shutdown handler is unregistered.
+ * 5. The abort message is published to the queue so downstream receivers
+ *    can act with confidence that the DB state is already correct.
+ * 6. `resolveAbort()` is called, which internally runs `checkAborted()` —
+ *    a DB poll that confirms the status as the distributed source of truth
+ *    before resolving `abortCompletePromise`.
+ * 7. The shutdown coordinator receives the resolved promise and exits cleanly.
+ *
+ * ## Deferred Promise (`abortCompletePromise`)
+ *
+ * Uses the Deferred Promise pattern to bridge the updater's event-driven
+ * abort sequence with the shutdown coordinator's async handler. The promise
+ * is created unconditionally and its resolver (`resolveAbort`) is always
+ * defined — the Promise constructor executor runs synchronously. If the job
+ * completes or fails without a shutdown signal, `resolveAbort()` is still
+ * called harmlessly with no awaiter.
+ *
+ * ## DB Poll (`checkAborted`)
+ *
+ * Polls the DB to confirm the job status is `"aborted"` as the distributed
+ * source of truth. It is scoped to this handler and only ever triggered via
+ * `resolveAbort()` — never called directly from the shutdown handler. The
+ * poll interval and max tries are derived from `DEFAULT_SHUTDOWN_TIMEOUT_MS`
+ * to stay within the coordinator's overall timeout budget.
+ *
+ * ## Scope-based cleanup
+ *
+ * The handler uses `await using jobScope = createJobScope(...)` so that when
+ * the handler returns (after awaiting `waitForTerminalEvent(updater)`), the
+ * job scope is disposed: unregisterShutdown and queue unsubscribe run, allowing
+ * GC of listeners and subscriptions. The handler awaits a terminal event
+ * (completed, failed, aborted, or exited) before returning so disposal always
+ * runs at the right time.
+ */
 export const handler = async (event: Event) => {
   const { assetId, accountId, jobId, startDate } = event;
 
-  let exitSignalTriggered = false;
-
-  console.log("Asset values update started for start date", startDate);
+  console.log(
+    "[update-asset-values] Handler started accountId=%s assetId=%s jobId=%s startDate=%s",
+    accountId,
+    assetId,
+    jobId,
+    startDate ?? "undefined"
+  );
 
   let abortController: AbortController = new AbortController();
 
-  const signalTermCallback = () => {
-    console.log("SIGINT or SIGTERM received");
-    exitSignalTriggered = true;
-    abortController.abort("SIGINT or SIGTERM received");
-    process.off("SIGTERM", signalTermCallback);
-  };
+  let job: ProcessSelect | undefined;
 
-  const signalIntCallback = () => {
-    console.log("SIGINT received");
-    exitSignalTriggered = true;
-    abortController.abort("SIGINT received");
-    process.off("SIGINT", signalIntCallback);
-  };
+  const { promise: abortCompletePromise, resolve: resolveAbort } =
+    createAbortCompletionPromise(jobId);
 
-  process.on("SIGINT", signalIntCallback);
-  process.on("SIGTERM", signalTermCallback);
+  /**
+   * Registers with the central shutdown coordinator so the process does not
+   * exit until this job's abort sequence has fully completed. The handler
+   * signals the abort and then waits on `abortCompletePromise`, which
+   * encapsulates the DB update, queue publish, and DB confirmation poll.
+   */
+  const unregisterShutdown = registerShutdownHandler(async (signal) => {
+    console.log("[update-asset-values] Shutdown signal=%s jobId=%s", signal, jobId);
+    abortController.abort(`shutdown signal: ${signal}`);
+    console.log("[update-asset-values] Abort signalled jobId=%s waiting for abort sequence", jobId);
+    await abortCompletePromise;
+    console.log("[update-asset-values] Job confirmed aborted in DB jobId=%s", jobId);
+  }, { timeout: DEFAULT_SHUTDOWN_TIMEOUT_MS });
 
-  const job = await db.query.processes.findFirst({
-    where: and(eq(processes.id, jobId)),
+  job = await db.query.processes.findFirst({
+    where: eq(processes.id, jobId),
   });
 
   if (!job) {
@@ -61,60 +124,42 @@ export const handler = async (event: Event) => {
   }
 
   const queueService = queueFactory();
-  const callback = async (message: any) => {
-    if (message.type === "asset-values-update-abort") {
-      if (message.jobId === jobId) {
-        console.log("Asset values update aborted for job", message.jobId);
-        abortController.abort();
-        queueService.unsubscribe(callback);
-      }
+
+  /**
+   * Listens for an external abort message on the queue.
+   * Allows the job to be cancelled from outside this process
+   * (e.g. from a distributed coordinator or admin action).
+   */
+  const callback = async (message: Message) => {
+    if (!isAssetValuesUpdateMessage(message)) return;
+    if (message.type === "asset-values-update-abort" && message.jobId === jobId) {
+      console.log("[update-asset-values] External abort received jobId=%s", message.jobId);
+      abortController.abort();
     }
   };
   queueService.subscribe(callback);
+
+  await using jobScope = createJobScope({
+    unregisterShutdown,
+    unsubscribe: () => queueService.unsubscribe(callback),
+  });
 
   const assetPersistence: AssetPersistence = assetPersistenceFactory(
     new DatabaseAssetService(db),
     assetId
   );
 
+  // Heartbeat: touch process row at batch boundaries so updatedAt advances for TTL/reconciliation. A timer-based touch (e.g. every N min) is a possible future improvement for long batches.
   const updater = new AssetValuesUpdater(
     assetId,
     accountId,
     jobId,
     startDate ?? null,
     assetPersistence,
-    abortController.signal
+    abortController.signal,
+    () => updateProcessStatus(jobId, "running"),
+    () => shouldContinue(abortController.signal, { jobId })
   );
-
-  const updateJobWithStatus = async (status: ProcessStatus) => {
-    if (job) {
-      try {
-        const result = await db
-          .update(processes)
-          .set(
-            status === "completed"
-              ? { status, completedAt: new Date() }
-              : status === "failed"
-              ? {
-                  status,
-                  completedAt: new Date(),
-                  error: "Error updating asset values",
-                }
-              : status === "aborted"
-              ? {
-                  status,
-                  completedAt: new Date(),
-                  //error: "Asset values update aborted",
-                }
-              : { status, completedAt: null }
-          )
-          .where(eq(processes.id, job.id))
-          .returning();
-      } catch (error) {
-        console.error("Error updating job with status", error);
-      }
-    }
-  };
 
   const messageData: AssetValuesUpdateMessageBase = {
     jobId: jobId,
@@ -124,7 +169,7 @@ export const handler = async (event: Event) => {
   };
 
   updater.once("started", async () => {
-    await updateJobWithStatus("running");
+    await updateProcessStatus(jobId, "running");
     queueService.publish({
       ...messageData,
       type: "asset-values-update-started",
@@ -132,33 +177,42 @@ export const handler = async (event: Event) => {
   });
 
   updater.once("completed", async () => {
-    await updateJobWithStatus("completed");
+    await updateProcessStatus(jobId, "completed");
     queueService.publish({
       ...messageData,
       type: "asset-values-update-completed",
     });
   });
+
   updater.once("failed", async () => {
-    await updateJobWithStatus("failed");
+    await updateProcessStatus(jobId, "failed", "Error updating asset values");
     queueService.publish({
       ...messageData,
       type: "asset-values-update-failed",
     });
   });
+
+  /**
+   * Handles the updater's abort event.
+   *
+   * Guarantees the following order before signalling completion:
+   * 1. DB status set to "aborted"
+   * 2. Abort message published — receivers can trust the DB state is correct
+   * 3. `resolveAbort()` triggers `checkAborted()` to confirm DB as source of truth,
+   *    then resolves `abortCompletePromise` to unblock the shutdown coordinator.
+   * Shutdown unregister and queue unsubscribe run via job-scope disposal when the handler returns.
+   */
   updater.once("aborted", async () => {
-    await updateJobWithStatus("aborted");
-    if (exitSignalTriggered) {
-      console.log("Abort listener, SIGINT or SIGTERM received, exiting");
-      process.exit(0);
-    }
+    console.log("[update-asset-values] Handler aborted accountId=%s assetId=%s jobId=%s", accountId, assetId, jobId);
+    await updateProcessStatus(jobId, "aborted");
     queueService.publish({
       ...messageData,
       type: "asset-values-update-aborted",
     });
+    resolveAbort();
   });
+
   updater.once("exited", async () => {
-    process.off("SIGINT", signalIntCallback);
-    process.off("SIGTERM", signalTermCallback);
     queueService.publish({
       ...messageData,
       type: "asset-values-update-exited",
@@ -167,5 +221,6 @@ export const handler = async (event: Event) => {
 
   updater.update();
 
+  await waitForTerminalEvent(updater);
   return updater;
 };

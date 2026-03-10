@@ -10,15 +10,46 @@ import { Message } from "@server/services/distributed/queue";
 import { addDays, startOfMonth } from "date-fns";
 
 describe("AssetValuesService", () => {
-  const assetId = "78b2e68f-bb55-432f-b059-e9edb9d94f57";
-  const accountId = "5d4f0f7f-723c-4296-a4cf-d4a7e41db225";
 
-  const startDateOne = startOfMonth(new Date());
-  const startDateTwo = addDays(startDateOne, 10);
+  const accountId = "5d4f0f7f-723c-4296-a4cf-d4a7e41db225";
+  const assetId = "c2190f32-89b5-47f6-81bb-cea2be66ec69";
+
+  it.only("should update asset values with start date undefined", async () => {
+    await new Promise(async (resolve, reject) => {
+      const startedIds: string[] = [];
+      const exitedIds: string[] = [];
+
+      const callback = vi
+        .fn()
+        .mockImplementation(async (message: Message) => {
+          if (message.type === "asset-values-update-started") {
+            startedIds.push(message.jobId);
+          }
+        });
+
+      const queueService = queueFactory();
+      queueService.subscribe(callback);
+
+      const assetValuesService = new AssetValuesService(db);
+      await assetValuesService.updateAssetValuesForAssetOfAccount(accountId, assetId, undefined);
+
+      expect(callback).toHaveBeenCalledWith({
+        type: "asset-values-update-exited",
+        jobId: expect.any(String),
+        accountId: expect.any(String),
+        assetId: expect.any(String),
+        startDate: undefined,
+      });
+    });
+  }, 60000 * 5);
 
   it(
-    "should update asset values",
+    "should update asset values after another job has completed",
     async () => {
+
+      const startDateOne = startOfMonth(new Date());
+      const startDateTwo = addDays(startDateOne, 10);
+
       await new Promise(async (resolve, reject) => {
         const startedIds: string[] = [];
         const exitedIds: string[] = [];

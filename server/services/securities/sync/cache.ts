@@ -5,7 +5,6 @@ import { eq, sql } from "drizzle-orm"
 import { factory as gatewayFactory } from "../gateway"
 import { differenceInDays } from "date-fns"
 import EventEmitter from "events";
-import { AssetPersistence } from "@server/services/assets/database";
 
 /**
  * Fetch and process security history data for a date range
@@ -19,7 +18,6 @@ export const fetchFilteredSecurityHistoryForDates = async (
   abortSignal: AbortSignal
 ): Promise<SecurityHistory[]> => {
   const gateway = gatewayFactory();
-  const historyData: SecurityHistory[] = [];
 
   try {
     const gatewayData = await gateway.getSecurityHistoryForDateRange(
@@ -43,18 +41,13 @@ export const fetchFilteredSecurityHistoryForDates = async (
     //     date.toISOString().split('T')[0] === item.date.toISOString().split('T')[0]
     //   ))
 
-    // historyData.push(...filteredData)
-
     return gatewayData;
   } catch (error) {
     throw new Error(
-      `Gateway API error: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Gateway API error: ${error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
-
-  return historyData;
 };
 
 /**
@@ -67,14 +60,32 @@ export const fetchFilteredSecurityHistoryForDates = async (
  * and so a start date will be needed.
  * @returns Promise with cache population results
  */
+/**
+ * Returns true if work should continue, false if it should stop.
+ * When provided to the updater, the implementation must use the **same** AbortSignal
+ * as the updater's `abortSignal` (e.g. `() => shouldContinue(abortSignal, { jobId })`),
+ * optionally combined with DB state. When not provided, `abortSignal.aborted` should
+ * be checked where appropriate.
+ */
+type AbortCheck = () => Promise<boolean>;
+
+type TouchProcess = (() => void) | (() => Promise<void>);
+
 const populateSecurityDailyHistoryCache = async (
   securityContext: SecurityContext,
   jobId: string,
   abortSignal: AbortSignal,
+  abortCheck?: AbortCheck,
+  touchProcess?: TouchProcess
 ): Promise<Date[]> => {
-  if (abortSignal.aborted) {
+  const shouldStop = async (): Promise<boolean> =>
+    abortCheck ? !(await abortCheck()) : abortSignal.aborted;
+
+  if (await shouldStop()) {
     return [];
   }
+
+  touchProcess?.();
 
   // console.log("populateSecurityDailyHistoryCache SECURITY CONTEXT", securityContext)
 
@@ -95,7 +106,7 @@ const populateSecurityDailyHistoryCache = async (
     orderBy: sql`${securityDailyHistory.date} DESC`,
   });
 
-  if (abortSignal.aborted) {
+  if (await shouldStop()) {
     return [];
   }
 
@@ -125,7 +136,9 @@ const populateSecurityDailyHistoryCache = async (
     abortSignal
   );
 
-  if (abortSignal.aborted) {
+  touchProcess?.();
+
+  if (await shouldStop()) {
     return [];
   }
 
@@ -178,7 +191,7 @@ const populateSecurityDailyHistoryCache = async (
     }
   }
 
-  if (abortSignal.aborted) {
+  if (await shouldStop()) {
     return [];
   }
 
@@ -194,12 +207,14 @@ const populateSecurityDailyHistoryCache = async (
         source: record.sourceIdentifier,
       }))
     );
-    if (abortSignal.aborted) {
+    if (await shouldStop()) {
       tx.rollback();
     }
   });
 
-  if (abortSignal.aborted) {
+  touchProcess?.();
+
+  if (await shouldStop()) {
     return [];
   }
 
@@ -220,42 +235,59 @@ export const populateSecuritiesDailyHistoryCache = async (
   securityContexts: SecurityContext[],
   jobId: string,
   abortSignal: AbortSignal,
-  eventEmitter: EventEmitter<EmitEvents>
+  eventEmitter: EventEmitter<EmitEvents>,
+  touchProcess?: TouchProcess,
+  abortCheck?: AbortCheck
 ): Promise<Date[][]> => {
+  const shouldStop = async (): Promise<boolean> =>
+    abortCheck ? !(await abortCheck()) : abortSignal.aborted;
+
   console.log(
     "populateSecuritiesDailyHistoryCache securityContexts",
     securityContexts
   );
 
+  // Heartbeat: touch process row at boundaries (per-security start, after fetch, after insert) so updatedAt advances for TTL/reconciliation. A timer-based touch (e.g. every N min) is a possible future improvement for long batches.
   const populatePromises = Promise.all(
     securityContexts.map((securityContext) =>
-      populateSecurityDailyHistoryCache(securityContext, jobId, abortSignal)
+      populateSecurityDailyHistoryCache(
+        securityContext,
+        jobId,
+        abortSignal,
+        abortCheck,
+        touchProcess
+      ).then((result) => {
+        touchProcess?.();
+        return result;
+      })
     )
   );
 
-  const results = await populatePromises
-    .then((results) => {
-      if (abortSignal.aborted) {
-        eventEmitter.emit("aborted", { jobId });
-        return [];
-      }
-      eventEmitter.emit("completed", { jobId });
-      return results;
-    })
-    .catch((error) => {
-      eventEmitter.emit("failed", { jobId });
-      throw error;
-    });
+  const results = await populatePromises;
+
+  if (await shouldStop()) {
+    return [];
+  }
 
   console.log("populateSecuritiesDailyHistoryCache results", results);
   return results;
 };
 
+/**
+ * Emits exactly one outcome (completed | failed | aborted) per run, then "exited".
+ * "started" is emitted at most once when work begins. No two outcome types for the same run.
+ */
 export class SecuritiesCacheUpdater extends EventEmitter<EmitEvents> {
+  /**
+   * @param abortCheck - Optional. When provided, must be implemented using the same `abortSignal`
+   * (e.g. `() => shouldContinue(abortSignal, { jobId })`). When omitted, `abortSignal.aborted` should be checked where appropriate.
+   */
   constructor(
     private jobId: string,
     private securityContexts: SecurityContext[],
-    private abortSignal: AbortSignal
+    private abortSignal: AbortSignal,
+    private touchProcess?: TouchProcess,
+    private abortCheck?: AbortCheck
   ) {
     super();
   }
@@ -266,9 +298,19 @@ export class SecuritiesCacheUpdater extends EventEmitter<EmitEvents> {
       this.securityContexts,
       this.jobId,
       this.abortSignal,
-      this
+      this,
+      this.touchProcess,
+      this.abortCheck
     )
-      .then(() => {
+      .then(async () => {
+        const stopped = this.abortCheck
+          ? !(await this.abortCheck())
+          : this.abortSignal.aborted;
+        if (stopped) {
+          this.emit("aborted", { jobId: this.jobId });
+          this.emit("exited", { jobId: this.jobId });
+          return;
+        }
         this.emit("completed", { jobId: this.jobId });
         this.emit("exited", { jobId: this.jobId });
       })
@@ -328,8 +370,7 @@ export const bulkPopulateSecurityDailyHistory = async (
         success: false,
         recordsAdded: [],
         errors: [
-          `Failed to process: ${
-            error instanceof Error ? error.message : "Unknown error"
+          `Failed to process: ${error instanceof Error ? error.message : "Unknown error"
           }`,
         ],
       };
@@ -351,8 +392,7 @@ export const bulkPopulateSecurityDailyHistory = async (
         success: false,
         recordsAdded: [],
         errors: [
-          `Batch processing failed: ${
-            error instanceof Error ? error.message : "Unknown error"
+          `Batch processing failed: ${error instanceof Error ? error.message : "Unknown error"
           }`,
         ],
       }));

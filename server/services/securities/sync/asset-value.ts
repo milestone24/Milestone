@@ -187,7 +187,16 @@ type EmitEvents = {
   [k in EventType]: [data: Data];
 };
 
-type B = EventEmitter;
+type TouchProcess = (() => void) | (() => Promise<void>);
+
+/**
+ * Returns true if work should continue, false if it should stop.
+ * When provided to the updater, the implementation must use the **same** AbortSignal
+ * as the updater's `abortSignal` (e.g. `() => shouldContinue(abortSignal, { jobId })`),
+ * optionally combined with DB state. When not provided, `abortSignal.aborted` should
+ * be checked where appropriate.
+ */
+type AbortCheck = () => Promise<boolean>;
 
 const __updateAssetValues = async (
   assetId: string,
@@ -196,8 +205,13 @@ const __updateAssetValues = async (
   startDate: Date | null,
   assetPersistence: AssetPersistence,
   abortSignal: AbortSignal,
-  eventEmitter: EventEmitter<EmitEvents>
+  eventEmitter: EventEmitter<EmitEvents>,
+  touchProcess?: TouchProcess,
+  abortCheck?: AbortCheck
 ) => {
+  const shouldStop = async (): Promise<boolean> =>
+    abortCheck ? !(await abortCheck()) : abortSignal.aborted;
+
   if (startDate) {
     await assetPersistence.removeAssetValuesFromDate(startDate);
   }
@@ -208,8 +222,9 @@ const __updateAssetValues = async (
     jobId,
   };
 
-  if (abortSignal.aborted) {
+  if (await shouldStop()) {
     eventEmitter.emit("aborted", emitData);
+    eventEmitter.emit("exited", emitData);
     return;
   }
 
@@ -224,8 +239,8 @@ const __updateAssetValues = async (
   const lastAssetValue = await assetPersistence.getLastAssetValue();
   const lastValueDatePlusADay = lastAssetValue
     ? new Date(
-        new Date(lastAssetValue.valueDate).getTime() + 24 * 60 * 60 * 1000
-      )
+      new Date(lastAssetValue.valueDate).getTime() + 24 * 60 * 60 * 1000
+    )
     : null;
 
   let currentDate = lastValueDatePlusADay
@@ -248,7 +263,7 @@ const __updateAssetValues = async (
   */
 
   while (currentDate < todayMinusOne) {
-    if (abortSignal.aborted) {
+    if (await shouldStop()) {
       eventEmitter.emit("aborted", emitData);
       eventEmitter.emit("exited", emitData);
       break;
@@ -273,7 +288,9 @@ const __updateAssetValues = async (
       currentDate
     );
 
-    if (abortSignal.aborted) {
+    if (await shouldStop()) {
+      eventEmitter.emit("aborted", emitData);
+      eventEmitter.emit("exited", emitData);
       break;
     }
 
@@ -285,11 +302,15 @@ const __updateAssetValues = async (
       //TODO: Handle this
     }
 
+    // Heartbeat: touch process row so updatedAt advances for TTL/reconciliation. A timer-based touch (e.g. every N min) is a possible future improvement for long batches.
+    await touchProcess?.();
+
     currentDate = addDays(currentDate, 1);
   }
 
-  if (abortSignal.aborted) {
+  if (await shouldStop()) {
     eventEmitter.emit("aborted", emitData);
+    eventEmitter.emit("exited", emitData);
     return;
   }
 
@@ -306,24 +327,42 @@ const __updateAssetValues = async (
       }))
     );
     eventEmitter.emit("completed", emitData);
+    eventEmitter.emit("exited", emitData);
   } else {
-    console.log("NO ASSET VALUES TO INSERT");
+    console.log("NO ASSET VALUES TO INSERT", assetId, accountId, jobId);
     eventEmitter.emit("completed", emitData);
+    eventEmitter.emit("exited", emitData);
   }
 };
 
+/**
+ * Emits exactly one outcome (completed | failed | aborted) per run, then "exited".
+ * "started" is emitted at most once when work begins. No two outcome types for the same run.
+ */
 export class AssetValuesUpdater extends EventEmitter<EmitEvents> {
+  /**
+   * @param abortCheck - Optional. When provided, must be implemented using the same `abortSignal`
+   * (e.g. `() => shouldContinue(abortSignal, { jobId })`). When omitted, `abortSignal.aborted` should be checked where appropriate.
+   */
   constructor(
     private assetId: string,
     private accountId: string,
     private jobId: string,
     private startDate: Date | null,
     private assetPersistence: AssetPersistence,
-    private abortSignal: AbortSignal
+    private abortSignal: AbortSignal,
+    private touchProcess?: TouchProcess,
+    private abortCheck?: AbortCheck
   ) {
     super();
   }
   async update() {
+    const emitData: Data = {
+      assetId: this.assetId,
+      accountId: this.accountId,
+      jobId: this.jobId,
+      ...(this.startDate !== null && { startDate: this.startDate }),
+    };
     __updateAssetValues(
       this.assetId,
       this.accountId,
@@ -331,8 +370,13 @@ export class AssetValuesUpdater extends EventEmitter<EmitEvents> {
       this.startDate,
       this.assetPersistence,
       this.abortSignal,
-      this
-    );
+      this,
+      this.touchProcess,
+      this.abortCheck
+    ).catch(() => {
+      this.emit("failed", emitData);
+      this.emit("exited", emitData);
+    });
     return this;
   }
 }

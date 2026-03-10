@@ -120,6 +120,11 @@ const MESSAGE_EVENT = "message";
 abstract class QueueService {
   abstract publish(message: Message): Promise<void>;
   abstract subscribe(callback: MessageCallback): Promise<void>;
+  /**
+   * Removes the callback from the queue. Idempotent — safe to call multiple
+   * times with the same callback (e.g. from both a handler and the job-scope
+   * disposer); subsequent calls are no-ops.
+   */
   abstract unsubscribe(callback: MessageCallback): Promise<void>;
 }
 
@@ -136,6 +141,7 @@ class LocalQueueService extends QueueService {
 
   async unsubscribe(callback: MessageCallback): Promise<void> {
     this.emitter.off(MESSAGE_EVENT, callback);
+    // EventEmitter.off is idempotent: already-removed listeners are a no-op.
   }
 }
 
@@ -195,6 +201,7 @@ class SQSQueueService extends QueueService {
     if (index > -1) {
       this.subscribers.splice(index, 1);
     }
+    // Idempotent: if already removed, index is -1 and we no-op.
   }
 }
 

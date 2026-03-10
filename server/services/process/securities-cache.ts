@@ -1,10 +1,31 @@
+/**
+ * Securities cache process service: orchestrates securities daily history
+ * cache updates. Uses trigger-and-forget handler invocation; coordination
+ * is via DB state and queue events for distributed readiness.
+ */
 import { Database } from "@server/db";
-import { and, eq, inArray, not, or, SQL, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { UpdateSecuritiesDailyHistoryCacheProcess } from "@shared/schema/process";
 import { processes, ProcessSelect } from "@server/db/schema";
 import { handler } from "./securities-cache-distributed-handler";
 import { factory as queueFactory } from "@server/services/distributed/queue";
+import {
+  findRunningOrPendingProcesses,
+  waitForProcessesToAbort,
+} from "./process-abort-wait";
+import {
+  DEFAULT_PENDING_TTL_MS,
+  DEFAULT_RUNNING_TTL_MS,
+  startPeriodicReconciliationForResource,
+} from "./process-reconcile";
 
+/**
+ * Service for creating and running securities daily history cache update
+ * jobs. Inserts process rows, invokes the distributed handler (trigger-and-forget),
+ * and uses findRunningOrPendingProcesses / waitForProcessesToAbort to avoid
+ * duplicate work per security or for full refresh. Callers rely on queue
+ * events and DB state for completion.
+ */
 export class SecuritiesCacheService {
   //TODO consider how to handle the abstraction of Db or
   constructor(
@@ -12,77 +33,8 @@ export class SecuritiesCacheService {
     private db: Database
   ) {}
 
-  private async findExistingProcesses(
-    processKey: string,
-    excludeIds?: string[],
-    metaCondition?: SQL<unknown>
-  ): Promise<UpdateSecuritiesDailyHistoryCacheProcess[]> {
-    const jobs: UpdateSecuritiesDailyHistoryCacheProcess[] = await this.db.query.processes.findMany({
-      where: and(
-        eq(processes.key, processKey),
-        or(
-          eq(processes.status, "running"),
-          eq(processes.status, "pending")
-        ),
-        excludeIds ? not(inArray(processes.id, excludeIds)) : undefined,
-        metaCondition ? metaCondition : undefined,
-      )
-    }) as UpdateSecuritiesDailyHistoryCacheProcess[] ?? [];
-    return jobs;
-  }
-
-  private async waitForJobsToAbort(processKey: string, excludeIds?: string[], metaCondition?: SQL<unknown>) {
-    const timeout = 20000;
-    let timedOut = false;
-    const timeoutId = setTimeout(() => {
-      timedOut = true;
-    }, timeout);
-    let iterations = 0;
-
-    while (true) {
-      iterations++;
-
-      const jobs = await this.findExistingProcesses(processKey, excludeIds, metaCondition);
-
-      console.log(`Iteration ${iterations}: found ${jobs.length} jobs, timedOut=${timedOut}`);
-
-      if (jobs.length === 0) {
-        clearTimeout(timeoutId);
-        return;
-      }
-
-      //wait for 5 second before checking again
-      if (timedOut) {
-        break;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-    }
-    clearTimeout(timeoutId);
-    throw new Error("Jobs did not abort in time");
-  };
-
-  private async findAndWaitForExistingProcessesAbort(processKey: string, excludeIds?: string[], metaCondition?: SQL<unknown>): Promise<ProcessSelect[]> {
-    const jobs: UpdateSecuritiesDailyHistoryCacheProcess[] = await this.findExistingProcesses(processKey, excludeIds, metaCondition);
-
-    if (jobs.length > 0) {
-      const queueService = queueFactory();
-      for (const job of jobs) {
-        queueService.publish({
-          type: "securities-daily-history-cache-update-abort",
-          jobId: job.id,
-        });
-      }
-      try {
-        await this.waitForJobsToAbort(processKey, excludeIds, metaCondition);
-      } catch (error) {
-        throw new Error("Error waiting for jobs to abort");
-      }
-    }
-    return jobs;
-  }
-
-  async updateSecuritiesDailyHistoryCacheForSecurities(
-    securityIds: string[],
+  async updateSecuritiesDailyHistoryCacheForSecurity(
+    securityId: string,
     groupId?: string,
     accountId?: string,
     startDate?: Date
@@ -91,34 +43,53 @@ export class SecuritiesCacheService {
     const queueService = queueFactory();
     const distributed = process.env.DISTRIBUTED === "true";
 
-    for (const securityId of securityIds) {
-      let job: ProcessSelect | undefined;
+    let job: ProcessSelect | undefined;
 
-      try {
-        [job] = await this.db
-          .insert(processes)
-          .values({
-            key: "update-securities-daily-history-cache",
-            status: "running",
-            startedAt: new Date(),
-            payload: {
-              securityId,
-              startDate: resolvedStartDate,
-              ...(groupId !== undefined && { groupId }),
-              ...(accountId !== undefined && { accountId }),
-            },
-          })
-          .returning();
+    try {
+      [job] = await this.db
+        .insert(processes)
+        .values({
+          key: "update-securities-daily-history-cache",
+          status: "pending",
+          startedAt: new Date(),
+          payload: {
+            securityId,
+            startDate: resolvedStartDate,
+            ...(groupId !== undefined && { groupId }),
+            ...(accountId !== undefined && { accountId }),
+          },
+        })
+        .returning();
 
-        if (!job) {
-          throw new Error("Failed to create job");
+      if (!job) {
+        throw new Error("Failed to create job");
+      }
+
+      const existingJobs =
+        await findRunningOrPendingProcesses<UpdateSecuritiesDailyHistoryCacheProcess>(
+          this.db,
+          "update-securities-daily-history-cache",
+          {
+            excludeIds: [job.id],
+            metaCondition: sql`payload->>'securityId' = ${securityId}`,
+          }
+        );
+
+      if (existingJobs.length > 0) {
+        for (const existing of existingJobs) {
+          queueService.publish({
+            type: "securities-daily-history-cache-update-abort",
+            jobId: existing.id,
+          });
         }
-
         try {
-          await this.findAndWaitForExistingProcessesAbort(
+          await waitForProcessesToAbort(
+            this.db,
             "update-securities-daily-history-cache",
-            [job.id],
-            sql`payload->>'securityId' = ${securityId}`
+            {
+              excludeIds: [job.id],
+              metaCondition: sql`payload->>'securityId' = ${securityId}`,
+            }
           );
         } catch (error) {
           await this.db
@@ -132,18 +103,52 @@ export class SecuritiesCacheService {
           });
           throw new Error("Error waiting for jobs to abort");
         }
-
-        if (distributed) {
-          // mockLambdaHandler({ jobId: job.id });
-        } else {
-          handler({ jobId: job.id });
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
-        throw new Error(`Error creating job for security ${securityId}: ${message}`);
       }
+
+      if (distributed) {
+        // mockLambdaHandler({ jobId: job.id });
+      } else {
+        handler({ jobId: job.id }).catch((error) => {
+          const jobIdText = job
+            ? job.id
+            : "undefined (job not defined when logging handler error)";
+          console.error(
+            "[update-securities-daily-history-cache] Distributed handler error securityId=%s jobId=%s",
+            securityId,
+            jobIdText,
+            error
+          );
+        });
+      }
+
+      // Periodic reconciliation: check this job by id against TTL until terminal or max duration.
+      // See process-reconcile.ts.
+      startPeriodicReconciliationForResource({
+        jobId: job.id,
+        pendingTtlMs: DEFAULT_PENDING_TTL_MS,
+        runningTtlMs: DEFAULT_RUNNING_TTL_MS,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      throw new Error(`Error creating job for security ${securityId}: ${message}`);
     }
   }
+
+  async updateSecuritiesDailyHistoryCacheForSecurities(
+    securityIds: string[],
+    groupId?: string,
+    accountId?: string,
+    startDate?: Date
+  ): Promise<void> {
+    const uniqueSecurityIds = [...new Set(securityIds)];
+    await Promise.all(
+      uniqueSecurityIds.map((securityId) =>
+        this.updateSecuritiesDailyHistoryCacheForSecurity(securityId, groupId, accountId, startDate)
+      )
+    );
+  }
+
+  
 
   async updateSecuritiesDailyHistoryCacheForAllSecurities(): Promise<void> {
     //Send notification to all accounts that the securities daily history cache is being updated.
@@ -152,28 +157,16 @@ export class SecuritiesCacheService {
     //   message: "Updating securities daily history cache...",
     // });
 
-    const findExistingProcesses = async (excludeIds?: string[]) => {
-      const jobs: UpdateSecuritiesDailyHistoryCacheProcess[] = await this.db.query.processes.findMany({
-        where: and(
-          eq(processes.key, "update-securities-daily-history-cache"),
-          or(
-            eq(processes.status, "running"),
-            eq(processes.status, "pending")
-          ),
-          excludeIds ? not(inArray(processes.id, excludeIds)) : undefined,
-        )
-      }) as UpdateSecuritiesDailyHistoryCacheProcess[] ?? [];
-      return jobs;
-    };
-
     const queueService = queueFactory();
 
     let job: ProcessSelect | undefined;
 
     try {
-
-      const existingJobs: UpdateSecuritiesDailyHistoryCacheProcess[] =
-        await findExistingProcesses();
+      const existingJobs =
+        await findRunningOrPendingProcesses<UpdateSecuritiesDailyHistoryCacheProcess>(
+          this.db,
+          "update-securities-daily-history-cache"
+        );
 
       if (existingJobs.length > 0) {
         queueService.publish({
@@ -189,8 +182,7 @@ export class SecuritiesCacheService {
         .insert(processes)
         .values({
           key: "update-securities-daily-history-cache",
-          //Should this not be pending?
-          status: "running",
+          status: "pending",
           startedAt: new Date(),
           payload: {
             date: new Date(),
@@ -214,8 +206,25 @@ export class SecuritiesCacheService {
         //   jobId: job.id,
         // });
       } else {
-        handler({ jobId: job.id })
+        handler({ jobId: job.id }).catch((error) => {
+          const jobIdText = job
+            ? job.id
+            : "undefined (job not defined when logging handler error)";
+          console.error(
+            "[update-securities-daily-history-cache] Distributed handler error scope=all jobId=%s",
+            jobIdText,
+            error
+          );
+        });
       }
+
+      // Periodic reconciliation: check this job by id against TTL until terminal or max duration.
+      // See process-reconcile.ts.
+      startPeriodicReconciliationForResource({
+        jobId: job.id,
+        pendingTtlMs: DEFAULT_PENDING_TTL_MS,
+        runningTtlMs: DEFAULT_RUNNING_TTL_MS,
+      });
     } catch (error) {
       if (job) {
         await this.db

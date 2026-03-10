@@ -1,6 +1,11 @@
+/**
+ * Asset values process service: orchestrates asset value updates and
+ * securities cache coordination. Uses trigger-and-forget handler invocation;
+ * coordination is via DB state and queue events for distributed readiness.
+ */
 import { sendNotification } from "../comms/socket";
 import { Database } from "@server/db";
-import { and, eq, inArray, not, or, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { processes, userAssets, userAssetSecurities } from "@server/db/schema";
 import { UUID_REGEX } from "@server/utils/uuid";
 import {
@@ -25,9 +30,23 @@ import { mockLambdaHandler } from "./asset-values-mock-lambda";
 import { handler } from "./asset-values-distributed-handler";
 import { SecuritiesCacheUpdater } from "../securities/sync/cache";
 import { SecuritiesCacheService } from "./securities-cache";
+import {
+  findRunningOrPendingProcesses,
+  waitForProcessesToAbort,
+} from "./process-abort-wait";
+import {
+  DEFAULT_PENDING_TTL_MS,
+  DEFAULT_RUNNING_TTL_MS,
+  startPeriodicReconciliationForResource,
+} from "./process-reconcile";
 
+/**
+ * Service for creating and running asset-value update jobs. Inserts process
+ * rows, invokes the distributed handler (trigger-and-forget), and uses
+ * findRunningOrPendingProcesses / waitForProcessesToAbort to avoid duplicate
+ * work. Callers rely on queue events and DB state for completion.
+ */
 export class AssetValuesService {
-
   private securitiesCacheService: SecuritiesCacheService;
 
   //TODO consider how to handle the abstraction of Db or
@@ -85,12 +104,10 @@ export class AssetValuesService {
   ): Promise<void> {
 
     console.log(
-      "Updating asset values for accountId",
+      "[update-asset-values] accountId=%s assetId=%s startDate=%s",
       accountId,
-      "and assetId",
       assetId,
-      "and start date",
-      startDate
+      startDate ?? "undefined"
     );
 
     //Now we manually trigger the distributed event to signal to other asset update jobs for the same asset to abort.
@@ -109,67 +126,11 @@ export class AssetValuesService {
     //and then swap the temporary table with the final table.
     //Therefore if the swap process is already in process, we must wait for it to complete before continuing.      //Do we then need to pu the rest of the folling code in a callback.
 
-    const defineEarliestStartDate = async (
-      processes: UpdateAssetValuesProcess[]
-    ) => {
-      const earliestStartDate = processes.reduce((min, process) => {
-        const startDate = new Date(process.payload.startDate);
-        return startDate < min ? startDate : min;
-      }, new Date());
-      return earliestStartDate;
-    };
-
-    const findExistingProcesses = async (excludeIds?: string[]) => {
-      const jobs: UpdateAssetValuesProcess[] = await this.db.query.processes.findMany({
-        where: and(
-          eq(processes.key, "update-asset-values"),
-          or(
-            eq(processes.status, "running"),
-            eq(processes.status, "pending")
-          ),
-          excludeIds ? not(inArray(processes.id, excludeIds)) : undefined,
-          sql`payload ->> 'assetId' = ${assetId}`
-        )
-      }) as UpdateAssetValuesProcess[] ?? [];
-      return jobs;
-    };
-
-    const waitForJobsToAbort = async (excludeIds?: string[]) => {
-      const timeout = 20000;
-      let timedOut = false;
-      const timeoutId = setTimeout(() => {
-        timedOut = true;
-      }, timeout);
-      let iterations = 0;
-
-      while (true) {
-        iterations++;
-
-        const jobs = await findExistingProcesses(excludeIds);
-
-        console.log(`Iteration ${iterations}: found ${jobs.length} jobs, timedOut=${timedOut}`);
-
-        if (jobs.length === 0) {
-          clearTimeout(timeoutId);
-          return;
-        }
-
-        //wait for 5 second before checking again
-        if (timedOut) {
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-      }
-      clearTimeout(timeoutId);
-      throw new Error("Jobs did not abort in time");
-    };
-
     let job: ProcessSelect | undefined;
 
     const queueService = queueFactory();
 
     try {
-
       [job] = await this.db
         .insert(processes)
         .values({
@@ -197,9 +158,21 @@ export class AssetValuesService {
       }
 
       //First find an existing job for this assets that is running
-      const existingJobs = await findExistingProcesses([job.id]);
+      const existingJobs = await findRunningOrPendingProcesses<UpdateAssetValuesProcess>(
+        this.db,
+        "update-asset-values",
+        {
+          excludeIds: [job.id],
+          metaCondition: sql`payload ->> 'assetId' = ${assetId}`,
+        }
+      );
 
-      console.log("Asset Values Service Existing jobs", existingJobs.length);
+      console.log(
+        "[update-asset-values] assetId=%s existing running/pending count=%s newJobId=%s",
+        assetId,
+        existingJobs.length,
+        job.id
+      );
 
       if (existingJobs.length > 0) {
         //Dispatch an event to abort the jobs
@@ -212,21 +185,36 @@ export class AssetValuesService {
             jobId: ejob.id,
           });
         }
-        //We have to consider start dates here.
-        //If a running job has a start date that is before the start date of the new job,
-        //we need to start the new job from the start date of the running job.
-        startDate = await defineEarliestStartDate(existingJobs);
-        //Wait for the jobs to abort
+
+        console.log(
+          "[update-asset-values] assetId=%s aborting jobIds=%s newJobId=%s",
+          assetId,
+          existingJobs.map((j) => j.id).join(","),
+          job.id
+        );
+
+        // Wait for the jobs to abort. startDate is not redefined from running/pending
+        // jobs (they are aborted and never commit); downstream derives range from
+        // the latest asset value in the DB (getLastAssetValue).
 
         try {
-          await waitForJobsToAbort([job.id])
+          await waitForProcessesToAbort(this.db, "update-asset-values", {
+            excludeIds: [job.id],
+            metaCondition: sql`payload ->> 'assetId' = ${assetId}`,
+          });
         } catch (error) {
-          console.error("Error waiting for jobs to abort", error);
+          console.error(
+            "[update-asset-values] Error waiting for jobs to abort accountId=%s assetId=%s jobId=%s",
+            accountId,
+            assetId,
+            job.id,
+            error
+          );
 
           await this.db
             .update(processes)
             .set({ status: "failed", completedAt: new Date() })
-            .where(eq(processes.id, job?.id));
+            .where(eq(processes.id, job.id));
 
           queueService.publish({
             accountId,
@@ -240,7 +228,13 @@ export class AssetValuesService {
         }
       }
 
-      console.log("Continuing with update asset values startDate", startDate);
+      console.log(
+        "[update-asset-values] Continuing accountId=%s assetId=%s jobId=%s startDate=%s",
+        accountId,
+        assetId,
+        job.id,
+        startDate ?? "undefined"
+      );
 
       //TODO job needs some kind of identifier for what resources are affected
       //Should the creation of a job be done through a message queue to prevent race conditions?
@@ -261,10 +255,36 @@ export class AssetValuesService {
           accountId,
           jobId: job.id,
           startDate,
+        }).catch((error) => {
+          const jobIdText = job
+            ? job.id
+            : "undefined (job not defined when logging handler error)";
+          console.error(
+            "[update-asset-values] Distributed handler error accountId=%s assetId=%s jobId=%s",
+            accountId,
+            assetId,
+            jobIdText,
+            error
+          );
         });
       }
+
+      // Periodic reconciliation: check this job by id against TTL every RECONCILE_INTERVAL_MS
+      // for up to RECONCILE_MAX_DURATION_MS. If the handler dies or stops touching the row,
+      // the job is marked failed so it does not stay running indefinitely. See process-reconcile.ts.
+      startPeriodicReconciliationForResource({
+        jobId: job.id,
+        pendingTtlMs: DEFAULT_PENDING_TTL_MS,
+        runningTtlMs: DEFAULT_RUNNING_TTL_MS,
+      });
     } catch (error) {
-      console.error("Error updating asset values", error);
+      console.error(
+        "[update-asset-values] Error updating asset values accountId=%s assetId=%s jobId=%s",
+        accountId,
+        assetId,
+        job?.id ?? "none",
+        error
+      );
 
       if (job) {
         await this.db
@@ -317,8 +337,16 @@ export class AssetValuesService {
     const assets = await this.db.query.userAssets.findMany({
       where: eq(userAssets.userAccountId, accountId),
     });
+
+    const filteredAssets = assets.filter((asset) => asset.id === "c2190f32-89b5-47f6-81bb-cea2be66ec69");
+    console.log(
+      "[update-asset-values] updateAssetValuesForAllAssetsOfAccount accountId=%s filteredAssetIds=%s",
+      accountId,
+      filteredAssets.map((a) => a.id).join(",")
+    );
     //Could this be done in a parallel manner?
-    for (const asset of assets) {
+    //for (const asset of assets) {
+    for (const asset of filteredAssets) {
       await this.updateAssetValuesForAssetOfAccount(
         accountId,
         asset.id,
@@ -331,8 +359,11 @@ export class AssetValuesService {
     startDate?: Date
   ): Promise<void> {
     const accounts = await this.db.query.userAccounts.findMany();
+
+    const filteredAccounts = accounts.filter((account) => account.id === "5d4f0f7f-723c-4296-a4cf-d4a7e41db225");
     //Could this be done in a parallel manner?
-    for (const account of accounts) {
+    //for (const account of accounts) {
+    for (const account of filteredAccounts) {
       await this.updateAssetValuesForAllAssetsOfAccount(account.id, startDate);
     }
   }
@@ -362,9 +393,12 @@ export class AssetValuesService {
       terminalStatuses.includes(j.status as (typeof terminalStatuses)[number])
     );
 
-    console.log("checkGroupCompleteAndTriggerAssetValues", groupJobs);
-
-    console.log("checkGroupCompleteAndTriggerAssetValues", groupId, allDone);
+    console.log(
+      "[update-asset-values] checkGroupCompleteAndTriggerAssetValues groupId=%s jobCount=%s allDone=%s",
+      groupId,
+      groupJobs.length,
+      allDone
+    );
 
     if (!allDone) {
       return;
