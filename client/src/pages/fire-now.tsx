@@ -279,7 +279,9 @@ export default function Fire() {
                 projectedValue={Decimal(
                   projectionForHero.projectedValueAtRetirement,
                 ).toNumber()}
-                projectedRetirementAge={projectionForHero.projectedRetirementAge}
+                projectedRetirementAge={
+                  projectionForHero.projectedRetirementAge
+                }
                 targetRetirementAge={projectionForHero.targetRetirementAge}
                 fireNumber={Decimal(projectionForHero.fireNumber).toNumber()}
                 fireNumberDecimal={projectionForHero.fireNumber}
@@ -308,7 +310,9 @@ export default function Fire() {
                 projectedPortfolioValueAtRetirement={
                   projectionForHero.projectedValueAtRetirement
                 }
-                safeWithdrawalRate={fireSettingsForm.watch("safeWithdrawalRate")}
+                safeWithdrawalRate={fireSettingsForm.watch(
+                  "safeWithdrawalRate",
+                )}
               />
             )}
             {accountTypeRows.length > 0 && activeProjection && (
@@ -321,26 +325,6 @@ export default function Fire() {
                 onReset={handleAccountTypeReset}
               />
             )}
-            <div ref={overviewRef}>
-              <FireOverviewCard
-                targetRetirementAge={activeProjection.targetRetirementAge}
-                valueAtRetirement={
-                  activeProjection?.projectedValueAtRetirement
-                    ? Number(activeProjection.projectedValueAtRetirement)
-                    : 0
-                }
-                fireNumber={activeProjection?.fireNumber ?? null}
-                showChart={showChart}
-                onToggleChart={toggleChart}
-                currentPortfolioValue={
-                  activeProjection.projectionResult.totalCurrentValue
-                }
-                currentPortfolioValueGrowth={createDecimalValueString("0.00")}
-                progressPercentage={activeProjection.progressPercentage}
-                currentAge={userStatus.currentAge}
-                yearsToFire={activeProjection.yearsRemainingToFireTarget}
-              />
-            </div>
             {!overviewInView ? (
               <>
                 <FireOverviewStickyBar
