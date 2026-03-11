@@ -93,6 +93,74 @@ type SecurityHistoryForAssetCalculation = {
   securitySymbol: string;
 };
 
+/** Normalise date to YYYY-MM-DD for use as map key (matches cache date handling). */
+function toDateKey(date: Date): string {
+  return date.toISOString().split("T")[0]!;
+}
+
+/**
+ * Yields date-range chunks (chunkStart, chunkEnd) for a given range and chunk size in days.
+ * Design: async generator for lazy iteration; keeps chunking logic reusable and out of the main loop.
+ */
+export async function* dateRangeChunks(
+  start: Date,
+  end: Date,
+  chunkDays: number
+): AsyncGenerator<{ chunkStart: Date; chunkEnd: Date }> {
+  let chunkStart = new Date(start);
+  while (chunkStart < end) {
+    let chunkEnd = addDays(chunkStart, chunkDays - 1);
+    if (chunkEnd > end) {
+      chunkEnd = new Date(end);
+    }
+    yield { chunkStart: new Date(chunkStart), chunkEnd: new Date(chunkEnd) };
+    chunkStart = addDays(chunkEnd, 1);
+  }
+}
+
+/** Preloaded history row shape for one security on one date (no shareHolding; that comes from holdings). */
+type HistoryRowForPreloaded = {
+  close: string | null;
+  source: string;
+  securityName: string;
+  securitySymbol: string;
+};
+
+/**
+ * Calculate asset value for one date from a preloaded history map (no DB/cache calls).
+ * Design: pure calculation + preloaded data; used by the chunked updater so the inner loop has no I/O.
+ */
+export function calculateAssetValueForDateFromPreloadedHistory(
+  assetSecuritiesWithShareHolding: CalculatedAssetSecurity[],
+  date: Date,
+  historyBySecurityByDate: Map<string, Map<string, HistoryRowForPreloaded>>
+): Promise<AssetValueResult | null> {
+  const dateStr = toDateKey(date);
+  const securityHistory: SecurityHistoryForAssetCalculation[][] = [];
+
+  for (const security of assetSecuritiesWithShareHolding) {
+    const byDate = historyBySecurityByDate.get(security.securityId);
+    const row = byDate?.get(dateStr);
+    if (!row) {
+      continue;
+    }
+    securityHistory.push([
+      {
+        close: createDecimalValueString(row.close ?? "0"),
+        shareHolding: security.shareHolding,
+        source: row.source,
+        securityName: row.securityName,
+        securitySymbol: row.securitySymbol,
+      },
+    ]);
+  }
+
+  if (securityHistory.length === 0) {
+    return Promise.resolve(null);
+  }
+  return calculateAssetValue(date, securityHistory);
+}
+
 const calculateAssetValue = async (
   historyDate: Date,
   securityHistory: SecurityHistoryForAssetCalculation[][]
@@ -209,6 +277,9 @@ const __updateAssetValues = async (
   touchProcess?: TouchProcess,
   abortCheck?: AbortCheck
 ) => {
+
+  console.log("AssetValuesUpdater START assetId=%s accountId=%s jobId=%s", assetId, accountId, jobId);
+
   const shouldStop = async (): Promise<boolean> =>
     abortCheck ? !(await abortCheck()) : abortSignal.aborted;
 
@@ -227,6 +298,8 @@ const __updateAssetValues = async (
     eventEmitter.emit("exited", emitData);
     return;
   }
+
+
 
   eventEmitter.emit("started", emitData);
 
@@ -332,6 +405,178 @@ const __updateAssetValues = async (
     console.log("NO ASSET VALUES TO INSERT", assetId, accountId, jobId);
     eventEmitter.emit("completed", emitData);
     eventEmitter.emit("exited", emitData);
+  }
+
+  console.log("AssetValuesUpdater END assetId=%s accountId=%s jobId=%s", assetId, accountId, jobId);
+};
+
+/** Chunk size in days for the chunked updater (bounded memory, persist per chunk). */
+const CHUNK_DAYS = 30;
+
+/**
+ * Chunked asset-value updater: processes the date range in bounded chunks, writes each chunk
+ * to the session's temp table, and merges into asset_values only on full success (no merge on abort).
+ *
+ * Design patterns: staging table + merge (ETL-style); chunked/batch processing; async generator
+ * for chunk iteration; two-phase write (commit to real table only after full run); pure calculation
+ * + preloaded data per chunk; concurrency (parallel history fetch per chunk). Call only when
+ * persistence is backed by a session-scoped connection (e.g. via db.withConnection).
+ */
+export const __updateAssetValuesChunked = async (
+  assetId: string,
+  accountId: string,
+  jobId: string,
+  startDate: Date | null,
+  assetPersistence: AssetPersistence,
+  abortSignal: AbortSignal,
+  eventEmitter: EventEmitter<EmitEvents>,
+  touchProcess?: TouchProcess,
+  abortCheck?: AbortCheck
+): Promise<void> => {
+  const shouldStop = async (): Promise<boolean> =>
+    abortCheck ? !(await abortCheck()) : abortSignal.aborted;
+
+  if (startDate) {
+    await assetPersistence.removeAssetValuesFromDate(startDate);
+  }
+
+  const emitData: Data = { assetId, accountId, jobId };
+
+  if (await shouldStop()) {
+    eventEmitter.emit("aborted", emitData);
+    eventEmitter.emit("exited", emitData);
+    return;
+  }
+
+  eventEmitter.emit("started", emitData);
+
+  const assetSecurities = await assetPersistence.getAssetSecurities();
+  const earliestSecurityStartDate = assetSecurities.reduce(
+    (min, s) => (s.startDate < min ? s.startDate : min),
+    new Date()
+  );
+  const lastAssetValue = await assetPersistence.getLastAssetValue();
+  const lastValueDatePlusADay = lastAssetValue
+    ? new Date(
+        new Date(lastAssetValue.valueDate).getTime() + 24 * 60 * 60 * 1000
+      )
+    : null;
+  let currentDate = lastValueDatePlusADay
+    ? lastValueDatePlusADay > earliestSecurityStartDate
+      ? lastValueDatePlusADay
+      : earliestSecurityStartDate
+    : earliestSecurityStartDate;
+
+  const todayMinusOne = new Date();
+  todayMinusOne.setDate(todayMinusOne.getDate() - 1);
+
+  await assetPersistence.createTempTableForAssetValues();
+
+  let aborted = false;
+  const runStartDate = new Date(currentDate);
+  const runEndDate = new Date(todayMinusOne);
+
+  try {
+    for await (const { chunkStart, chunkEnd } of dateRangeChunks(
+      currentDate,
+      todayMinusOne,
+      CHUNK_DAYS
+    )) {
+      if (await shouldStop()) {
+        aborted = true;
+        eventEmitter.emit("aborted", emitData);
+        eventEmitter.emit("exited", emitData);
+        return;
+      }
+
+      const historyResults = await Promise.all(
+        assetSecurities.map((s) =>
+          getSecurityHistoryForDateRangeCache(s.securityId, chunkStart, chunkEnd)
+        )
+      );
+
+      const historyBySecurityByDate = new Map<
+        string,
+        Map<string, HistoryRowForPreloaded>
+      >();
+      assetSecurities.forEach((security, i) => {
+        const rows = historyResults[i] ?? [];
+        const byDate = new Map<string, HistoryRowForPreloaded>();
+        for (const record of rows) {
+          const dateStr =
+            typeof record.date === "string"
+              ? record.date
+              : toDateKey(new Date(record.date));
+          byDate.set(dateStr, {
+            close: record.close,
+            source: record.source,
+            securityName: record.security.name,
+            securitySymbol: record.security.symbol,
+          });
+        }
+        historyBySecurityByDate.set(security.securityId, byDate);
+      });
+
+      const chunkValues: AssetValueResult[] = [];
+      let day = new Date(chunkStart);
+      while (day <= chunkEnd) {
+        if (await shouldStop()) {
+          aborted = true;
+          eventEmitter.emit("aborted", emitData);
+          eventEmitter.emit("exited", emitData);
+          return;
+        }
+        const holdings =
+          await assetPersistence.getAssetSecurityShareHoldingsForDate(day);
+        const withHolding: CalculatedAssetSecurity[] = assetSecurities.map(
+          (s) => {
+            const h = holdings.find((x) => x.securityId === s.securityId);
+            return { ...s, shareHolding: h?.shareHolding ?? 0 };
+          }
+        );
+        const result = await calculateAssetValueForDateFromPreloadedHistory(
+          withHolding,
+          day,
+          historyBySecurityByDate
+        );
+        if (result?.metadata.dataStatus === "complete") {
+          chunkValues.push(result);
+        }
+        day = addDays(day, 1);
+      }
+
+      if (chunkValues.length > 0) {
+        await assetPersistence.insertAssetValuesStaging(
+          chunkValues.map((v) => ({
+            value: v.value,
+            recordedAt: new Date(),
+            valueDate: v.valueDate,
+            entryMethod: v.entryMethod,
+            metadata: v.metadata,
+          }))
+        );
+      }
+
+      await touchProcess?.();
+    }
+
+    if (await shouldStop()) {
+      aborted = true;
+      eventEmitter.emit("aborted", emitData);
+      eventEmitter.emit("exited", emitData);
+      return;
+    }
+
+    if (!aborted) {
+      await assetPersistence.mergeStagingIntoAssetValues(
+        runStartDate,
+        runEndDate
+      );
+      eventEmitter.emit("completed", emitData);
+      eventEmitter.emit("exited", emitData);
+    }
+  } finally {
+    await assetPersistence.clearStagingForJob();
   }
 };
 
