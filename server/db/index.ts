@@ -3,6 +3,7 @@ import {
   drizzle as drizzleNodePostgres,
   NodePgDatabase,
 } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import ws from "ws";
 import * as schema from "./schema/index";
 import { sql } from "drizzle-orm";
@@ -76,6 +77,37 @@ const ping = async () => {
 };
 
 export { db, isLocalDb, ping };
+
+/**
+ * Runs a callback with a single database connection (session) from the pool.
+ * Use this when you need session-scoped state (e.g. temporary tables) so that
+ * all operations run on the same connection until the callback completes.
+ * The connection is always released back to the pool (on success or throw).
+ *
+ * Design: persistence abstraction — callers get a session-scoped db without
+ * touching pool/client APIs. Currently supported only for local (node-postgres)
+ * driver; Neon path throws so temp-table flows use staging or local DB.
+ */
+export async function withConnection<T>(
+  callback: (sessionDb: Database) => Promise<T>
+): Promise<T> {
+  if (!isLocalDb) {
+    throw new Error(
+      "withConnection (session-scoped connection) is not supported for Neon driver; use a staging table or run with local DB for temp-table support."
+    );
+  }
+  const pool = (db as unknown as { $client: Pool }).$client;
+  const client = await pool.connect();
+  try {
+    const sessionDb = drizzleNodePostgres({
+      client,
+      schema,
+    }) as Database;
+    return await callback(sessionDb);
+  } finally {
+    client.release();
+  }
+}
 
 //export type Database = typeof db;
 export type Schema = typeof schema;
