@@ -271,17 +271,23 @@ type TouchProcess = (() => void) | (() => Promise<void>);
  */
 type AbortCheck = () => Promise<boolean>;
 
+/** Context passed to both legacy and chunked asset-value updaters (single-argument shape). */
+export type AssetValuesUpdateContext = {
+  assetId: string;
+  accountId: string;
+  jobId: string;
+  startDate: Date | null;
+  abortSignal: AbortSignal;
+  eventEmitter: EventEmitter<EmitEvents>;
+  touchProcess?: TouchProcess;
+  abortCheck?: AbortCheck;
+};
+
 const __updateAssetValues = async (
-  assetId: string,
-  accountId: string,
-  jobId: string,
-  startDate: Date | null,
-  assetPersistence: AssetPersistence,
-  abortSignal: AbortSignal,
-  eventEmitter: EventEmitter<EmitEvents>,
-  touchProcess?: TouchProcess,
-  abortCheck?: AbortCheck
-) => {
+  ctx: AssetValuesUpdateContext,
+  assetPersistence: AssetPersistence
+): Promise<void> => {
+  const { assetId, accountId, jobId, startDate, abortSignal, eventEmitter, touchProcess, abortCheck } = ctx;
 
   console.log("AssetValuesUpdater START assetId=%s accountId=%s jobId=%s", assetId, accountId, jobId);
 
@@ -428,16 +434,11 @@ const CHUNK_DAYS = 30;
  * persistence is backed by a session-scoped connection (e.g. via db.withConnection).
  */
 export const __updateAssetValuesChunked = async (
-  assetId: string,
-  accountId: string,
-  jobId: string,
-  startDate: Date | null,
-  assetPersistence: AssetPersistence,
-  abortSignal: AbortSignal,
-  eventEmitter: EventEmitter<EmitEvents>,
-  touchProcess?: TouchProcess,
-  abortCheck?: AbortCheck
+  ctx: AssetValuesUpdateContext,
+  sessionPersistence: AssetPersistence
 ): Promise<void> => {
+  const { assetId, accountId, jobId, startDate, abortSignal, eventEmitter, touchProcess, abortCheck } = ctx;
+
   console.log(
     "AssetValuesUpdaterChunked START assetId=%s accountId=%s jobId=%s",
     assetId,
@@ -449,7 +450,7 @@ export const __updateAssetValuesChunked = async (
     abortCheck ? !(await abortCheck()) : abortSignal.aborted;
 
   if (startDate) {
-    await assetPersistence.removeAssetValuesFromDate(startDate);
+    await sessionPersistence.removeAssetValuesFromDate(startDate);
   }
 
   const emitData: Data = { assetId, accountId, jobId };
@@ -468,12 +469,12 @@ export const __updateAssetValuesChunked = async (
 
   eventEmitter.emit("started", emitData);
 
-  const assetSecurities = await assetPersistence.getAssetSecurities();
+  const assetSecurities = await sessionPersistence.getAssetSecurities();
   const earliestSecurityStartDate = assetSecurities.reduce(
     (min, s) => (s.startDate < min ? s.startDate : min),
     new Date()
   );
-  const lastAssetValue = await assetPersistence.getLastAssetValue();
+  const lastAssetValue = await sessionPersistence.getLastAssetValue();
   const lastValueDatePlusADay = lastAssetValue
     ? new Date(
         new Date(lastAssetValue.valueDate).getTime() + 24 * 60 * 60 * 1000
@@ -488,7 +489,7 @@ export const __updateAssetValuesChunked = async (
   const todayMinusOne = new Date();
   todayMinusOne.setDate(todayMinusOne.getDate() - 1);
 
-  await assetPersistence.createTempTableForAssetValues();
+  await sessionPersistence.createTempTableForAssetValues();
 
   let aborted = false;
   const runStartDate = new Date(currentDate);
@@ -557,7 +558,7 @@ export const __updateAssetValuesChunked = async (
           return;
         }
         const holdings =
-          await assetPersistence.getAssetSecurityShareHoldingsForDate(day);
+          await sessionPersistence.getAssetSecurityShareHoldingsForDate(day);
         const withHolding: CalculatedAssetSecurity[] = assetSecurities.map(
           (s) => {
             const h = holdings.find((x) => x.securityId === s.securityId);
@@ -576,7 +577,7 @@ export const __updateAssetValuesChunked = async (
       }
 
       if (chunkValues.length > 0) {
-        await assetPersistence.insertAssetValuesStaging(
+        await sessionPersistence.insertAssetValuesStaging(
           chunkValues.map((v) => ({
             value: v.value,
             recordedAt: new Date(),
@@ -604,7 +605,7 @@ export const __updateAssetValuesChunked = async (
     }
 
     if (!aborted) {
-      await assetPersistence.mergeStagingIntoAssetValues(
+      await sessionPersistence.mergeStagingIntoAssetValues(
         runStartDate,
         runEndDate
       );
@@ -618,7 +619,7 @@ export const __updateAssetValuesChunked = async (
       );
     }
   } finally {
-    await assetPersistence.clearStagingForJob();
+    await sessionPersistence.clearStagingForJob();
   }
 };
 
@@ -643,6 +644,20 @@ export class AssetValuesUpdater extends EventEmitter<EmitEvents> {
   ) {
     super();
   }
+
+  private getUpdateContext(): AssetValuesUpdateContext {
+    return {
+      assetId: this.assetId,
+      accountId: this.accountId,
+      jobId: this.jobId,
+      startDate: this.startDate,
+      abortSignal: this.abortSignal,
+      eventEmitter: this,
+      touchProcess: this.touchProcess,
+      abortCheck: this.abortCheck,
+    };
+  }
+
   async update() {
     const emitData: Data = {
       assetId: this.assetId,
@@ -655,17 +670,7 @@ export class AssetValuesUpdater extends EventEmitter<EmitEvents> {
         new DatabaseAssetService(sessionDb),
         this.assetId
       );
-      return __updateAssetValuesChunked(
-        this.assetId,
-        this.accountId,
-        this.jobId,
-        this.startDate,
-        sessionPersistence,
-        this.abortSignal,
-        this,
-        this.touchProcess,
-        this.abortCheck
-      );
+      return __updateAssetValuesChunked(this.getUpdateContext(), sessionPersistence);
     }).catch(() => {
       this.emit("failed", emitData);
       this.emit("exited", emitData);
