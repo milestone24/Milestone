@@ -380,15 +380,6 @@ export default function Fire() {
               />
             ) : null}
 
-            <FireSettingsSummaryCard
-              form={fireSettingsForm}
-              onSubmit={handleSaveFireSettings}
-              isSubmitting={isSubmittingFireSettings}
-              isDirty={fireSettingsForm.formState.isDirty}
-              open={isSettingsEditorOpen}
-              onOpenChange={setIsSettingsEditorOpen}
-            />
-
             <WithdrawalStrategyCard
               withdrawalStrategy={activeProjection.withdrawalStrategy}
               contributionsInfo={{
