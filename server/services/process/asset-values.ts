@@ -338,15 +338,13 @@ export class AssetValuesService {
       where: eq(userAssets.userAccountId, accountId),
     });
 
-    const filteredAssets = assets.filter((asset) => asset.id === "c2190f32-89b5-47f6-81bb-cea2be66ec69");
     console.log(
       "[update-asset-values] updateAssetValuesForAllAssetsOfAccount accountId=%s filteredAssetIds=%s",
       accountId,
-      filteredAssets.map((a) => a.id).join(",")
+      assets.map((a) => a.id).join(",")
     );
     //Could this be done in a parallel manner?
-    //for (const asset of assets) {
-    for (const asset of filteredAssets) {
+    for (const asset of assets) {
       await this.updateAssetValuesForAssetOfAccount(
         accountId,
         asset.id,
@@ -360,10 +358,8 @@ export class AssetValuesService {
   ): Promise<void> {
     const accounts = await this.db.query.userAccounts.findMany();
 
-    const filteredAccounts = accounts.filter((account) => account.id === "5d4f0f7f-723c-4296-a4cf-d4a7e41db225");
     //Could this be done in a parallel manner?
-    //for (const account of accounts) {
-    for (const account of filteredAccounts) {
+    for (const account of accounts) {
       await this.updateAssetValuesForAllAssetsOfAccount(account.id, startDate);
     }
   }
