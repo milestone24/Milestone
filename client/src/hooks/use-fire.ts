@@ -45,12 +45,142 @@ type UserStatus = {
 
 type ContributionBreakdown = { accountType: string; amount: number }[];
 
+export type FireAccountSummary = {
+  id: string;
+  providerName: string;
+  accountType: string;
+  platformInitial: string;
+  monthlyContribution: number;
+  lockLabel: string;
+  contributionsToDate: number;
+  projectedValueAtRetirement: number;
+};
+
 type FireChartConfig = {
   currentAmount: number;
   //monthlyInvestment: number;
   expectedReturn: number;
   targetAmount: number;
   currentAge: number;
+};
+
+const buildLockLabel = (contributor: Contributor): string => {
+  const releases = contributor.valueReleases;
+  if (!releases || releases.length === 0) {
+    return "Accessible now";
+  }
+
+  const ageRelease = releases.find((release) => release.valueType === "age");
+  if (ageRelease) {
+    const age = Number(ageRelease.value);
+    if (Number.isFinite(age)) {
+      return `Locked until ${age}`;
+    }
+  }
+
+  return "Locked until release conditions";
+};
+
+const buildFireAccountSummaries = (
+  activeProjection: FireProjection | undefined,
+  projectionContributors: Contributor[],
+): FireAccountSummary[] => {
+  if (!activeProjection) return [];
+
+  const breakdown = activeProjection.projectionResult.contributorBreakdown;
+  if (!breakdown || breakdown.length === 0) return [];
+
+  const contributorsByRefId = new Map<string, Contributor>();
+  for (const contributor of projectionContributors) {
+    if (contributor.referenceId) {
+      contributorsByRefId.set(contributor.referenceId, contributor);
+    }
+  }
+
+  const summaries: FireAccountSummary[] = [];
+
+  for (const contributorProjection of breakdown) {
+    const matchingContributor =
+      contributorProjection.contributorReferenceId &&
+      contributorsByRefId.get(contributorProjection.contributorReferenceId);
+
+    if (!matchingContributor) continue;
+    if (matchingContributor.type !== "asset") continue;
+
+    const platformName =
+      contributorProjection.platformName?.trim() ||
+      matchingContributor.platformName?.trim() ||
+      "";
+    const accountType = contributorProjection.accountType ?? "OTHER";
+
+    const platformInitial =
+      (platformName && platformName.charAt(0).toUpperCase()) ||
+      (accountType.trim().charAt(0).toUpperCase() || "?");
+
+    const monthlyContribution = matchingContributor.schedules.reduce(
+      (sum, schedule) => {
+        const numeric = Number(schedule.value ?? 0);
+        return sum + (Number.isFinite(numeric) ? numeric : 0);
+      },
+      0,
+    );
+
+    const contributionsToDate = (() => {
+      if (!contributorProjection.timePoints.length) {
+        return 0;
+      }
+
+      // DEV NOTE:
+      // This is a placeholder definition of "contributions to date".
+      //
+      // At the moment, projection time points store contributions as the
+      // cumulative user contributions from the projection start date
+      // forward, not true historical contributions paid into the account.
+      //
+      // There are two better long‑term options we need to choose between:
+      // 1) Extend the server projection payload to include actual
+      //    historical contributions per asset/account.
+      // 2) Derive an approximation from schedules using
+      //    calculatePeriodContributions over a historical window
+      //    (e.g. from each schedule.startDate to "today"), with the
+      //    trade‑off that this is only an estimate.
+      //
+      // Until that decision is made, we approximate by reading the
+      // cumulative contributions value from the earliest time point
+      // in the contributor series.
+      const sorted = [...contributorProjection.timePoints].sort(
+        (a, b) => a.date.getTime() - b.date.getTime(),
+      );
+      const earliest = sorted[0];
+      if (!earliest) return 0;
+
+      const numeric = Number(earliest.contributions ?? 0);
+      return Number.isFinite(numeric) ? numeric : 0;
+    })();
+
+    const projectedValueAtRetirement = Decimal(
+      contributorProjection.projectedEndValue,
+    ).toNumber();
+
+    const lockLabel = buildLockLabel(matchingContributor);
+
+    summaries.push({
+      id: matchingContributor.id,
+      providerName: platformName
+        ? `${platformName} ${accountType}`
+        : `${accountType}`,
+      accountType,
+      platformInitial,
+      monthlyContribution,
+      lockLabel,
+      contributionsToDate,
+      projectedValueAtRetirement,
+    });
+  }
+
+  return summaries.sort(
+    (a, b) => b.projectedValueAtRetirement - a.projectedValueAtRetirement,
+  );
 };
 
 type UseFireProjectionReturn = {
@@ -91,6 +221,7 @@ type UseFireProjectionReturn = {
   setAccountTypeOffset: undefined,
   resetAccountTypeOffsets: undefined,
   baselineProjection: undefined,
+  accountsSummary: FireAccountSummary[],
 
 } | {
   error: undefined;
@@ -135,6 +266,7 @@ type UseFireProjectionReturn = {
   setAccountTypeOffset: (accountType: string, delta: number) => void;
   resetAccountTypeOffsets: () => void;
   baselineProjection: FireProjection | undefined;
+  accountsSummary: FireAccountSummary[];
 
 }
 
@@ -178,6 +310,7 @@ const returnErrorState = (error: Error): UseFireProjectionReturn => ({
   setAccountTypeOffset: undefined,
   resetAccountTypeOffsets: undefined,
   baselineProjection: undefined,
+  accountsSummary: [],
 })
 
 const decimalStringToNumber = (decimalString: DecimalValueString | undefined, fallback: number): number => {
@@ -600,6 +733,11 @@ export const useFireProjection = (): UseFireProjectionReturn => {
   //Question this
   const isLoading = isLoadingFireSettings || isLoadingProjection;
 
+  const accountsSummary = useMemo(
+    () => buildFireAccountSummaries(activeProjection, projectionContributors),
+    [activeProjection, projectionContributors],
+  );
+
   return fireError
     ? returnErrorState(fireError)
     : {
@@ -649,6 +787,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
       setAccountTypeOffset,
       resetAccountTypeOffsets,
       baselineProjection: currentProjection,
+      accountsSummary,
     }
 
 
