@@ -433,6 +433,13 @@ export const __updateAssetValuesChunked = async (
   touchProcess?: TouchProcess,
   abortCheck?: AbortCheck
 ): Promise<void> => {
+  console.log(
+    "AssetValuesUpdaterChunked START assetId=%s accountId=%s jobId=%s",
+    assetId,
+    accountId,
+    jobId
+  );
+
   const shouldStop = async (): Promise<boolean> =>
     abortCheck ? !(await abortCheck()) : abortSignal.aborted;
 
@@ -445,6 +452,12 @@ export const __updateAssetValuesChunked = async (
   if (await shouldStop()) {
     eventEmitter.emit("aborted", emitData);
     eventEmitter.emit("exited", emitData);
+    console.log(
+      "AssetValuesUpdaterChunked END assetId=%s accountId=%s jobId=%s outcome=aborted",
+      assetId,
+      accountId,
+      jobId
+    );
     return;
   }
 
@@ -486,6 +499,12 @@ export const __updateAssetValuesChunked = async (
         aborted = true;
         eventEmitter.emit("aborted", emitData);
         eventEmitter.emit("exited", emitData);
+        console.log(
+          "AssetValuesUpdaterChunked END assetId=%s accountId=%s jobId=%s outcome=aborted",
+          assetId,
+          accountId,
+          jobId
+        );
         return;
       }
 
@@ -524,6 +543,12 @@ export const __updateAssetValuesChunked = async (
           aborted = true;
           eventEmitter.emit("aborted", emitData);
           eventEmitter.emit("exited", emitData);
+          console.log(
+            "AssetValuesUpdaterChunked END assetId=%s accountId=%s jobId=%s outcome=aborted",
+            assetId,
+            accountId,
+            jobId
+          );
           return;
         }
         const holdings =
@@ -564,6 +589,12 @@ export const __updateAssetValuesChunked = async (
       aborted = true;
       eventEmitter.emit("aborted", emitData);
       eventEmitter.emit("exited", emitData);
+      console.log(
+        "AssetValuesUpdaterChunked END assetId=%s accountId=%s jobId=%s outcome=aborted",
+        assetId,
+        accountId,
+        jobId
+      );
       return;
     }
 
@@ -574,6 +605,12 @@ export const __updateAssetValuesChunked = async (
       );
       eventEmitter.emit("completed", emitData);
       eventEmitter.emit("exited", emitData);
+      console.log(
+        "AssetValuesUpdaterChunked END assetId=%s accountId=%s jobId=%s outcome=completed",
+        assetId,
+        accountId,
+        jobId
+      );
     }
   } finally {
     await assetPersistence.clearStagingForJob();
