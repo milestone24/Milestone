@@ -13,6 +13,7 @@ import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
 import { FireOverviewStickyBar } from "@/components/fire/FireOverviewStickyBar";
 import { WithdrawalStrategyCard } from "@/components/fire/WithdrawalStrategyCard";
 import { FireHeroCard } from "@/components/fire/FireHeroCard";
+import { FireNowStatus } from "@/components/fire/FireNowStatus";
 import {
   FireAccountTypeContributionAdjuster,
   type AccountTypeRowData,
@@ -295,6 +296,19 @@ export default function Fire() {
                 }
                 onScenarioSelect={handleScenarioSelect}
                 onScenarioReset={handleScenarioReset}
+              />
+            )}
+            {fireSettingsForm && projectionForHero && (
+              <FireNowStatus
+                currentPortfolioValue={
+                  projectionForHero.projectionResult.totalCurrentValue
+                }
+                fireNumber={projectionForHero.fireNumber}
+                desiredAnnualIncome={fireSettingsForm.watch("annualIncomeGoal")}
+                projectedPortfolioValueAtRetirement={
+                  projectionForHero.projectedValueAtRetirement
+                }
+                safeWithdrawalRate={fireSettingsForm.watch("safeWithdrawalRate")}
               />
             )}
             {accountTypeRows.length > 0 && activeProjection && (
