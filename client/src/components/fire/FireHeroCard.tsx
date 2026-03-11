@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useChartDimensions } from "@/hooks/use-chart-dimensions";
@@ -57,12 +57,15 @@ export function FireHeroCard({
     marginBottom: 28,
   });
 
-  const chartData: Map<string, FireProjectionData[]> =
-    aggregateContributorBreakdownByAccountType(
-      contributorBreakdown,
-      dateOfBirth,
-      fireNumberDecimal
-    );
+  const chartData = useMemo(
+    () =>
+      aggregateContributorBreakdownByAccountType(
+        contributorBreakdown,
+        dateOfBirth,
+        fireNumberDecimal
+      ),
+    [contributorBreakdown, dateOfBirth, fireNumberDecimal]
+  );
 
   const legendValues = useFireHeroChart({
     svgRef,

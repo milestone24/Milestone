@@ -94,6 +94,22 @@ export const feeModifierSchema = z.object({
 export type FeeModifier = z.infer<typeof feeModifierSchema>;
 
 /**
+ * Contribution Offset Modifier - Adds or subtracts a fixed amount per contribution.
+ * Applied only in contribution context (e.g. +100 to all ISA contributions).
+ */
+export const contributionOffsetModifierSchema = z.object({
+  type: z.literal("contribution_offset"),
+  enabled: z.boolean(),
+  amount: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Amount must be a valid decimal string",
+  }),
+  description: z.string().optional(),
+});
+export type ContributionOffsetModifier = z.infer<
+  typeof contributionOffsetModifierSchema
+>;
+
+/**
  * Union of all modifier types
  */
 export const projectionModifierSchema = z.discriminatedUnion("type", [
@@ -101,8 +117,40 @@ export const projectionModifierSchema = z.discriminatedUnion("type", [
   inflationModifierSchema,
   contributionScalerModifierSchema,
   feeModifierSchema,
+  contributionOffsetModifierSchema,
 ]);
 export type ProjectionModifier = z.infer<typeof projectionModifierSchema>;
+
+/**
+ * Optional predicate on a modifier: which contributors the modifier applies to.
+ * Absent = applies to all contributors.
+ */
+export const contributorMatchPredicateSchema = z.object({
+  accountType: z
+    .union([z.string(), z.array(z.string())])
+    .optional(),
+  contributorType: z
+    .union([z.string(), z.array(z.string())])
+    .optional(),
+  referenceId: z.string().uuid().optional(),
+});
+export type ContributorMatchPredicate = z.infer<
+  typeof contributorMatchPredicateSchema
+>;
+
+/**
+ * Modifier config with optional match: each entry in config.modifiers
+ * can optionally restrict which contributors it applies to.
+ */
+export const modifierWithOptionalMatchSchema = z.intersection(
+  projectionModifierSchema,
+  z.object({
+    match: contributorMatchPredicateSchema.optional(),
+  })
+);
+export type ModifierWithOptionalMatch = z.infer<
+  typeof modifierWithOptionalMatchSchema
+>;
 
 // ============================================================================
 // PROJECTION CONFIGURATION
@@ -119,7 +167,7 @@ export const configDateRangeSchema = z.object({
 export const baseProjectionConfigSchema = z.object({
   growthModel: growthModelSchema,
   interval: projectionIntervalSchema.default("monthly"),
-  modifiers: z.array(projectionModifierSchema).default([]),
+  modifiers: z.array(modifierWithOptionalMatchSchema).default([]),
   usePortfolioRecurringContributions: z.boolean().optional().default(false),
   useContributorSpecificGrowthRates: z.boolean().optional().default(false),
 });
@@ -452,7 +500,6 @@ export const contributorSchema = z.object({
   }),
   schedules: z.array(contributorScheduleSchema),
   taxes: z.array(taxSchema).optional(),
-  modifiers: z.array(projectionModifierSchema).optional(),
   includeValue: z.boolean(),
   includeContributions: z.boolean(),
 });
@@ -729,10 +776,13 @@ export const ProjectionSchemas = {
   assetProjectionRequest: assetProjectionRequestSchema,
   portfolioProjectionRequest: portfolioProjectionRequestSchema,
   modifier: projectionModifierSchema,
+  modifierWithOptionalMatch: modifierWithOptionalMatchSchema,
+  contributorMatchPredicate: contributorMatchPredicateSchema,
   taxModifier: taxModifierSchema,
   inflationModifier: inflationModifierSchema,
   contributionScalerModifier: contributionScalerModifierSchema,
   feeModifier: feeModifierSchema,
+  contributionOffsetModifier: contributionOffsetModifierSchema,
 };
 
 export type ProjectionOrchestratorAssetInput = {

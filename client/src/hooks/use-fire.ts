@@ -2,6 +2,7 @@ import { useSession } from "@/context/SessionContext";
 import { calculateAge, defineStatePensionAgeForGenderUK } from "@shared/utils/projection-utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useDebouncedValue } from "./use-debounced-value";
 import { useCreateFireSettings } from "./use-fire-settings-create";
 import { usePatchFireSettings } from "./use-fire-settings-patch";
 import { useFireSettings } from "./use-fire-settings";
@@ -21,6 +22,8 @@ import { useToast } from "./use-toast";
 import { fireProjection as fireProjectionQueryKey } from "@shared/api/queryKeys";
 import { useFIREProjection } from "./use-projections";
 import { DecimalValueString } from "@server/db/schema";
+import { createRRulePattern } from "@shared/utils/scheduling";
+import { defineContributorRulesForAssetType } from "@shared/utils/projection-utils-contributor";
 
 const hasAt75IncomeGoal = (incomeGoals: IncomeGoal[]): boolean => {
   return incomeGoals.some((incomeGoal) => incomeGoal.key === "reduced_spending_at_75");
@@ -84,6 +87,11 @@ type UseFireProjectionReturn = {
   setScenarioGrowthRate: undefined,
   resetScenarioGrowthRate: undefined,
 
+  accountTypeOffsets: Map<string, number>,
+  setAccountTypeOffset: undefined,
+  resetAccountTypeOffsets: undefined,
+  baselineProjection: undefined,
+
 } | {
   error: undefined;
   userStatus: UserStatus;
@@ -123,6 +131,11 @@ type UseFireProjectionReturn = {
   setScenarioGrowthRate: (rate: number | null) => void;
   resetScenarioGrowthRate: () => void;
 
+  accountTypeOffsets: Map<string, number>;
+  setAccountTypeOffset: (accountType: string, delta: number) => void;
+  resetAccountTypeOffsets: () => void;
+  baselineProjection: FireProjection | undefined;
+
 }
 
 const returnErrorState = (error: Error): UseFireProjectionReturn => ({
@@ -160,6 +173,11 @@ const returnErrorState = (error: Error): UseFireProjectionReturn => ({
   scenarioGrowthRate: null,
   setScenarioGrowthRate: undefined,
   resetScenarioGrowthRate: undefined,
+
+  accountTypeOffsets: new Map(),
+  setAccountTypeOffset: undefined,
+  resetAccountTypeOffsets: undefined,
+  baselineProjection: undefined,
 })
 
 const decimalStringToNumber = (decimalString: DecimalValueString | undefined, fallback: number): number => {
@@ -188,12 +206,34 @@ const baseIncomeGoals = (retirementAge: number, annualIncomeGoal: DecimalValueSt
 
 export const useFireProjection = (): UseFireProjectionReturn => {
 
-  const [includePortfolioRecurringContributions, setIncludePortfolioRecurringContributions] = useState(false);
+  const [includePortfolioRecurringContributions, setIncludePortfolioRecurringContributions] = useState(true);
   //TODO, complete visualisation of adjusment mode.
   const [isAdjustmentMode, setIsAdjustmentMode] = useState(false);
   const [scenarioGrowthRate, setScenarioGrowthRate] = useState<number | null>(null);
 
   const resetScenarioGrowthRate = useCallback(() => setScenarioGrowthRate(null), []);
+
+  const [accountTypeOffsets, setAccountTypeOffsetsMap] = useState<Map<string, number>>(new Map());
+  const accountTypeOffsetIdsRef = useRef<Map<string, string>>(new Map());
+  const offsetsStartDate = useMemo(() => new Date(), []);
+
+  const setAccountTypeOffset = useCallback((accountType: string, delta: number) => {
+    setAccountTypeOffsetsMap((prev) => {
+      const next = new Map(prev);
+      if (delta === 0) {
+        next.delete(accountType);
+      } else {
+        next.set(accountType, delta);
+      }
+      return next;
+    });
+  }, []);
+
+  const resetAccountTypeOffsets = useCallback(() => {
+    setAccountTypeOffsetsMap(new Map());
+  }, []);
+
+  const debouncedAccountTypeOffsets = useDebouncedValue(accountTypeOffsets, 250);
 
   const { user } = useSession();
   const { toast } = useToast();
@@ -401,6 +441,35 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     return adjustmentContributors.length > 0;
   }, [adjustmentContributors]);
 
+  const accountTypeOffsetContributors: Contributor[] = useMemo(() => {
+    return Array.from(debouncedAccountTypeOffsets.entries())
+      .filter(([, delta]) => delta !== 0)
+      .map(([accType, delta]) => {
+        if (!accountTypeOffsetIdsRef.current.has(accType)) {
+          accountTypeOffsetIdsRef.current.set(accType, crypto.randomUUID());
+        }
+        const id = accountTypeOffsetIdsRef.current.get(accType)!;
+        return {
+          id,
+          name: `${accType} Slider Adjustment`,
+          type: "adjustment" as const,
+          accountType: accType as Parameters<typeof defineContributorRulesForAssetType>[0],
+          currentValue: createDecimalValueString("0"),
+          schedules: [
+            {
+              patternConfig: createRRulePattern("FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1"),
+              value: createDecimalValueString(delta.toString()),
+              startDate: offsetsStartDate,
+              endDate: null,
+            },
+          ],
+          includeValue: false,
+          includeContributions: true,
+          ...defineContributorRulesForAssetType(accType as Parameters<typeof defineContributorRulesForAssetType>[0]),
+        };
+      });
+  }, [debouncedAccountTypeOffsets, offsetsStartDate]);
+
 
   const previewModifiersActive =
     previewState.contribution.scaleFactor !== 1 ||
@@ -409,7 +478,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     Math.abs(previewState.inflation.rate - DEFAULT_PREVIEW_INFLATION_RATE) >
     0.01;
 
-  const previewEnabled = previewModifiersActive || hasAdjustmentContributors || scenarioGrowthRate !== null;
+  const previewEnabled = previewModifiersActive || hasAdjustmentContributors || scenarioGrowthRate !== null || accountTypeOffsets.size > 0;
 
   const previewProjectionConfig = useMemo<ProjectionConfig | null>(() => {
     if (!projectionConfig) {
@@ -432,9 +501,10 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     //Add contributors from standalone contributors
     return [
       ...currentProjection?.projectionResult.computationContext?.contributors ?? [],
-      ...adjustmentContributors
+      ...adjustmentContributors,
+      ...accountTypeOffsetContributors,
     ];
-  }, [currentProjection, adjustmentContributors]);
+  }, [currentProjection, adjustmentContributors, accountTypeOffsetContributors]);
 
   const previewParams: UseFirePreviewProjectionParams = useMemo(() => ({
     baseProjection: currentProjection,
@@ -574,6 +644,11 @@ export const useFireProjection = (): UseFireProjectionReturn => {
       scenarioGrowthRate,
       setScenarioGrowthRate,
       resetScenarioGrowthRate,
+
+      accountTypeOffsets,
+      setAccountTypeOffset,
+      resetAccountTypeOffsets,
+      baselineProjection: currentProjection,
     }
 
 

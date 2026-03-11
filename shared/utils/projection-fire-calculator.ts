@@ -35,7 +35,10 @@ import {
 } from "./projection-utils-contributor";
 import { createRRulePattern } from "./scheduling";
 import { calculateWithdrawalStrategy } from "./projection-withdrawal";
-import { createModifierChain } from "./projection-modifiers";
+import {
+  createModifierChain,
+  getModifiersAsGlobalList,
+} from "./projection-modifiers";
 
 // ============================================================================
 // FIRE PROJECTION CALCULATOR
@@ -147,7 +150,9 @@ This will cause the projection to be infinite years ahead of retirement.`);
       ? (projectionConfig as SimpleProjectionConfig).growthRate
       : 7; // Default 7% if advanced mode
 
-  const modifierChain = createModifierChain(projectionConfig.modifiers);
+  const modifierChain = createModifierChain(
+    getModifiersAsGlobalList(projectionConfig.modifiers)
+  );
 
   const yearsToTarget = calculateYearsToTarget(
     currentPortfolioValue,
