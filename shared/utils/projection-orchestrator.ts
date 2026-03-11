@@ -76,6 +76,7 @@ export async function projectSingleContributor(
   return {
     contributorReferenceId: contribution.referenceId,
     contributorName: contribution.name,
+    platformName: contribution.platformName,
     accountType: contribution.accountType,
     currentValue: contribution.currentValue,
     projectedEndValue: result.finalValue,

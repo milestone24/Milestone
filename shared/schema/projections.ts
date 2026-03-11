@@ -359,6 +359,7 @@ export const contributionTypes = [
 export const contributorProjectionSchema = z.object({
   contributorReferenceId: z.string().uuid().optional(),
   contributorName: z.string(),
+  platformName: z.string().optional(),
   accountType: z.string().nullable(),
   currentValue: decimalValueSchema.refine(isDecimalValueString, {
     message: "Current value must be a valid decimal string",
@@ -490,6 +491,7 @@ export const contributorSchema = z.object({
   referenceId: z.string().uuid().optional(),
   accountType: z.enum(contributorType).nullable(),
   name: z.string(),
+  platformName: z.string().optional(),
   type: z.enum(contributionTypes),
   expectedGrowthRate: z.number().min(-100).max(1000).optional(),
   valueReleases: z.array(valueReleasePointInTimeSchema).optional(),
@@ -791,6 +793,7 @@ export type ProjectionOrchestratorAssetInput = {
   name: string;
   accountType: AccountType;
   recurringContributions: RecurringContribution[];
+  platformName?: string;
 };
 
 /**

@@ -40,6 +40,7 @@ import { mapAssetsToContributors } from "@shared/utils/projection-utils-contribu
 
 export type AssetWithRecurringContributions = UserAssetWithValue & {
   recurringContributions: RecurringContribution[];
+  platformName?: string;
 };
 
 export const mapAssetsWithRecurringContributions = (
@@ -57,6 +58,10 @@ export const mapAssetsWithRecurringContributions = (
     } else {
       acc.push({
         ...row.asset,
+        platformName:
+          "platformName" in row.asset
+            ? (((row.asset as any).platformName ?? undefined) as string | undefined)
+            : undefined,
         recurringContributions: row.recurringContribution
           ? [row.recurringContribution]
           : [],
