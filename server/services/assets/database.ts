@@ -2165,7 +2165,10 @@ export class DatabaseAssetService {
 
   /**
    * Creates a session-scoped temp table for staging asset values (same shape as asset_values minus id).
-   * Call on the same connection used for insertAssetValuesStaging and mergeStagingIntoAssetValues.
+   * Must only be used on a single connection: all staging calls (insert, merge, clear) for this run
+   * must use the same connection. Do not use the default pool db — use a connection obtained via
+   * db.withConnection so each run has an exclusive connection; concurrent runs then get separate
+   * connections and thus separate temp tables, with no cross-run sharing.
    */
   async createTempTableForAssetValues(): Promise<void> {
     await this.db.execute(sql`

@@ -82,6 +82,9 @@ export { db, isLocalDb, ping };
  * Runs a callback with a single database connection (session) from the pool.
  * Use this when you need session-scoped state (e.g. temporary tables) so that
  * all operations run on the same connection until the callback completes.
+ * The connection is exclusive to this callback until it returns: the pool does
+ * not give the same connection to another caller until release(), so concurrent
+ * withConnection callbacks never share a connection.
  * The connection is always released back to the pool (on success or throw).
  *
  * Design: persistence abstraction — callers get a session-scoped db without
