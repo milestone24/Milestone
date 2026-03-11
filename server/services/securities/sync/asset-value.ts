@@ -9,7 +9,12 @@
 import { getSecurityHistoryForDateRange as getSecurityHistoryForDateRangeCache } from "../cache"
 import { addDays } from "date-fns"
 import { AssetSecurity, AssetValueResult } from "../types"
-import type { AssetPersistence } from "@server/services/assets/database";
+import {
+  type AssetPersistence,
+  assetPersistenceFactory,
+  DatabaseAssetService,
+} from "@server/services/assets/database";
+import { withConnection } from "@server/db";
 import {
   AssetValueMetadataSecurity,
   createDecimalValueString,
@@ -645,17 +650,23 @@ export class AssetValuesUpdater extends EventEmitter<EmitEvents> {
       jobId: this.jobId,
       ...(this.startDate !== null && { startDate: this.startDate }),
     };
-    __updateAssetValues(
-      this.assetId,
-      this.accountId,
-      this.jobId,
-      this.startDate,
-      this.assetPersistence,
-      this.abortSignal,
-      this,
-      this.touchProcess,
-      this.abortCheck
-    ).catch(() => {
+    withConnection(async (sessionDb) => {
+      const sessionPersistence = assetPersistenceFactory(
+        new DatabaseAssetService(sessionDb),
+        this.assetId
+      );
+      return __updateAssetValuesChunked(
+        this.assetId,
+        this.accountId,
+        this.jobId,
+        this.startDate,
+        sessionPersistence,
+        this.abortSignal,
+        this,
+        this.touchProcess,
+        this.abortCheck
+      );
+    }).catch(() => {
       this.emit("failed", emitData);
       this.emit("exited", emitData);
     });
