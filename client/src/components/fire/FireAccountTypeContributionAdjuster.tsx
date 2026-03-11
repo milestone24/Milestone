@@ -1,5 +1,5 @@
 import * as SliderPrimitive from "@radix-ui/react-slider";
-import { RotateCcw, AlertCircle, Clock } from "lucide-react";
+import { RefreshCw, AlertCircle, Clock } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -167,7 +167,7 @@ function AccountTypeSlider({
           −
         </Button>
 
-        {/* Custom Radix slider with account-type track colour */}
+        {/* Custom Radix slider: light track, account colour fill left of thumb, white thumb */}
         <SliderPrimitive.Root
           className="relative flex w-full touch-none select-none items-center"
           min={0}
@@ -179,10 +179,10 @@ function AccountTypeSlider({
             if (values[0] !== undefined) onChangeValue(values[0]);
           }}
         >
-          <SliderPrimitive.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-secondary">
+          <SliderPrimitive.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-muted">
             <SliderPrimitive.Range className={`absolute h-full ${bgClass}`} />
           </SliderPrimitive.Track>
-          <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-primary bg-background ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" />
+          <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-card bg-white shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" />
         </SliderPrimitive.Root>
 
         <Button
@@ -335,23 +335,38 @@ export function FireAccountTypeContributionAdjuster({
 
   const hasAnyOffset = offsets.size > 0;
 
-  const suggestionText = useMemo(() => {
+  const suggestionContent = useMemo(() => {
     if (projectedAge === null) return null;
 
     const diff = projection.monthlyContributionDifference;
     const needed = diff ? Number(diff.monthlyContributionDifference) : 0;
 
     if (needed <= 0) {
-      return `You're on track to retire at age ${projectedAge}.`;
+      return (
+        <>
+          You're on track to retire at <strong>age {projectedAge}</strong> 🦉
+        </>
+      );
     }
 
     const suggestRow = accountTypeRows.find((r) => r.contributorsWithSchedules > 0);
     if (suggestRow) {
       const amount = Math.ceil(Math.abs(needed) / 25) * 25;
-      return `You're on track to retire at age ${projectedAge}. Add ${formatGBP(amount)}/month to your ${suggestRow.accountType} and you could get there sooner. Test different contributions below.`;
+      return (
+        <>
+          You're on track to retire at <strong>age {projectedAge}</strong> 🦉 Add{" "}
+          {formatGBP(amount)}/month to your {suggestRow.accountType} and you could get
+          there <strong>sooner</strong>. Test different contributions below.
+        </>
+      );
     }
 
-    return `You're on track to retire at age ${projectedAge}. Test different contributions below.`;
+    return (
+      <>
+        You're on track to retire at <strong>age {projectedAge}</strong> 🦉 Test
+        different contributions below.
+      </>
+    );
   }, [projection, projectedAge, accountTypeRows]);
 
   if (accountTypeRows.length === 0) return null;
@@ -404,9 +419,9 @@ export function FireAccountTypeContributionAdjuster({
         </div>
 
         {/* Suggestion text */}
-        {suggestionText && (
+        {suggestionContent && (
           <p className="text-sm text-muted-foreground pb-4 border-b border-border">
-            {suggestionText}
+            {suggestionContent}
           </p>
         )}
 
@@ -426,7 +441,7 @@ export function FireAccountTypeContributionAdjuster({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-4 border-t border-border mt-2">
+        <div className="flex items-center justify-between pt-4 mt-2 border-t border-border">
           <span className="text-sm text-muted-foreground">Total monthly</span>
           <div className="flex items-center gap-3">
             <span className="text-base font-semibold text-primary tabular-nums">
@@ -434,7 +449,7 @@ export function FireAccountTypeContributionAdjuster({
             </span>
             {hasAnyOffset && (
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 className="gap-1.5 text-xs h-7"
                 onClick={() => {
@@ -442,7 +457,7 @@ export function FireAccountTypeContributionAdjuster({
                   setResetDialogOpen(false);
                 }}
               >
-                <RotateCcw className="h-3 w-3" />
+                <RefreshCw className="h-3 w-3" />
                 Reset
               </Button>
             )}
