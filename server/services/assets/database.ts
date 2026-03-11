@@ -2162,9 +2162,85 @@ export class DatabaseAssetService {
         and(eq(assetValues.assetId, assetId), gte(assetValues.valueDate, date))
       );
   }
+
+  /**
+   * Creates a session-scoped temp table for staging asset values (same shape as asset_values minus id).
+   * Call on the same connection used for insertAssetValuesStaging and mergeStagingIntoAssetValues.
+   */
+  async createTempTableForAssetValues(): Promise<void> {
+    await this.db.execute(sql`
+      CREATE TEMP TABLE IF NOT EXISTS asset_values_temp (
+        value decimal(18,2) not null,
+        recorded_at timestamptz not null,
+        value_date timestamptz not null,
+        entry_method value_entry_method not null default 'manual',
+        asset_id uuid not null,
+        metadata jsonb,
+        created_at timestamptz default now(),
+        updated_at timestamptz default now()
+      )
+    `);
+  }
+
+  /**
+   * Inserts a batch of asset values into the session's temp table (for chunked updater).
+   */
+  async insertAssetValuesStaging(
+    assetId: UserAsset["id"],
+    values: AssetValueStagingInsert[]
+  ): Promise<void> {
+    if (values.length === 0) return;
+    const now = new Date();
+    for (const v of values) {
+      const entryMethod = v.entryMethod ?? "calculated";
+      const metadata = v.metadata ?? {};
+      await this.db.execute(sql`
+        INSERT INTO asset_values_temp (value, recorded_at, value_date, entry_method, asset_id, metadata, created_at, updated_at)
+        VALUES (${v.value}, ${v.recordedAt}, ${v.valueDate}, ${entryMethod}, ${assetId}, ${JSON.stringify(metadata)}::jsonb, ${now}, ${now})
+      `);
+    }
+  }
+
+  /**
+   * Merges staged values from the session's temp table into asset_values for the given range, then clears the temp table.
+   * Replaces the run's date range in asset_values with the staged rows.
+   */
+  async mergeStagingIntoAssetValues(
+    assetId: UserAsset["id"],
+    runStartDate: Date,
+    runEndDate: Date
+  ): Promise<void> {
+    await this.db
+      .delete(assetValues)
+      .where(
+        and(
+          eq(assetValues.assetId, assetId),
+          gte(assetValues.valueDate, runStartDate),
+          lte(assetValues.valueDate, runEndDate)
+        )
+      );
+    await this.db.execute(sql`
+      INSERT INTO asset_values (value, recorded_at, value_date, entry_method, asset_id, metadata, created_at, updated_at)
+      SELECT value, recorded_at, value_date, entry_method, asset_id, metadata, created_at, updated_at
+      FROM asset_values_temp
+    `);
+  }
+
+  /**
+   * Drops the session's temp table (no-op if not used). Call after merge or on abort when using temp table.
+   */
+  async clearStagingForJob(): Promise<void> {
+    await this.db.execute(sql`DROP TABLE IF EXISTS asset_values_temp`);
+  }
 }
 
 /* Asset Persistence Utility */
+
+/** Staging insert shape: orphan fields plus optional entryMethod/metadata (chunked updater supplies these). */
+export type AssetValueStagingInsert = UserAssetValueOrphanInsert & {
+  entryMethod?: "manual" | "calculated";
+  metadata?: unknown;
+};
 
 export type AssetPersistence = {
   getAssetById: () => Promise<{ id: string }>;
@@ -2177,6 +2253,13 @@ export type AssetPersistence = {
     values: UserAssetValueOrphanInsert[]
   ) => Promise<AssetValue[]>;
   removeAssetValuesFromDate: (date: Date) => Promise<void>;
+  createTempTableForAssetValues: () => Promise<void>;
+  insertAssetValuesStaging: (values: AssetValueStagingInsert[]) => Promise<void>;
+  mergeStagingIntoAssetValues: (
+    runStartDate: Date,
+    runEndDate: Date
+  ) => Promise<void>;
+  clearStagingForJob: () => Promise<void>;
 };
 
 export type AssetSecurityShareHoldingsForDate = {
@@ -2232,6 +2315,31 @@ export const assetPersistenceFactory = (
 
     removeAssetValuesFromDate: async (date: Date): Promise<void> => {
       return service.removeAssetValuesFromDate(assetId, date);
+    },
+
+    createTempTableForAssetValues: async (): Promise<void> => {
+      return service.createTempTableForAssetValues();
+    },
+
+    insertAssetValuesStaging: async (
+      values: AssetValueStagingInsert[]
+    ): Promise<void> => {
+      return service.insertAssetValuesStaging(assetId, values);
+    },
+
+    mergeStagingIntoAssetValues: async (
+      runStartDate: Date,
+      runEndDate: Date
+    ): Promise<void> => {
+      return service.mergeStagingIntoAssetValues(
+        assetId,
+        runStartDate,
+        runEndDate
+      );
+    },
+
+    clearStagingForJob: async (): Promise<void> => {
+      return service.clearStagingForJob();
     },
   };
 };
