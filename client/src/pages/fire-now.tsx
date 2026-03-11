@@ -18,6 +18,7 @@ import {
   FireAccountTypeContributionAdjuster,
   type AccountTypeRowData,
 } from "@/components/fire/FireAccountTypeContributionAdjuster";
+import { FireAccountsSummaryCard } from "@/components/fire/FireAccountsSummaryCard";
 import { useFireProjection } from "@/hooks/use-fire";
 import { useElementInView } from "@/hooks/use-element-in-view";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -72,6 +73,7 @@ export default function Fire() {
     setAccountTypeOffset,
     resetAccountTypeOffsets,
     baselineProjection,
+    accountsSummary,
   } = useFireProjection();
 
   const deferredProjection = useDeferredValue(activeProjection);
@@ -324,6 +326,9 @@ export default function Fire() {
                 onChangeOffset={handleAccountTypeOffsetChange}
                 onReset={handleAccountTypeReset}
               />
+            )}
+            {accountsSummary && accountsSummary.length > 0 && (
+              <FireAccountsSummaryCard accounts={accountsSummary} />
             )}
             {!overviewInView ? (
               <>
