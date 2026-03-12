@@ -362,7 +362,7 @@ const ContrinutionMultiplier = ({
   );
 };
 
-type WithdrawalStrategyCardProps = {
+type FireContributorAndWithdrawalCardProps = {
   withdrawalStrategy: WithdrawalStrategy | undefined;
   contributionsInfo: ContrinutionsInfoProps;
 
@@ -378,7 +378,7 @@ type WithdrawalStrategyCardProps = {
   onResetContributionPreviewState: () => void;
 };
 
-export function WithdrawalStrategyCard({
+export function FireContributorAndWithdrawalCard({
   withdrawalStrategy,
   contributionsInfo,
   contributionPreviewState,
@@ -388,7 +388,7 @@ export function WithdrawalStrategyCard({
   onResetContributors,
   onChangeContributionPreviewState,
   onResetContributionPreviewState,
-}: WithdrawalStrategyCardProps) {
+}: FireContributorAndWithdrawalCardProps) {
   const {
     phases = [],
     accountAccessTimeline = [],
