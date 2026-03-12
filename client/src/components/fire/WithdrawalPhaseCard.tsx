@@ -14,14 +14,20 @@ const formatCurrency = (value: string | number) => {
   }).format(numValue);
 };
 
-// Color palette for allocation bars
-const allocationColors = [
-  "bg-purple-500",
-  "bg-violet-500",
-  "bg-indigo-500",
-  "bg-pink-500",
-  "bg-orange-500",
-];
+// Account type colors — preset from Tailwind theme (same as FireAccountsSummaryCard, FireAccountTypeContributionAdjuster)
+const ACCOUNT_TYPE_BG: Record<string, string> = {
+  ISA: "bg-isa",
+  SIPP: "bg-sipp",
+  LISA: "bg-lisa",
+  GIA: "bg-gia",
+  OTHER: "bg-other",
+  PENSION: "bg-pension",
+};
+
+const FALLBACK_BG = "bg-primary";
+
+const getAccountTypeBg = (accountType: string): string =>
+  ACCOUNT_TYPE_BG[accountType?.toUpperCase() ?? ""] ?? FALLBACK_BG;
 
 export function WithdrawalPhaseCard({ phase }: WithdrawalPhaseCardProps) {
   const ageRange = phase.toAge
@@ -62,9 +68,7 @@ export function WithdrawalPhaseCard({ phase }: WithdrawalPhaseCardProps) {
               return (
                 <div
                   key={`${allocation.contributorName}-${index}`}
-                  className={`${
-                    allocationColors[index % allocationColors.length]
-                  } flex items-center justify-center text-xs font-medium text-white`}
+                  className={`${getAccountTypeBg(allocation.accountType)} flex items-center justify-center text-xs font-medium text-white`}
                   style={{ width: `${percentage}%` }}
                   title={`${allocation.accountType}: ${formatCurrency(
                     allocation.annualAmount
@@ -92,9 +96,7 @@ export function WithdrawalPhaseCard({ phase }: WithdrawalPhaseCardProps) {
                   className="flex items-center gap-1"
                 >
                   <div
-                    className={`h-3 w-3 rounded-sm ${
-                      allocationColors[index % allocationColors.length]
-                    }`}
+                    className={`h-3 w-3 rounded-sm ${getAccountTypeBg(allocation.accountType)}`}
                   />
                   <span>
                     {allocation.accountType}:{" "}
