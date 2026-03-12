@@ -62,15 +62,22 @@ export function FireHeroCard({
       aggregateContributorBreakdownByAccountType(
         contributorBreakdown,
         dateOfBirth,
-        fireNumberDecimal
+        fireNumberDecimal,
       ),
     [contributorBreakdown, dateOfBirth, fireNumberDecimal]
   );
 
+  const chartDataWithoutPension = useMemo(() => {
+    const entries = Array.from(chartData.entries()).filter(
+      ([accountType]) => accountType.toUpperCase() !== "PENSION",
+    );
+    return new Map<string, FireProjectionData[]>(entries);
+  }, [chartData]);
+
   const legendValues = useFireHeroChart({
     svgRef,
     dimensions,
-    chartData,
+    chartData: chartDataWithoutPension,
     fireNumber,
     targetRetirementAge,
     projectedRetirementAge,
