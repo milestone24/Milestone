@@ -1,5 +1,6 @@
 import { AlertTriangle, Check, TrendingUp } from "lucide-react";
 import { WithdrawalPhase } from "@shared/schema/projections";
+import { formatGBPCompact } from "@/lib/format";
 
 type WithdrawalPhaseCardProps = {
   phase: WithdrawalPhase;
@@ -14,6 +15,7 @@ const formatCurrency = (value: string | number) => {
     maximumFractionDigits: 0,
   }).format(numValue);
 };
+
 
 // Account type colors — preset from Tailwind theme (same as FireAccountsSummaryCard, FireAccountTypeContributionAdjuster)
 const ACCOUNT_TYPE_BG: Record<string, string> = {
@@ -140,7 +142,7 @@ export function WithdrawalPhaseCard({ phase, showLegend = false }: WithdrawalPha
                   />
                   <span>
                     {allocation.accountType}:{" "}
-                    {formatCurrency(allocation.annualAmount)}
+                    {formatGBPCompact(parseFloat(allocation.annualAmount))}
                   </span>
                 </div>
               ))}
