@@ -149,6 +149,7 @@
   --color-lisa: oklch(0.65 0.18 290);
   --color-gia: oklch(0.75 0.15 55);
   --color-other: oklch(0.65 0.05 250);
+  --color-pension: oklch(0.72 0.12 80); /* pastel gold/amber, distinct from GIA (55), ISA, SIPP */
 
   /* Financial semantic colors — theme-responsive via CSS variables */
   --color-positive: var(--positive);

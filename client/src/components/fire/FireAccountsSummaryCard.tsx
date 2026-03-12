@@ -7,7 +7,7 @@ const ACCOUNT_TYPE_BG: Record<string, string> = {
   LISA: "bg-lisa",
   GIA: "bg-gia",
   OTHER: "bg-other",
-  PENSION: "bg-sipp",
+  PENSION: "bg-pension",
 };
 
 const FALLBACK_BG = "bg-primary";

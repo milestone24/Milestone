@@ -23,7 +23,7 @@ const ACCOUNT_TYPE_BG: Record<string, string> = {
   LISA: "bg-lisa",
   GIA: "bg-gia",
   OTHER: "bg-other",
-  PENSION: "bg-sipp",
+  PENSION: "bg-pension",
 };
 
 const ACCOUNT_TYPE_TEXT: Record<string, string> = {
@@ -32,7 +32,7 @@ const ACCOUNT_TYPE_TEXT: Record<string, string> = {
   LISA: "text-lisa",
   GIA: "text-gia",
   OTHER: "text-other",
-  PENSION: "text-sipp",
+  PENSION: "text-pension",
 };
 
 const FALLBACK_BG = "bg-primary";
