@@ -351,22 +351,6 @@ export default function Fire() {
                 <div aria-hidden className="h-12 shrink-0" />
               </>
             ) : null}
-            <>
-              <div>
-                <Checkbox
-                  checked={includePortfolioRecurringContributions}
-                  onCheckedChange={
-                    handleIncludePortfolioRecurringContributionsChange
-                  }
-                />
-                <Label
-                  htmlFor="include-portfolio-contributors"
-                  className="font-normal cursor-pointer mx-2"
-                >
-                  Use portfolio recurring contributions
-                </Label>
-              </div>
-            </>
             {showChart ? (
               <FireProjectionChartCard
                 showChart={showChart}
