@@ -264,6 +264,7 @@ export default function Fire() {
             {activeProjection?.withdrawalStrategy && (
               <WithdrawalStrategyCard
                 withdrawalStrategy={activeProjection.withdrawalStrategy}
+                showPhaseLegends
               />
             )}
             <FireContributorAndWithdrawalCard
