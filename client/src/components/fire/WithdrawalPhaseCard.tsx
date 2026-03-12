@@ -3,6 +3,7 @@ import { WithdrawalPhase } from "@shared/schema/projections";
 
 type WithdrawalPhaseCardProps = {
   phase: WithdrawalPhase;
+  showLegend?: boolean;
 };
 
 const formatCurrency = (value: string | number) => {
@@ -29,7 +30,7 @@ const FALLBACK_BG = "bg-primary";
 const getAccountTypeBg = (accountType: string): string =>
   ACCOUNT_TYPE_BG[accountType?.toUpperCase() ?? ""] ?? FALLBACK_BG;
 
-export function WithdrawalPhaseCard({ phase }: WithdrawalPhaseCardProps) {
+export function WithdrawalPhaseCard({ phase, showLegend = false }: WithdrawalPhaseCardProps) {
   const ageRange = phase.toAge
     ? `Age ${phase.fromAge}-${phase.toAge}`
     : `Age ${phase.fromAge}+`;
@@ -125,7 +126,7 @@ export function WithdrawalPhaseCard({ phase }: WithdrawalPhaseCardProps) {
           })()}
 
           {/* Legend for small segments */}
-          {phase.allocations.some(
+          {showLegend && phase.allocations.some(
             (a) => (parseFloat(a.annualAmount) / totalAllocation) * 100 <= 15
           ) && (
             <div className="flex flex-wrap gap-2 text-xs">

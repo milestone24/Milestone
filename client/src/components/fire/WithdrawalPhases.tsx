@@ -3,9 +3,10 @@ import { WithdrawalPhaseCard } from "./WithdrawalPhaseCard";
 
 type WithdrawalPhasesProps = {
   phases: WithdrawalPhase[];
+  showPhaseLegends?: boolean;
 };
 
-export function WithdrawalPhases({ phases }: WithdrawalPhasesProps) {
+export function WithdrawalPhases({ phases, showPhaseLegends = false }: WithdrawalPhasesProps) {
   if (!phases.length) return null;
 
   return (
@@ -16,6 +17,7 @@ export function WithdrawalPhases({ phases }: WithdrawalPhasesProps) {
           <WithdrawalPhaseCard
             key={`phase-${phase.fromAge}-${index}`}
             phase={phase}
+            showLegend={showPhaseLegends}
           />
         ))}
       </div>
