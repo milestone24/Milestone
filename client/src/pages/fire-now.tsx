@@ -19,6 +19,7 @@ import {
   type AccountTypeRowData,
 } from "@/components/fire/FireAccountTypeContributionAdjuster";
 import { FireAccountsSummaryCard } from "@/components/fire/FireAccountsSummaryCard";
+import { FireAssumptions } from "@/components/fire/FireAssumptions";
 import { useFireProjection } from "@/hooks/use-fire";
 import { useElementInView } from "@/hooks/use-element-in-view";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -333,6 +334,23 @@ export default function Fire() {
             {activeProjection?.withdrawalStrategy && (
               <WithdrawalStrategyCard
                 withdrawalStrategy={activeProjection.withdrawalStrategy}
+              />
+            )}
+            {fireSettingsForm && activeProjection && (
+              <FireAssumptions
+                annualIncomeGoal={fireSettingsForm.watch("annualIncomeGoal")}
+                targetRetirementAge={fireSettingsForm.watch(
+                  "targetRetirementAge",
+                )}
+                safeWithdrawalRate={fireSettingsForm.watch("safeWithdrawalRate")}
+                adjustInflation={fireSettingsForm.watch("adjustInflation")}
+                includeStatePension={fireSettingsForm.watch(
+                  "includeStatePension",
+                )}
+                reduceSpendingAt75={fireSettingsForm.watch(
+                  "reduceSpendingAt75",
+                )}
+                onEditSettings={() => setIsSettingsDialogOpen(true)}
               />
             )}
             {!overviewInView ? (
