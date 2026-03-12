@@ -11,7 +11,6 @@ import { FirePageSkeleton } from "@/components/fire/FirePageSkeleton";
 import { FirePageError } from "@/components/fire/FirePageError";
 import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
 import { FireOverviewStickyBar } from "@/components/fire/FireOverviewStickyBar";
-import { FireContributorAndWithdrawalCard } from "@/components/fire/FireContributorAndWithdrawalCard";
 import { WithdrawalStrategyCard } from "@/components/fire/WithdrawalStrategyCard";
 import { FireHeroCard } from "@/components/fire/FireHeroCard";
 import { FireNowStatus } from "@/components/fire/FireNowStatus";
@@ -372,44 +371,6 @@ export default function Fire() {
                 projectedRetirementAge={activeProjection.projectedRetirementAge}
               />
             ) : null}
-
-            <FireContributorAndWithdrawalCard
-              withdrawalStrategy={activeProjection.withdrawalStrategy}
-              contributionsInfo={{
-                contributionBreakdown,
-                monthlyContributionDifference:
-                  activeProjection.monthlyContributionDifference,
-              }}
-              contributionPreviewState={adjustmentsState.contribution}
-              onChangeContributionPreviewState={setContributionPreviewState}
-              onResetContributionPreviewState={resetContributionPreviewState}
-              onAddContributor={addAdjustmentContributor}
-              onUpdateContributor={updateAdjustmentContributor}
-              onRemoveContributor={removeAdjustmentContributor}
-              onResetContributors={resetAdjustmentContributors}
-            />
-
-            {/* <FireContributionsCard
-              contributionBreakdown={contributionBreakdown}
-              monthlyContributionDifference={
-                activeProjection.monthlyContributionDifference
-              }
-              //StandalonePanelProps (Tochange)
-              contributors={projectionContributors}
-              onAddContributor={addAdjustmentContributor}
-              onUpdateContributor={updateAdjustmentContributor}
-              onRemoveContributor={removeAdjustmentContributor}
-              onResetContributors={resetAdjustmentContributors}
-              //TODO this should not be the adjustment amount.
-              //Need to show the total monthly amount of all the contributors.
-              //And
-              totalMonthlyAmount={adjustmentMonthlyAmount}
-              contributionPreviewState={adjustmentsState.contribution}
-              onChangeContributionPreviewState={setContributionPreviewState}
-              onResetContributionPreviewState={resetContributionPreviewState}
-              customStartingValue={customStartingValue}
-              onCustomStartingValueChange={setCustomStartingValue}
-            /> */}
           </>
         ) : null}
       </div>
