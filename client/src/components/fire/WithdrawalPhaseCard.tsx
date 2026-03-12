@@ -68,6 +68,7 @@ export function WithdrawalPhaseCard({ phase, showLegend = false }: WithdrawalPha
             {phase.allocations.map((allocation, index) => {
               const percentage =
                 (parseFloat(allocation.annualAmount) / totalAllocation) * 100;
+              const numericAmount = parseFloat(allocation.annualAmount);
               return (
                 <div
                   key={`${allocation.contributorName}-${index}`}
@@ -80,7 +81,7 @@ export function WithdrawalPhaseCard({ phase, showLegend = false }: WithdrawalPha
                   {percentage > 15 && (
                     <span>
                       {allocation.accountType}:{" "}
-                      {formatCurrency(allocation.annualAmount)}
+                      {formatGBPCompact(numericAmount)}
                     </span>
                   )}
                 </div>
