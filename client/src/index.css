@@ -40,6 +40,7 @@
   /* Financial semantic colors — theme-responsive */
   --positive: oklch(0.52 0.22 145);
   --negative: oklch(0.50 0.20 25);
+  --warning: oklch(0.72 0.16 75);
 
   /* Domain entity colors */
   --asset: oklch(0.55 0.22 264);
@@ -87,6 +88,7 @@
   /* Financial semantic colors — theme-responsive */
   --positive: oklch(0.72 0.26 145);
   --negative: oklch(0.68 0.22 25);
+  --warning: oklch(0.78 0.18 75);
 
   /* Domain entity colors */
   --asset: oklch(0.70 0.20 264);
@@ -154,6 +156,7 @@
   /* Financial semantic colors — theme-responsive via CSS variables */
   --color-positive: var(--positive);
   --color-negative: var(--negative);
+  --color-warning: var(--warning);
 
   /* Domain entity colors */
   --color-asset: var(--asset);
