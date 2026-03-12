@@ -1,4 +1,4 @@
-import { TrendingUp } from "lucide-react";
+import { AlertTriangle, Check, TrendingUp } from "lucide-react";
 import { WithdrawalPhase } from "@shared/schema/projections";
 
 type WithdrawalPhaseCardProps = {
@@ -85,6 +85,45 @@ export function WithdrawalPhaseCard({ phase }: WithdrawalPhaseCardProps) {
             })}
           </div>
 
+          {/* Surplus / shortfall line */}
+          {(() => {
+            const target = parseFloat(phase.annualIncomeTarget);
+            const delta = totalAllocation - target;
+            if (delta > 0) {
+              return (
+                <div
+                  className="flex items-center gap-2 rounded-full bg-positive-surface px-4 py-2 text-sm font-medium text-positive"
+                  aria-label={`Surplus ${formatCurrency(delta)} per year`}
+                >
+                  <Check className="h-4 w-4 shrink-0" aria-hidden />
+                  Surplus {formatCurrency(delta)}/yr
+                </div>
+              );
+            }
+            if (delta < 0) {
+              return (
+                <div
+                  className="flex items-center gap-2 rounded-full bg-warning-surface px-4 py-2 text-sm font-medium text-warning"
+                  aria-label={`Need additional ${formatCurrency(
+                    Math.abs(delta),
+                  )} per year`}
+                >
+                  <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                  Need additional {formatCurrency(Math.abs(delta))}/yr
+                </div>
+              );
+            }
+            return (
+              <div
+                className="flex items-center gap-2 rounded-full bg-positive-surface px-4 py-2 text-sm font-medium text-positive"
+                aria-label="On track — target met"
+              >
+                <Check className="h-4 w-4 shrink-0" aria-hidden />
+                On track — target met
+              </div>
+            );
+          })()}
+
           {/* Legend for small segments */}
           {phase.allocations.some(
             (a) => (parseFloat(a.annualAmount) / totalAllocation) * 100 <= 15
@@ -109,13 +148,14 @@ export function WithdrawalPhaseCard({ phase }: WithdrawalPhaseCardProps) {
         </>
       )}
 
-      {phase.warnings && phase.warnings.length > 0 && (
-        <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+      {/* For withdrawal phases, surplus/shortfall is shown in the pill above; only show phase.warnings for building phase to avoid duplicate lines */}
+      {!isBuildingPhase ? null : phase.warnings && phase.warnings.length > 0 ? (
+        <div className="rounded-md bg-warning/20 px-3 py-2 text-xs text-warning">
           {phase.warnings.map((warning, index) => (
             <p key={index}>{warning}</p>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
