@@ -25,6 +25,29 @@ import { DecimalValueString } from "@server/db/schema";
 import { createRRulePattern } from "@shared/utils/scheduling";
 import { defineContributorRulesForAssetType } from "@shared/utils/projection-utils-contributor";
 
+const growthRatePresets = [
+  {
+    id: "pessimistic",
+    rate: 5,
+    label: "Pessimistic (5%)"
+  }, {
+    id: "base",
+    rate: 8,
+    label: "Base (8%)"
+  }, {
+    id: "optimistic",
+    rate: 10,
+    label: "Optimistic (10%)"
+  }
+] as const;
+
+export type GrowthRateScenario = (typeof growthRatePresets)[number]
+  | {
+    id: "custom";
+    rate: number;
+    label: "Custom";
+  }
+
 const hasAt75IncomeGoal = (incomeGoals: IncomeGoal[]): boolean => {
   return incomeGoals.some((incomeGoal) => incomeGoal.key === "reduced_spending_at_75");
 };
@@ -213,9 +236,9 @@ type UseFireProjectionReturn = {
   setAdjustmentsState: undefined,
   resetAdjustmentsState: undefined,
 
-  scenarioGrowthRate: null,
-  setScenarioGrowthRate: undefined,
-  resetScenarioGrowthRate: undefined,
+  growthRateScenario: GrowthRateScenario,
+  setGrowthRateScenario: undefined,
+  resetGrowthRateScenario: undefined,
 
   accountTypeOffsets: Map<string, number>,
   setAccountTypeOffset: undefined,
@@ -258,9 +281,9 @@ type UseFireProjectionReturn = {
   setAdjustmentsState: ReturnType<typeof useFirePreviewState>["setPreviewState"];
   resetAdjustmentsState: ReturnType<typeof useFirePreviewState>["resetPreviewState"];
 
-  scenarioGrowthRate: number | null;
-  setScenarioGrowthRate: (rate: number | null) => void;
-  resetScenarioGrowthRate: () => void;
+  growthRateScenario: GrowthRateScenario;
+  setGrowthRateScenario: (growthRateScenario: GrowthRateScenario) => void;
+  resetGrowthRateScenario: () => void;
 
   accountTypeOffsets: Map<string, number>;
   setAccountTypeOffset: (accountType: string, delta: number) => void;
@@ -302,9 +325,13 @@ const returnErrorState = (error: Error): UseFireProjectionReturn => ({
   setAdjustmentsState: undefined,
   resetAdjustmentsState: undefined,
 
-  scenarioGrowthRate: null,
-  setScenarioGrowthRate: undefined,
-  resetScenarioGrowthRate: undefined,
+  growthRateScenario: {
+    id: "base",
+    rate: 8,
+    label: "Base (8%)",
+  },
+  setGrowthRateScenario: undefined,
+  resetGrowthRateScenario: undefined,
 
   accountTypeOffsets: new Map(),
   setAccountTypeOffset: undefined,
@@ -342,9 +369,6 @@ export const useFireProjection = (): UseFireProjectionReturn => {
   const [includePortfolioRecurringContributions, setIncludePortfolioRecurringContributions] = useState(true);
   //TODO, complete visualisation of adjusment mode.
   const [isAdjustmentMode, setIsAdjustmentMode] = useState(false);
-  const [scenarioGrowthRate, setScenarioGrowthRate] = useState<number | null>(null);
-
-  const resetScenarioGrowthRate = useCallback(() => setScenarioGrowthRate(null), []);
 
   const [accountTypeOffsets, setAccountTypeOffsetsMap] = useState<Map<string, number>>(new Map());
   const accountTypeOffsetIdsRef = useRef<Map<string, string>>(new Map());
@@ -505,8 +529,16 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     [baseModifiers]
   );
 
-  const { growthMode, setGrowthMode, showChart, toggleChart } =
+  //Growth mode should be currently disabled until next phase of application.
+  //const { growthMode, setGrowthMode, growthScenario, setGrowthScenario, showChart, toggleChart } =
+  const { growthRateScenario, setGrowthRateScenario, showChart, toggleChart } =
     useFirePreferences();
+
+  const resetGrowthRateScenario = useCallback(() => setGrowthRateScenario({
+    id: "base",
+    rate: 8,
+    label: "Base (8%)",
+  }), []);
 
   const projectionConfig = useMemo<
     Omit<SimpleProjectionConfig, "startDate" | "endDate">
@@ -515,17 +547,20 @@ export const useFireProjection = (): UseFireProjectionReturn => {
       mode: "simple",
       //TODO make growth rate a decimal value string
       //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
-      //growthRate: Decimal(expectedAnnualReturn).toNumber(),
-      growthRate: 7,
+      //We set the initial growth rate to 8%, to match the base rate.
+      //WARNING: this is subject to be being ignore for some assets if growth mode is set to contributor.
+      growthRate: 8,
       growthModel: "linear",
       interval: "yearly",
       modifiers,
       usePortfolioRecurringContributions: includePortfolioRecurringContributions,
-      useContributorSpecificGrowthRates: growthMode === "contributor",
+      //For initial projection we use global growth rate.
+      useContributorSpecificGrowthRates: false,
+      //useContributorSpecificGrowthRates: false,
     }),
     //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
     //[growthMode, modifiers, expectedAnnualReturn, includePortfolioRecurringContributions]
-    [growthMode, modifiers, includePortfolioRecurringContributions]
+    [modifiers, includePortfolioRecurringContributions]
   );
 
   const {
@@ -603,7 +638,6 @@ export const useFireProjection = (): UseFireProjectionReturn => {
       });
   }, [debouncedAccountTypeOffsets, offsetsStartDate]);
 
-
   const previewModifiersActive =
     previewState.contribution.scaleFactor !== 1 ||
     previewState.contribution.enabled === false ||
@@ -611,7 +645,12 @@ export const useFireProjection = (): UseFireProjectionReturn => {
     Math.abs(previewState.inflation.rate - DEFAULT_PREVIEW_INFLATION_RATE) >
     0.01;
 
-  const previewEnabled = previewModifiersActive || hasAdjustmentContributors || scenarioGrowthRate !== null || accountTypeOffsets.size > 0;
+  const previewEnabled = previewModifiersActive
+    || hasAdjustmentContributors
+    || growthRateScenario.rate !== 8
+    || accountTypeOffsets.size > 0
+  //Growth mode is currently disabled until next phase of application.
+  //|| growthMode === "contributor";
 
   const previewProjectionConfig = useMemo<ProjectionConfig | null>(() => {
     if (!projectionConfig) {
@@ -620,14 +659,17 @@ export const useFireProjection = (): UseFireProjectionReturn => {
 
     return {
       ...projectionConfig,
-      ...(scenarioGrowthRate !== null ? { growthRate: scenarioGrowthRate } : {}),
+      growthRate: growthRateScenario.rate,
       modifiers: previewState.contribution.enabled
         ? previewModifiers
         : previewModifiers.filter(
           (modifier) => modifier.type !== "contribution_scaler"
         ),
-    } as ProjectionConfig;
-  }, [projectionConfig, previewModifiers, previewState.contribution.enabled, scenarioGrowthRate]);
+      //Growth mode is currently disabled until next phase of application.
+      //useContributorSpecificGrowthRates: growthMode === "contributor",
+      useContributorSpecificGrowthRates: false,
+    } satisfies ProjectionConfig;
+  }, [projectionConfig, previewModifiers, previewState.contribution.enabled, growthRateScenario]);
 
   const projectionContributors: Contributor[] = useMemo(() => {
     //Add contributors from initial server state
@@ -779,9 +821,9 @@ export const useFireProjection = (): UseFireProjectionReturn => {
       setAdjustmentsState: setPreviewState,
       resetAdjustmentsState: resetPreviewState,
 
-      scenarioGrowthRate,
-      setScenarioGrowthRate,
-      resetScenarioGrowthRate,
+      growthRateScenario,
+      setGrowthRateScenario,
+      resetGrowthRateScenario,
 
       accountTypeOffsets,
       setAccountTypeOffset,
