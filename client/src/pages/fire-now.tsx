@@ -11,7 +11,7 @@ import { FirePageSkeleton } from "@/components/fire/FirePageSkeleton";
 import { FirePageError } from "@/components/fire/FirePageError";
 import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
 import { FireOverviewStickyBar } from "@/components/fire/FireOverviewStickyBar";
-import { WithdrawalStrategyCard } from "@/components/fire/WithdrawalStrategyCard";
+import { WithdrawalStrategyCard } from "@/components/fire/FireContributorAndWithdrawalCard";
 import { FireHeroCard } from "@/components/fire/FireHeroCard";
 import { FireNowStatus } from "@/components/fire/FireNowStatus";
 import {

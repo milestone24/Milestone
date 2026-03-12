@@ -8,7 +8,7 @@ import { FirePageSkeleton } from "@/components/fire/FirePageSkeleton";
 import { FirePageError } from "@/components/fire/FirePageError";
 import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
 import { FireOverviewStickyBar } from "@/components/fire/FireOverviewStickyBar";
-import { WithdrawalStrategyCard } from "@/components/fire/WithdrawalStrategyCard";
+import { WithdrawalStrategyCard } from "@/components/fire/FireContributorAndWithdrawalCard";
 import { useFireProjection } from "@/hooks/use-fire";
 import { useElementInView } from "@/hooks/use-element-in-view";
 import { Checkbox } from "@/components/ui/checkbox";
