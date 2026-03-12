@@ -6,11 +6,13 @@ import { WithdrawalPhases } from "./WithdrawalPhases";
 type WithdrawalStrategyCardProps = {
   withdrawalStrategy: WithdrawalStrategy | undefined;
   showPhaseLegends?: boolean;
+  showBuildPhase?: boolean;
 };
 
 export function WithdrawalStrategyCard({
   withdrawalStrategy,
   showPhaseLegends = false,
+  showBuildPhase = false,
 }: WithdrawalStrategyCardProps) {
   const { phases = [], warnings = [] } = withdrawalStrategy ?? {};
 
@@ -30,7 +32,11 @@ export function WithdrawalStrategyCard({
   return (
     <Card>
       <CardContent className="space-y-6 pt-6">
-        <WithdrawalPhases phases={phases} showPhaseLegends={showPhaseLegends} />
+        <WithdrawalPhases
+          phases={phases}
+          showPhaseLegends={showPhaseLegends}
+          showBuildPhase={showBuildPhase}
+        />
 
         {warnings.length > 0 && (
           <>
