@@ -20,6 +20,7 @@ import {
 } from "@/components/fire/FireAccountTypeContributionAdjuster";
 import { FireAccountsSummaryCard } from "@/components/fire/FireAccountsSummaryCard";
 import { FireAssumptions } from "@/components/fire/FireAssumptions";
+import { Disclaimer } from "@/components/common/Disclaimer";
 import { useFireProjection } from "@/hooks/use-fire";
 import { useElementInView } from "@/hooks/use-element-in-view";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -337,21 +338,26 @@ export default function Fire() {
               />
             )}
             {fireSettingsForm && activeProjection && (
-              <FireAssumptions
-                annualIncomeGoal={fireSettingsForm.watch("annualIncomeGoal")}
-                targetRetirementAge={fireSettingsForm.watch(
-                  "targetRetirementAge",
-                )}
-                safeWithdrawalRate={fireSettingsForm.watch("safeWithdrawalRate")}
-                adjustInflation={fireSettingsForm.watch("adjustInflation")}
-                includeStatePension={fireSettingsForm.watch(
-                  "includeStatePension",
-                )}
-                reduceSpendingAt75={fireSettingsForm.watch(
-                  "reduceSpendingAt75",
-                )}
-                onEditSettings={() => setIsSettingsDialogOpen(true)}
-              />
+              <>
+                <FireAssumptions
+                  annualIncomeGoal={fireSettingsForm.watch("annualIncomeGoal")}
+                  targetRetirementAge={fireSettingsForm.watch(
+                    "targetRetirementAge",
+                  )}
+                  safeWithdrawalRate={fireSettingsForm.watch(
+                    "safeWithdrawalRate",
+                  )}
+                  adjustInflation={fireSettingsForm.watch("adjustInflation")}
+                  includeStatePension={fireSettingsForm.watch(
+                    "includeStatePension",
+                  )}
+                  reduceSpendingAt75={fireSettingsForm.watch(
+                    "reduceSpendingAt75",
+                  )}
+                  onEditSettings={() => setIsSettingsDialogOpen(true)}
+                />
+                <Disclaimer />
+              </>
             )}
             {!overviewInView ? (
               <>
