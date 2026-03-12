@@ -11,7 +11,8 @@ import { FirePageSkeleton } from "@/components/fire/FirePageSkeleton";
 import { FirePageError } from "@/components/fire/FirePageError";
 import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
 import { FireOverviewStickyBar } from "@/components/fire/FireOverviewStickyBar";
-import { WithdrawalStrategyCard } from "@/components/fire/FireContributorAndWithdrawalCard";
+import { FireContributorAndWithdrawalCard } from "@/components/fire/FireContributorAndWithdrawalCard";
+import { WithdrawalStrategyCard } from "@/components/fire/WithdrawalStrategyCard";
 import { FireHeroCard } from "@/components/fire/FireHeroCard";
 import { FireNowStatus } from "@/components/fire/FireNowStatus";
 import {
@@ -330,6 +331,11 @@ export default function Fire() {
             {accountsSummary && accountsSummary.length > 0 && (
               <FireAccountsSummaryCard accounts={accountsSummary} />
             )}
+            {activeProjection?.withdrawalStrategy && (
+              <WithdrawalStrategyCard
+                withdrawalStrategy={activeProjection.withdrawalStrategy}
+              />
+            )}
             {!overviewInView ? (
               <>
                 <FireOverviewStickyBar
@@ -367,7 +373,7 @@ export default function Fire() {
               />
             ) : null}
 
-            <WithdrawalStrategyCard
+            <FireContributorAndWithdrawalCard
               withdrawalStrategy={activeProjection.withdrawalStrategy}
               contributionsInfo={{
                 contributionBreakdown,
