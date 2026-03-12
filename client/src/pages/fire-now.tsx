@@ -21,13 +21,12 @@ import {
 import { FireAccountsSummaryCard } from "@/components/fire/FireAccountsSummaryCard";
 import { FireAssumptions } from "@/components/fire/FireAssumptions";
 import { Disclaimer } from "@/components/common/Disclaimer";
-import { useFireProjection } from "@/hooks/use-fire";
+import { GrowthRateScenario, useFireProjection } from "@/hooks/use-fire";
 import { useElementInView } from "@/hooks/use-element-in-view";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
 import { createDecimalValueString } from "@shared/schema";
-import type { FireScenario } from "@/components/fire/FireScenarioSelector";
 import Decimal from "decimal.js";
 
 export default function Fire() {
@@ -67,9 +66,9 @@ export default function Fire() {
 
     adjustmentsState,
 
-    scenarioGrowthRate,
-    setScenarioGrowthRate,
-    resetScenarioGrowthRate,
+    growthRateScenario,
+    setGrowthRateScenario,
+    resetGrowthRateScenario,
 
     accountTypeOffsets,
     setAccountTypeOffset,
@@ -81,20 +80,16 @@ export default function Fire() {
   const deferredProjection = useDeferredValue(activeProjection);
   const projectionForHero = deferredProjection ?? activeProjection;
 
-  const [activeScenario, setActiveScenario] = useState<FireScenario | null>(null);
-
-  const handleScenarioSelect = useCallback(
-    (scenario: FireScenario, rate: number) => {
-      setActiveScenario(scenario);
-      setScenarioGrowthRate?.(rate);
+  const handleGrowthRateScenarioSelect = useCallback(
+    (scenario: GrowthRateScenario) => {
+      setGrowthRateScenario?.(scenario);
     },
-    [setScenarioGrowthRate]
+    [setGrowthRateScenario],
   );
 
-  const handleScenarioReset = useCallback(() => {
-    setActiveScenario(null);
-    resetScenarioGrowthRate?.();
-  }, [resetScenarioGrowthRate]);
+  const handleGrowthRateScenarioReset = useCallback(() => {
+    resetGrowthRateScenario?.();
+  }, [resetGrowthRateScenario]);
 
   //TODO: Why do we need this custom starting value?
   const [customStartingValue, setCustomStartingValue] = useState(0);
@@ -293,15 +288,14 @@ export default function Fire() {
                   projectionForHero.projectionResult.contributorBreakdown
                 }
                 dateOfBirth={userStatus.dob}
-                activeScenario={activeScenario}
-                activeGrowthRate={scenarioGrowthRate}
+                activeScenario={growthRateScenario}
                 baseGrowthRate={
                   projectionForHero.projectionResult.config.mode === "simple"
                     ? projectionForHero.projectionResult.config.growthRate
                     : 8
                 }
-                onScenarioSelect={handleScenarioSelect}
-                onScenarioReset={handleScenarioReset}
+                onScenarioSelect={handleGrowthRateScenarioSelect}
+                onScenarioReset={handleGrowthRateScenarioReset}
               />
             )}
             {fireSettingsForm && projectionForHero && (
