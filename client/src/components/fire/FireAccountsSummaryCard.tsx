@@ -70,7 +70,7 @@ export function FireAccountsSummaryCard({
 
                 <div className="text-right">
                   <div className="text-base font-semibold sm:text-lg">
-                    {formatGBP0(account.contributionsToDate)}
+                    {formatGBP0(account.monthlyContribution)}
                   </div>
                   <div className="text-xs font-medium text-primary">
                     → {formatGBP0(account.projectedValueAtRetirement)}
