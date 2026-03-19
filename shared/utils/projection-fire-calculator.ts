@@ -4,6 +4,7 @@ import {
   ProjectionConfig,
   SimpleProjectionConfig,
   ProjectionConfigWithDateRange,
+  ProjectionConfigWithStartDate,
   ProjectionDataSource,
   Contributor,
 } from "@shared/schema/projections";
@@ -76,11 +77,11 @@ export function calculateAge(dateOfBirth: Date): number {
 
 /**
  * Project retirement feasibility for a user.
- * Accepts either config without dates (server adds startDate=now, endDate=retirement) or full config with dates (client preview reusing server's date range).
+ * Accepts ProjectionConfig (no dates) or ProjectionConfigWithStartDate (start date only). End date is always retirement date.
  */
 export async function projectToRetirement(
   fireConfig: FIREProjectionConfig,
-  projectionConfig: ProjectionConfig | ProjectionConfigWithDateRange,
+  projectionConfig: ProjectionConfig | ProjectionConfigWithStartDate,
   contributors: Contributor[]
   //db: Database
   //dataSource: ProjectionDataSource
@@ -97,17 +98,19 @@ export async function projectToRetirement(
     Decimal(fireConfig.safeWithdrawalRate).toNumber()
   );
 
+  const startDate =
+    "startDate" in projectionConfig && projectionConfig.startDate != null
+      ? projectionConfig.startDate
+      : new Date();
+  const baseConfig: ProjectionConfig =
+    "startDate" in projectionConfig
+      ? (() => {
+          const { startDate: _sd, ...rest } = projectionConfig;
+          return rest as ProjectionConfig;
+        })()
+      : projectionConfig;
   const fullProjectionConfig: ProjectionConfigWithDateRange =
-    "startDate" in projectionConfig &&
-    "endDate" in projectionConfig &&
-    projectionConfig.startDate != null &&
-    projectionConfig.endDate != null
-      ? projectionConfig as ProjectionConfigWithDateRange
-      : addDateRengeToProjectionConfig(
-          projectionConfig as ProjectionConfig,
-          new Date(),
-          retirementDate
-        );
+    addDateRengeToProjectionConfig(baseConfig, startDate, retirementDate);
 
   // Run portfolio projection
   const projectionResult = await orchestrateProjection({

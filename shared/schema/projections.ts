@@ -167,6 +167,14 @@ export type ModifierWithOptionalMatch = z.infer<
 // ============================================================================
 
 /**
+ * Start date only (e.g. for FIRE projection where end date is always retirement date).
+ */
+export const configStartDateSchema = z.object({
+  /** First date of the projection; first time point is at or after this date. */
+  startDate: dateTransformedSchema,
+});
+
+/**
  * Date range applied to a projection run.
  * All generated time points fall within [startDate, endDate].
  */
@@ -275,6 +283,21 @@ export const projectionConfigWithDateRangeSchema = z.discriminatedUnion(
 
 export type ProjectionConfigWithDateRange = z.infer<
   typeof projectionConfigWithDateRangeSchema
+>;
+
+/**
+ * Projection config with start date only (no end date). Used when end date is derived (e.g. FIRE retirement date).
+ */
+export const projectionConfigWithStartDateSchema = z.discriminatedUnion(
+  "mode",
+  [
+    simpleProjectionConfigSchema.merge(configStartDateSchema),
+    advancedProjectionConfigSchema.merge(configStartDateSchema),
+  ]
+);
+
+export type ProjectionConfigWithStartDate = z.infer<
+  typeof projectionConfigWithStartDateSchema
 >;
 
 // ============================================================================
