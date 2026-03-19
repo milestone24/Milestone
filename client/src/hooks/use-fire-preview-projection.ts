@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   Contributor,
   ProjectionConfig,
-  ProjectionConfigWithDateRange,
+  ProjectionConfigWithStartDate,
   FIREProjectionConfig,
   FireProjection,
 } from "@shared/schema/projections";
@@ -69,9 +69,9 @@ export function useFirePreviewProjection({
           : { ...prev, status: "loading", error: null }
       );
       try {
-        const configToUse =
+        const configToUse: ProjectionConfig | ProjectionConfigWithStartDate =
           lockedConfig != null
-            ? ({ ...lockedConfig, ...projectionConfig } as ProjectionConfigWithDateRange)
+            ? { ...projectionConfig, startDate: lockedConfig.startDate }
             : projectionConfig;
         const result = await projectToRetirement(
           fireConfig,
