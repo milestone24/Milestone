@@ -311,6 +311,17 @@ export default function Fire() {
                 safeWithdrawalRate={fireSettingsForm.watch(
                   "safeWithdrawalRate",
                 )}
+                monthOverMonthDelta={(() => {
+                  const pts = projectionForHero.projectionResult.timePoints;
+                  if (!pts || pts.length < 2) return null;
+                  const last = pts[pts.length - 1];
+                  const prev = pts[pts.length - 2];
+                  if (!last || !prev) return null;
+                  const delta =
+                    Decimal(last.value).toNumber() -
+                    Decimal(prev.value).toNumber();
+                  return createDecimalValueString(delta.toString());
+                })()}
               />
             )}
             {accountTypeRows.length > 0 && activeProjection && (

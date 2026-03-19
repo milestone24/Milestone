@@ -68,13 +68,6 @@ export function FireNowStatus({
           <div className="mt-2 text-sm font-medium text-emerald-400">
             {momDeltaText}
           </div>
-          {monthOverMonthDelta === undefined ? (
-            <div className="mt-1 text-[11px] leading-snug text-muted-foreground">
-              TODO: MoM delta is defined as (today - end of last month). We are
-              intentionally not fetching extra server data on the FIRE page; add
-              this to the initial FIRE payload later.
-            </div>
-          ) : null}
         </CardContent>
       </Card>
 

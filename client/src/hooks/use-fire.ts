@@ -545,21 +545,15 @@ export const useFireProjection = (): UseFireProjectionReturn => {
   >(
     () => ({
       mode: "simple",
-      //TODO make growth rate a decimal value string
-      //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
-      //We set the initial growth rate to 8%, to match the base rate.
-      //WARNING: this is subject to be being ignore for some assets if growth mode is set to contributor.
       growthRate: 8,
       growthModel: "linear",
-      interval: "yearly",
+      interval: "monthly",
       modifiers,
       usePortfolioRecurringContributions: includePortfolioRecurringContributions,
-      //For initial projection we use global growth rate.
       useContributorSpecificGrowthRates: false,
-      //useContributorSpecificGrowthRates: false,
+      seriesAlignment: "calendar",
+      backfillIntervals: 1,
     }),
-    //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
-    //[growthMode, modifiers, expectedAnnualReturn, includePortfolioRecurringContributions]
     [modifiers, includePortfolioRecurringContributions]
   );
 
