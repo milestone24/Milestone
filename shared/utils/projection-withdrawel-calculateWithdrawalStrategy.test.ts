@@ -5,6 +5,7 @@ import {
   createDecimalValueString,
   ProjectionConfig,
   ProjectionResult,
+  ProjectionConfigWithDateRange,
 } from "@shared/schema";
 import { defineContributorRulesForAssetType } from "./projection-utils-contributor";
 import { createRRulePattern } from "./scheduling";
@@ -22,8 +23,14 @@ function createProjectionSimpleConfig(): ProjectionConfig {
 }
 
 function createProjectionResult(): ProjectionResult {
+  const baseConfig = createProjectionSimpleConfig();
+  const config: ProjectionConfigWithDateRange = {
+    ...baseConfig,
+    startDate: new Date(),
+    endDate: new Date(Date.now() + 30 * 365 * 24 * 60 * 60 * 1000),
+  };
   return {
-    config: createProjectionSimpleConfig(),
+    config,
     totalCurrentValue: createDecimalValueString("0"),
     totalProjectedValue: createDecimalValueString("0"),
     contributorBreakdown: [],

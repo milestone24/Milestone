@@ -650,8 +650,8 @@ export type MilestoneProgress = z.infer<typeof milestoneProgressSchema>;
  * Returned by the projection orchestrator for a given config and date range.
  */
 export const projectionResultSchema = z.object({
-  /** Config used for this run (mode, interval, date range, seriesAlignment, etc.). */
-  config: projectionConfigSchema,
+  /** Config used for this run (mode, interval, date range, seriesAlignment, etc.). Includes startDate/endDate so the client can reuse them for preview (lock). */
+  config: projectionConfigWithDateRangeSchema,
   /** Sum of all contributors' values at projection start. */
   totalCurrentValue: decimalValueSchema.refine(isDecimalValueString, {
     message: "Total current value must be a valid decimal string",

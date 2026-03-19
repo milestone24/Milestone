@@ -75,36 +75,39 @@ export function calculateAge(dateOfBirth: Date): number {
 }
 
 /**
- * Project retirement feasibility for a user
+ * Project retirement feasibility for a user.
+ * Accepts either config without dates (server adds startDate=now, endDate=retirement) or full config with dates (client preview reusing server's date range).
  */
 export async function projectToRetirement(
   fireConfig: FIREProjectionConfig,
-  projectionConfig: ProjectionConfig,
+  projectionConfig: ProjectionConfig | ProjectionConfigWithDateRange,
   contributors: Contributor[]
   //db: Database
   //dataSource: ProjectionDataSource
 ): Promise<FireProjection> {
   const warnings: string[] = [];
 
-  // Calculate retirement date
   const retirementDate = calculateRetirementDate(
     fireConfig.dateOfBirth,
     fireConfig.targetRetirementAge
   );
 
-  // Calculate FIRE number
   const fireNumber = calculateFIRENumber(
     Decimal(fireConfig.annualIncomeGoal).toNumber(),
     Decimal(fireConfig.safeWithdrawalRate).toNumber()
   );
 
-  // Create projection config with retirement date as end date
   const fullProjectionConfig: ProjectionConfigWithDateRange =
-    addDateRengeToProjectionConfig(
-      projectionConfig,
-      new Date(),
-      retirementDate
-    );
+    "startDate" in projectionConfig &&
+    "endDate" in projectionConfig &&
+    projectionConfig.startDate != null &&
+    projectionConfig.endDate != null
+      ? projectionConfig as ProjectionConfigWithDateRange
+      : addDateRengeToProjectionConfig(
+          projectionConfig as ProjectionConfig,
+          new Date(),
+          retirementDate
+        );
 
   // Run portfolio projection
   const projectionResult = await orchestrateProjection({

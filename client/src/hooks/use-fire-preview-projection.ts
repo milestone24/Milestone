@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   Contributor,
   ProjectionConfig,
+  ProjectionConfigWithDateRange,
   FIREProjectionConfig,
   FireProjection,
 } from "@shared/schema/projections";
@@ -36,6 +37,8 @@ export function useFirePreviewProjection({
   });
   const [refetchToken, setRefetchToken] = useState(0);
 
+  const lockedConfig = baseProjection?.projectionResult?.config;
+
   const hasRequirements =
     enabled && !!baseProjection && !!fireConfig && !!projectionConfig;
 
@@ -66,9 +69,13 @@ export function useFirePreviewProjection({
           : { ...prev, status: "loading", error: null }
       );
       try {
+        const configToUse =
+          lockedConfig != null
+            ? ({ ...lockedConfig, ...projectionConfig } as ProjectionConfigWithDateRange)
+            : projectionConfig;
         const result = await projectToRetirement(
           fireConfig,
-          projectionConfig,
+          configToUse,
           contributors
         );
 
@@ -110,6 +117,7 @@ export function useFirePreviewProjection({
     contributors,
     baseProjection,
     refetchToken,
+    lockedConfig,
   ]);
 
   const refetch = useCallback(() => {
