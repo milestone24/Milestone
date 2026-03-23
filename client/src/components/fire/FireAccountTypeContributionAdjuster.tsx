@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { FireProjection, FireProjectionData } from "@shared/schema/projections";
+import { getPreviewRetirementMonthsDelta } from "@/utils/fire-retirement-timeline-badges";
 
 // ============================================================================
 // COLOUR MAPS — reuse tokens already defined in FireHeroLegend
@@ -74,6 +75,8 @@ export type AccountTypeRowData = {
 type Props = {
   projection: FireProjection;
   baselineProjection: FireProjection | undefined;
+  /** Organic YTD vs calendar year start (months sooner = positive). Omit until supplied by API. */
+  yearToDateMonthsSooner?: number;
   accountTypeRows: AccountTypeRowData[];
   offsets: Map<string, number>;
   onChangeOffset: (accountType: string, delta: number) => void;
@@ -300,9 +303,22 @@ function AccountTypeRow({ row, currentValue, onChangeValue }: AccountTypeRowProp
 // MAIN COMPONENT
 // ============================================================================
 
+function formatMonthsDeltaLabel(delta: number, suffix: string): string {
+  const abs = Math.abs(delta);
+  const unit = abs === 1 ? "month" : "months";
+  if (delta > 0) {
+    return `▲ ${abs} ${unit} sooner ${suffix}`;
+  }
+  if (delta < 0) {
+    return `▼ ${abs} ${unit} later ${suffix}`;
+  }
+  return `No change ${suffix}`;
+}
+
 export function FireAccountTypeContributionAdjuster({
   projection,
   baselineProjection,
+  yearToDateMonthsSooner,
   accountTypeRows,
   offsets,
   onChangeOffset,
@@ -312,19 +328,10 @@ export function FireAccountTypeContributionAdjuster({
 
   const projectedAge = projection.projectedRetirementAge;
 
-  // Delta between baseline and preview projection in months (rounded)
-  const monthsDelta = useMemo(() => {
-    if (
-      !baselineProjection?.projectedRetirementAge ||
-      !projectedAge ||
-      offsets.size === 0
-    ) {
-      return null;
-    }
-    return Math.round(
-      (baselineProjection.projectedRetirementAge - projectedAge) * 12
-    );
-  }, [baselineProjection, projectedAge, offsets]);
+  const previewMonthsDelta = useMemo(() => {
+    if (offsets.size === 0 || !baselineProjection) return null;
+    return getPreviewRetirementMonthsDelta(baselineProjection, projection);
+  }, [baselineProjection, projection, offsets]);
 
   const total = useMemo(() => {
     return accountTypeRows.reduce((sum, row) => {
@@ -382,19 +389,40 @@ export function FireAccountTypeContributionAdjuster({
             </div>
             <span className="text-base font-semibold">When can I retire?</span>
           </div>
-          {monthsDelta !== null && (
-            <Badge
-              className={
-                monthsDelta > 0
-                  ? "bg-emerald-500/15 text-emerald-500 border-0"
-                  : "bg-destructive/15 text-destructive border-0"
-              }
-            >
-              {monthsDelta > 0
-                ? `▲ ${monthsDelta} month${monthsDelta === 1 ? "" : "s"} sooner`
-                : `▼ ${Math.abs(monthsDelta)} month${Math.abs(monthsDelta) === 1 ? "" : "s"} later`}
-            </Badge>
-          )}
+          <div className="flex flex-wrap items-center justify-end gap-1.5 max-w-[min(100%,14rem)] sm:max-w-none">
+            {yearToDateMonthsSooner !== undefined && (
+              <Badge
+                className={
+                  yearToDateMonthsSooner > 0
+                    ? "bg-emerald-500/15 text-emerald-500 border-0"
+                    : yearToDateMonthsSooner < 0
+                      ? "bg-destructive/15 text-destructive border-0"
+                      : "border-border bg-muted/50 text-muted-foreground"
+                }
+              >
+                {formatMonthsDeltaLabel(yearToDateMonthsSooner, "this year")}
+              </Badge>
+            )}
+            {previewMonthsDelta !== null && offsets.size > 0 && (
+              <Badge
+                variant="outline"
+                className={
+                  previewMonthsDelta > 0
+                    ? "text-emerald-600 border-emerald-500/40"
+                    : previewMonthsDelta < 0
+                      ? "text-destructive border-destructive/40"
+                      : "text-muted-foreground"
+                }
+              >
+                Preview ·{" "}
+                {previewMonthsDelta === 0
+                  ? "no change vs plan"
+                  : previewMonthsDelta > 0
+                    ? `▲ ${previewMonthsDelta} month${previewMonthsDelta === 1 ? "" : "s"} sooner`
+                    : `▼ ${Math.abs(previewMonthsDelta)} month${Math.abs(previewMonthsDelta) === 1 ? "" : "s"} later`}
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* Age + sparkline */}
