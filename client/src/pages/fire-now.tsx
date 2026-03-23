@@ -23,10 +23,13 @@ import { FireAssumptions } from "@/components/fire/FireAssumptions";
 import { Disclaimer } from "@/components/common/Disclaimer";
 import { GrowthRateScenario, useFireProjection } from "@/hooks/use-fire";
 import { useElementInView } from "@/hooks/use-element-in-view";
+import {
+  useFireMonthOverMonthDelta,
+  FIRE_NOW_DEFAULT_LOOKBACK_INTERVALS,
+} from "@/hooks/use-fire-month-over-month-delta";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
-import { createDecimalValueString } from "@shared/schema";
 import Decimal from "decimal.js";
 
 export default function Fire() {
@@ -178,6 +181,11 @@ export default function Fire() {
     await handleSaveSettings?.();
   }, [handleSaveSettings]);
 
+  const monthOverMonthDelta = useFireMonthOverMonthDelta(
+    projectionForHero,
+    FIRE_NOW_DEFAULT_LOOKBACK_INTERVALS
+  );
+
   if (userStatus?.status === "unsatisfied") {
     return (
       <div className="fire-screen mx-auto max-w-5xl px-4 pb-20">
@@ -311,17 +319,7 @@ export default function Fire() {
                 safeWithdrawalRate={fireSettingsForm.watch(
                   "safeWithdrawalRate",
                 )}
-                monthOverMonthDelta={(() => {
-                  const pts = projectionForHero.projectionResult.timePoints;
-                  if (!pts || pts.length < 2) return null;
-                  const last = pts[pts.length - 1];
-                  const prev = pts[pts.length - 2];
-                  if (!last || !prev) return null;
-                  const delta =
-                    Decimal(last.value).toNumber() -
-                    Decimal(prev.value).toNumber();
-                  return createDecimalValueString(delta.toString());
-                })()}
+                monthOverMonthDelta={monthOverMonthDelta}
               />
             )}
             {accountTypeRows.length > 0 && activeProjection && (
