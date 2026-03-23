@@ -41,6 +41,16 @@ import {
   getModifiersAsGlobalList,
 } from "./projection-modifiers";
 
+const MAX_BACKFILL_INTERVALS_BY_INTERVAL: Record<
+  ProjectionConfig["interval"],
+  number
+> = {
+  daily: 730,
+  weekly: 104,
+  monthly: 24,
+  yearly: 2,
+};
+
 // ============================================================================
 // FIRE PROJECTION CALCULATOR
 // ============================================================================
@@ -77,7 +87,22 @@ export function calculateAge(dateOfBirth: Date): number {
 
 /**
  * Project retirement feasibility for a user.
- * Accepts ProjectionConfig (no dates) or ProjectionConfigWithStartDate (start date only). End date is always retirement date.
+ *
+ * Contract:
+ * - Accepts either `ProjectionConfig` (no dates) or `ProjectionConfigWithStartDate` (start date only).
+ * - `endDate` is never accepted from input here; it is always derived as retirement date.
+ *
+ * Date semantics:
+ * - `startDate` is the "as-of" date for this projection run.
+ * - The first rendered/grid point can still be earlier than `startDate` when calendar alignment + backfill
+ *   are enabled in downstream projection logic.
+ *
+ * Flow:
+ * 1) Compute retirement date from DOB + target age.
+ * 2) Resolve start date from config (or default to now).
+ * 3) Build full projection date range via addDateRengeToProjectionConfig(startDate, retirementDate).
+ * 4) Run orchestrated projection from contributors.
+ * 5) Derive FIRE metrics (progress, years ahead/behind, retirement date estimate, withdrawal strategy).
  */
 export async function projectToRetirement(
   fireConfig: FIREProjectionConfig,
@@ -251,7 +276,15 @@ This will cause the projection to be infinite years ahead of retirement.`);
 /**
  * Check FIRE feasibility using user's saved fire settings
  * This is called by the route checkFIREFeasibility as a consequence of a call the endpoint /api/projections/fire.
- * This in turn calls the projectToRetirement function to project the retirement feasibility the same as the client
+ *
+ * Server-only responsibility:
+ * - Reads server data source (fire settings, user profile, assets).
+ * - Prepares contributors payload used by shared projection logic.
+ * - Calls `projectToRetirement` which is DB-agnostic and can run in client context too.
+ *
+ * Backfill/history responsibility in this layer:
+ * - Uses `getAssetsWithHistory` to obtain asset shape + bounded historical slot data.
+ * - Keeps `getAssets` untouched for other callers/flows.
  */
 export async function projectRetirementWithContributors(
   projectionConfig: ProjectionConfig,
@@ -298,7 +331,12 @@ export async function projectRetirementWithContributors(
     incomeGoals: userFireSettings.incomeGoals,
   };
 
-  const assets = await dataSource.getAssets();
+  // Fetch current assets plus bounded historical slots used by calendar backfill.
+  const assets = await dataSource.getAssetsWithHistory({
+    interval: projectionConfig.interval,
+    maxIntervals:
+      MAX_BACKFILL_INTERVALS_BY_INTERVAL[projectionConfig.interval],
+  });
 
   let contributors: Contributor[] = mapAssetsToContributors(assets, true, projectionConfig.usePortfolioRecurringContributions);
 

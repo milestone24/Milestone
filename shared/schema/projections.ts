@@ -617,6 +617,25 @@ export const contributorSchema = z.object({
   currentValue: decimalValueSchema.refine(isDecimalValueString, {
     message: "Current value must be a valid decimal string",
   }),
+  /** Optional historical value slots used to populate calendar backfill points. */
+  valueHistory: z
+    .array(
+      z.object({
+        /** Requested slot date on the projection grid (backfill interval boundary). */
+        slotDate: dateTransformedSchema,
+        /** Value used for this slot. */
+        value: decimalValueSchema.refine(isDecimalValueString, {
+          message: "Value must be a valid decimal string",
+        }),
+        /** Actual source date selected from asset_values (<= slotDate). */
+        sourceValueDate: dateTransformedSchema,
+        /** Provenance of selected source value for this slot. */
+        sourceType: z.enum(["exact", "carried_forward"]),
+        /** Optional source row id for row-level traceability. */
+        assetValueId: z.string().uuid().optional(),
+      })
+    )
+    .optional(),
   /** Recurring contribution schedules (pattern, value, start/end date). */
   schedules: z.array(contributorScheduleSchema),
   /** Optional tax rules applied to this contributor. */
@@ -970,6 +989,13 @@ export type ProjectionOrchestratorAssetInput = {
   accountType: AccountType;
   recurringContributions: RecurringContribution[];
   platformName?: string;
+  valueHistory?: {
+    slotDate: Date;
+    value: DecimalValueString;
+    sourceValueDate: Date;
+    sourceType: "exact" | "carried_forward";
+    assetValueId?: string;
+  }[];
 };
 
 /**
@@ -981,6 +1007,10 @@ export type ProjectionDataSource = {
     assetId: string
   ) => Promise<ProjectionOrchestratorAssetInput | null>;
   getAssets: () => Promise<ProjectionOrchestratorAssetInput[]>;
+  getAssetsWithHistory: (params: {
+    interval: ProjectionInterval;
+    maxIntervals: number;
+  }) => Promise<ProjectionOrchestratorAssetInput[]>;
   getContributionsForAssets: (
     assetIds: string[]
   ) => Promise<RecurringContribution[]>;

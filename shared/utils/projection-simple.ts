@@ -46,6 +46,77 @@ export interface SimpleProjectionResult {
   finalValue: DecimalValueString;
 }
 
+/**
+ * Resolve contributor value for a backfill slot date.
+ *
+ * Selection rule:
+ * - Use exact slot match from `contributor.valueHistory` (pre-resolved server history slots).
+ * - If slot has no historical value, fallback is zero (never current value).
+ */
+function getBackfillValueForDate(
+  contributor: Contributor,
+  fallbackValue: DecimalValueString,
+  date: Date
+): DecimalValueString {
+  if (!contributor.valueHistory || contributor.valueHistory.length === 0) {
+    return fallbackValue;
+  }
+  const matched = contributor.valueHistory.find(
+    (slot) => slot.slotDate.getTime() === date.getTime()
+  );
+  return matched?.value ?? fallbackValue;
+}
+
+/**
+ * Append non-projected backfill points prior to effectiveStartDate.
+ * Backfill points are used for chart/grid context (e.g. month-over-month) and carry zero contributions/growth.
+ */
+function appendBackfillPoints(
+  params: {
+    contributor: Contributor;
+    dateOfBirth?: Date;
+    gridDates: Date[];
+    forwardStartIdx: number;
+    currentValue: DecimalValueString;
+    timePoints: ProjectionTimePoint[];
+  }
+): void {
+  const {
+    contributor,
+    dateOfBirth,
+    gridDates,
+    forwardStartIdx,
+    currentValue,
+    timePoints,
+  } = params;
+  // If no historical slot can be resolved, use zero.
+  // Never project today's value backwards in time.
+  const fallbackValue = createDecimalValueString("0");
+  for (let i = 0; i < forwardStartIdx; i++) {
+    const d = gridDates[i];
+    if (!d) continue;
+    const backfillValue = getBackfillValueForDate(contributor, fallbackValue, d);
+    const accessible = calculateAccessibleValue(
+      contributor,
+      backfillValue,
+      d,
+      dateOfBirth
+    );
+    timePoints.push(
+      createProjectionTimePoint(
+        d,
+        backfillValue,
+        createDecimalValueString("0"),
+        createDecimalValueString("0"),
+        false,
+        createDecimalValueString("0"),
+        accessible.accessibleValue,
+        accessible.lockedValue
+      )
+    );
+  }
+}
+
 // ============================================================================
 // LINEAR GROWTH
 // ============================================================================
@@ -141,38 +212,15 @@ export function generateLinearProjectionTimeSeries(
       ? new Date(gridDates[forwardStartIdx])
       : new Date(startDate);
 
-  // PLACEHOLDER: Backfill points (dates before startDate) use currentValue instead of historical value.
-  // Real solution: obtain portfolio/contributor value at each backfill date (e.g. from asset_values:
-  // latest value per asset where value_date <= backfillDate, then sum). Pass those values into the
-  // projection (e.g. backfillValues: Record<dateKey, value> per contributor or portfolio-wide) and
-  // use them here instead of placeholderValue. Until then, month-over-month and other backfill-derived
-  // metrics (e.g. "vs last month") will be wrong when backfill dates are present.
   if (useCalendarGrid && forwardStartIdx > 0) {
-    const placeholderValue = createDecimalValueString(
-      Decimal(currentValue).toString()
-    );
-    for (let i = 0; i < forwardStartIdx; i++) {
-      const d = gridDates[i];
-      if (!d) continue;
-      const accessible = calculateAccessibleValue(
-        contributor,
-        placeholderValue,
-        d,
-        dateOfBirth
-      );
-      timePoints.push(
-        createProjectionTimePoint(
-          d,
-          placeholderValue,
-          createDecimalValueString("0"),
-          createDecimalValueString("0"),
-          false,
-          createDecimalValueString("0"),
-          accessible.accessibleValue,
-          accessible.lockedValue
-        )
-      );
-    }
+    appendBackfillPoints({
+      contributor,
+      dateOfBirth,
+      gridDates,
+      forwardStartIdx,
+      currentValue,
+      timePoints,
+    });
   }
 
   const incrementDate = getDateIncrement(config.interval);
@@ -322,38 +370,15 @@ export function generateCompoundProjectionTimeSeries(
       ? new Date(gridDates[forwardStartIdx])
       : new Date(startDate);
 
-  // PLACEHOLDER: Backfill points (dates before startDate) use currentValue instead of historical value.
-  // Real solution: obtain portfolio/contributor value at each backfill date (e.g. from asset_values:
-  // latest value per asset where value_date <= backfillDate, then sum). Pass those values into the
-  // projection (e.g. backfillValues: Record<dateKey, value> per contributor or portfolio-wide) and
-  // use them here instead of placeholderValue. Until then, month-over-month and other backfill-derived
-  // metrics (e.g. "vs last month") will be wrong when backfill dates are present.
   if (useCalendarGrid && forwardStartIdx > 0) {
-    const placeholderValue = createDecimalValueString(
-      Decimal(currentValue).toString()
-    );
-    for (let i = 0; i < forwardStartIdx; i++) {
-      const d = gridDates[i];
-      if (!d) continue;
-      const accessible = calculateAccessibleValue(
-        contributor,
-        placeholderValue,
-        d,
-        dateOfBirth
-      );
-      timePoints.push(
-        createProjectionTimePoint(
-          d,
-          placeholderValue,
-          createDecimalValueString("0"),
-          createDecimalValueString("0"),
-          false,
-          createDecimalValueString("0"),
-          accessible.accessibleValue,
-          accessible.lockedValue
-        )
-      );
-    }
+    appendBackfillPoints({
+      contributor,
+      dateOfBirth,
+      gridDates,
+      forwardStartIdx,
+      currentValue,
+      timePoints,
+    });
   }
 
   const incrementDate = getDateIncrement(config.interval);

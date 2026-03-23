@@ -233,6 +233,7 @@ export function mapAssetToContributor(
     platformName: asset.platformName,
     type: "asset",
     currentValue: asset.currentValue,
+    valueHistory: asset.valueHistory,
     schedules: mapRecurringContributionsToContributorSchedules(
       asset.recurringContributions
     ),
