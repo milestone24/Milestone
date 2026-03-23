@@ -23,7 +23,7 @@ type FireHeroCardProps = {
   baseGrowthRate: number;
   onScenarioSelect: (scenario: GrowthRateScenario) => void;
   onScenarioReset: () => void;
-
+  projectedRetirementValueDelta?: DecimalValueString | null;
   className?: string;
 };
 
@@ -39,6 +39,7 @@ export function FireHeroCard({
   baseGrowthRate,
   onScenarioSelect,
   onScenarioReset,
+  projectedRetirementValueDelta,
   className,
 }: FireHeroCardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -96,6 +97,7 @@ export function FireHeroCard({
           projectedValue={projectedValue}
           projectedRetirementAge={projectedRetirementAge}
           targetRetirementAge={targetRetirementAge}
+          projectedRetirementValueDelta={projectedRetirementValueDelta}
         />
 
         <FireScenarioSelector

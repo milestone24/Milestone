@@ -122,6 +122,8 @@ function aggregateContributionTimePoints(
     let totalLockedValue = 0;
     let totalModelPath = 0;
     let hasModelPath = false;
+    let totalTerminalValue = 0;
+    let hasTerminalValue = false;
     let hasProjected = false;
     let hasBonuses = false;
     let hasAccessible = false;
@@ -165,6 +167,13 @@ function aggregateContributionTimePoints(
             .add(totalModelPath)
             .toNumber();
         }
+
+        if (point.projectedPortfolioAtRetirement) {
+          hasTerminalValue = true;
+          totalTerminalValue = Decimal(point.projectedPortfolioAtRetirement)
+            .add(totalTerminalValue)
+            .toNumber();
+        }
       }
     }
 
@@ -189,6 +198,13 @@ function aggregateContributionTimePoints(
         ? {
             modelPathValue: createDecimalValueString(
               Decimal(totalModelPath).toString(),
+            ),
+          }
+        : {}),
+      ...(hasTerminalValue
+        ? {
+            projectedPortfolioAtRetirement: createDecimalValueString(
+              Decimal(totalTerminalValue).toString(),
             ),
           }
         : {}),

@@ -183,6 +183,11 @@ export type EnrichModelPathParams = {
 /**
  * Adds `modelPathValue` to each time point: backfill steps from prior **observed** `value`,
  * snap to observed at forward-start index, then chain prior `modelPathValue` forward.
+ *
+ * Also adds `projectedPortfolioAtRetirement` to every non-projected (backfill + as-of) point:
+ * - As-of point: the final `modelPathValue` in the series (free — already computed).
+ * - Each backfill point: a forward chain from that point's actual observed `value` to the
+ *   last point, using the same `stepInterval` logic. No full projection re-run; pure arithmetic.
  */
 export function enrichContributorTimePointsWithModelPath(
   points: ProjectionTimePoint[],
@@ -196,6 +201,7 @@ export function enrichContributorTimePointsWithModelPath(
   const projectionStartDate = new Date(config.startDate);
   const forwardStartIdx = findForwardStartIndex(points, projectionStartDate);
 
+  // ── Pass 1: build modelPathValues (unchanged logic) ────────────────────────
   const modelPathValues: DecimalValueString[] = new Array(points.length);
   let annualBonusUsage = new Map<string, BonusAnnualUsage>();
 
@@ -251,9 +257,53 @@ export function enrichContributorTimePointsWithModelPath(
     }
   }
 
+  // ── Pass 2: projectedPortfolioAtRetirement for non-projected points ────────
+  // The as-of point's terminal value is the last modelPathValue (already computed).
+  // Each backfill point runs a fresh forward chain from its observed `value`.
+  const terminalValues: (DecimalValueString | undefined)[] = new Array(points.length);
+  const terminalModelPathValue = modelPathValues[points.length - 1];
+
+  for (let i = 0; i <= forwardStartIdx; i++) {
+    const point = points[i];
+    if (!point) continue;
+
+    if (i === forwardStartIdx) {
+      terminalValues[i] = terminalModelPathValue;
+      continue;
+    }
+
+    // Backfill point: simulate forward from this point's observed value to the end.
+    let runningValue: DecimalValueString = point.value;
+    let runningBonusUsage = new Map<string, BonusAnnualUsage>();
+
+    for (let j = i; j < points.length - 1; j++) {
+      const from = points[j];
+      const to = points[j + 1];
+      if (!from || !to) continue;
+      const step = stepInterval(
+        growthModel,
+        runningValue,
+        from.date,
+        to.date,
+        contributor,
+        config,
+        modifierChain,
+        projectionStartDate,
+        runningBonusUsage,
+      );
+      runningValue = step.endValue;
+      runningBonusUsage = step.annualBonusUsage;
+    }
+
+    terminalValues[i] = runningValue;
+  }
+
   return points.map((p, i) => ({
     ...p,
     modelPathValue: modelPathValues[i] ?? p.value,
+    ...(terminalValues[i] !== undefined
+      ? { projectedPortfolioAtRetirement: terminalValues[i] }
+      : {}),
   }));
 }
 

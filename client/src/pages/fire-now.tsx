@@ -29,6 +29,7 @@ import {
   FIRE_NOW_DEFAULT_LOOKBACK_INTERVALS,
 } from "@/hooks/use-fire-month-over-month-delta";
 import { useFireRetirementMonthsSoonerVsLookback } from "@/hooks/use-fire-retirement-lookback-delta";
+import { useFireProjectedRetirementDelta } from "@/hooks/use-fire-projected-retirement-delta";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
@@ -191,6 +192,9 @@ export default function Fire() {
   const retirementMonthsSoonerVsLookback =
     useFireRetirementMonthsSoonerVsLookback(baselineProjection);
 
+  const projectedRetirementValueDelta =
+    useFireProjectedRetirementDelta(baselineProjection);
+
   const snapshotLabel = useMemo(() => {
     const date =
       baselineProjection?.projectionResult.config.startDate ??
@@ -317,6 +321,7 @@ export default function Fire() {
                 }
                 onScenarioSelect={handleGrowthRateScenarioSelect}
                 onScenarioReset={handleGrowthRateScenarioReset}
+                projectedRetirementValueDelta={projectedRetirementValueDelta}
               />
             )}
             {fireSettingsForm && projectionForHero && (

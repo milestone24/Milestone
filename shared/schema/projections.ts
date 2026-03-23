@@ -415,6 +415,15 @@ export const projectionTimePointSchema = z.object({
    * First date at or after this index where `modelPathValue` >= milestone target (e.g. FIRE number); null if never in suffix.
    */
   projectedReachDate: dateTransformedSchema.nullable().optional(),
+  /**
+   * Aggregated portfolio `modelPathValue` at the projection end (retirement) point, as seen from this time point's
+   * starting state. Populated by the backward scan alongside `projectedReachDate`. Optional until enrichment runs.
+   */
+  projectedPortfolioAtRetirement: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Projected portfolio at retirement must be a valid decimal string",
+    })
+    .optional(),
 });
 export type ProjectionTimePoint = z.infer<typeof projectionTimePointSchema>;
 
