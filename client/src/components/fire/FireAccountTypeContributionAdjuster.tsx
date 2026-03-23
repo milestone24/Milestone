@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import type { FireProjection, FireProjectionData } from "@shared/schema/projections";
 import { getPreviewRetirementMonthsDelta } from "@/utils/fire-retirement-timeline-badges";
+import { FIRE_RETIREMENT_LOOKBACK_INTERVALS } from "@/hooks/use-fire-retirement-lookback-delta";
 
 // ============================================================================
 // COLOUR MAPS — reuse tokens already defined in FireHeroLegend
@@ -75,8 +76,8 @@ export type AccountTypeRowData = {
 type Props = {
   projection: FireProjection;
   baselineProjection: FireProjection | undefined;
-  /** Organic YTD vs calendar year start (months sooner = positive). Omit until supplied by API. */
-  yearToDateMonthsSooner?: number;
+  /** Baseline-only: months sooner vs lookback (e.g. 3 intervals); positive = retire sooner now. */
+  retirementMonthsSoonerVsLookback?: number;
   accountTypeRows: AccountTypeRowData[];
   offsets: Map<string, number>;
   onChangeOffset: (accountType: string, delta: number) => void;
@@ -318,7 +319,7 @@ function formatMonthsDeltaLabel(delta: number, suffix: string): string {
 export function FireAccountTypeContributionAdjuster({
   projection,
   baselineProjection,
-  yearToDateMonthsSooner,
+  retirementMonthsSoonerVsLookback,
   accountTypeRows,
   offsets,
   onChangeOffset,
@@ -390,17 +391,20 @@ export function FireAccountTypeContributionAdjuster({
             <span className="text-base font-semibold">When can I retire?</span>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1.5 max-w-[min(100%,14rem)] sm:max-w-none">
-            {yearToDateMonthsSooner !== undefined && (
+            {retirementMonthsSoonerVsLookback !== undefined && (
               <Badge
                 className={
-                  yearToDateMonthsSooner > 0
+                  retirementMonthsSoonerVsLookback > 0
                     ? "bg-emerald-500/15 text-emerald-500 border-0"
-                    : yearToDateMonthsSooner < 0
+                    : retirementMonthsSoonerVsLookback < 0
                       ? "bg-destructive/15 text-destructive border-0"
                       : "border-border bg-muted/50 text-muted-foreground"
                 }
               >
-                {formatMonthsDeltaLabel(yearToDateMonthsSooner, "this year")}
+                {formatMonthsDeltaLabel(
+                  retirementMonthsSoonerVsLookback,
+                  `vs ${FIRE_RETIREMENT_LOOKBACK_INTERVALS} months ago`,
+                )}
               </Badge>
             )}
             {previewMonthsDelta !== null && offsets.size > 0 && (

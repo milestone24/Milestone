@@ -27,6 +27,7 @@ import {
   useFireMonthOverMonthDelta,
   FIRE_NOW_DEFAULT_LOOKBACK_INTERVALS,
 } from "@/hooks/use-fire-month-over-month-delta";
+import { useFireRetirementMonthsSoonerVsLookback } from "@/hooks/use-fire-retirement-lookback-delta";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
@@ -186,6 +187,9 @@ export default function Fire() {
     FIRE_NOW_DEFAULT_LOOKBACK_INTERVALS
   );
 
+  const retirementMonthsSoonerVsLookback =
+    useFireRetirementMonthsSoonerVsLookback(baselineProjection);
+
   if (userStatus?.status === "unsatisfied") {
     return (
       <div className="fire-screen mx-auto max-w-5xl px-4 pb-20">
@@ -326,6 +330,9 @@ export default function Fire() {
               <FireAccountTypeContributionAdjuster
                 projection={activeProjection}
                 baselineProjection={baselineProjection}
+                retirementMonthsSoonerVsLookback={
+                  retirementMonthsSoonerVsLookback ?? undefined
+                }
                 accountTypeRows={accountTypeRows}
                 offsets={accountTypeOffsets ?? new Map()}
                 onChangeOffset={handleAccountTypeOffsetChange}
