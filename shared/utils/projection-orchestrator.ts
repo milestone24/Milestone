@@ -27,6 +27,8 @@ import {
   findTimePointAtOrBefore,
   extractAndSortDates,
 } from "./projection-utils";
+import { enrichContributorTimePointsWithModelPath } from "./projection-model-path";
+import type { SimpleProjectionConfigWithDateRange } from "@shared/schema/projections";
 import Decimal from "decimal.js";
 
 // ============================================================================
@@ -69,6 +71,16 @@ export async function projectSingleContributor(
       modifierChain,
     };
     result = generateSimpleProjection(input);
+    const simpleConfig = config as SimpleProjectionConfigWithDateRange;
+    result = {
+      ...result,
+      timePoints: enrichContributorTimePointsWithModelPath(result.timePoints, {
+        contributor: contribution,
+        config: simpleConfig,
+        modifierChain,
+        growthModel: simpleConfig.growthModel,
+      }),
+    };
   } else {
     throw new Error("Advanced projection not implemented");
   }
@@ -108,6 +120,8 @@ function aggregateContributionTimePoints(
     let totalBonuses = 0;
     let totalAccessibleValue = 0;
     let totalLockedValue = 0;
+    let totalModelPath = 0;
+    let hasModelPath = false;
     let hasProjected = false;
     let hasBonuses = false;
     let hasAccessible = false;
@@ -144,6 +158,13 @@ function aggregateContributionTimePoints(
             .toNumber();
           hasAccessible = true;
         }
+
+        if (point.modelPathValue) {
+          hasModelPath = true;
+          totalModelPath = Decimal(point.modelPathValue)
+            .add(totalModelPath)
+            .toNumber();
+        }
       }
     }
 
@@ -164,6 +185,13 @@ function aggregateContributionTimePoints(
         ? createDecimalValueString(Decimal(totalLockedValue).toString())
         : undefined,
       projectedValue: hasProjected,
+      ...(hasModelPath
+        ? {
+            modelPathValue: createDecimalValueString(
+              Decimal(totalModelPath).toString(),
+            ),
+          }
+        : {}),
     };
   });
 }

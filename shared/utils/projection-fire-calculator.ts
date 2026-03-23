@@ -30,6 +30,7 @@ import {
   defineStatePensionDetailsUK,
   calculateYearsToTarget,
 } from "./projection-utils";
+import { attachProjectedReachDates } from "./projection-model-path";
 import {
   defineStatePensionContributor,
   mapAssetsToContributors,
@@ -138,12 +139,22 @@ export async function projectToRetirement(
     addDateRengeToProjectionConfig(baseConfig, startDate, retirementDate);
 
   // Run portfolio projection
-  const projectionResult = await orchestrateProjection({
+  let projectionResult = await orchestrateProjection({
     contributors,
     config: fullProjectionConfig,
     dateOfBirth: fireConfig.dateOfBirth,
     //dataSource,
   });
+
+  if (projectionResult.timePoints.some((p) => p.modelPathValue != null)) {
+    projectionResult = {
+      ...projectionResult,
+      timePoints: attachProjectedReachDates(
+        projectionResult.timePoints,
+        fireNumber,
+      ),
+    };
+  }
 
   // Get projected value at retirement
   const projectedValueAtRetirement = projectionResult.totalProjectedValue;

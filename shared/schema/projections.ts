@@ -2,7 +2,7 @@
  * Projection schema: config, results, and supporting types for portfolio and FIRE projections.
  *
  * - **Config**: baseProjectionConfigSchema (interval, growthModel, seriesAlignment, backfillIntervals), simple/advanced mode, date range. Controls how the time series is generated (from_now vs calendar-aligned, backfill for MoM).
- * - **Time points**: ProjectionTimePoint (date, value, contributions, growth, accessible/locked). Date-based series; can be aggregated per contributor or portfolio-wide.
+ * - **Time points**: ProjectionTimePoint (date, value, optional modelPathValue / projectedReachDate for milestone timing, contributions, growth, accessible/locked). Date-based series; can be aggregated per contributor or portfolio-wide.
  * - **Results**: ProjectionResult (totals, timePoints, contributorBreakdown), FireProjection (FIRE number, retirement date/age, fireProjectionByTime/ByAge, withdrawal strategy).
  * - **Contributors**: Contributor (currentValue, schedules, valueReleases, bonusValues) and ContributorProjection (per-contributor time series).
  */
@@ -402,6 +402,19 @@ export const projectionTimePointSchema = z.object({
   appliedModifiers: z.record(z.number()).optional(),
   /** True if this point is projected; false if it comes from historical data (e.g. backfill). */
   projectedValue: z.boolean().default(true),
+  /**
+   * Coherent model path £ for milestone crossing / reach scan: backfill steps from prior **observed** `value`,
+   * snap to observed at as-of, forward chains prior `modelPathValue`. Optional until simple-mode enrichment runs.
+   */
+  modelPathValue: decimalValueSchema
+    .refine(isDecimalValueString, {
+      message: "Model path value must be a valid decimal string",
+    })
+    .optional(),
+  /**
+   * First date at or after this index where `modelPathValue` >= milestone target (e.g. FIRE number); null if never in suffix.
+   */
+  projectedReachDate: dateTransformedSchema.nullable().optional(),
 });
 export type ProjectionTimePoint = z.infer<typeof projectionTimePointSchema>;
 
