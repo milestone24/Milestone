@@ -48,12 +48,20 @@ export function FireNowStatus({
   const estimatedIncome = projectedAtRetirement * swr;
   const incomeDelta = estimatedIncome - desiredIncome;
 
+  const momDeltaValue =
+    monthOverMonthDelta == null ? null : Decimal(monthOverMonthDelta).toNumber();
+
   const momDeltaText =
-    monthOverMonthDelta === undefined
-      ? "↑ — vs last month"
-      : monthOverMonthDelta === null
-        ? "↑ — vs last month"
-        : formatMoMDelta(Decimal(monthOverMonthDelta).toNumber());
+    momDeltaValue === null
+      ? "— vs last month"
+      : formatMoMDelta(momDeltaValue);
+
+  const momDeltaColorClass =
+    momDeltaValue === null
+      ? "text-muted-foreground"
+      : momDeltaValue >= 0
+        ? "text-positive"
+        : "text-negative";
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -65,7 +73,7 @@ export function FireNowStatus({
           <div className="mt-3 text-[32px] font-semibold tracking-tight sm:text-[36px]">
             {formatGBP0(currentPortfolio)}
           </div>
-          <div className="mt-2 text-sm font-medium text-emerald-400">
+          <div className={`mt-2 text-sm font-medium ${momDeltaColorClass}`}>
             {momDeltaText}
           </div>
         </CardContent>
