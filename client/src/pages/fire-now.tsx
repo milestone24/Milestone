@@ -1,4 +1,5 @@
 import { useCallback, useDeferredValue, useMemo, useRef, useState } from "react";
+import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
@@ -190,6 +191,13 @@ export default function Fire() {
   const retirementMonthsSoonerVsLookback =
     useFireRetirementMonthsSoonerVsLookback(baselineProjection);
 
+  const snapshotLabel = useMemo(() => {
+    const date =
+      baselineProjection?.projectionResult.config.startDate ??
+      activeProjection?.projectionResult.config.startDate;
+    return date ? format(date, "MMMM yyyy") : null;
+  }, [baselineProjection, activeProjection]);
+
   if (userStatus?.status === "unsatisfied") {
     return (
       <div className="fire-screen mx-auto max-w-5xl px-4 pb-20">
@@ -246,17 +254,18 @@ export default function Fire() {
   return (
     <div className="fire-screen mx-auto max-w-5xl px-2 pb-20 md:px-4">
       <div className="flex w-full flex-col space-y-6">
-        <div className="flex items-start justify-between">
+        <div className="-mx-2 flex items-center justify-between bg-black px-4 py-3 md:-mx-4">
           <div>
-            <h2 className="text-lg font-semibold">FIRE Calculator</h2>
-            <p className="text-sm text-muted-foreground">
-              Plan your Financial Independence and Retire Early
-            </p>
+            <h2 className="text-xl font-bold text-white">
+              {snapshotLabel ?? "—"}
+            </h2>
+            <p className="text-sm text-zinc-400">Monthly snapshot</p>
           </div>
           <Button
             variant="ghost"
             size="icon"
             aria-label="Open FIRE settings"
+            className="text-white hover:bg-zinc-800 hover:text-white"
             onClick={() => setIsSettingsDialogOpen(true)}
           >
             <Settings className="h-4 w-4" />
