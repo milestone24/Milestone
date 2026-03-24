@@ -618,6 +618,8 @@ export const __updateAssetValuesChunked = async (
         jobId
       );
     }
+
+    console.log("AssetValuesUpdaterChunked END assetId=%s accountId=%s jobId=%s outcome=completed", assetId, accountId, jobId);
   } finally {
     await sessionPersistence.clearStagingForJob();
   }
@@ -671,7 +673,8 @@ export class AssetValuesUpdater extends EventEmitter<EmitEvents> {
         this.assetId
       );
       return __updateAssetValuesChunked(this.getUpdateContext(), sessionPersistence);
-    }).catch(() => {
+    }).catch((error) => {
+      console.error("Error updating asset values assetId=%s accountId=%s jobId=%s", this.assetId, this.accountId, this.jobId, error);
       this.emit("failed", emitData);
       this.emit("exited", emitData);
     });
