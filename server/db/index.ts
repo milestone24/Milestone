@@ -1,9 +1,10 @@
 import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
+//import { drizzle as drizzleNeonWebsockets } from "drizzle-orm/neon-websockets";
 import {
   drizzle as drizzleNodePostgres,
   NodePgDatabase,
 } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import { Client as PgClient, Pool } from "pg";
 import ws from "ws";
 import * as schema from "./schema/index";
 import { sql } from "drizzle-orm";
@@ -30,6 +31,76 @@ class MyLogWriter implements LogWriter {
 }
 const logger = new DefaultLogger({ writer: new MyLogWriter() });
 
+type EndpointKind =
+  | "local"
+  | "neon-direct"
+  | "neon-pooler"
+  | "pooled-url"
+  | "unknown";
+type ConnectionMode = "direct" | "pooled" | "unsupported";
+
+interface DbRuntime {
+  endpointKind: EndpointKind;
+  connectionMode: ConnectionMode;
+  supportsTransactions: boolean;
+  supportsSessionConnection: boolean;
+}
+
+interface DatabaseConnection {
+  db: Database;
+  isLocalDb: boolean;
+  runtime: DbRuntime;
+  acquirePooledSessionClient: (() => Promise<PgClient>) | null;
+  acquireDirectSessionClient: (() => Promise<PgClient>) | null;
+}
+
+function tryBuildDirectSessionUrlFromPooler(databaseUrl: string): string | null {
+  try {
+    const parsed = new URL(databaseUrl);
+    const host = parsed.hostname.toLowerCase();
+    if (!host.includes("neon.tech") || !host.includes("-pooler.")) {
+      return null;
+    }
+
+    // Neon pooler host: ep-<id>-pooler.<region>.aws.neon.tech
+    // Direct host:      ep-<id>.<region>.aws.neon.tech
+    parsed.hostname = host.replace("-pooler.", ".");
+
+    // Strip pooling hints for the direct-session path.
+    parsed.searchParams.delete("pgbouncer");
+    parsed.searchParams.delete("pool_mode");
+
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function resolveEndpointKind(databaseUrl: string): EndpointKind {
+  try {
+    const parsed = new URL(databaseUrl);
+    const host = parsed.hostname.toLowerCase();
+    const pgbouncerHint =
+      parsed.searchParams.get("pgbouncer")?.toLowerCase() === "true";
+    const poolMode = parsed.searchParams.get("pool_mode")?.toLowerCase();
+    const pooledUrlHint =
+      pgbouncerHint || poolMode === "transaction" || poolMode === "statement";
+
+    if (host.includes("localhost") || host.includes("127.0.0.1")) {
+      return "local";
+    }
+    if (host.includes("neon.tech")) {
+      return host.includes("-pooler.") ? "neon-pooler" : "neon-direct";
+    }
+    if (pooledUrlHint) {
+      return "pooled-url";
+    }
+    return "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 export function createDatabaseConnection() {
   const databaseUrl = process.env.DATABASE_URL;
 
@@ -39,10 +110,16 @@ export function createDatabaseConnection() {
     );
   }
 
-  // Check if we're using a local Neon database
-  const isLocalDb = /127.0.0.1|localhost/.test(databaseUrl);
+  const endpointKind = resolveEndpointKind(databaseUrl);
+  const isLocalDb = endpointKind === "local";
+  const isSessionUnsafeEndpoint =
+    endpointKind === "neon-pooler" || endpointKind === "pooled-url";
+  const rewrittenDirectSessionUrl = tryBuildDirectSessionUrlFromPooler(databaseUrl);
+  const canUseDirectRewriteForSessions =
+    endpointKind === "neon-pooler" && !!rewrittenDirectSessionUrl;
 
-  const db = isLocalDb
+  // Primary app db instance. Keep existing runtime behavior for non-local path.
+  const db = (isLocalDb
     ? drizzleNodePostgres({
         connection: databaseUrl,
         schema,
@@ -54,21 +131,75 @@ export function createDatabaseConnection() {
         schema,
         //logger,
         ws: ws,
-        // poolConfig: {
-        //   maxConns: 5,
-        //   maxIdleTimeMs: 30000,
-        //   connectionTimeoutMs: 10000
-        // }
-      });
+      })) as Database;
+
+  // Session factories are explicit and typed to avoid fragile internal casts.
+  // For pooler endpoints we intentionally disable session-scoped usage:
+  // temp tables require session affinity that pooler endpoints generally do not guarantee.
+  const runtime: DbRuntime = {
+    endpointKind,
+    connectionMode: isSessionUnsafeEndpoint
+      ? "unsupported"
+      : isLocalDb
+        ? "pooled"
+        : "direct",
+    supportsTransactions: true,
+    supportsSessionConnection:
+      !isSessionUnsafeEndpoint || canUseDirectRewriteForSessions,
+  };
+
+  const localSessionPool = isLocalDb
+    ? new Pool({
+        connectionString: databaseUrl,
+      })
+    : null;
+
+  const acquirePooledSessionClient =
+    runtime.connectionMode === "pooled" && localSessionPool
+      ? async () => {
+          return await localSessionPool.connect();
+        }
+      : null;
+
+  const directSessionConnectionString =
+    canUseDirectRewriteForSessions && rewrittenDirectSessionUrl
+      ? rewrittenDirectSessionUrl
+      : !isSessionUnsafeEndpoint
+        ? databaseUrl
+        : null;
+
+  const acquireDirectSessionClient = !isLocalDb && directSessionConnectionString
+    ? async () => {
+        const client = new PgClient({
+          connectionString: directSessionConnectionString,
+        });
+        await client.connect();
+        return client;
+      }
+    : null;
+
+  info(
+    `DB runtime resolved endpointKind=${runtime.endpointKind} connectionMode=${runtime.connectionMode} supportsTransactions=${runtime.supportsTransactions} supportsSessionConnection=${runtime.supportsSessionConnection}`
+  );
 
   return {
     db,
     isLocalDb,
+    runtime,
+    acquirePooledSessionClient,
+    acquireDirectSessionClient,
   };
 }
 
 // Create a singleton instance
-const { db, isLocalDb } = createDatabaseConnection();
+const {
+  db,
+  isLocalDb,
+  runtime,
+  acquirePooledSessionClient,
+  acquireDirectSessionClient,
+} =
+  createDatabaseConnection();
 
 const ping = async () => {
   console.log("Pinging database...");
@@ -77,6 +208,7 @@ const ping = async () => {
 };
 
 export { db, isLocalDb, ping };
+export const dbRuntime = runtime;
 
 /**
  * Runs a callback with a single database connection (session) from the pool.
@@ -94,22 +226,67 @@ export { db, isLocalDb, ping };
 export async function withConnection<T>(
   callback: (sessionDb: Database) => Promise<T>
 ): Promise<T> {
-  if (!isLocalDb) {
+  if (!runtime.supportsSessionConnection) {
     throw new Error(
-      "withConnection (session-scoped connection) is not supported for Neon driver; use a staging table or run with local DB for temp-table support."
+      `withConnection is not supported for this DB runtime (endpointKind=${runtime.endpointKind}, connectionMode=${runtime.connectionMode}). Temp-table workflows require a session-capable direct or pooled connection.`
     );
   }
-  const pool = (db as unknown as { $client: Pool }).$client;
-  const client = await pool.connect();
-  try {
-    const sessionDb = drizzleNodePostgres({
-      client,
-      schema,
-    }) as Database;
-    return await callback(sessionDb);
-  } finally {
-    client.release();
+
+  // If runtime mode is marked unsupported for the primary db path, but we have
+  // an explicit direct-session acquisition path (e.g. Neon pooler -> rewritten direct URL),
+  // use that path for temp-table-safe workflows.
+  if (acquireDirectSessionClient && runtime.connectionMode === "unsupported") {
+    const client = await acquireDirectSessionClient();
+    try {
+      const sessionDb = drizzleNodePostgres({
+        client,
+        schema,
+      }) as Database;
+      return await callback(sessionDb);
+    } finally {
+      await client.end();
+    }
   }
+
+  if (runtime.connectionMode === "pooled") {
+    if (!acquirePooledSessionClient) {
+      throw new Error(
+        "withConnection pooled path misconfigured: session client acquisition is unavailable."
+      );
+    }
+    const client = await acquirePooledSessionClient();
+    try {
+      const sessionDb = drizzleNodePostgres({
+        client,
+        schema,
+      }) as Database;
+      return await callback(sessionDb);
+    } finally {
+      client.release();
+    }
+  }
+
+  if (runtime.connectionMode === "direct") {
+    if (!acquireDirectSessionClient) {
+      throw new Error(
+        "withConnection direct path misconfigured: session client acquisition is unavailable."
+      );
+    }
+    const client = await acquireDirectSessionClient();
+    try {
+      const sessionDb = drizzleNodePostgres({
+        client,
+        schema,
+      }) as Database;
+      return await callback(sessionDb);
+    } finally {
+      await client.end();
+    }
+  }
+
+  throw new Error(
+    `withConnection unsupported runtime path (endpointKind=${runtime.endpointKind}, connectionMode=${runtime.connectionMode}).`
+  );
 }
 
 //export type Database = typeof db;
