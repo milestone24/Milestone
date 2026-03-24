@@ -1065,4 +1065,6 @@ export type ProjectionOrchestratorInput = {
   dateOfBirth?: Date;
   /** When provided, progress toward this milestone is computed and attached to the result. */
   milestoneTarget?: MilestoneTarget;
+  /** Abstract target portfolio value. When provided, projectedReachDate is computed on each time point (with beyond-window extrapolation if needed). No milestone or DB concepts — purely a value to reach. */
+  targetValue?: DecimalValueString;
 };

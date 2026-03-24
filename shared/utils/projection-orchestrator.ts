@@ -9,14 +9,17 @@ import {
   Contributor,
   ContributorProjection,
   ComputationContext,
+  AdvancedProjectionConfigWithDateRange,
 } from "@shared/schema/projections";
 import {
   AccountType,
   createDecimalValueString,
+  DecimalValueString,
 } from "@shared/schema";
 import {
   createModifierChain,
   unifyModifiersForContributor,
+  getModifiersAsGlobalList,
 } from "@shared/utils/projection-modifiers";
 import {
   generateSimpleProjection,
@@ -26,10 +29,15 @@ import {
 import {
   findTimePointAtOrBefore,
   extractAndSortDates,
+  calculateYearsToTarget,
 } from "./projection-utils";
-import { enrichContributorTimePointsWithModelPath } from "./projection-model-path";
+import {
+  enrichContributorTimePointsWithModelPath,
+  attachProjectedReachDates,
+} from "./projection-model-path";
 import type { SimpleProjectionConfigWithDateRange } from "@shared/schema/projections";
 import Decimal from "decimal.js";
+import { addYears } from "date-fns";
 
 // ============================================================================
 // PROJECTION ORCHESTRATOR
@@ -270,6 +278,74 @@ function calculateMilestoneProgress(
 }
 
 // ============================================================================
+// REACH DATE EXTRAPOLATION
+// ============================================================================
+
+/**
+ * For non-projected time points that still have a null projectedReachDate after the
+ * within-window backward scan, extrapolates beyond the projection window using each
+ * point's projectedPortfolioAtRetirement value and calculateYearsToTarget.
+ */
+function extrapolateReachDatesForPoints(
+  points: ProjectionTimePoint[],
+  targetValue: DecimalValueString,
+  contributors: Contributor[],
+  config: ProjectionConfigWithDateRange,
+): ProjectionTimePoint[] {
+  const nonProjectedPoints = points.filter((p) => !p.projectedValue);
+  const needsExtrapolation = nonProjectedPoints.some(
+    (p) => p.projectedReachDate === null && p.projectedPortfolioAtRetirement != null,
+  );
+
+  if (!needsExtrapolation) {
+    return points;
+  }
+
+  const growthRate =
+    config.mode === "simple"
+      ? (config as SimpleProjectionConfigWithDateRange).growthRate
+      : (config as AdvancedProjectionConfigWithDateRange).anticipatedGrowthRate ?? 7;
+
+  const modifierChain = createModifierChain(
+    getModifiersAsGlobalList(config.modifiers),
+  );
+
+  const contributorsForProjection = contributors.filter(
+    (c) => c.includeContributions,
+  );
+
+  const endDate = config.endDate;
+
+  return points.map((p) => {
+    if (
+      p.projectedValue ||
+      p.projectedReachDate !== null ||
+      p.projectedPortfolioAtRetirement == null
+    ) {
+      return p;
+    }
+
+    const extraYears = calculateYearsToTarget(
+      p.projectedPortfolioAtRetirement,
+      contributorsForProjection,
+      growthRate,
+      targetValue,
+      modifierChain,
+      { startDate: endDate, maxYears: 100 },
+    );
+
+    if (extraYears === Infinity) {
+      return p;
+    }
+
+    return {
+      ...p,
+      projectedReachDate: addYears(endDate, extraYears),
+    };
+  });
+}
+
+// ============================================================================
 // MAIN ORCHESTRATOR FUNCTION
 // ============================================================================
 
@@ -280,7 +356,7 @@ export async function orchestrateProjection(
   input: ProjectionOrchestratorInput
   //dataSource: ProjectionDataSource
 ): Promise<ProjectionOrchestratorResult> {
-  const { contributors, config, milestoneTarget, dateOfBirth } = input;
+  const { contributors, config, milestoneTarget, dateOfBirth, targetValue } = input;
 
   let contributorsToProject = contributors
     .filter((contributor) => contributor.includeContributions);
@@ -362,6 +438,17 @@ export async function orchestrateProjection(
     result.milestoneProgress = [
       calculateMilestoneProgress(result, milestoneTarget),
     ];
+  }
+
+  // Attach projected reach dates when a target value is provided
+  if (targetValue) {
+    result.timePoints = attachProjectedReachDates(result.timePoints, targetValue);
+    result.timePoints = extrapolateReachDatesForPoints(
+      result.timePoints,
+      targetValue,
+      contributors,
+      config,
+    );
   }
 
   return result;
