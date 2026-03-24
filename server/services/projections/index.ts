@@ -11,6 +11,7 @@ import {
   FireProjection,
   FIREProjectionConfig,
   MilestoneTarget,
+  ProjectionInterval,
   ProjectionConfigWithDateRange,
   ProjectionDataSource,
   ProjectionResult,
@@ -40,7 +41,77 @@ import { mapAssetsToContributors } from "@shared/utils/projection-utils-contribu
 
 export type AssetWithRecurringContributions = UserAssetWithValue & {
   recurringContributions: RecurringContribution[];
+  platformName?: string;
 };
+
+type AssetValueHistorySlot = {
+  slotDate: Date;
+  value: string;
+  sourceValueDate: Date;
+  sourceType: "exact" | "carried_forward";
+  assetValueId?: string;
+};
+
+/**
+ * Align a date to the interval boundary used by projection grid generation.
+ * Important: weekly currently aligns to month start to match existing `getProjectionGridDates` behaviour.
+ */
+function alignToIntervalBoundary(date: Date, interval: ProjectionInterval): Date {
+  switch (interval) {
+    case "daily":
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    case "weekly":
+    case "monthly":
+      return new Date(date.getFullYear(), date.getMonth(), 1);
+    case "yearly":
+      return new Date(date.getFullYear(), 0, 1);
+    default:
+      return new Date(date.getFullYear(), date.getMonth(), 1);
+  }
+}
+
+/**
+ * Move one interval backwards from a boundary date.
+ * Used to build deterministic, bounded slot windows ending at current interval boundary.
+ */
+function decrementInterval(date: Date, interval: ProjectionInterval): Date {
+  const d = new Date(date);
+  switch (interval) {
+    case "daily":
+      d.setDate(d.getDate() - 1);
+      return d;
+    case "weekly":
+      d.setDate(d.getDate() - 7);
+      return d;
+    case "monthly":
+      return new Date(d.getFullYear(), d.getMonth() - 1, 1);
+    case "yearly":
+      return new Date(d.getFullYear() - 1, 0, 1);
+    default:
+      return d;
+  }
+}
+
+/**
+ * Build ordered slot dates for historical lookup.
+ * Slots are oldest -> newest and bounded by `maxIntervals`.
+ */
+function buildHistorySlots(
+  interval: ProjectionInterval,
+  maxIntervals: number
+): Date[] {
+  const safeMax = Math.max(0, Math.floor(maxIntervals));
+  if (safeMax === 0) return [];
+  const now = new Date();
+  const end = alignToIntervalBoundary(now, interval);
+  const slots: Date[] = [];
+  let cursor = new Date(end);
+  for (let i = 0; i < safeMax; i++) {
+    slots.push(new Date(cursor));
+    cursor = decrementInterval(cursor, interval);
+  }
+  return slots.reverse();
+}
 
 export const mapAssetsWithRecurringContributions = (
   rows: {
@@ -57,6 +128,10 @@ export const mapAssetsWithRecurringContributions = (
     } else {
       acc.push({
         ...row.asset,
+        platformName:
+          "platformName" in row.asset
+            ? (((row.asset as any).platformName ?? undefined) as string | undefined)
+            : undefined,
         recurringContributions: row.recurringContribution
           ? [row.recurringContribution]
           : [],
@@ -114,6 +189,112 @@ const defineDataSource = (
   return {
     getAssets: () =>
       assetsQuery.execute().then(mapAssetsWithRecurringContributions),
+    /**
+     * Return current assets plus bounded history slots used for projection backfill.
+     *
+     * Traceability model for each slot:
+     * - slotDate: requested slot boundary
+     * - sourceValueDate: actual asset_values date selected (<= slotDate)
+     * - sourceType: exact | carried_forward
+     * - assetValueId: selected row id (when available)
+     */
+    getAssetsWithHistory: async ({ interval, maxIntervals }) => {
+      const assets = await assetsQuery
+        .execute()
+        .then(mapAssetsWithRecurringContributions);
+
+      const slots = buildHistorySlots(interval, maxIntervals);
+      if (assets.length === 0 || slots.length === 0) {
+        return assets;
+      }
+
+      const assetIds = assets.map((asset) => asset.id);
+      const latestSlotDate = slots[slots.length - 1];
+
+      const values = await db
+        .select({
+          id: assetValues.id,
+          assetId: assetValues.assetId,
+          value: assetValues.value,
+          valueDate: assetValues.valueDate,
+        })
+        .from(assetValues)
+        .where(
+          and(
+            inArray(assetValues.assetId, assetIds),
+            sql`${assetValues.valueDate} <= ${latestSlotDate}`
+          )
+        )
+        .orderBy(assetValues.assetId, assetValues.valueDate);
+
+      const valueRowsByAsset = values.reduce<
+        Record<
+          string,
+          {
+            id: string;
+            value: string;
+            valueDate: Date;
+          }[]
+        >
+      >((acc, row) => {
+        if (!acc[row.assetId]) {
+          acc[row.assetId] = [];
+        }
+        acc[row.assetId]?.push({
+          id: row.id,
+          value: row.value,
+          valueDate: row.valueDate,
+        });
+        return acc;
+      }, {});
+
+      return assets.map((asset) => {
+        const rows = valueRowsByAsset[asset.id] ?? [];
+        let sourceCursor = 0;
+        let latestEligible:
+          | {
+              id: string;
+              value: string;
+              valueDate: Date;
+            }
+          | undefined;
+
+        const valueHistory: AssetValueHistorySlot[] = [];
+        for (const slotDate of slots) {
+          // Advance cursor to the latest value at/before this slot.
+          while (
+            sourceCursor < rows.length &&
+            rows[sourceCursor] != null &&
+            rows[sourceCursor]!.valueDate <= slotDate
+          ) {
+            latestEligible = rows[sourceCursor];
+            sourceCursor += 1;
+          }
+
+          // No source before this slot means this asset has no resolvable historical value for this slot.
+          if (!latestEligible) {
+            continue;
+          }
+
+          const sourceValueDate = new Date(latestEligible.valueDate);
+          valueHistory.push({
+            slotDate: new Date(slotDate),
+            value: latestEligible.value,
+            sourceValueDate,
+            sourceType:
+              sourceValueDate.getTime() === slotDate.getTime()
+                ? "exact"
+                : "carried_forward",
+            assetValueId: latestEligible.id,
+          });
+        }
+
+        return {
+          ...asset,
+          valueHistory,
+        };
+      });
+    },
     getAssetById: (assetId) =>
       assetQuery(assetId)
         .execute()

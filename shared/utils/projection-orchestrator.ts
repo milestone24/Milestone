@@ -9,14 +9,17 @@ import {
   Contributor,
   ContributorProjection,
   ComputationContext,
+  AdvancedProjectionConfigWithDateRange,
 } from "@shared/schema/projections";
 import {
   AccountType,
   createDecimalValueString,
+  DecimalValueString,
 } from "@shared/schema";
 import {
   createModifierChain,
   unifyModifiersForContributor,
+  getModifiersAsGlobalList,
 } from "@shared/utils/projection-modifiers";
 import {
   generateSimpleProjection,
@@ -26,8 +29,15 @@ import {
 import {
   findTimePointAtOrBefore,
   extractAndSortDates,
+  calculateYearsToTarget,
 } from "./projection-utils";
+import {
+  enrichContributorTimePointsWithModelPath,
+  attachProjectedReachDates,
+} from "./projection-model-path";
+import type { SimpleProjectionConfigWithDateRange } from "@shared/schema/projections";
 import Decimal from "decimal.js";
+import { addMonths } from "date-fns";
 
 // ============================================================================
 // PROJECTION ORCHESTRATOR
@@ -69,6 +79,16 @@ export async function projectSingleContributor(
       modifierChain,
     };
     result = generateSimpleProjection(input);
+    const simpleConfig = config as SimpleProjectionConfigWithDateRange;
+    result = {
+      ...result,
+      timePoints: enrichContributorTimePointsWithModelPath(result.timePoints, {
+        contributor: contribution,
+        config: simpleConfig,
+        modifierChain,
+        growthModel: simpleConfig.growthModel,
+      }),
+    };
   } else {
     throw new Error("Advanced projection not implemented");
   }
@@ -76,6 +96,7 @@ export async function projectSingleContributor(
   return {
     contributorReferenceId: contribution.referenceId,
     contributorName: contribution.name,
+    platformName: contribution.platformName,
     accountType: contribution.accountType,
     currentValue: contribution.currentValue,
     projectedEndValue: result.finalValue,
@@ -107,6 +128,10 @@ function aggregateContributionTimePoints(
     let totalBonuses = 0;
     let totalAccessibleValue = 0;
     let totalLockedValue = 0;
+    let totalModelPath = 0;
+    let hasModelPath = false;
+    let totalTerminalValue = 0;
+    let hasTerminalValue = false;
     let hasProjected = false;
     let hasBonuses = false;
     let hasAccessible = false;
@@ -143,6 +168,20 @@ function aggregateContributionTimePoints(
             .toNumber();
           hasAccessible = true;
         }
+
+        if (point.modelPathValue) {
+          hasModelPath = true;
+          totalModelPath = Decimal(point.modelPathValue)
+            .add(totalModelPath)
+            .toNumber();
+        }
+
+        if (point.projectedPortfolioAtRetirement) {
+          hasTerminalValue = true;
+          totalTerminalValue = Decimal(point.projectedPortfolioAtRetirement)
+            .add(totalTerminalValue)
+            .toNumber();
+        }
       }
     }
 
@@ -163,6 +202,20 @@ function aggregateContributionTimePoints(
         ? createDecimalValueString(Decimal(totalLockedValue).toString())
         : undefined,
       projectedValue: hasProjected,
+      ...(hasModelPath
+        ? {
+            modelPathValue: createDecimalValueString(
+              Decimal(totalModelPath).toString(),
+            ),
+          }
+        : {}),
+      ...(hasTerminalValue
+        ? {
+            projectedPortfolioAtRetirement: createDecimalValueString(
+              Decimal(totalTerminalValue).toString(),
+            ),
+          }
+        : {}),
     };
   });
 }
@@ -225,6 +278,65 @@ function calculateMilestoneProgress(
 }
 
 // ============================================================================
+// REACH DATE EXTRAPOLATION
+// ============================================================================
+
+/**
+ * Computes an independent projectedReachDate for every non-projected (backfill/as-of)
+ * time point by running calculateYearsToTarget from that point's own portfolio value
+ * and date. This gives each historical point a counterfactual retirement date —
+ * "if the portfolio had started here, when would it reach the target?" — which is
+ * required for meaningful lookback comparisons (e.g. "retire sooner vs 3 months ago").
+ *
+ * This overwrites any projectedReachDate already set by the within-window backward
+ * scan on non-projected points, since that scan answers a different question
+ * (it propagates the same model-path crossing date to all earlier points).
+ */
+function computeReachDatesForNonProjectedPoints(
+  points: ProjectionTimePoint[],
+  targetValue: DecimalValueString,
+  contributors: Contributor[],
+  config: ProjectionConfigWithDateRange,
+): ProjectionTimePoint[] {
+  const growthRate =
+    config.mode === "simple"
+      ? (config as SimpleProjectionConfigWithDateRange).growthRate
+      : (config as AdvancedProjectionConfigWithDateRange).anticipatedGrowthRate ?? 7;
+
+  const modifierChain = createModifierChain(
+    getModifiersAsGlobalList(config.modifiers),
+  );
+
+  const contributorsForProjection = contributors.filter(
+    (c) => c.includeContributions,
+  );
+
+  return points.map((p) => {
+    if (p.projectedValue) {
+      return p;
+    }
+
+    const yearsToTarget = calculateYearsToTarget(
+      p.value,
+      contributorsForProjection,
+      growthRate,
+      targetValue,
+      modifierChain,
+      { startDate: p.date, maxYears: 100 },
+    );
+
+    if (yearsToTarget === Infinity) {
+      return p;
+    }
+
+    return {
+      ...p,
+      projectedReachDate: addMonths(p.date, Math.round(yearsToTarget * 12)),
+    };
+  });
+}
+
+// ============================================================================
 // MAIN ORCHESTRATOR FUNCTION
 // ============================================================================
 
@@ -235,7 +347,7 @@ export async function orchestrateProjection(
   input: ProjectionOrchestratorInput
   //dataSource: ProjectionDataSource
 ): Promise<ProjectionOrchestratorResult> {
-  const { contributors, config, milestoneTarget, dateOfBirth } = input;
+  const { contributors, config, milestoneTarget, dateOfBirth, targetValue } = input;
 
   let contributorsToProject = contributors
     .filter((contributor) => contributor.includeContributions);
@@ -317,6 +429,20 @@ export async function orchestrateProjection(
     result.milestoneProgress = [
       calculateMilestoneProgress(result, milestoneTarget),
     ];
+  }
+
+  // Attach projected reach dates when a target value is provided.
+  // Forward-projected points use the within-window backward scan.
+  // Non-projected (backfill/as-of) points get an independent counterfactual
+  // reach date computed from their own portfolio value and date.
+  if (targetValue) {
+    result.timePoints = attachProjectedReachDates(result.timePoints, targetValue);
+    result.timePoints = computeReachDatesForNonProjectedPoints(
+      result.timePoints,
+      targetValue,
+      contributors,
+      config,
+    );
   }
 
   return result;

@@ -11,7 +11,7 @@ const ACCOUNT_TYPE_COLOR_VAR: Record<string, string> = {
   LISA: "--color-lisa",
   GIA: "--color-gia",
   OTHER: "--color-other",
-  PENSION: "--color-sipp",
+  PENSION: "--color-pension",
 };
 
 const FALLBACK_COLOR_VAR = "--color-primary";

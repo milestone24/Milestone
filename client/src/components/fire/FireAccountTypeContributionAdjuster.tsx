@@ -12,6 +12,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { FireProjection, FireProjectionData } from "@shared/schema/projections";
+import { getPreviewRetirementMonthsDelta } from "@/utils/fire-retirement-timeline-badges";
+import { FIRE_RETIREMENT_LOOKBACK_INTERVALS } from "@/hooks/use-fire-retirement-lookback-delta";
 
 // ============================================================================
 // COLOUR MAPS — reuse tokens already defined in FireHeroLegend
@@ -23,7 +25,7 @@ const ACCOUNT_TYPE_BG: Record<string, string> = {
   LISA: "bg-lisa",
   GIA: "bg-gia",
   OTHER: "bg-other",
-  PENSION: "bg-sipp",
+  PENSION: "bg-pension",
 };
 
 const ACCOUNT_TYPE_TEXT: Record<string, string> = {
@@ -32,7 +34,7 @@ const ACCOUNT_TYPE_TEXT: Record<string, string> = {
   LISA: "text-lisa",
   GIA: "text-gia",
   OTHER: "text-other",
-  PENSION: "text-sipp",
+  PENSION: "text-pension",
 };
 
 const FALLBACK_BG = "bg-primary";
@@ -74,6 +76,8 @@ export type AccountTypeRowData = {
 type Props = {
   projection: FireProjection;
   baselineProjection: FireProjection | undefined;
+  /** Baseline-only: months sooner vs lookback (e.g. 3 intervals); positive = retire sooner now. */
+  retirementMonthsSoonerVsLookback?: number;
   accountTypeRows: AccountTypeRowData[];
   offsets: Map<string, number>;
   onChangeOffset: (accountType: string, delta: number) => void;
@@ -300,9 +304,22 @@ function AccountTypeRow({ row, currentValue, onChangeValue }: AccountTypeRowProp
 // MAIN COMPONENT
 // ============================================================================
 
+function formatMonthsDeltaLabel(delta: number, suffix: string): string {
+  const abs = Math.abs(delta);
+  const unit = abs === 1 ? "month" : "months";
+  if (delta > 0) {
+    return `▲ ${abs} ${unit} sooner ${suffix}`;
+  }
+  if (delta < 0) {
+    return `▼ ${abs} ${unit} later ${suffix}`;
+  }
+  return `No change ${suffix}`;
+}
+
 export function FireAccountTypeContributionAdjuster({
   projection,
   baselineProjection,
+  retirementMonthsSoonerVsLookback,
   accountTypeRows,
   offsets,
   onChangeOffset,
@@ -312,19 +329,10 @@ export function FireAccountTypeContributionAdjuster({
 
   const projectedAge = projection.projectedRetirementAge;
 
-  // Delta between baseline and preview projection in months (rounded)
-  const monthsDelta = useMemo(() => {
-    if (
-      !baselineProjection?.projectedRetirementAge ||
-      !projectedAge ||
-      offsets.size === 0
-    ) {
-      return null;
-    }
-    return Math.round(
-      (baselineProjection.projectedRetirementAge - projectedAge) * 12
-    );
-  }, [baselineProjection, projectedAge, offsets]);
+  const previewMonthsDelta = useMemo(() => {
+    if (offsets.size === 0 || !baselineProjection) return null;
+    return getPreviewRetirementMonthsDelta(baselineProjection, projection);
+  }, [baselineProjection, projection, offsets]);
 
   const total = useMemo(() => {
     return accountTypeRows.reduce((sum, row) => {
@@ -338,10 +346,10 @@ export function FireAccountTypeContributionAdjuster({
   const suggestionContent = useMemo(() => {
     if (projectedAge === null) return null;
 
-    const diff = projection.monthlyContributionDifference;
-    const needed = diff ? Number(diff.monthlyContributionDifference) : 0;
+    const { targetRetirementAge, yearsAheadOrBehind } = projection;
+    const isOnTrack = projectedAge <= targetRetirementAge;
 
-    if (needed <= 0) {
+    if (isOnTrack) {
       return (
         <>
           You're on track to retire at <strong>age {projectedAge}</strong> 🦉
@@ -349,22 +357,33 @@ export function FireAccountTypeContributionAdjuster({
       );
     }
 
+    const yearsLabel = Math.abs(yearsAheadOrBehind) === 1 ? "year" : "years";
+    const behindSummary = (
+      <>
+        You're projected to retire at <strong>age {projectedAge}</strong> —{" "}
+        {Math.abs(yearsAheadOrBehind)} {yearsLabel} behind your target of{" "}
+        <strong>{targetRetirementAge}</strong>.
+      </>
+    );
+
+    const diff = projection.monthlyContributionDifference;
+    const needed = diff ? Number(diff.monthlyContributionDifference) : 0;
+
     const suggestRow = accountTypeRows.find((r) => r.contributorsWithSchedules > 0);
     if (suggestRow) {
       const amount = Math.ceil(Math.abs(needed) / 25) * 25;
       return (
         <>
-          You're on track to retire at <strong>age {projectedAge}</strong> 🦉 Add{" "}
-          {formatGBP(amount)}/month to your {suggestRow.accountType} and you could get
-          there <strong>sooner</strong>. Test different contributions below.
+          {behindSummary} Add {formatGBP(amount)}/month to your {suggestRow.accountType}{" "}
+          and you could get there <strong>sooner</strong>. Test different contributions
+          below.
         </>
       );
     }
 
     return (
       <>
-        You're on track to retire at <strong>age {projectedAge}</strong> 🦉 Test
-        different contributions below.
+        {behindSummary} Test different contributions below.
       </>
     );
   }, [projection, projectedAge, accountTypeRows]);
@@ -382,19 +401,43 @@ export function FireAccountTypeContributionAdjuster({
             </div>
             <span className="text-base font-semibold">When can I retire?</span>
           </div>
-          {monthsDelta !== null && (
-            <Badge
-              className={
-                monthsDelta > 0
-                  ? "bg-emerald-500/15 text-emerald-500 border-0"
-                  : "bg-destructive/15 text-destructive border-0"
-              }
-            >
-              {monthsDelta > 0
-                ? `▲ ${monthsDelta} month${monthsDelta === 1 ? "" : "s"} sooner`
-                : `▼ ${Math.abs(monthsDelta)} month${Math.abs(monthsDelta) === 1 ? "" : "s"} later`}
-            </Badge>
-          )}
+          <div className="flex flex-wrap items-center justify-end gap-1.5 max-w-[min(100%,14rem)] sm:max-w-none">
+            {retirementMonthsSoonerVsLookback !== undefined && (
+              <Badge
+                className={
+                  retirementMonthsSoonerVsLookback > 0
+                    ? "bg-emerald-500/15 text-emerald-500 border-0"
+                    : retirementMonthsSoonerVsLookback < 0
+                      ? "bg-destructive/15 text-destructive border-0"
+                      : "border-border bg-muted/50 text-muted-foreground"
+                }
+              >
+                {formatMonthsDeltaLabel(
+                  retirementMonthsSoonerVsLookback,
+                  `vs ${FIRE_RETIREMENT_LOOKBACK_INTERVALS} months ago`,
+                )}
+              </Badge>
+            )}
+            {previewMonthsDelta !== null && offsets.size > 0 && (
+              <Badge
+                variant="outline"
+                className={
+                  previewMonthsDelta > 0
+                    ? "text-emerald-600 border-emerald-500/40"
+                    : previewMonthsDelta < 0
+                      ? "text-destructive border-destructive/40"
+                      : "text-muted-foreground"
+                }
+              >
+                Preview ·{" "}
+                {previewMonthsDelta === 0
+                  ? "no change vs plan"
+                  : previewMonthsDelta > 0
+                    ? `▲ ${previewMonthsDelta} month${previewMonthsDelta === 1 ? "" : "s"} sooner`
+                    : `▼ ${Math.abs(previewMonthsDelta)} month${Math.abs(previewMonthsDelta) === 1 ? "" : "s"} later`}
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* Age + sparkline */}

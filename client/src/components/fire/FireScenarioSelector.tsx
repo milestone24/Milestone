@@ -8,14 +8,15 @@ import {
 } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
+import { GrowthRateScenario } from "@/hooks/use-fire";
 
-export type FireScenario = "pessimistic" | "base" | "optimistic" | "custom";
+// export type FireScenario = "pessimistic" | "base" | "optimistic" | "custom";
 
-const PRESET_SCENARIOS: { id: FireScenario; label: string; rate: number }[] = [
-  { id: "base", label: "Base (8%)", rate: 8 },
-  { id: "optimistic", label: "Optimistic (10%)", rate: 10 },
-  { id: "pessimistic", label: "Pessimistic (5%)", rate: 5 },
-];
+// const PRESET_SCENARIOS: { id: FireScenario; label: string; rate: number }[] = [
+//   { id: "base", label: "Base (8%)", rate: 8 },
+//   { id: "optimistic", label: "Optimistic (10%)", rate: 10 },
+//   { id: "pessimistic", label: "Pessimistic (5%)", rate: 5 },
+// ];
 
 const SLIDER_MIN = 0;
 const SLIDER_MAX = 20;
@@ -23,16 +24,37 @@ const SLIDER_STEP = 0.1;
 const SLIDER_TICKS = [0, 5, 10, 15, 20];
 
 type FireScenarioSelectorProps = {
-  activeScenario: FireScenario | null;
-  activeGrowthRate: number | null;
+  activeScenario: GrowthRateScenario;
   baseGrowthRate: number;
-  onSelect: (scenario: FireScenario, rate: number) => void;
+  onSelect: (scenario: GrowthRateScenario) => void;
   onReset: () => void;
 };
 
+const PRESET_SCENARIOS: GrowthRateScenario[] = [
+  {
+    id: "pessimistic",
+    rate: 5,
+    label: "Pessimistic (5%)",
+  },
+  {
+    id: "base",
+    rate: 8,
+    label: "Base (8%)",
+  },
+  {
+    id: "optimistic",
+    rate: 10,
+    label: "Optimistic (10%)",
+  },
+  {
+    id: "custom",
+    rate: 0,
+    label: "Custom",
+  },
+];
+
 export function FireScenarioSelector({
   activeScenario,
-  activeGrowthRate,
   baseGrowthRate,
   onSelect,
   onReset,
@@ -40,21 +62,21 @@ export function FireScenarioSelector({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [sliderValue, setSliderValue] = useState(baseGrowthRate);
 
-  const handlePresetClick = (scenario: typeof PRESET_SCENARIOS[number]) => {
-    if (activeScenario === scenario.id) {
+  const handlePresetClick = (scenario: GrowthRateScenario) => {
+    if (activeScenario?.id === scenario.id) {
       onReset();
     } else {
-      onSelect(scenario.id, scenario.rate);
+      onSelect(scenario);
     }
   };
 
   const handleCustomOpen = () => {
-    setSliderValue(activeGrowthRate ?? baseGrowthRate);
+    setSliderValue(activeScenario.rate ?? baseGrowthRate);
     setDialogOpen(true);
   };
 
   const handleApply = () => {
-    onSelect("custom", sliderValue);
+    onSelect({ id: "custom", rate: sliderValue, label: "Custom" });
     setDialogOpen(false);
   };
 
@@ -72,28 +94,19 @@ export function FireScenarioSelector({
             size="sm"
             className={cn(
               "rounded-full text-xs font-medium border transition-all",
-              activeScenario === scenario.id
+              activeScenario.id === scenario.id
                 ? "border-foreground text-foreground font-semibold"
-                : "border-white/15 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                : "border-white/15 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground",
             )}
-            onClick={() => handlePresetClick(scenario)}
+            onClick={() =>
+              scenario.id === "custom"
+                ? handleCustomOpen()
+                : handlePresetClick(scenario)
+            }
           >
             {scenario.label}
           </Button>
         ))}
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn(
-            "rounded-full text-xs font-medium border transition-all",
-            activeScenario === "custom"
-              ? "border-foreground text-foreground font-semibold"
-              : "border-white/15 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
-          )}
-          onClick={handleCustomOpen}
-        >
-          Custom
-        </Button>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -140,10 +153,7 @@ export function FireScenarioSelector({
             >
               Cancel
             </Button>
-            <Button
-              className="flex-1 rounded-xl"
-              onClick={handleApply}
-            >
+            <Button className="flex-1 rounded-xl" onClick={handleApply}>
               Apply
             </Button>
           </div>

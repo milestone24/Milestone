@@ -30,52 +30,72 @@ const getTimestamp = () => {
   return `${year}${month}${day}${hour}${minute}${second}`;
 }
 
-export default async function setup(project: TestProject) {
 
-  //TODO load this from neon context file
+async function createBranch() {
   const projectId = "floral-flower-03109848"
 
   const branchName = `test-branch-${getTimestamp()}`;
 
   let branchId: string | undefined = undefined;
 
+  const response = await apiClient.createProjectBranch(projectId, {
+    branch: {
+      name: branchName,
+    },
+    endpoints: [
+      {
+        type: EndpointType.ReadWrite,
+      }
+    ]
+  });
+
+  branchId = response.data.branch.id;
+
+  if (!response.data.connection_uris || response.data.endpoints.length === 0) {
+    throw new Error("No connection URIs found");
+  }
+
+  const connectionUri = response.data.connection_uris[0];
+
+  if (!connectionUri) {
+    throw new Error("No connection URI found");
+  }
+
+  const databaseUrl = response.data.connection_uris[0]?.connection_uri;
+
+  if (!databaseUrl) {
+    throw new Error("No database URL found");
+  }
+
+  // Set the database URL to the environment variable
+  process.env.DATABASE_URL = databaseUrl;
+
+  return {
+    projectId,
+    branchId,
+    databaseUrl,
+  }
+}
+
+
+export default async function setup(project: TestProject) {
+
+  let projectId: string | undefined = undefined;
+  let branchId: string | undefined = undefined;
+  let databaseUrl: string | undefined = undefined;
+
   try {
 
-    const response = await apiClient.createProjectBranch(projectId, {
-      branch: {
-        name: branchName,
-      },
-      endpoints: [
-        {
-          type: EndpointType.ReadWrite,
-        }
-      ]
-    });
-
-    branchId = response.data.branch.id;
-
-    if (!response.data.connection_uris || response.data.endpoints.length === 0) {
-      throw new Error("No connection URIs found");
+    if (process.env.VITEST_USE_BRANCH === 'true') {
+      const { projectId: newProjectId, branchId: newBranchId, databaseUrl: newDatabaseUrl } = await createBranch();
+      projectId = newProjectId;
+      branchId = newBranchId;
+      databaseUrl = newDatabaseUrl;
     }
-
-    const connectionUri = response.data.connection_uris[0];
-
-    if (!connectionUri) {
-      throw new Error("No connection URI found");
-    }
-
-    const databaseUrl = response.data.connection_uris[0]?.connection_uri;
-
-    if (!databaseUrl) {
-      throw new Error("No database URL found");
-    }
-
-    // Set the database URL to the environment variable
-    process.env.DATABASE_URL = databaseUrl;
 
   } catch (error) {
     console.error('Error creating branch:', error);
-    if (branchId) {
+    if (projectId && branchId) {
       await apiClient.deleteProjectBranch(projectId, branchId);
     }
     throw error;
@@ -83,7 +103,7 @@ export default async function setup(project: TestProject) {
 
   return async () => {
     try {
-      if (branchId) {
+      if (projectId && branchId) {
         await apiClient.deleteProjectBranch(projectId, branchId);
       }
     } catch (error) {

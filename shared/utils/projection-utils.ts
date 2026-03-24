@@ -11,7 +11,7 @@ import type {
 } from "@shared/schema/projections";
 import { ModifierChain, createModifierContext } from "./projection-modifiers";
 import { getNextExecutionDate } from "./scheduling";
-import { addDays, addMonths, addWeeks, addYears } from "date-fns";
+import { addDays, addMonths, addWeeks, addYears, startOfMonth, startOfYear } from "date-fns";
 import {
   createDecimalValueString,
   DecimalValueString,
@@ -325,6 +325,69 @@ export function getNextProjectionDate(
   }
 
   return nextDate;
+}
+
+/**
+ * Build the ordered list of projection dates from config.
+ * - from_now: start at startDate, step by interval until endDate.
+ * - calendar: align to interval boundaries (e.g. first of month for monthly), optionally go back backfillIntervals, then step to endDate.
+ */
+export function getProjectionGridDates(
+  config: ProjectionConfigWithDateRange
+): Date[] {
+  const startDate = new Date(config.startDate);
+  const endDate = new Date(config.endDate);
+  const interval = config.interval;
+  const seriesAlignment = "seriesAlignment" in config && config.seriesAlignment === "calendar" ? "calendar" : "from_now";
+  const backfillIntervals = "backfillIntervals" in config && typeof config.backfillIntervals === "number" ? config.backfillIntervals : 0;
+
+  const incrementDate = getDateIncrement(interval);
+
+  if (seriesAlignment === "from_now") {
+    const dates: Date[] = [];
+    let d = new Date(startDate);
+    while (d <= endDate) {
+      dates.push(new Date(d));
+      d = incrementDate(d);
+      if (d > endDate) break;
+    }
+    return dates;
+  }
+
+  // calendar: align to boundary for interval
+  let alignedStart: Date;
+  switch (interval) {
+    case "daily":
+      alignedStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+      break;
+    case "weekly":
+    case "monthly":
+      alignedStart = startOfMonth(startDate);
+      break;
+    case "yearly":
+      alignedStart = startOfYear(startDate);
+      break;
+    default:
+      alignedStart = startOfMonth(startDate);
+  }
+
+  // Go back by backfillIntervals from aligned start
+  let gridStart: Date;
+  if (interval === "monthly" && backfillIntervals > 0) {
+    gridStart = new Date(alignedStart.getFullYear(), alignedStart.getMonth() - backfillIntervals, 1);
+  } else if (interval === "yearly" && backfillIntervals > 0) {
+    gridStart = new Date(alignedStart.getFullYear() - backfillIntervals, 0, 1);
+  } else {
+    gridStart = new Date(alignedStart);
+  }
+
+  const dates: Date[] = [];
+  let d = new Date(gridStart);
+  while (d <= endDate) {
+    dates.push(new Date(d));
+    d = incrementDate(d);
+  }
+  return dates;
 }
 
 // ============================================================================

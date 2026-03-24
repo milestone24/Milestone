@@ -1,8 +1,10 @@
-import { TrendingUp } from "lucide-react";
+import { AlertTriangle, Check, TrendingUp } from "lucide-react";
 import { WithdrawalPhase } from "@shared/schema/projections";
+import { formatGBPCompact } from "@/lib/format";
 
 type WithdrawalPhaseCardProps = {
   phase: WithdrawalPhase;
+  showLegend?: boolean;
 };
 
 const formatCurrency = (value: string | number) => {
@@ -14,16 +16,23 @@ const formatCurrency = (value: string | number) => {
   }).format(numValue);
 };
 
-// Color palette for allocation bars
-const allocationColors = [
-  "bg-purple-500",
-  "bg-violet-500",
-  "bg-indigo-500",
-  "bg-pink-500",
-  "bg-orange-500",
-];
 
-export function WithdrawalPhaseCard({ phase }: WithdrawalPhaseCardProps) {
+// Account type colors — preset from Tailwind theme (same as FireAccountsSummaryCard, FireAccountTypeContributionAdjuster)
+const ACCOUNT_TYPE_BG: Record<string, string> = {
+  ISA: "bg-isa",
+  SIPP: "bg-sipp",
+  LISA: "bg-lisa",
+  GIA: "bg-gia",
+  OTHER: "bg-other",
+  PENSION: "bg-pension",
+};
+
+const FALLBACK_BG = "bg-primary";
+
+const getAccountTypeBg = (accountType: string): string =>
+  ACCOUNT_TYPE_BG[accountType?.toUpperCase() ?? ""] ?? FALLBACK_BG;
+
+export function WithdrawalPhaseCard({ phase, showLegend = false }: WithdrawalPhaseCardProps) {
   const ageRange = phase.toAge
     ? `Age ${phase.fromAge}-${phase.toAge}`
     : `Age ${phase.fromAge}+`;
@@ -59,12 +68,11 @@ export function WithdrawalPhaseCard({ phase }: WithdrawalPhaseCardProps) {
             {phase.allocations.map((allocation, index) => {
               const percentage =
                 (parseFloat(allocation.annualAmount) / totalAllocation) * 100;
+              const numericAmount = parseFloat(allocation.annualAmount);
               return (
                 <div
                   key={`${allocation.contributorName}-${index}`}
-                  className={`${
-                    allocationColors[index % allocationColors.length]
-                  } flex items-center justify-center text-xs font-medium text-white`}
+                  className={`${getAccountTypeBg(allocation.accountType)} flex items-center justify-center text-xs font-medium text-white`}
                   style={{ width: `${percentage}%` }}
                   title={`${allocation.accountType}: ${formatCurrency(
                     allocation.annualAmount
@@ -73,7 +81,7 @@ export function WithdrawalPhaseCard({ phase }: WithdrawalPhaseCardProps) {
                   {percentage > 15 && (
                     <span>
                       {allocation.accountType}:{" "}
-                      {formatCurrency(allocation.annualAmount)}
+                      {formatGBPCompact(numericAmount)}
                     </span>
                   )}
                 </div>
@@ -81,8 +89,47 @@ export function WithdrawalPhaseCard({ phase }: WithdrawalPhaseCardProps) {
             })}
           </div>
 
+          {/* Surplus / shortfall line */}
+          {(() => {
+            const target = parseFloat(phase.annualIncomeTarget);
+            const delta = totalAllocation - target;
+            if (delta > 0) {
+              return (
+                <div
+                  className="flex items-center gap-2 rounded-full bg-positive-surface px-4 py-2 text-sm font-medium text-positive"
+                  aria-label={`Surplus ${formatCurrency(delta)} per year`}
+                >
+                  <Check className="h-4 w-4 shrink-0" aria-hidden />
+                  Surplus {formatCurrency(delta)}/yr
+                </div>
+              );
+            }
+            if (delta < 0) {
+              return (
+                <div
+                  className="flex items-center gap-2 rounded-full bg-warning-surface px-4 py-2 text-sm font-medium text-warning"
+                  aria-label={`Need additional ${formatCurrency(
+                    Math.abs(delta),
+                  )} per year`}
+                >
+                  <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                  Need additional {formatCurrency(Math.abs(delta))}/yr
+                </div>
+              );
+            }
+            return (
+              <div
+                className="flex items-center gap-2 rounded-full bg-positive-surface px-4 py-2 text-sm font-medium text-positive"
+                aria-label="On track — target met"
+              >
+                <Check className="h-4 w-4 shrink-0" aria-hidden />
+                On track — target met
+              </div>
+            );
+          })()}
+
           {/* Legend for small segments */}
-          {phase.allocations.some(
+          {showLegend && phase.allocations.some(
             (a) => (parseFloat(a.annualAmount) / totalAllocation) * 100 <= 15
           ) && (
             <div className="flex flex-wrap gap-2 text-xs">
@@ -92,13 +139,11 @@ export function WithdrawalPhaseCard({ phase }: WithdrawalPhaseCardProps) {
                   className="flex items-center gap-1"
                 >
                   <div
-                    className={`h-3 w-3 rounded-sm ${
-                      allocationColors[index % allocationColors.length]
-                    }`}
+                    className={`h-3 w-3 rounded-sm ${getAccountTypeBg(allocation.accountType)}`}
                   />
                   <span>
                     {allocation.accountType}:{" "}
-                    {formatCurrency(allocation.annualAmount)}
+                    {formatGBPCompact(parseFloat(allocation.annualAmount))}
                   </span>
                 </div>
               ))}
@@ -107,13 +152,14 @@ export function WithdrawalPhaseCard({ phase }: WithdrawalPhaseCardProps) {
         </>
       )}
 
-      {phase.warnings && phase.warnings.length > 0 && (
-        <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+      {/* For withdrawal phases, surplus/shortfall is shown in the pill above; only show phase.warnings for building phase to avoid duplicate lines */}
+      {!isBuildingPhase ? null : phase.warnings && phase.warnings.length > 0 ? (
+        <div className="rounded-md bg-warning/20 px-3 py-2 text-xs text-warning">
           {phase.warnings.map((warning, index) => (
             <p key={index}>{warning}</p>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

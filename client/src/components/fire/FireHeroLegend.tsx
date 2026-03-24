@@ -7,7 +7,7 @@ const ACCOUNT_TYPE_COLOR_CLASS: Record<string, string> = {
   LISA: "bg-lisa",
   GIA: "bg-gia",
   OTHER: "bg-other",
-  PENSION: "bg-sipp",
+  PENSION: "bg-pension",
 };
 
 const FALLBACK_COLOR_CLASS = "bg-primary";

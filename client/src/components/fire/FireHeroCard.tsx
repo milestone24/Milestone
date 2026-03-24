@@ -6,12 +6,10 @@ import { useFireHeroChart } from "@/hooks/use-fire-hero-chart";
 import { aggregateContributorBreakdownByAccountType } from "@shared/utils/projection-account-type-breakdown";
 import { FireHeroHeader } from "./FireHeroHeader";
 import { FireHeroLegend } from "./FireHeroLegend";
-import {
-  FireScenarioSelector,
-  type FireScenario,
-} from "./FireScenarioSelector";
+import { FireScenarioSelector } from "./FireScenarioSelector";
 import type { ContributorProjection, FireProjectionData } from "@shared/schema/projections";
 import type { DecimalValueString } from "@shared/schema";
+import { GrowthRateScenario } from "@/hooks/use-fire";
 
 type FireHeroCardProps = {
   projectedValue: number;
@@ -21,13 +19,11 @@ type FireHeroCardProps = {
   fireNumberDecimal: DecimalValueString;
   contributorBreakdown: ContributorProjection[];
   dateOfBirth: Date;
-
-  activeScenario: FireScenario | null;
-  activeGrowthRate: number | null;
+  activeScenario: GrowthRateScenario;
   baseGrowthRate: number;
-  onScenarioSelect: (scenario: FireScenario, rate: number) => void;
+  onScenarioSelect: (scenario: GrowthRateScenario) => void;
   onScenarioReset: () => void;
-
+  projectedRetirementValueDelta?: DecimalValueString | null;
   className?: string;
 };
 
@@ -40,10 +36,10 @@ export function FireHeroCard({
   contributorBreakdown,
   dateOfBirth,
   activeScenario,
-  activeGrowthRate,
   baseGrowthRate,
   onScenarioSelect,
   onScenarioReset,
+  projectedRetirementValueDelta,
   className,
 }: FireHeroCardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -62,15 +58,22 @@ export function FireHeroCard({
       aggregateContributorBreakdownByAccountType(
         contributorBreakdown,
         dateOfBirth,
-        fireNumberDecimal
+        fireNumberDecimal,
       ),
-    [contributorBreakdown, dateOfBirth, fireNumberDecimal]
+    [contributorBreakdown, dateOfBirth, fireNumberDecimal],
   );
+
+  const chartDataWithoutPension = useMemo(() => {
+    const entries = Array.from(chartData.entries()).filter(
+      ([accountType]) => accountType.toUpperCase() !== "PENSION",
+    );
+    return new Map<string, FireProjectionData[]>(entries);
+  }, [chartData]);
 
   const legendValues = useFireHeroChart({
     svgRef,
     dimensions,
-    chartData,
+    chartData: chartDataWithoutPension,
     fireNumber,
     targetRetirementAge,
     projectedRetirementAge,
@@ -79,23 +82,26 @@ export function FireHeroCard({
   return (
     <Card
       className={cn("overflow-hidden ambient-glow", className)}
-      style={{
-        background: "linear-gradient(160deg, oklch(0.22 0.04 245) 0%, oklch(0.16 0.04 240) 100%)",
-        "--glow-color-a": "rgba(96,165,250,0.35)",
-        "--glow-color-b": "rgba(167,139,250,0.28)",
-        "--glow-color-c": "rgba(52,211,153,0.22)",
-      } as React.CSSProperties}
+      style={
+        {
+          background:
+            "linear-gradient(160deg, oklch(0.22 0.04 245) 0%, oklch(0.16 0.04 240) 100%)",
+          "--glow-color-a": "rgba(96,165,250,0.35)",
+          "--glow-color-b": "rgba(167,139,250,0.28)",
+          "--glow-color-c": "rgba(52,211,153,0.22)",
+        } as React.CSSProperties
+      }
     >
       <CardContent className="p-4 flex flex-col gap-4">
         <FireHeroHeader
           projectedValue={projectedValue}
           projectedRetirementAge={projectedRetirementAge}
           targetRetirementAge={targetRetirementAge}
+          projectedRetirementValueDelta={projectedRetirementValueDelta}
         />
 
         <FireScenarioSelector
           activeScenario={activeScenario}
-          activeGrowthRate={activeGrowthRate}
           baseGrowthRate={baseGrowthRate}
           onSelect={onScenarioSelect}
           onReset={onScenarioReset}

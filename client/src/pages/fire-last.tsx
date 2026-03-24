@@ -8,6 +8,7 @@ import { FirePageSkeleton } from "@/components/fire/FirePageSkeleton";
 import { FirePageError } from "@/components/fire/FirePageError";
 import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
 import { FireOverviewStickyBar } from "@/components/fire/FireOverviewStickyBar";
+import { FireContributorAndWithdrawalCard } from "@/components/fire/FireContributorAndWithdrawalCard";
 import { WithdrawalStrategyCard } from "@/components/fire/WithdrawalStrategyCard";
 import { useFireProjection } from "@/hooks/use-fire";
 import { useElementInView } from "@/hooks/use-element-in-view";
@@ -260,7 +261,14 @@ export default function Fire() {
               onOpenChange={setIsSettingsEditorOpen}
             />
 
-            <WithdrawalStrategyCard
+            {activeProjection?.withdrawalStrategy && (
+              <WithdrawalStrategyCard
+                withdrawalStrategy={activeProjection.withdrawalStrategy}
+                showPhaseLegends
+                showBuildPhase
+              />
+            )}
+            <FireContributorAndWithdrawalCard
               withdrawalStrategy={activeProjection.withdrawalStrategy}
               contributionsInfo={{
                 contributionBreakdown,

@@ -1,4 +1,5 @@
 import { useCallback, useDeferredValue, useMemo, useRef, useState } from "react";
+import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
@@ -13,17 +14,25 @@ import { FireOverviewCard } from "@/components/fire/FireOverviewCard";
 import { FireOverviewStickyBar } from "@/components/fire/FireOverviewStickyBar";
 import { WithdrawalStrategyCard } from "@/components/fire/WithdrawalStrategyCard";
 import { FireHeroCard } from "@/components/fire/FireHeroCard";
+import { FireNowStatus } from "@/components/fire/FireNowStatus";
 import {
   FireAccountTypeContributionAdjuster,
   type AccountTypeRowData,
 } from "@/components/fire/FireAccountTypeContributionAdjuster";
-import { useFireProjection } from "@/hooks/use-fire";
+import { FireAccountsSummaryCard } from "@/components/fire/FireAccountsSummaryCard";
+import { FireAssumptions } from "@/components/fire/FireAssumptions";
+import { Disclaimer } from "@/components/common/Disclaimer";
+import { GrowthRateScenario, useFireProjection } from "@/hooks/use-fire";
 import { useElementInView } from "@/hooks/use-element-in-view";
+import {
+  useFireMonthOverMonthDelta,
+  FIRE_NOW_DEFAULT_LOOKBACK_INTERVALS,
+} from "@/hooks/use-fire-month-over-month-delta";
+import { useFireRetirementMonthsSoonerVsLookback } from "@/hooks/use-fire-retirement-lookback-delta";
+import { useFireProjectedRetirementDelta } from "@/hooks/use-fire-projected-retirement-delta";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
-import { createDecimalValueString } from "@shared/schema";
-import type { FireScenario } from "@/components/fire/FireScenarioSelector";
 import Decimal from "decimal.js";
 
 export default function Fire() {
@@ -63,33 +72,30 @@ export default function Fire() {
 
     adjustmentsState,
 
-    scenarioGrowthRate,
-    setScenarioGrowthRate,
-    resetScenarioGrowthRate,
+    growthRateScenario,
+    setGrowthRateScenario,
+    resetGrowthRateScenario,
 
     accountTypeOffsets,
     setAccountTypeOffset,
     resetAccountTypeOffsets,
     baselineProjection,
+    accountsSummary,
   } = useFireProjection();
 
   const deferredProjection = useDeferredValue(activeProjection);
   const projectionForHero = deferredProjection ?? activeProjection;
 
-  const [activeScenario, setActiveScenario] = useState<FireScenario | null>(null);
-
-  const handleScenarioSelect = useCallback(
-    (scenario: FireScenario, rate: number) => {
-      setActiveScenario(scenario);
-      setScenarioGrowthRate?.(rate);
+  const handleGrowthRateScenarioSelect = useCallback(
+    (scenario: GrowthRateScenario) => {
+      setGrowthRateScenario?.(scenario);
     },
-    [setScenarioGrowthRate]
+    [setGrowthRateScenario],
   );
 
-  const handleScenarioReset = useCallback(() => {
-    setActiveScenario(null);
-    resetScenarioGrowthRate?.();
-  }, [resetScenarioGrowthRate]);
+  const handleGrowthRateScenarioReset = useCallback(() => {
+    resetGrowthRateScenario?.();
+  }, [resetGrowthRateScenario]);
 
   //TODO: Why do we need this custom starting value?
   const [customStartingValue, setCustomStartingValue] = useState(0);
@@ -178,6 +184,24 @@ export default function Fire() {
     await handleSaveSettings?.();
   }, [handleSaveSettings]);
 
+  const monthOverMonthDelta = useFireMonthOverMonthDelta(
+    projectionForHero,
+    FIRE_NOW_DEFAULT_LOOKBACK_INTERVALS
+  );
+
+  const retirementMonthsSoonerVsLookback =
+    useFireRetirementMonthsSoonerVsLookback(baselineProjection);
+
+  const projectedRetirementValueDelta =
+    useFireProjectedRetirementDelta(baselineProjection);
+
+  const snapshotLabel = useMemo(() => {
+    const date =
+      baselineProjection?.projectionResult.config.startDate ??
+      activeProjection?.projectionResult.config.startDate;
+    return date ? format(date, "MMMM yyyy") : null;
+  }, [baselineProjection, activeProjection]);
+
   if (userStatus?.status === "unsatisfied") {
     return (
       <div className="fire-screen mx-auto max-w-5xl px-4 pb-20">
@@ -234,17 +258,18 @@ export default function Fire() {
   return (
     <div className="fire-screen mx-auto max-w-5xl px-2 pb-20 md:px-4">
       <div className="flex w-full flex-col space-y-6">
-        <div className="flex items-start justify-between">
+        <div className="-mx-2 flex items-center justify-between bg-black px-4 py-3 md:-mx-4">
           <div>
-            <h2 className="text-lg font-semibold">FIRE Calculator</h2>
-            <p className="text-sm text-muted-foreground">
-              Plan your Financial Independence and Retire Early
-            </p>
+            <h2 className="text-xl font-bold text-white">
+              {snapshotLabel ?? "—"}
+            </h2>
+            <p className="text-sm text-zinc-400">Monthly snapshot</p>
           </div>
           <Button
             variant="ghost"
             size="icon"
             aria-label="Open FIRE settings"
+            className="text-white hover:bg-zinc-800 hover:text-white"
             onClick={() => setIsSettingsDialogOpen(true)}
           >
             <Settings className="h-4 w-4" />
@@ -278,7 +303,9 @@ export default function Fire() {
                 projectedValue={Decimal(
                   projectionForHero.projectedValueAtRetirement,
                 ).toNumber()}
-                projectedRetirementAge={projectionForHero.projectedRetirementAge}
+                projectedRetirementAge={
+                  projectionForHero.projectedRetirementAge
+                }
                 targetRetirementAge={projectionForHero.targetRetirementAge}
                 fireNumber={Decimal(projectionForHero.fireNumber).toNumber()}
                 fireNumberDecimal={projectionForHero.fireNumber}
@@ -286,47 +313,76 @@ export default function Fire() {
                   projectionForHero.projectionResult.contributorBreakdown
                 }
                 dateOfBirth={userStatus.dob}
-                activeScenario={activeScenario}
-                activeGrowthRate={scenarioGrowthRate}
+                activeScenario={growthRateScenario}
                 baseGrowthRate={
                   projectionForHero.projectionResult.config.mode === "simple"
                     ? projectionForHero.projectionResult.config.growthRate
                     : 8
                 }
-                onScenarioSelect={handleScenarioSelect}
-                onScenarioReset={handleScenarioReset}
+                onScenarioSelect={handleGrowthRateScenarioSelect}
+                onScenarioReset={handleGrowthRateScenarioReset}
+                projectedRetirementValueDelta={projectedRetirementValueDelta}
+              />
+            )}
+            {fireSettingsForm && projectionForHero && (
+              <FireNowStatus
+                currentPortfolioValue={
+                  projectionForHero.projectionResult.totalCurrentValue
+                }
+                fireNumber={projectionForHero.fireNumber}
+                desiredAnnualIncome={fireSettingsForm.watch("annualIncomeGoal")}
+                projectedPortfolioValueAtRetirement={
+                  projectionForHero.projectedValueAtRetirement
+                }
+                safeWithdrawalRate={fireSettingsForm.watch(
+                  "safeWithdrawalRate",
+                )}
+                monthOverMonthDelta={monthOverMonthDelta}
               />
             )}
             {accountTypeRows.length > 0 && activeProjection && (
               <FireAccountTypeContributionAdjuster
                 projection={activeProjection}
                 baselineProjection={baselineProjection}
+                retirementMonthsSoonerVsLookback={
+                  retirementMonthsSoonerVsLookback ?? undefined
+                }
                 accountTypeRows={accountTypeRows}
                 offsets={accountTypeOffsets ?? new Map()}
                 onChangeOffset={handleAccountTypeOffsetChange}
                 onReset={handleAccountTypeReset}
               />
             )}
-            <div ref={overviewRef}>
-              <FireOverviewCard
-                targetRetirementAge={activeProjection.targetRetirementAge}
-                valueAtRetirement={
-                  activeProjection?.projectedValueAtRetirement
-                    ? Number(activeProjection.projectedValueAtRetirement)
-                    : 0
-                }
-                fireNumber={activeProjection?.fireNumber ?? null}
-                showChart={showChart}
-                onToggleChart={toggleChart}
-                currentPortfolioValue={
-                  activeProjection.projectionResult.totalCurrentValue
-                }
-                currentPortfolioValueGrowth={createDecimalValueString("0.00")}
-                progressPercentage={activeProjection.progressPercentage}
-                currentAge={userStatus.currentAge}
-                yearsToFire={activeProjection.yearsRemainingToFireTarget}
+            {accountsSummary && accountsSummary.length > 0 && (
+              <FireAccountsSummaryCard accounts={accountsSummary} />
+            )}
+            {activeProjection?.withdrawalStrategy && (
+              <WithdrawalStrategyCard
+                withdrawalStrategy={activeProjection.withdrawalStrategy}
               />
-            </div>
+            )}
+            {fireSettingsForm && activeProjection && (
+              <>
+                <FireAssumptions
+                  annualIncomeGoal={fireSettingsForm.watch("annualIncomeGoal")}
+                  targetRetirementAge={fireSettingsForm.watch(
+                    "targetRetirementAge",
+                  )}
+                  safeWithdrawalRate={fireSettingsForm.watch(
+                    "safeWithdrawalRate",
+                  )}
+                  adjustInflation={fireSettingsForm.watch("adjustInflation")}
+                  includeStatePension={fireSettingsForm.watch(
+                    "includeStatePension",
+                  )}
+                  reduceSpendingAt75={fireSettingsForm.watch(
+                    "reduceSpendingAt75",
+                  )}
+                  onEditSettings={() => setIsSettingsDialogOpen(true)}
+                />
+                <Disclaimer />
+              </>
+            )}
             {!overviewInView ? (
               <>
                 <FireOverviewStickyBar
@@ -348,22 +404,6 @@ export default function Fire() {
                 <div aria-hidden className="h-12 shrink-0" />
               </>
             ) : null}
-            <>
-              <div>
-                <Checkbox
-                  checked={includePortfolioRecurringContributions}
-                  onCheckedChange={
-                    handleIncludePortfolioRecurringContributionsChange
-                  }
-                />
-                <Label
-                  htmlFor="include-portfolio-contributors"
-                  className="font-normal cursor-pointer mx-2"
-                >
-                  Use portfolio recurring contributions
-                </Label>
-              </div>
-            </>
             {showChart ? (
               <FireProjectionChartCard
                 showChart={showChart}
@@ -379,53 +419,6 @@ export default function Fire() {
                 projectedRetirementAge={activeProjection.projectedRetirementAge}
               />
             ) : null}
-
-            <FireSettingsSummaryCard
-              form={fireSettingsForm}
-              onSubmit={handleSaveFireSettings}
-              isSubmitting={isSubmittingFireSettings}
-              isDirty={fireSettingsForm.formState.isDirty}
-              open={isSettingsEditorOpen}
-              onOpenChange={setIsSettingsEditorOpen}
-            />
-
-            <WithdrawalStrategyCard
-              withdrawalStrategy={activeProjection.withdrawalStrategy}
-              contributionsInfo={{
-                contributionBreakdown,
-                monthlyContributionDifference:
-                  activeProjection.monthlyContributionDifference,
-              }}
-              contributionPreviewState={adjustmentsState.contribution}
-              onChangeContributionPreviewState={setContributionPreviewState}
-              onResetContributionPreviewState={resetContributionPreviewState}
-              onAddContributor={addAdjustmentContributor}
-              onUpdateContributor={updateAdjustmentContributor}
-              onRemoveContributor={removeAdjustmentContributor}
-              onResetContributors={resetAdjustmentContributors}
-            />
-
-            {/* <FireContributionsCard
-              contributionBreakdown={contributionBreakdown}
-              monthlyContributionDifference={
-                activeProjection.monthlyContributionDifference
-              }
-              //StandalonePanelProps (Tochange)
-              contributors={projectionContributors}
-              onAddContributor={addAdjustmentContributor}
-              onUpdateContributor={updateAdjustmentContributor}
-              onRemoveContributor={removeAdjustmentContributor}
-              onResetContributors={resetAdjustmentContributors}
-              //TODO this should not be the adjustment amount.
-              //Need to show the total monthly amount of all the contributors.
-              //And
-              totalMonthlyAmount={adjustmentMonthlyAmount}
-              contributionPreviewState={adjustmentsState.contribution}
-              onChangeContributionPreviewState={setContributionPreviewState}
-              onResetContributionPreviewState={resetContributionPreviewState}
-              customStartingValue={customStartingValue}
-              onCustomStartingValueChange={setCustomStartingValue}
-            /> */}
           </>
         ) : null}
       </div>

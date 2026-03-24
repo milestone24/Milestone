@@ -12,6 +12,7 @@ import {
   getNextProjectionDate,
   getDateIncrement,
   getEffectiveGrowthRate,
+  getProjectionGridDates,
 } from "./projection-utils";
 import { createDecimalValueString, DecimalValueString } from "@shared/schema";
 import Decimal from "decimal.js";
@@ -43,6 +44,77 @@ export interface SimpleProjectionResult {
   totalGrowth: DecimalValueString;
   totalContributions: DecimalValueString;
   finalValue: DecimalValueString;
+}
+
+/**
+ * Resolve contributor value for a backfill slot date.
+ *
+ * Selection rule:
+ * - Use exact slot match from `contributor.valueHistory` (pre-resolved server history slots).
+ * - If slot has no historical value, fallback is zero (never current value).
+ */
+function getBackfillValueForDate(
+  contributor: Contributor,
+  fallbackValue: DecimalValueString,
+  date: Date
+): DecimalValueString {
+  if (!contributor.valueHistory || contributor.valueHistory.length === 0) {
+    return fallbackValue;
+  }
+  const matched = contributor.valueHistory.find(
+    (slot) => slot.slotDate.getTime() === date.getTime()
+  );
+  return matched?.value ?? fallbackValue;
+}
+
+/**
+ * Append non-projected backfill points prior to effectiveStartDate.
+ * Backfill points are used for chart/grid context (e.g. month-over-month) and carry zero contributions/growth.
+ */
+function appendBackfillPoints(
+  params: {
+    contributor: Contributor;
+    dateOfBirth?: Date;
+    gridDates: Date[];
+    forwardStartIdx: number;
+    currentValue: DecimalValueString;
+    timePoints: ProjectionTimePoint[];
+  }
+): void {
+  const {
+    contributor,
+    dateOfBirth,
+    gridDates,
+    forwardStartIdx,
+    currentValue,
+    timePoints,
+  } = params;
+  // If no historical slot can be resolved, use zero.
+  // Never project today's value backwards in time.
+  const fallbackValue = createDecimalValueString("0");
+  for (let i = 0; i < forwardStartIdx; i++) {
+    const d = gridDates[i];
+    if (!d) continue;
+    const backfillValue = getBackfillValueForDate(contributor, fallbackValue, d);
+    const accessible = calculateAccessibleValue(
+      contributor,
+      backfillValue,
+      d,
+      dateOfBirth
+    );
+    timePoints.push(
+      createProjectionTimePoint(
+        d,
+        backfillValue,
+        createDecimalValueString("0"),
+        createDecimalValueString("0"),
+        false,
+        createDecimalValueString("0"),
+        accessible.accessibleValue,
+        accessible.lockedValue
+      )
+    );
+  }
 }
 
 // ============================================================================
@@ -128,9 +200,30 @@ export function generateLinearProjectionTimeSeries(
   } = input;
 
   const timePoints: ProjectionTimePoint[] = [];
-  const incrementDate = getDateIncrement(config.interval);
+  const useCalendarGrid =
+    "seriesAlignment" in config && config.seriesAlignment === "calendar";
+  const gridDates = getProjectionGridDates(config);
+  const startDate = new Date(config.startDate);
 
-  let currentProjectionDate = new Date(config.startDate);
+  const firstForwardIdx = gridDates.findIndex((d) => d >= startDate);
+  const forwardStartIdx = firstForwardIdx >= 0 ? firstForwardIdx : 0;
+  const effectiveStartDate: Date =
+    useCalendarGrid && gridDates[forwardStartIdx]
+      ? new Date(gridDates[forwardStartIdx])
+      : new Date(startDate);
+
+  if (useCalendarGrid && forwardStartIdx > 0) {
+    appendBackfillPoints({
+      contributor,
+      dateOfBirth,
+      gridDates,
+      forwardStartIdx,
+      currentValue,
+      timePoints,
+    });
+  }
+
+  const incrementDate = getDateIncrement(config.interval);
   let accumulatedValue = createDecimalValueString(
     Decimal(currentValue).toString()
   );
@@ -139,52 +232,58 @@ export function generateLinearProjectionTimeSeries(
   let totalGrowth = Decimal(0);
   let annualBonusUsage = new Map<string, BonusAnnualUsage>();
 
-  // Initial point - calculate accessible value
   const initialAccessible = calculateAccessibleValue(
     contributor,
     accumulatedValue,
-    currentProjectionDate,
+    effectiveStartDate,
     dateOfBirth
   );
 
   timePoints.push(
     createProjectionTimePoint(
-      currentProjectionDate,
+      effectiveStartDate,
       accumulatedValue,
       createDecimalValueString("0"),
       createDecimalValueString("0"),
-      false, // First point is current
+      false,
       createDecimalValueString("0"),
       initialAccessible.accessibleValue,
       initialAccessible.lockedValue
     )
   );
 
-  // Generate points until end date
-  while (currentProjectionDate < config.endDate) {
-    currentProjectionDate = getNextProjectionDate(
-      currentProjectionDate,
-      incrementDate,
-      config.endDate
-    );
+  const dateSequence = useCalendarGrid
+    ? gridDates.slice(forwardStartIdx + 1).filter((d) => d <= config.endDate)
+    : (function nextDates() {
+        const out: Date[] = [];
+        let prev = new Date(effectiveStartDate);
+        while (prev < config.endDate) {
+          const d = getNextProjectionDate(
+            prev,
+            incrementDate,
+            config.endDate
+          );
+          out.push(new Date(d));
+          prev = d;
+        }
+        return out;
+      })();
 
-    // Calculate years elapsed from start
+  for (const currentProjectionDate of dateSequence) {
+    if (!currentProjectionDate) continue;
     const yearsFromStart = calculateYearsElapsed(
       config.startDate,
       currentProjectionDate
     );
 
-    // Get effective growth rate for this contributor
     const effectiveGrowthRate = getEffectiveGrowthRate(contributor, config);
     const growthRate = Decimal(effectiveGrowthRate).div(100);
     const growthValue =
       effectiveGrowthRate === 0
-        ? Decimal(0) // No growth
+        ? Decimal(0)
         : Decimal(currentValue).mul(growthRate).mul(yearsFromStart);
 
-    // Calculate contributions in this period (with bonuses)
     const lastTimePoint = timePoints[timePoints.length - 1];
-
     const periodResult = calculatePeriodContributions(
       contributor,
       lastTimePoint ? lastTimePoint.date : config.startDate,
@@ -202,7 +301,6 @@ export function generateLinearProjectionTimeSeries(
     totalContributions = Decimal(totalContributions).add(periodContributions);
     totalBonuses = totalBonuses.add(periodBonuses);
     totalGrowth = growthValue;
-    // Portfolio value = currentValue + growth + userContributions + bonuses
     accumulatedValue = createDecimalValueString(
       Decimal(currentValue)
         .add(growthValue)
@@ -211,7 +309,6 @@ export function generateLinearProjectionTimeSeries(
         .toString()
     );
 
-    // Apply modifiers to final value (inflation, fees)
     const finalValue = applyModifiersToValue(
       accumulatedValue,
       accumulatedValue,
@@ -220,7 +317,6 @@ export function generateLinearProjectionTimeSeries(
       modifierChain
     );
 
-    // Calculate accessible value at this time point
     const accessible = calculateAccessibleValue(
       contributor,
       finalValue,
@@ -228,18 +324,18 @@ export function generateLinearProjectionTimeSeries(
       dateOfBirth
     );
 
-    const timePoint = createProjectionTimePoint(
-      currentProjectionDate,
-      finalValue,
-      createDecimalValueString(Decimal(totalContributions).toString()),
-      createDecimalValueString(Decimal(totalGrowth).toString()),
-      true,
-      createDecimalValueString(totalBonuses.toString()),
-      accessible.accessibleValue,
-      accessible.lockedValue
+    timePoints.push(
+      createProjectionTimePoint(
+        currentProjectionDate,
+        finalValue,
+        createDecimalValueString(Decimal(totalContributions).toString()),
+        createDecimalValueString(Decimal(totalGrowth).toString()),
+        true,
+        createDecimalValueString(totalBonuses.toString()),
+        accessible.accessibleValue,
+        accessible.lockedValue
+      )
     );
-
-    timePoints.push(timePoint);
   }
 
   return timePoints;
@@ -262,26 +358,46 @@ export function generateCompoundProjectionTimeSeries(
   } = input;
 
   const timePoints: ProjectionTimePoint[] = [];
-  const incrementDate = getDateIncrement(config.interval);
+  const useCalendarGrid =
+    "seriesAlignment" in config && config.seriesAlignment === "calendar";
+  const gridDates = getProjectionGridDates(config);
+  const startDate = new Date(config.startDate);
 
-  let currentProjectionDate = new Date(config.startDate);
+  const firstForwardIdx = gridDates.findIndex((d) => d >= startDate);
+  const forwardStartIdx = firstForwardIdx >= 0 ? firstForwardIdx : 0;
+  const effectiveStartDate: Date =
+    useCalendarGrid && gridDates[forwardStartIdx]
+      ? new Date(gridDates[forwardStartIdx])
+      : new Date(startDate);
+
+  if (useCalendarGrid && forwardStartIdx > 0) {
+    appendBackfillPoints({
+      contributor,
+      dateOfBirth,
+      gridDates,
+      forwardStartIdx,
+      currentValue,
+      timePoints,
+    });
+  }
+
+  const incrementDate = getDateIncrement(config.interval);
   let accumulatedValue = Decimal(currentValue);
   let totalContributions = 0;
   let totalBonuses = Decimal(0);
   let annualBonusUsage = new Map<string, BonusAnnualUsage>();
 
-  // Initial point - calculate accessible value
   const initialValue = createDecimalValueString(accumulatedValue.toString());
   const initialAccessible = calculateAccessibleValue(
     contributor,
     initialValue,
-    currentProjectionDate,
+    effectiveStartDate,
     dateOfBirth
   );
 
   timePoints.push(
     createProjectionTimePoint(
-      currentProjectionDate,
+      effectiveStartDate,
       initialValue,
       createDecimalValueString("0"),
       createDecimalValueString("0"),
@@ -292,30 +408,40 @@ export function generateCompoundProjectionTimeSeries(
     )
   );
 
-  // Generate points until end date
-  while (currentProjectionDate < config.endDate) {
-    const previousDate = new Date(currentProjectionDate);
-    currentProjectionDate = getNextProjectionDate(
-      currentProjectionDate,
-      incrementDate,
-      config.endDate
-    );
+  const dateSequence = useCalendarGrid
+    ? gridDates.slice(forwardStartIdx + 1).filter((d) => d <= config.endDate)
+    : (function nextDates() {
+        const out: Date[] = [];
+        let prev = new Date(effectiveStartDate);
+        while (prev < config.endDate) {
+          const d = getNextProjectionDate(
+            prev,
+            incrementDate,
+            config.endDate
+          );
+          out.push(new Date(d));
+          prev = d;
+        }
+        return out;
+      })();
 
-    // Calculate time elapsed in this interval
+  for (const currentProjectionDate of dateSequence) {
+    if (currentProjectionDate > config.endDate) break;
+    const previousDate =
+      timePoints[timePoints.length - 1]?.date ?? effectiveStartDate;
+
     const yearsInInterval = calculateYearsElapsed(
       previousDate,
       currentProjectionDate
     );
 
-    // Get effective growth rate for this contributor
     const effectiveGrowthRate = getEffectiveGrowthRate(contributor, config);
     const growthFactor =
       effectiveGrowthRate === 0
-        ? 1 // No growth
+        ? 1
         : Math.pow(1 + effectiveGrowthRate / 100, yearsInInterval);
     let projectedValue = Decimal(accumulatedValue).mul(growthFactor);
 
-    // Calculate and add contributions in this period (with bonuses)
     const periodResult = calculatePeriodContributions(
       contributor,
       previousDate,
@@ -332,13 +458,11 @@ export function generateCompoundProjectionTimeSeries(
 
     totalContributions += periodContributions;
     totalBonuses = totalBonuses.add(periodBonuses);
-    // Add both user contributions and bonuses to portfolio value
     projectedValue = Decimal(projectedValue)
       .add(periodContributions)
       .add(periodBonuses);
     accumulatedValue = Decimal(projectedValue);
 
-    // Apply modifiers to final value (inflation, fees)
     const finalValue = applyModifiersToValue(
       createDecimalValueString(projectedValue.toString()),
       createDecimalValueString(projectedValue.toString()),
@@ -347,7 +471,6 @@ export function generateCompoundProjectionTimeSeries(
       modifierChain
     );
 
-    // Calculate accessible value at this time point
     const accessible = calculateAccessibleValue(
       contributor,
       finalValue,
