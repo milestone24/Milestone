@@ -552,7 +552,7 @@ export const useFireProjection = (): UseFireProjectionReturn => {
       usePortfolioRecurringContributions: includePortfolioRecurringContributions,
       useContributorSpecificGrowthRates: false,
       seriesAlignment: "calendar",
-      backfillIntervals: 1,
+      backfillIntervals: 3,
     }),
     [modifiers, includePortfolioRecurringContributions]
   );
