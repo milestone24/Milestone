@@ -1,3 +1,4 @@
+// AI_REVIEW_REQUIRED: Full module review required before further DB runtime changes, especially temp-table behavior in workers and distributed AWS Lambda execution.
 import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
 //import { drizzle as drizzleNeonWebsockets } from "drizzle-orm/neon-websockets";
 import {
@@ -35,7 +36,6 @@ type EndpointKind =
   | "local"
   | "neon-direct"
   | "neon-pooler"
-  | "pooled-url"
   | "unknown";
 type ConnectionMode = "direct" | "pooled" | "unsupported";
 
@@ -80,20 +80,12 @@ function resolveEndpointKind(databaseUrl: string): EndpointKind {
   try {
     const parsed = new URL(databaseUrl);
     const host = parsed.hostname.toLowerCase();
-    const pgbouncerHint =
-      parsed.searchParams.get("pgbouncer")?.toLowerCase() === "true";
-    const poolMode = parsed.searchParams.get("pool_mode")?.toLowerCase();
-    const pooledUrlHint =
-      pgbouncerHint || poolMode === "transaction" || poolMode === "statement";
 
     if (host.includes("localhost") || host.includes("127.0.0.1")) {
       return "local";
     }
     if (host.includes("neon.tech")) {
       return host.includes("-pooler.") ? "neon-pooler" : "neon-direct";
-    }
-    if (pooledUrlHint) {
-      return "pooled-url";
     }
     return "unknown";
   } catch {
@@ -112,8 +104,12 @@ export function createDatabaseConnection() {
 
   const endpointKind = resolveEndpointKind(databaseUrl);
   const isLocalDb = endpointKind === "local";
+  const isKnownDeterministicEndpoint =
+    endpointKind === "local" ||
+    endpointKind === "neon-direct" ||
+    endpointKind === "neon-pooler";
   const isSessionUnsafeEndpoint =
-    endpointKind === "neon-pooler" || endpointKind === "pooled-url";
+    !isKnownDeterministicEndpoint || endpointKind === "neon-pooler";
   const rewrittenDirectSessionUrl = tryBuildDirectSessionUrlFromPooler(databaseUrl);
   const canUseDirectRewriteForSessions =
     endpointKind === "neon-pooler" && !!rewrittenDirectSessionUrl;
