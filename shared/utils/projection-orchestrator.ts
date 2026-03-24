@@ -37,7 +37,7 @@ import {
 } from "./projection-model-path";
 import type { SimpleProjectionConfigWithDateRange } from "@shared/schema/projections";
 import Decimal from "decimal.js";
-import { addYears } from "date-fns";
+import { addMonths } from "date-fns";
 
 // ============================================================================
 // PROJECTION ORCHESTRATOR
@@ -282,25 +282,22 @@ function calculateMilestoneProgress(
 // ============================================================================
 
 /**
- * For non-projected time points that still have a null projectedReachDate after the
- * within-window backward scan, extrapolates beyond the projection window using each
- * point's projectedPortfolioAtRetirement value and calculateYearsToTarget.
+ * Computes an independent projectedReachDate for every non-projected (backfill/as-of)
+ * time point by running calculateYearsToTarget from that point's own portfolio value
+ * and date. This gives each historical point a counterfactual retirement date —
+ * "if the portfolio had started here, when would it reach the target?" — which is
+ * required for meaningful lookback comparisons (e.g. "retire sooner vs 3 months ago").
+ *
+ * This overwrites any projectedReachDate already set by the within-window backward
+ * scan on non-projected points, since that scan answers a different question
+ * (it propagates the same model-path crossing date to all earlier points).
  */
-function extrapolateReachDatesForPoints(
+function computeReachDatesForNonProjectedPoints(
   points: ProjectionTimePoint[],
   targetValue: DecimalValueString,
   contributors: Contributor[],
   config: ProjectionConfigWithDateRange,
 ): ProjectionTimePoint[] {
-  const nonProjectedPoints = points.filter((p) => !p.projectedValue);
-  const needsExtrapolation = nonProjectedPoints.some(
-    (p) => p.projectedReachDate === null && p.projectedPortfolioAtRetirement != null,
-  );
-
-  if (!needsExtrapolation) {
-    return points;
-  }
-
   const growthRate =
     config.mode === "simple"
       ? (config as SimpleProjectionConfigWithDateRange).growthRate
@@ -314,33 +311,27 @@ function extrapolateReachDatesForPoints(
     (c) => c.includeContributions,
   );
 
-  const endDate = config.endDate;
-
   return points.map((p) => {
-    if (
-      p.projectedValue ||
-      p.projectedReachDate !== null ||
-      p.projectedPortfolioAtRetirement == null
-    ) {
+    if (p.projectedValue) {
       return p;
     }
 
-    const extraYears = calculateYearsToTarget(
-      p.projectedPortfolioAtRetirement,
+    const yearsToTarget = calculateYearsToTarget(
+      p.value,
       contributorsForProjection,
       growthRate,
       targetValue,
       modifierChain,
-      { startDate: endDate, maxYears: 100 },
+      { startDate: p.date, maxYears: 100 },
     );
 
-    if (extraYears === Infinity) {
+    if (yearsToTarget === Infinity) {
       return p;
     }
 
     return {
       ...p,
-      projectedReachDate: addYears(endDate, extraYears),
+      projectedReachDate: addMonths(p.date, Math.round(yearsToTarget * 12)),
     };
   });
 }
@@ -440,10 +431,13 @@ export async function orchestrateProjection(
     ];
   }
 
-  // Attach projected reach dates when a target value is provided
+  // Attach projected reach dates when a target value is provided.
+  // Forward-projected points use the within-window backward scan.
+  // Non-projected (backfill/as-of) points get an independent counterfactual
+  // reach date computed from their own portfolio value and date.
   if (targetValue) {
     result.timePoints = attachProjectedReachDates(result.timePoints, targetValue);
-    result.timePoints = extrapolateReachDatesForPoints(
+    result.timePoints = computeReachDatesForNonProjectedPoints(
       result.timePoints,
       targetValue,
       contributors,
