@@ -346,10 +346,10 @@ export function FireAccountTypeContributionAdjuster({
   const suggestionContent = useMemo(() => {
     if (projectedAge === null) return null;
 
-    const diff = projection.monthlyContributionDifference;
-    const needed = diff ? Number(diff.monthlyContributionDifference) : 0;
+    const { targetRetirementAge, yearsAheadOrBehind } = projection;
+    const isOnTrack = projectedAge <= targetRetirementAge;
 
-    if (needed <= 0) {
+    if (isOnTrack) {
       return (
         <>
           You're on track to retire at <strong>age {projectedAge}</strong> 🦉
@@ -357,22 +357,33 @@ export function FireAccountTypeContributionAdjuster({
       );
     }
 
+    const yearsLabel = Math.abs(yearsAheadOrBehind) === 1 ? "year" : "years";
+    const behindSummary = (
+      <>
+        You're projected to retire at <strong>age {projectedAge}</strong> —{" "}
+        {Math.abs(yearsAheadOrBehind)} {yearsLabel} behind your target of{" "}
+        <strong>{targetRetirementAge}</strong>.
+      </>
+    );
+
+    const diff = projection.monthlyContributionDifference;
+    const needed = diff ? Number(diff.monthlyContributionDifference) : 0;
+
     const suggestRow = accountTypeRows.find((r) => r.contributorsWithSchedules > 0);
     if (suggestRow) {
       const amount = Math.ceil(Math.abs(needed) / 25) * 25;
       return (
         <>
-          You're on track to retire at <strong>age {projectedAge}</strong> 🦉 Add{" "}
-          {formatGBP(amount)}/month to your {suggestRow.accountType} and you could get
-          there <strong>sooner</strong>. Test different contributions below.
+          {behindSummary} Add {formatGBP(amount)}/month to your {suggestRow.accountType}{" "}
+          and you could get there <strong>sooner</strong>. Test different contributions
+          below.
         </>
       );
     }
 
     return (
       <>
-        You're on track to retire at <strong>age {projectedAge}</strong> 🦉 Test
-        different contributions below.
+        {behindSummary} Test different contributions below.
       </>
     );
   }, [projection, projectedAge, accountTypeRows]);
