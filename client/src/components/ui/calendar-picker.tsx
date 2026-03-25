@@ -135,6 +135,54 @@ export function CalendarPicker({ value, onChange, minDate, maxDate }: CalendarPi
     [normalizedMin, normalizedMax]
   );
 
+  const isMonthDisabled = React.useCallback(
+    (month: number, year: number) => {
+      if (normalizedMin && new Date(year, month + 1, 0) < normalizedMin) return true;
+      if (normalizedMax && new Date(year, month, 1) > normalizedMax) return true;
+      return false;
+    },
+    [normalizedMin, normalizedMax]
+  );
+
+  const isYearDisabled = React.useCallback(
+    (year: number) => {
+      if (normalizedMin && year < normalizedMin.getFullYear()) return true;
+      if (normalizedMax && year > normalizedMax.getFullYear()) return true;
+      return false;
+    },
+    [normalizedMin, normalizedMax]
+  );
+
+  const isPrevDisabled = React.useMemo(() => {
+    if (view === "days") {
+      if (!normalizedMin) return false;
+      const pm = activeMonth === 0 ? 11 : activeMonth - 1;
+      const py = activeMonth === 0 ? activeYear - 1 : activeYear;
+      return new Date(py, pm + 1, 0) < normalizedMin;
+    }
+    if (view === "months") {
+      if (!normalizedMin) return false;
+      return new Date(activeYear - 1, 11, 31) < normalizedMin;
+    }
+    if (!normalizedMin) return false;
+    return yearRangeStart - 1 < normalizedMin.getFullYear();
+  }, [view, activeYear, activeMonth, yearRangeStart, normalizedMin]);
+
+  const isNextDisabled = React.useMemo(() => {
+    if (view === "days") {
+      if (!normalizedMax) return false;
+      const nm = activeMonth === 11 ? 0 : activeMonth + 1;
+      const ny = activeMonth === 11 ? activeYear + 1 : activeYear;
+      return new Date(ny, nm, 1) > normalizedMax;
+    }
+    if (view === "months") {
+      if (!normalizedMax) return false;
+      return new Date(activeYear + 1, 0, 1) > normalizedMax;
+    }
+    if (!normalizedMax) return false;
+    return yearRangeStart + 12 > normalizedMax.getFullYear();
+  }, [view, activeYear, activeMonth, yearRangeStart, normalizedMax]);
+
   const dayGrid = React.useMemo(
     () => buildDayGrid(activeYear, activeMonth),
     [activeYear, activeMonth]
@@ -277,7 +325,13 @@ export function CalendarPicker({ value, onChange, minDate, maxDate }: CalendarPi
     <div className="p-3 w-70 max-w-[calc(100vw-1rem)] select-none min-h-82 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <button type="button" onClick={handlePrev} className={NAV_BTN} aria-label="Previous">
+        <button
+          type="button"
+          onClick={handlePrev}
+          disabled={isPrevDisabled}
+          className={cn(NAV_BTN, isPrevDisabled && "opacity-30 cursor-not-allowed pointer-events-none")}
+          aria-label="Previous"
+        >
           <ChevronLeft className="h-4 w-4" />
         </button>
 
@@ -302,7 +356,13 @@ export function CalendarPicker({ value, onChange, minDate, maxDate }: CalendarPi
           {headerLabel}
         </button>
 
-        <button type="button" onClick={handleNext} className={NAV_BTN} aria-label="Next">
+        <button
+          type="button"
+          onClick={handleNext}
+          disabled={isNextDisabled}
+          className={cn(NAV_BTN, isNextDisabled && "opacity-30 cursor-not-allowed pointer-events-none")}
+          aria-label="Next"
+        >
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
@@ -380,21 +440,25 @@ export function CalendarPicker({ value, onChange, minDate, maxDate }: CalendarPi
       {view === "months" && (
         <div className="grid grid-cols-3 gap-2">
           {MONTH_ABBR.map((abbr, i) => {
+            const disabled = isMonthDisabled(i, activeYear);
             const selected = value != null && value.getMonth() === i && value.getFullYear() === activeYear;
             const isNow = today.getMonth() === i && today.getFullYear() === activeYear;
             return (
               <button
                 key={abbr}
                 type="button"
-                onClick={() => handleSelectMonth(i)}
+                onClick={() => !disabled && handleSelectMonth(i)}
+                disabled={disabled}
                 aria-label={`${MONTH_NAMES[i]} ${activeYear}`}
                 aria-selected={selected}
                 aria-current={isNow ? "date" : undefined}
                 className={cn(
                   TILE,
                   "h-10",
-                  "hover:bg-accent hover:text-accent-foreground cursor-pointer",
-                  isNow && !selected && "bg-accent text-accent-foreground font-semibold",
+                  disabled
+                    ? "opacity-40 cursor-not-allowed"
+                    : "hover:bg-accent hover:text-accent-foreground cursor-pointer",
+                  isNow && !selected && !disabled && "bg-accent text-accent-foreground font-semibold",
                   selected && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground font-semibold"
                 )}
               >
@@ -409,21 +473,25 @@ export function CalendarPicker({ value, onChange, minDate, maxDate }: CalendarPi
       {view === "years" && (
         <div className="grid grid-cols-3 gap-2">
           {Array.from({ length: 12 }, (_, i) => yearRangeStart + i).map(year => {
+            const disabled = isYearDisabled(year);
             const selected = value != null && value.getFullYear() === year;
             const isNow = today.getFullYear() === year;
             return (
               <button
                 key={year}
                 type="button"
-                onClick={() => handleSelectYear(year)}
+                onClick={() => !disabled && handleSelectYear(year)}
+                disabled={disabled}
                 aria-label={`${year}`}
                 aria-selected={selected}
                 aria-current={isNow ? "date" : undefined}
                 className={cn(
                   TILE,
                   "h-10",
-                  "hover:bg-accent hover:text-accent-foreground cursor-pointer",
-                  isNow && !selected && "bg-accent text-accent-foreground font-semibold",
+                  disabled
+                    ? "opacity-40 cursor-not-allowed"
+                    : "hover:bg-accent hover:text-accent-foreground cursor-pointer",
+                  isNow && !selected && !disabled && "bg-accent text-accent-foreground font-semibold",
                   selected && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground font-semibold"
                 )}
               >
