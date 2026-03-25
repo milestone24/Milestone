@@ -1,5 +1,5 @@
 import * as React from "react"
-import IMask from "imask"
+import { MaskedRange } from "imask"
 import { IMaskInput } from "react-imask"
 import { CalendarIcon } from "lucide-react"
 import { Calendar } from "./calendar"
@@ -56,17 +56,16 @@ function DateInput({
     }
   }, [value]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleAccept = (val: string, mask: any) => {
-    if (!val) {
+  const handleAccept = (val: string) => {
+    const digits = val.replace(/\D/g, "");
+    if (!digits) {
       onChange(undefined);
       return;
     }
-    const typed: unknown = mask.typedValue;
-    if (typed instanceof Date && !isNaN(typed.getTime())) {
-      onChange(typed);
-    }
-    // partial input: silently do nothing — preserve last valid RHF value
+    // Placeholder char '_' indicates incomplete entry — do nothing
+    if (val.includes("_")) return;
+    const date = parseDateFromMask(val);
+    if (!isNaN(date.getTime())) onChange(date);
   };
 
   const handleCalendarSelect = (date: Date | undefined) => {
@@ -78,13 +77,12 @@ function DateInput({
   return (
     <div className={cn("flex gap-1", className)}>
       <IMaskInput
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        mask={Date as any}
+        mask={Date}
         pattern="d{/}`m{/}`Y"
         blocks={{
-          d: { mask: IMask.MaskedRange, from: 1, to: 31, maxLength: 2 },
-          m: { mask: IMask.MaskedRange, from: 1, to: 12, maxLength: 2 },
-          Y: { mask: IMask.MaskedRange, from: 1900, to: 2999, maxLength: 4 },
+          d: { mask: MaskedRange, from: 1, to: 31, maxLength: 2 },
+          m: { mask: MaskedRange, from: 1, to: 12, maxLength: 2 },
+          Y: { mask: MaskedRange, from: 1900, to: 2999, maxLength: 4 },
         }}
         min={min}
         max={max}
