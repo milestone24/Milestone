@@ -10,11 +10,11 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "../ui/input";
+import { DateInput } from "../ui/date-input";
 import { Checkbox } from "../ui/checkbox";
 import { Switch } from "../ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { RRuleScheduler } from "../schedule/RRuleScheduler";
-import { dateToDateInputValue } from "@/lib/form";
 import { Lens } from "@hookform/lenses";
 
 type RecurringContributionFieldsProps = {
@@ -69,13 +69,11 @@ export const RecurringContributionFields = ({
       {showStartDate && (
         <FormItem>
           <FormLabel>Start Date</FormLabel>
-          <Input
-            type="date"
-            value={dateToDateInputValue(startDateField.value)}
-            onChange={(e) => {
-              startDateField.onChange(new Date(e.target.value));
-            }}
+          <DateInput
+            value={startDateField.value}
+            onChange={startDateField.onChange}
             onBlur={startDateField.onBlur}
+            name={startDateField.name}
           />
           {startDateFieldState.error && (
             <FormMessage>{startDateFieldState.error.message}</FormMessage>
