@@ -90,8 +90,6 @@ function DateInput({
         mask={Date}
         pattern="d{/}`m{/}`Y"
         blocks={MASK_BLOCKS}
-        min={min}
-        max={max}
         format={formatDateForMask}
         parse={parseDateFromMask}
         lazy={false}
