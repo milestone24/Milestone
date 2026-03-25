@@ -126,6 +126,7 @@ function DateInput({
             fromDate={min}
             toDate={max}
             initialFocus
+            fixedWeeks
           />
         </PopoverContent>
       </Popover>
