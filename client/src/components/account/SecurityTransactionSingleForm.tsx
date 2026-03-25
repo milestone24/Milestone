@@ -10,15 +10,15 @@ import {
   FormMessage,
 } from "../ui/form";
 import { Input } from "../ui/input";
+import { DateInput } from "../ui/date-input";
 import { Button } from "../ui/button";
-import { dateToDateInputValue } from "@/lib/form";
 import { Loader2 } from "lucide-react";
 import type {
   SecurityTransactionInsert,
   SecurityTransactionUpsert,
 } from "@shared/schema";
 import { securityTransactionInsertSchema } from "@shared/schema/transaction";
-import { Controller, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { createDecimalValueString } from "@shared/schema";
 import {
   Select,
@@ -136,25 +136,20 @@ export const SecurityTransactionSingleForm = ({
           <FormField
             control={control}
             name="valueDate"
-            render={({ field }) => {
-              return (
-                <FormItem>
-                  <FormLabel>Date</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      {...field}
-                      max={new Date().toISOString().split("T")[0]}
-                      value={dateToDateInputValue(field.value)}
-                      onChange={(e) => {
-                        field.onChange(new Date(e.target.value));
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              );
-            }}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Date</FormLabel>
+                <DateInput
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  disabled={field.disabled}
+                  max={new Date()}
+                />
+                <FormMessage />
+              </FormItem>
+            )}
           />
 
           <FormField
