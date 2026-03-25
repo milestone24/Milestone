@@ -21,6 +21,7 @@ import {
   Form,
 } from "../ui/form";
 import RSelect from "react-select";
+import { cn } from "@/lib/utils";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -298,6 +299,34 @@ const AssetSecurityNewFields = () => {
               <FormControl>
                 <RSelect
                   {...fieldProps}
+                  unstyled
+                  classNames={{
+                    control: ({ isFocused }) =>
+                      cn(
+                        "flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background",
+                        isFocused && "ring-1 ring-ring ring-offset-2"
+                      ),
+                    placeholder: () => "text-muted-foreground",
+                    input: () => "text-foreground",
+                    singleValue: () => "text-foreground",
+                    menu: () =>
+                      "mt-1 rounded-md border border-border bg-popover shadow-md z-50",
+                    menuList: () => "p-1",
+                    option: ({ isFocused, isSelected }) =>
+                      cn(
+                        "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
+                        (isFocused || isSelected) &&
+                          "bg-accent text-accent-foreground"
+                      ),
+                    noOptionsMessage: () =>
+                      "py-2 text-sm text-center text-muted-foreground",
+                    loadingMessage: () =>
+                      "py-2 text-sm text-center text-muted-foreground",
+                    indicatorSeparator: () => "bg-border mx-1",
+                    dropdownIndicator: () => "text-muted-foreground px-1",
+                    clearIndicator: () =>
+                      "text-muted-foreground hover:text-foreground px-1 cursor-pointer",
+                  }}
                   tabIndex={0}
                   tabSelectsValue={false}
                   options={securities ?? []}
