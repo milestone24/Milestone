@@ -12,7 +12,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Pencil, X } from "lucide-react";
 import { useAssetUpdate } from "@/hooks/use-asset-update";
 
@@ -53,14 +53,9 @@ const FIELD_CONFIGS: FieldConfig[] = [
     label: "Start Date",
     formatValue: (asset) => asset.startDate.toLocaleDateString(),
     renderInput: (field) => (
-      <Input
-        type="date"
-        value={
-          field.value instanceof Date
-            ? field.value.toISOString().split("T")[0]
-            : ""
-        }
-        onChange={(e) => field.onChange(new Date(e.target.value))}
+      <DateInput
+        value={field.value instanceof Date ? field.value : null}
+        onChange={(date) => field.onChange(date)}
       />
     ),
   },
