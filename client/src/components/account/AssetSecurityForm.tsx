@@ -10,7 +10,7 @@ import {
   userAssetSecurityOrphanNewCreateInsertSchema,
 } from "@shared/schema/portfolio-assets";
 import { useCallback, useState } from "react";
-import { Controller, useForm, useFormContext } from "react-hook-form";
+import { useForm, useFormContext } from "react-hook-form";
 import {
   FormDescription,
   FormField,
@@ -23,6 +23,7 @@ import {
 import RSelect from "react-select";
 import { cn } from "@/lib/utils";
 import { Input } from "../ui/input";
+import { DateInput } from "../ui/date-input";
 import { Button } from "../ui/button";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
@@ -431,33 +432,19 @@ const AssetSecurityBaseFields = ({
         <FormField
           control={control}
           name="startDate"
-          render={() => (
+          render={({ field }) => (
             <FormItem>
               <FormLabel>Select Start Date</FormLabel>
               <FormDescription>
                 When did you start this security?{" "}
               </FormDescription>
-              <Controller
-                control={control}
-                name="startDate"
-                rules={{ required: true }}
-                render={({ field }) => {
-                  return (
-                    <Input
-                      type="date"
-                      onChange={(e) => field.onChange(new Date(e.target.value))}
-                      //Typescript can not use descrimator for AssetSecurityBaseFieldsProps in here, so we shebang it
-                      min={
-                        startDateMin?.toISOString().split("T")[0] ?? undefined
-                      }
-                      value={
-                        field.value
-                          ? field.value.toISOString().split("T")[0]
-                          : ""
-                      }
-                    />
-                  );
-                }}
+              <DateInput
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                name={field.name}
+                disabled={field.disabled}
+                min={startDateMin}
               />
               <FormMessage />
             </FormItem>
