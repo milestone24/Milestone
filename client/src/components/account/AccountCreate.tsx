@@ -13,7 +13,6 @@ import {
   useForm,
   useFormContext,
   useFieldArray,
-  Controller,
   FieldErrors,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,6 +26,7 @@ import {
   FormMessage,
 } from "../ui/form";
 import { Input } from "../ui/input";
+import { DateInput } from "../ui/date-input";
 import {
   Select,
   SelectContent,
@@ -428,26 +428,16 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
       <FormField
         control={form.control}
         name="startDate"
-        render={() => (
+        render={({ field }) => (
           <FormItem>
             <FormLabel>Start Date</FormLabel>
             <FormDescription>When did you start this account?</FormDescription>
-            <Controller
-              control={form.control}
-              name="startDate"
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Input
-                  type="date"
-                  onChange={(e) => field.onChange(new Date(e.target.value))}
-                  onBlur={field.onBlur}
-                  name={field.name}
-                  disabled={field.disabled}
-                  value={
-                    field.value ? field.value.toISOString().split("T")[0] : ""
-                  }
-                />
-              )}
+            <DateInput
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              name={field.name}
+              disabled={field.disabled}
             />
             <FormMessage />
             {selectedPlatform && (
