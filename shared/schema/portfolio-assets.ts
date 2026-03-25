@@ -152,7 +152,7 @@ export const userAssetOrphanInsertSchema = z.object({
       message: "Start date must be in the past",
     })
     .refine((val) => val >= new Date("2000-01-01"), {
-      message: "Start date must be after 2000-01-01",
+      message: "Start date must be after 01/01/2000",
     }),
   valueMethod: z.enum(["manual", "calculated"]),
 
