@@ -7,8 +7,7 @@ import {
 } from "@shared/schema/user-account";
 import { useForm } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "../ui/form";
-import { Input } from "../ui/input";
-import { dateToDateInputValue } from "@/lib/form";
+import { DateInput } from "../ui/date-input";
 import {
   maritalStatus,
   gender,
@@ -67,13 +66,13 @@ export const UserProfileForm = ({ onSubmit, data }: UserProfileFormProps) => {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Date of Birth</FormLabel>
-                <FormControl>
-                  <Input
-                    type="date"
-                    {...field}
-                    value={dateToDateInputValue(field.value)}
-                  />
-                </FormControl>
+                <DateInput
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  disabled={field.disabled}
+                />
               </FormItem>
             )}
           />
