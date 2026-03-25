@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { RRulePattern, createRRulePattern } from "@shared/utils/scheduling";
 import { FrequencySelector } from "./FrequencySelector";
 import { DayOfWeekSelector } from "./DayOfWeekSelector";
@@ -46,31 +46,33 @@ export const RRuleScheduler: React.FC<RRuleSchedulerProps> = ({
   className = "",
   showGeneratedRule = false,
 }) => {
-  const [config, setConfig] = useState<ScheduleConfig>(defaultConfig);
-  const [rrule, setRrule] = useState(value);
+  const initialConfig = value ? parseRRuleToConfig(value) : defaultConfig;
+  const [config, setConfig] = useState<ScheduleConfig>(initialConfig);
 
-  // Update internal state when value prop changes
+  // Track the last rrule string this component generated internally so Effect 1
+  // can distinguish between external resets (e.g. edit mode form populate) and
+  // echoes of our own onChange calls bouncing back through the parent form.
+  const internalRRuleRef = useRef(generateRRuleFromConfig(initialConfig));
+
+  // Re-sync config only when value changes to something we did not produce.
   useEffect(() => {
-    setRrule(value);
-    if (value) {
+    if (value && value !== internalRRuleRef.current) {
       try {
-        const parsedConfig = parseRRuleToConfig(value);
-        setConfig(parsedConfig);
+        const parsed = parseRRuleToConfig(value);
+        setConfig(parsed);
+        internalRRuleRef.current = generateRRuleFromConfig(parsed);
       } catch (error) {
         console.warn("Failed to parse RRule:", error);
       }
     }
   }, [value]);
 
-  // Generate RRule when config changes
-  useEffect(() => {
-    const newRRule = generateRRuleFromConfig(config);
-    setRrule(newRRule);
-    onChange?.(newRRule);
-  }, [config, onChange]);
-
   const updateConfig = (updates: Partial<ScheduleConfig>) => {
-    setConfig((prev) => ({ ...prev, ...updates }));
+    const newConfig = { ...config, ...updates };
+    setConfig(newConfig);
+    const newRRule = generateRRuleFromConfig(newConfig);
+    internalRRuleRef.current = newRRule;
+    onChange?.(newRRule);
   };
 
   return (
@@ -245,7 +247,7 @@ export const RRuleScheduler: React.FC<RRuleSchedulerProps> = ({
           )}
         </div>
       </div>
-      {showGeneratedRule && <RRulePreview rrule={rrule} />}
+      {showGeneratedRule && <RRulePreview rrule={generateRRuleFromConfig(config)} />}
     </div>
   );
 };
