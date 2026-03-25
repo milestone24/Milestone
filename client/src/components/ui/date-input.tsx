@@ -29,9 +29,19 @@ function DateInput({
   className,
 }: DateInputProps) {
   const [open, setOpen] = React.useState(false);
+  const [inputStr, setInputStr] = React.useState(() => dateToDateInputValue(value));
+  const prevValueRef = React.useRef(value);
+
+  React.useEffect(() => {
+    if (prevValueRef.current !== value) {
+      prevValueRef.current = value;
+      setInputStr(dateToDateInputValue(value));
+    }
+  }, [value]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
+    setInputStr(val);
     if (!val) {
       onChange(undefined);
       return;
@@ -52,7 +62,7 @@ function DateInput({
       <Input
         type="date"
         name={name}
-        value={dateToDateInputValue(value)}
+        value={inputStr}
         onChange={handleInputChange}
         onBlur={onBlur}
         disabled={disabled}
