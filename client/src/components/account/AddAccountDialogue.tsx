@@ -28,15 +28,6 @@ const AddAccountDialogue: React.FC<AddAccountDialogueProps> = ({
       </DialogTrigger>
       <DialogContent
         className="overflow-y-scroll max-h-[90vh]"
-        onPointerDownOutside={(e) => {
-          // Prevent dialog from closing when clicking on a portal-rendered floating element
-          // (e.g. Popover, Select dropdown) that lives outside the Dialog DOM tree
-          const target = e.target as Node;
-          const hasFloatingParent = !!document
-            .querySelector("[data-radix-popper-content-wrapper]")
-            ?.contains(target);
-          if (hasFloatingParent) e.preventDefault();
-        }}
       >
         <AccountCreate
           onSubmit={onSubmit}
