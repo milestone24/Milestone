@@ -75,6 +75,7 @@ export const RecurringContributionFields = ({
             onChange={(e) => {
               startDateField.onChange(new Date(e.target.value));
             }}
+            onBlur={startDateField.onBlur}
           />
           {startDateFieldState.error && (
             <FormMessage>{startDateFieldState.error.message}</FormMessage>
@@ -98,6 +99,7 @@ export const RecurringContributionFields = ({
                   : createDecimalValueString(e.target.value)
               );
             }}
+            onBlur={amountField.onBlur}
           />
         </FormControl>
         {amountFieldState.error && (
@@ -124,7 +126,10 @@ export const RecurringContributionFields = ({
           <ToggleGroup
             type="single"
             value={processField.value}
-            onValueChange={processField.onChange}
+            onValueChange={(value) => {
+              processField.onChange(value);
+              processField.onBlur();
+            }}
             className="justify-start"
           >
             <ToggleGroupItem value="automatic">Yes</ToggleGroupItem>
