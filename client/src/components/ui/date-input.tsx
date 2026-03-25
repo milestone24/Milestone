@@ -19,6 +19,12 @@ interface DateInputProps {
   className?: string;
 }
 
+const MASK_BLOCKS = {
+  d: { mask: MaskedRange, from: 1, to: 31, maxLength: 2 },
+  m: { mask: MaskedRange, from: 1, to: 12, maxLength: 2 },
+  Y: { mask: MaskedRange, from: 1900, to: 2999, maxLength: 4 },
+} as const;
+
 const formatDateForMask = (date: Date | null | undefined): string => {
   if (!date || isNaN(date.getTime())) return "";
   const day = date.getDate().toString().padStart(2, "0");
@@ -83,17 +89,14 @@ function DateInput({
       <IMaskInput
         mask={Date}
         pattern="d{/}`m{/}`Y"
-        blocks={{
-          d: { mask: MaskedRange, from: 1, to: 31, maxLength: 2 },
-          m: { mask: MaskedRange, from: 1, to: 12, maxLength: 2 },
-          Y: { mask: MaskedRange, from: 1900, to: 2999, maxLength: 4 },
-        }}
+        blocks={MASK_BLOCKS}
         min={min}
         max={max}
         format={formatDateForMask}
         parse={parseDateFromMask}
         lazy={false}
         autoComplete="off"
+        inputMode="numeric"
         id={id}
         name={name}
         value={displayValue}

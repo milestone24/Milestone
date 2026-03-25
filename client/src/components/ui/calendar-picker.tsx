@@ -24,6 +24,21 @@ const MONTH_ABBR = [
 
 const DAY_HEADERS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
+const DAY_HEADER_LABELS = [
+  "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+];
+
+const NAV_BTN = cn(
+  "flex items-center justify-center h-7 w-7 rounded-md text-sm",
+  "opacity-70 hover:opacity-100 hover:bg-accent hover:text-accent-foreground",
+  "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+);
+
+const TILE = cn(
+  "flex items-center justify-center rounded-md text-sm transition-colors",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+);
+
 function isSameDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -32,22 +47,8 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
-function isDisabledDate(date: Date, minDate?: Date, maxDate?: Date): boolean {
-  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  if (minDate) {
-    const min = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
-    if (d < min) return true;
-  }
-  if (maxDate) {
-    const max = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate());
-    if (d > max) return true;
-  }
-  return false;
-}
-
 function buildDayGrid(year: number, month: number): Array<{ date: Date; currentMonth: boolean }> {
   const firstDay = new Date(year, month, 1);
-  // Mon-based offset: Mon=0 … Sun=6
   const startOffset = (firstDay.getDay() + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const daysInPrevMonth = new Date(year, month, 0).getDate();
@@ -74,25 +75,94 @@ function buildDayGrid(year: number, month: number): Array<{ date: Date; currentM
   return cells;
 }
 
+function addDays(date: Date, n: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+
+function clampDay(year: number, month: number, day: number): Date {
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return new Date(year, month, Math.min(day, lastDay));
+}
+
+function weekStart(date: Date): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d;
+}
+
+function weekEnd(date: Date): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + (6 - ((d.getDay() + 6) % 7)));
+  return d;
+}
+
+function dateKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
 export function CalendarPicker({ value, onChange, minDate, maxDate }: CalendarPickerProps) {
-  const today = new Date();
+  const today = React.useMemo(() => new Date(), []);
 
   const [view, setView] = React.useState<View>("days");
-  const [activeYear, setActiveYear] = React.useState(
-    () => (value ?? today).getFullYear()
-  );
-  const [activeMonth, setActiveMonth] = React.useState(
-    () => (value ?? today).getMonth()
-  );
+  const [activeYear, setActiveYear] = React.useState(() => (value ?? today).getFullYear());
+  const [activeMonth, setActiveMonth] = React.useState(() => (value ?? today).getMonth());
   const [yearRangeStart, setYearRangeStart] = React.useState(() => {
     const y = (value ?? today).getFullYear();
     return Math.floor(y / 12) * 12;
   });
+  const [focusedDate, setFocusedDate] = React.useState<Date>(() => value ?? today);
+
+  const gridRef = React.useRef<HTMLDivElement>(null);
+
+  const normalizedMin = React.useMemo(
+    () => minDate ? new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate()) : undefined,
+    [minDate]
+  );
+  const normalizedMax = React.useMemo(
+    () => maxDate ? new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate()) : undefined,
+    [maxDate]
+  );
+
+  const isDisabled = React.useCallback(
+    (date: Date) => {
+      const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      if (normalizedMin && d < normalizedMin) return true;
+      if (normalizedMax && d > normalizedMax) return true;
+      return false;
+    },
+    [normalizedMin, normalizedMax]
+  );
+
+  const dayGrid = React.useMemo(
+    () => buildDayGrid(activeYear, activeMonth),
+    [activeYear, activeMonth]
+  );
+
+  const dayRows = React.useMemo(() => {
+    const rows: Array<typeof dayGrid> = [];
+    for (let i = 0; i < dayGrid.length; i += 7) {
+      rows.push(dayGrid.slice(i, i + 7));
+    }
+    return rows;
+  }, [dayGrid]);
+
+  // Move focus to the focused date button after any state change that affects it
+  React.useEffect(() => {
+    if (view !== "days" || !gridRef.current) return;
+    const key = dateKey(focusedDate);
+    const btn = gridRef.current.querySelector<HTMLButtonElement>(`[data-date="${key}"]`);
+    btn?.focus({ preventScroll: true });
+  }, [focusedDate, view]);
 
   const handlePrev = () => {
     if (view === "days") {
-      if (activeMonth === 0) { setActiveYear(y => y - 1); setActiveMonth(11); }
-      else setActiveMonth(m => m - 1);
+      const newMonth = activeMonth === 0 ? 11 : activeMonth - 1;
+      const newYear = activeMonth === 0 ? activeYear - 1 : activeYear;
+      setActiveMonth(newMonth);
+      setActiveYear(newYear);
+      setFocusedDate(clampDay(newYear, newMonth, focusedDate.getDate()));
     } else if (view === "months") {
       setActiveYear(y => y - 1);
     } else {
@@ -102,8 +172,11 @@ export function CalendarPicker({ value, onChange, minDate, maxDate }: CalendarPi
 
   const handleNext = () => {
     if (view === "days") {
-      if (activeMonth === 11) { setActiveYear(y => y + 1); setActiveMonth(0); }
-      else setActiveMonth(m => m + 1);
+      const newMonth = activeMonth === 11 ? 0 : activeMonth + 1;
+      const newYear = activeMonth === 11 ? activeYear + 1 : activeYear;
+      setActiveMonth(newMonth);
+      setActiveYear(newYear);
+      setFocusedDate(clampDay(newYear, newMonth, focusedDate.getDate()));
     } else if (view === "months") {
       setActiveYear(y => y + 1);
     } else {
@@ -111,13 +184,11 @@ export function CalendarPicker({ value, onChange, minDate, maxDate }: CalendarPi
     }
   };
 
-  const handleHeaderClick = () => {
-    if (view === "days") setView("years");
-    else if (view === "months") setView("years");
-  };
+  const handleHeaderClick = () => setView("years");
 
   const handleSelectMonth = (month: number) => {
     setActiveMonth(month);
+    setFocusedDate(clampDay(activeYear, month, focusedDate.getDate()));
     setView("days");
   };
 
@@ -127,9 +198,71 @@ export function CalendarPicker({ value, onChange, minDate, maxDate }: CalendarPi
     setView("months");
   };
 
-  const handleSelectDay = (date: Date) => {
-    if (!isDisabledDate(date, minDate, maxDate)) {
-      onChange(date);
+  const handleGridKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    let next: Date | null = null;
+
+    switch (e.key) {
+      case "ArrowLeft":
+        e.preventDefault();
+        next = addDays(focusedDate, -1);
+        break;
+      case "ArrowRight":
+        e.preventDefault();
+        next = addDays(focusedDate, 1);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        next = addDays(focusedDate, -7);
+        break;
+      case "ArrowDown":
+        e.preventDefault();
+        next = addDays(focusedDate, 7);
+        break;
+      case "Home":
+        e.preventDefault();
+        next = e.ctrlKey
+          ? new Date(focusedDate.getFullYear(), focusedDate.getMonth(), 1)
+          : weekStart(focusedDate);
+        break;
+      case "End":
+        e.preventDefault();
+        next = e.ctrlKey
+          ? new Date(focusedDate.getFullYear(), focusedDate.getMonth() + 1, 0)
+          : weekEnd(focusedDate);
+        break;
+      case "PageUp": {
+        e.preventDefault();
+        const prevM = focusedDate.getMonth() === 0 ? 11 : focusedDate.getMonth() - 1;
+        const prevY = focusedDate.getMonth() === 0 ? focusedDate.getFullYear() - 1 : focusedDate.getFullYear();
+        next = e.shiftKey
+          ? clampDay(focusedDate.getFullYear() - 1, focusedDate.getMonth(), focusedDate.getDate())
+          : clampDay(prevY, prevM, focusedDate.getDate());
+        break;
+      }
+      case "PageDown": {
+        e.preventDefault();
+        const nextM = focusedDate.getMonth() === 11 ? 0 : focusedDate.getMonth() + 1;
+        const nextY = focusedDate.getMonth() === 11 ? focusedDate.getFullYear() + 1 : focusedDate.getFullYear();
+        next = e.shiftKey
+          ? clampDay(focusedDate.getFullYear() + 1, focusedDate.getMonth(), focusedDate.getDate())
+          : clampDay(nextY, nextM, focusedDate.getDate());
+        break;
+      }
+      case "Enter":
+      case " ":
+        e.preventDefault();
+        if (!isDisabled(focusedDate)) onChange(focusedDate);
+        return;
+      default:
+        return;
+    }
+
+    if (next) {
+      if (next.getMonth() !== activeMonth || next.getFullYear() !== activeYear) {
+        setActiveMonth(next.getMonth());
+        setActiveYear(next.getFullYear());
+      }
+      setFocusedDate(next);
     }
   };
 
@@ -140,22 +273,11 @@ export function CalendarPicker({ value, onChange, minDate, maxDate }: CalendarPi
       ? `${activeYear}`
       : `${yearRangeStart} – ${yearRangeStart + 11}`;
 
-  const navBtn = cn(
-    "flex items-center justify-center h-7 w-7 rounded-md text-sm",
-    "opacity-70 hover:opacity-100 hover:bg-accent hover:text-accent-foreground",
-    "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-  );
-
-  const tile = cn(
-    "flex items-center justify-center rounded-md text-sm transition-colors",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-  );
-
   return (
-    <div className="p-3 w-[17.5rem] select-none min-h-[20.5rem] flex flex-col">
+    <div className="p-3 w-70 max-w-[calc(100vw-1rem)] select-none min-h-82 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <button type="button" onClick={handlePrev} className={navBtn} aria-label="Previous">
+        <button type="button" onClick={handlePrev} className={NAV_BTN} aria-label="Previous">
           <ChevronLeft className="h-4 w-4" />
         </button>
 
@@ -163,6 +285,13 @@ export function CalendarPicker({ value, onChange, minDate, maxDate }: CalendarPi
           type="button"
           onClick={handleHeaderClick}
           disabled={view === "years"}
+          aria-label={
+            view === "days"
+              ? `Navigate to year selection, currently ${MONTH_NAMES[activeMonth]} ${activeYear}`
+              : view === "months"
+              ? `Navigate to year range, currently ${activeYear}`
+              : undefined
+          }
           className={cn(
             "text-sm font-medium px-2 py-1 rounded-md transition-colors",
             view !== "years"
@@ -173,73 +302,103 @@ export function CalendarPicker({ value, onChange, minDate, maxDate }: CalendarPi
           {headerLabel}
         </button>
 
-        <button type="button" onClick={handleNext} className={navBtn} aria-label="Next">
+        <button type="button" onClick={handleNext} className={NAV_BTN} aria-label="Next">
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
       {/* Days view */}
       {view === "days" && (
-        <>
-          <div className="grid grid-cols-7 mb-1">
-            {DAY_HEADERS.map(d => (
-              <div key={d} className="flex items-center justify-center h-8 text-xs text-muted-foreground font-medium">
+        <div
+          ref={gridRef}
+          role="grid"
+          aria-label={`${MONTH_NAMES[activeMonth]} ${activeYear}`}
+          aria-multiselectable="false"
+          onKeyDown={handleGridKeyDown}
+          className="flex-1 flex flex-col"
+        >
+          {/* Column headers */}
+          <div role="row" className="grid grid-cols-7 mb-1">
+            {DAY_HEADERS.map((d, i) => (
+              <div
+                key={d}
+                role="columnheader"
+                aria-label={DAY_HEADER_LABELS[i]}
+                className="flex items-center justify-center h-8 text-xs text-muted-foreground font-medium"
+              >
                 {d}
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-y-0.5">
-            {buildDayGrid(activeYear, activeMonth).map(({ date, currentMonth }, i) => {
-              const disabled = isDisabledDate(date, minDate, maxDate);
-              const selected = value ? isSameDay(date, value) : false;
-              const isNow = isSameDay(date, today);
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => handleSelectDay(date)}
-                  disabled={disabled}
-                  aria-label={date.toLocaleDateString()}
-                  aria-selected={selected}
-                  className={cn(
-                    tile,
-                    "h-9 w-full text-sm",
-                    disabled
-                      ? "opacity-40 cursor-not-allowed"
-                      : "hover:bg-accent hover:text-accent-foreground cursor-pointer",
-                    !currentMonth && !selected && "text-muted-foreground opacity-50",
-                    isNow && !selected && "bg-accent text-accent-foreground font-semibold",
-                    selected && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground font-semibold"
-                  )}
-                >
-                  {date.getDate()}
-                </button>
-              );
-            })}
+
+          {/* Week rows */}
+          <div className="flex flex-col gap-y-0.5">
+            {dayRows.map((row, rowIdx) => (
+              <div key={rowIdx} role="row" className="grid grid-cols-7">
+                {row.map(({ date, currentMonth }) => {
+                  const disabled = isDisabled(date);
+                  const selected = value ? isSameDay(date, value) : false;
+                  const isNow = isSameDay(date, today);
+                  const isFocused = isSameDay(date, focusedDate);
+                  return (
+                    <div key={dateKey(date)} role="gridcell">
+                      <button
+                        type="button"
+                        data-date={dateKey(date)}
+                        tabIndex={isFocused ? 0 : -1}
+                        onClick={() => { if (!disabled) onChange(date); }}
+                        onFocus={() => setFocusedDate(date)}
+                        disabled={disabled}
+                        aria-label={date.toLocaleDateString(undefined, {
+                          weekday: "long", year: "numeric", month: "long", day: "numeric",
+                        })}
+                        aria-selected={selected}
+                        aria-current={isNow ? "date" : undefined}
+                        className={cn(
+                          TILE,
+                          "h-9 w-full text-sm",
+                          disabled
+                            ? "opacity-40 cursor-not-allowed"
+                            : "hover:bg-accent hover:text-accent-foreground cursor-pointer",
+                          !currentMonth && !selected && "text-muted-foreground opacity-50",
+                          isNow && !selected && "bg-accent text-accent-foreground font-semibold",
+                          selected && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground font-semibold"
+                        )}
+                      >
+                        {date.getDate()}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
-        </>
+        </div>
       )}
 
       {/* Months view */}
       {view === "months" && (
         <div className="grid grid-cols-3 gap-2">
-          {MONTH_ABBR.map((name, i) => {
+          {MONTH_ABBR.map((abbr, i) => {
             const selected = value != null && value.getMonth() === i && value.getFullYear() === activeYear;
             const isNow = today.getMonth() === i && today.getFullYear() === activeYear;
             return (
               <button
-                key={name}
+                key={abbr}
                 type="button"
                 onClick={() => handleSelectMonth(i)}
+                aria-label={`${MONTH_NAMES[i]} ${activeYear}`}
+                aria-selected={selected}
+                aria-current={isNow ? "date" : undefined}
                 className={cn(
-                  tile,
+                  TILE,
                   "h-10",
                   "hover:bg-accent hover:text-accent-foreground cursor-pointer",
                   isNow && !selected && "bg-accent text-accent-foreground font-semibold",
                   selected && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground font-semibold"
                 )}
               >
-                {name}
+                {abbr}
               </button>
             );
           })}
@@ -257,8 +416,11 @@ export function CalendarPicker({ value, onChange, minDate, maxDate }: CalendarPi
                 key={year}
                 type="button"
                 onClick={() => handleSelectYear(year)}
+                aria-label={`${year}`}
+                aria-selected={selected}
+                aria-current={isNow ? "date" : undefined}
                 className={cn(
-                  tile,
+                  TILE,
                   "h-10",
                   "hover:bg-accent hover:text-accent-foreground cursor-pointer",
                   isNow && !selected && "bg-accent text-accent-foreground font-semibold",
