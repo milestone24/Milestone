@@ -112,7 +112,7 @@ export function CalendarPicker({ value, onChange, minDate, maxDate }: CalendarPi
   };
 
   const handleHeaderClick = () => {
-    if (view === "days") setView("months");
+    if (view === "days") setView("years");
     else if (view === "months") setView("years");
   };
 
