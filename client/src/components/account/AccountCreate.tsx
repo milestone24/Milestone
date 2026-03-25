@@ -35,6 +35,14 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Button } from "../ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+} from "../ui/sheet";
 import { useMemo, useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
@@ -317,11 +325,9 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
     }
   , [selectedPlatform, accountType])
 
-  const startDateInstructions = useMemo(() => {
-    return (selectedPlatform
-      ? `Insert instruction for ${selectedPlatform.name} here`
-      : "We can only provide instructions for a known platform.")
-  }, [selectedPlatform])
+  const startDateInstructions = selectedPlatform
+    ? `Insert instruction for ${selectedPlatform.name} here`
+    : undefined;
 
   return (
     <>
@@ -444,9 +450,26 @@ const AccountCreateOne: React.FC<AccountCreateFormProps> = (props) => {
               )}
             />
             <FormMessage />
-            <FormDescription>How do I find this?
-              <p>{startDateInstructions}</p>
-            </FormDescription>
+            {selectedPlatform && (
+              <Sheet>
+                <SheetTrigger asChild>
+                  <button type="button" className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors">
+                    How do I find this?
+                  </button>
+                </SheetTrigger>
+                <SheetContent>
+                  <SheetHeader>
+                    <SheetTitle>Finding your start date</SheetTitle>
+                    <SheetDescription>
+                      Instructions for {selectedPlatform.name}
+                    </SheetDescription>
+                  </SheetHeader>
+                  <div className="mt-4 space-y-4 overflow-y-auto">
+                    <p className="text-sm">{startDateInstructions}</p>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            )}
           </FormItem>
         )}
       />
