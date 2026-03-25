@@ -152,7 +152,7 @@ export function CalendarPicker({ value, onChange, minDate, maxDate }: CalendarPi
   );
 
   return (
-    <div className="p-3 w-[280px] select-none">
+    <div className="p-3 w-[280px] select-none min-h-[328px] flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <button type="button" onClick={handlePrev} className={navBtn} aria-label="Previous">
