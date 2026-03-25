@@ -14,6 +14,7 @@ import {
   useFormContext,
   useFieldArray,
   Controller,
+  FieldErrors,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -25,7 +26,6 @@ import {
   FormLabel,
   FormMessage,
 } from "../ui/form";
-import {} from "../ui/form";
 import { Input } from "../ui/input";
 import {
   Select,
@@ -35,7 +35,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Button } from "../ui/button";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
@@ -116,11 +116,31 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
     });
   };
 
+  const stage1Fields: (keyof UserAssetOrphanInsert)[] = ["platformId", "accountType", "startDate"];
+  const stage2Fields: (keyof UserAssetOrphanInsert)[] = ["valueMethod", "securities", "currentValue"];
+  const stage3Fields: (keyof UserAssetOrphanInsert)[] = ["contributions"];
+
+  const onSubmitError = (errors: FieldErrors<UserAssetOrphanInsert>) => {
+    if (stage1Fields.some((f) => f in errors)) return setFormStage(1);
+    if (stage2Fields.some((f) => f in errors)) return setFormStage(2);
+    if (stage3Fields.some((f) => f in errors)) {
+      // User is already on stage 3; force trigger to surface inline field errors
+      // in case the beforeSubmit trigger did not catch them (e.g. stale contributions.type).
+      form.trigger("contributions");
+      return;
+    }
+    // Truly unexpected Zod path — surface via root error banner.
+    form.setError("root", {
+      type: "manual",
+      message: "Some information is invalid. Please review and try again.",
+    });
+  };
+
   const handleNext = async () => {
     setFormStage(formStage + 1);
   };
 
-  const { handleSubmit } = form;
+  const { handleSubmit, formState: { errors } } = form;
 
   return (
     <>
@@ -130,7 +150,7 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
         </h1>
       </div>
       <Form {...form}>
-        <form onSubmit={handleSubmit(submitForm)} className="space-y-4">
+        <form onSubmit={handleSubmit(submitForm, onSubmitError)} className="space-y-4">
           {formStage === 1 && (
             <AccountCreateOne
               onNext={handleNext}
@@ -151,8 +171,12 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
               canSubmit={true}
             />
           )}
+          {errors.root && (
+            <p className="text-sm font-medium text-destructive">
+              {errors.root.message}
+            </p>
+          )}
         </form>
-        <FormMessage />
       </Form>
     </>
   );
@@ -167,8 +191,6 @@ const ActionsBar = ({
   canSubmit,
   submitDisabled,
 }: ActionsBarProps) => {
-  console.log("actions bar isProcessing", isProcessing);
-
   return (
     <section className="mt-4 flex justify-end flex-row gap-2">
       {onCancel ? (
@@ -207,7 +229,10 @@ const ActionsBar = ({
         </Button>
       ) : null}
       {canSubmit === true ? (
-        <Button type="submit" disabled={isProcessing || submitDisabled}>
+        <Button
+          type="submit"
+          disabled={isProcessing || submitDisabled}
+        >
           {isProcessing ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -756,34 +781,38 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
       isTempSecurityId: true,
     })) ?? [];
 
-  const [isScheduled, setIsScheduled] = useState<boolean>(false);
-
   const startDate = watch("startDate");
+  const contributions = watch("contributions");
+  // isScheduled is derived from form state so it survives stage navigation.
+  // contributions being defined means the user has opted in to scheduled contributions.
+  const isScheduled = contributions !== undefined;
 
-  useEffect(() => {
-    setValue(
-      "contributions",
-      isScheduled
-        ? {
-            type: valueMethod === "calculated" ? "security" : "asset",
-            notificationEmail: false,
-            notificationPush: false,
-            isActive: true,
-            startDate: startDate ?? new Date(),
-            amount: createDecimalValueString("0"),
-            process: "manual",
-            patternConfig: {
-              type: "rrule",
-              expression: createRRulePattern(
-                "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1"
-              ).expression,
-            },
-            securityDistribution: [],
-          }
-        : undefined,
-      { shouldDirty: true }
-    );
-  }, [isScheduled]);
+  const handleScheduledToggle = (value: string) => {
+    if (value === "yes") {
+      setValue(
+        "contributions",
+        {
+          type: valueMethod === "calculated" ? "security" : "asset",
+          notificationEmail: false,
+          notificationPush: false,
+          isActive: true,
+          startDate: startDate ?? new Date(),
+          amount: createDecimalValueString("0"),
+          process: "manual",
+          patternConfig: {
+            type: "rrule",
+            expression: createRRulePattern(
+              "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1"
+            ).expression,
+          },
+          securityDistribution: [],
+        },
+        { shouldDirty: true }
+      );
+    } else {
+      setValue("contributions", undefined, { shouldDirty: true });
+    }
+  };
 
   const recurringProps: RecurringContributionFormProps =
     valueMethod === "calculated"
@@ -798,12 +827,8 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
 
   const contributionsAmount = watch("contributions.amount");
   const contributionsAmountIsPositive = contributionsAmount ? Decimal(contributionsAmount).gt(0) : false;
-  
-  const contributionsFieldState = form.getFieldState("contributions.amount");
 
-  const canNext = isScheduled ? (
-    (!contributionsFieldState.invalid && contributionsFieldState.isDirty && contributionsAmountIsPositive)
-  ) : true;
+  const canNext = isScheduled ? contributionsAmountIsPositive : true;
 
   const actionsBarProps:ActionsBarProps = {
     ...restProps,
@@ -829,7 +854,7 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
           <ToggleGroup
             type="single"
             value={isScheduled ? "yes" : "no"}
-            onValueChange={(value) => setIsScheduled(value === "yes")}
+            onValueChange={handleScheduledToggle}
             className="mb-4"
           >
             <ToggleGroupItem value="yes">Yes</ToggleGroupItem>
@@ -843,6 +868,11 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
           <RecurringContributionForm {...recurringProps} />
         </>
       ) : null}
+      {isScheduled && !canNext && (
+        <p className="text-sm text-muted-foreground">
+          Enter a contribution amount greater than zero to continue.
+        </p>
+      )}
       <ActionsBar {...actionsBarProps} isProcessing={isSubmitting} />
     </>
   );
