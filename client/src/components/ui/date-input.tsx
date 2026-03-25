@@ -27,9 +27,14 @@ const formatDateForMask = (date: Date | null | undefined): string => {
   return `${day}/${month}/${year}`;
 };
 
-const parseDateFromMask = (str: string): Date => {
-  const [day, month, year] = str.split("/");
-  return new Date(Number(year), Number(month) - 1, Number(day));
+const parseDateFromMask = (str: string): Date | null => {
+  const parts = str.split("/");
+  if (parts.length !== 3) return null;
+  const [day, month, year] = parts;
+  if (!day || !month || !year ||
+      day.includes("_") || month.includes("_") || year.includes("_")) return null;
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+  return isNaN(date.getTime()) ? null : date;
 };
 
 function DateInput({
@@ -62,10 +67,9 @@ function DateInput({
       onChange(undefined);
       return;
     }
-    // Placeholder char '_' indicates incomplete entry — do nothing
-    if (val.includes("_")) return;
+    // parseDateFromMask returns null for incomplete or invalid segments
     const date = parseDateFromMask(val);
-    if (!isNaN(date.getTime())) onChange(date);
+    if (date !== null) onChange(date);
   };
 
   const handleCalendarSelect = (date: Date | undefined) => {
