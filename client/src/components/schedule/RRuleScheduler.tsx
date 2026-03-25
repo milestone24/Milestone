@@ -6,6 +6,7 @@ import { DayOfMonthSelector } from "./DayOfMonthSelector";
 import { NthOccurrenceSelector } from "./NthOccurrenceSelector";
 import { RRulePreview } from "./RRulePreview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DateInput } from "../ui/date-input";
 
 export interface RRuleSchedulerProps {
   value?: string;
@@ -211,16 +212,12 @@ export const RRuleScheduler: React.FC<RRuleSchedulerProps> = ({
             </label>
           </div>
           {config.endType === "on-date" && (
-            <input
-              type="date"
-              value={
-                config.endDate ? config.endDate.toISOString().split("T")[0] : ""
-              }
-              onChange={(e) =>
-                updateConfig({ endDate: new Date(e.target.value) })
-              }
-              className="ml-6 p-2 border rounded-md"
-            />
+            <div className="ml-6">
+              <DateInput
+                value={config.endDate ?? null}
+                onChange={(date) => updateConfig({ endDate: date ?? undefined })}
+              />
+            </div>
           )}
           <div className="flex items-center space-x-2">
             <input
