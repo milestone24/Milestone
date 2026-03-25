@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -28,9 +29,7 @@ const assetValueSchema = z.object({
   value: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
     message: "Value must be a positive number",
   }),
-  valueDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid date",
-  }),
+  valueDate: z.coerce.date(),
 });
 
 type AssetValueFormData = z.infer<typeof assetValueSchema>;
@@ -56,7 +55,7 @@ export const AssetValueUpsertDialog = ({
     resolver: zodResolver(assetValueSchema),
     defaultValues: {
       value: "",
-      valueDate: new Date().toISOString().split("T")[0],
+      valueDate: new Date(),
     },
   });
 
@@ -66,12 +65,12 @@ export const AssetValueUpsertDialog = ({
       if (data) {
         form.reset({
           value: data.value.toString(),
-          valueDate: new Date(data.valueDate).toISOString().split("T")[0],
+          valueDate: new Date(data.valueDate),
         });
       } else {
         form.reset({
           value: "",
-          valueDate: new Date().toISOString().split("T")[0],
+          valueDate: new Date(),
         });
       }
     }
@@ -83,13 +82,13 @@ export const AssetValueUpsertDialog = ({
         await updateAssetValue.mutateAsync({
           historyId: data.id,
           value: createDecimalValueString(values.value),
-          valueDate: new Date(values.valueDate),
+          valueDate: values.valueDate,
           recordedAt: new Date(),
         });
       } else {
         await addAssetValue.mutateAsync({
           value: createDecimalValueString(values.value),
-          valueDate: new Date(values.valueDate),
+          valueDate: values.valueDate,
           recordedAt: new Date(),
         });
       }
@@ -146,9 +145,14 @@ export const AssetValueUpsertDialog = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Date</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
+                  <DateInput
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    disabled={field.disabled}
+                    max={new Date()}
+                  />
                   <FormMessage />
                 </FormItem>
               )}
