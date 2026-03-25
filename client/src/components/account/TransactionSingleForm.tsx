@@ -13,6 +13,7 @@ import {
   FormMessage,
 } from "../ui/form";
 import { Input } from "../ui/input";
+import { DateInput } from "../ui/date-input";
 import { Button } from "../ui/button";
 import { Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -79,26 +80,19 @@ export const TransactionSingleForm = ({
           <FormField
             control={control}
             name="valueDate"
-            render={({ field }) => {
-              return (
-                <FormItem>
-                  <FormLabel>Date</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      {...field}
-                      onChange={(e) => field.onChange(new Date(e.target.value))}
-                      value={
-                        field.value
-                          ? field.value.toISOString().split("T")[0]
-                          : ""
-                      }
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              );
-            }}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Date</FormLabel>
+                <DateInput
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  disabled={field.disabled}
+                />
+                <FormMessage />
+              </FormItem>
+            )}
           />
 
           <FormField
