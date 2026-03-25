@@ -9,6 +9,7 @@ import type {
   SecurityTransactionSelect,
   UserAssetSecurityTransactionResolved,
 } from "@shared/schema";
+import { userAssetSecurityTransactionResolvedSchema } from "@shared/schema/transaction";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "./use-toast";
 
@@ -28,12 +29,21 @@ export const useSecurityTransactions = (assetId: string) => {
     UserAssetSecurityTransactionResolved[]
   >({
     queryKey: [...assetSecuritiesTransactions, assetId],
-    queryFn: () =>
-      apiRequest<UserAssetSecurityTransactionResolved[]>(
+    queryFn: async () => {
+      const response = await apiRequest(
         "GET",
         // TODO: Change this to transactions when api is updated
         `/api/assets/${assetId}/securities/transactions`
-      ),
+      );
+      const result = userAssetSecurityTransactionResolvedSchema
+        .array()
+        .safeParse(response);
+      if (!result.success) {
+        console.error("security transactions parse error", result.error);
+        throw new Error("Invalid security transactions result");
+      }
+      return result.data;
+    },
   });
 
   const invalidateRelatedQueries = () => {

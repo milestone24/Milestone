@@ -4,7 +4,11 @@ import { Coins, Pencil, Trash2, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
-import { AssetTransaction, createDecimalValueString } from "@shared/schema";
+import {
+  AssetTransaction,
+  assetTransactionSelectSchema,
+  createDecimalValueString,
+} from "@shared/schema";
 import { usePortfolio } from "@/context/PortfolioContext";
 import {
   RecurringContributionFormData,
@@ -44,11 +48,18 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
     AssetTransaction[]
   >({
     queryKey: ["asset", assetId, "contributions"],
-    queryFn: () =>
-      apiRequest<AssetTransaction[]>(
+    queryFn: async () => {
+      const response = await apiRequest(
         "GET",
-        `/api/assets/${assetId}/contributions`
-      ),
+        `/api/assets/${assetId}/contributions`,
+      );
+      const result = assetTransactionSelectSchema.array().safeParse(response);
+      if (!result.success) {
+        console.error("contributions parse error", result.error);
+        throw new Error("Invalid contributions result");
+      }
+      return result.data;
+    },
   });
 
   // Query and mutations for recurring contributions (create only - edit/delete handled by items)
@@ -158,7 +169,7 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
       {contributions && contributions.length > 0 && (
         <div className="mb-6 p-4 bg-muted rounded-lg">
           <h3 className="text-lg font-medium mb-2 flex items-center">
-                <BsPiggyBank className="h-5 w-5 mr-2 text-txn" />
+            <BsPiggyBank className="h-5 w-5 mr-2 text-txn" />
             Contribution Summary
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
@@ -175,19 +186,23 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Number of Contributions</p>
+              <p className="text-sm text-muted-foreground">
+                Number of Contributions
+              </p>
               <p className="text-xl font-semibold">{contributions.length}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">First Contribution</p>
+              <p className="text-sm text-muted-foreground">
+                First Contribution
+              </p>
               <p className="text-base font-medium">
                 {contributions.length > 0
                   ? new Date(
                       Math.min(
                         ...contributions.map((c) =>
-                          new Date(c.recordedAt).getTime()
-                        )
-                      )
+                          new Date(c.recordedAt).getTime(),
+                        ),
+                      ),
                     ).toLocaleDateString("en-GB", {
                       day: "2-digit",
                       month: "short",
@@ -197,15 +212,17 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Latest Contribution</p>
+              <p className="text-sm text-muted-foreground">
+                Latest Contribution
+              </p>
               <p className="text-base font-medium">
                 {contributions.length > 0
                   ? new Date(
                       Math.max(
                         ...contributions.map((c) =>
-                          new Date(c.recordedAt).getTime()
-                        )
-                      )
+                          new Date(c.recordedAt).getTime(),
+                        ),
+                      ),
                     ).toLocaleDateString("en-GB", {
                       day: "2-digit",
                       month: "short",
