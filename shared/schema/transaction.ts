@@ -57,6 +57,22 @@ export type AssetTransaction = Omit<
   currencyValue: DecimalValueString;
 };
 
+export const assetTransactionSelectSchema = z.object({
+  id: z.string(),
+  assetId: z.string(),
+  value: decimalValueSchema,
+  currencyValue: decimalValueSchema,
+  fees: decimalValueSchema,
+  currency: z.string(),
+  valueDate: z.coerce.date(),
+  recordedAt: z.coerce.date(),
+  // TODO: replace createdAt/updatedAt with a shared timestamp fields schema when one is available
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+
+assetTransactionSelectSchema._output satisfies AssetTransaction;
+
 export const userAssetTransactionOrphanInsertSchema = z.object({
   value: decimalValueSchema,
   valueDate: z.coerce.date(),
@@ -170,6 +186,25 @@ export type SecurityTransactionInsert = z.infer<
 export type SecurityTransactionUpsert = SecurityTransactionInsert & {
   id?: string;
 };
+
+export const securityTransactionSelectSchema = z.object({
+  id: z.string(),
+  assetSecurityId: z.string(),
+  value: decimalValueSchema,
+  currencyValue: decimalValueSchema,
+  fees: decimalValueSchema.nullable(),
+  currency: z.string(),
+  valueDate: z.coerce.date(),
+  recordedAt: z.coerce.date(),
+  // TODO: replace createdAt/updatedAt with a shared timestamp fields schema when one is available
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+
+export const userAssetSecurityTransactionResolvedSchema =
+  securityTransactionSelectSchema.extend({
+    securityName: z.string(),
+  });
 
 export type UserAssetSecurityTransactionResolved = SecurityTransactionSelect & {
   securityName: string;
