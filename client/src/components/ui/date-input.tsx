@@ -2,7 +2,7 @@ import * as React from "react"
 import { MaskedRange } from "imask"
 import { IMaskInput } from "react-imask"
 import { CalendarIcon } from "lucide-react"
-import { Calendar } from "./calendar"
+import { CalendarPicker } from "./calendar-picker"
 import { Button } from "./button"
 import { Popover, PopoverContent, PopoverTrigger } from "./popover"
 import { cn } from "@/lib/utils"
@@ -72,7 +72,7 @@ function DateInput({
     if (date !== null) onChange(date);
   };
 
-  const handleCalendarSelect = (date: Date | undefined) => {
+  const handleCalendarSelect = (date: Date) => {
     setDisplayValue(formatDateForMask(date));
     onChange(date);
     setOpen(false);
@@ -119,14 +119,11 @@ function DateInput({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="end">
-          <Calendar
-            mode="single"
-            selected={value ?? undefined}
-            onSelect={handleCalendarSelect}
-            fromDate={min}
-            toDate={max}
-            initialFocus
-            fixedWeeks
+          <CalendarPicker
+            value={value}
+            onChange={handleCalendarSelect}
+            minDate={min}
+            maxDate={max}
           />
         </PopoverContent>
       </Popover>
