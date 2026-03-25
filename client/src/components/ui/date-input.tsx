@@ -2,7 +2,8 @@ import * as React from "react"
 import { MaskedRange } from "imask"
 import { IMaskInput } from "react-imask"
 import { CalendarIcon } from "lucide-react"
-import { Calendar } from "./calendar"
+import Calendar, { type CalendarProps as RCCalendarProps } from "react-calendar"
+import "react-calendar/dist/Calendar.css"
 import { Button } from "./button"
 import { Popover, PopoverContent, PopoverTrigger } from "./popover"
 import { cn } from "@/lib/utils"
@@ -72,18 +73,13 @@ function DateInput({
     if (date !== null) onChange(date);
   };
 
-  const handleCalendarSelect = (date: Date | undefined) => {
-    setDisplayValue(formatDateForMask(date));
-    onChange(date);
-    setOpen(false);
+  const handleCalendarSelect: NonNullable<RCCalendarProps["onChange"]> = (val) => {
+    if (val instanceof Date) {
+      setDisplayValue(formatDateForMask(val));
+      onChange(val);
+      setOpen(false);
+    }
   };
-
-  const currentYear = new Date().getFullYear();
-  const fromYear = min ? min.getFullYear() : currentYear - 30;
-  const toYear = max ? max.getFullYear() : currentYear;
-
-  const dropdownSelectClass =
-    "bg-background text-foreground border border-input rounded-md px-1 py-0.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring";
 
   return (
     <div className={cn("flex gap-1", className)}>
@@ -125,22 +121,12 @@ function DateInput({
             <CalendarIcon className="h-4 w-4" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="end">
+        <PopoverContent className="w-auto p-3" align="end">
           <Calendar
-            mode="single"
-            selected={value ?? undefined}
-            onSelect={handleCalendarSelect}
-            fromDate={min}
-            toDate={max}
-            fromYear={fromYear}
-            toYear={toYear}
-            captionLayout="dropdown-buttons"
-            initialFocus
-            fixedWeeks
-            classNames={{
-              dropdown: dropdownSelectClass,
-              caption_dropdowns: "flex gap-1 items-center",
-            }}
+            value={value ?? null}
+            onChange={handleCalendarSelect}
+            minDate={min}
+            maxDate={max}
           />
         </PopoverContent>
       </Popover>
