@@ -62,12 +62,12 @@ function DateInput({
   }, [value]);
 
   const handleAccept = (val: string) => {
+    setDisplayValue(val);
     const digits = val.replace(/\D/g, "");
     if (!digits) {
-      onChange(undefined);
+      if (value != null) onChange(undefined);
       return;
     }
-    // parseDateFromMask returns null for incomplete or invalid segments
     const date = parseDateFromMask(val);
     if (date !== null) onChange(date);
   };
