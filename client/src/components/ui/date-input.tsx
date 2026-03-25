@@ -78,13 +78,6 @@ function DateInput({
     setOpen(false);
   };
 
-  const currentYear = new Date().getFullYear();
-  const fromYear = min ? min.getFullYear() : currentYear - 30;
-  const toYear = max ? max.getFullYear() : currentYear;
-
-  const dropdownSelectClass =
-    "bg-background text-foreground border border-input rounded-md px-1 py-0.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring";
-
   return (
     <div className={cn("flex gap-1", className)}>
       <IMaskInput
@@ -132,15 +125,8 @@ function DateInput({
             onSelect={handleCalendarSelect}
             fromDate={min}
             toDate={max}
-            fromYear={fromYear}
-            toYear={toYear}
-            captionLayout="dropdown-buttons"
             initialFocus
             fixedWeeks
-            classNames={{
-              dropdown: dropdownSelectClass,
-              caption_dropdowns: "flex gap-1 items-center",
-            }}
           />
         </PopoverContent>
       </Popover>
