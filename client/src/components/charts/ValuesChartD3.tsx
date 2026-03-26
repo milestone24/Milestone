@@ -107,6 +107,13 @@ export default function ValuesChartD3({
             >
               {tooltipData.points.map((point, index) => (
                 <div key={index}>
+                  <div className="flex items-center gap-1 mb-1">
+                    <div
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: point.color }}
+                    />
+                    <p className="text-xs text-muted-foreground">{point.seriesName}</p>
+                  </div>
                   <p className="text-foreground">
                     £{Number(point.data.value).toLocaleString()}
                   </p>
