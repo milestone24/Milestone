@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MoreHorizontal, RefreshCcw } from "lucide-react";
+import { ChevronLeft, MoreHorizontal, RefreshCcw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AssetValueTimePoint,
@@ -255,6 +255,9 @@ function AssetPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="bg-card rounded-lg p-4 mb-4 flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => window.history.back()}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
         <BrokerLogoBoxed
           broker={
             asset.platform
