@@ -43,7 +43,8 @@ export function useChartData(data: ChartData): ProcessedChartData {
     const minTimestamp = allTimestamps[0] || 0;
     const maxTimestamp = allTimestamps[allTimestamps.length - 1] || 0;
     const maxValue = allValues.length > 0 ? Math.max(...allValues) : 0;
-    const minValue = 0; // Always start Y axis at 0 per original chart
+    const rawMin = allValues.length > 0 ? Math.min(...allValues) : 0;
+    const minValue = Math.floor(rawMin / 10000) * 10000;
 
     return {
       allTimestamps,
