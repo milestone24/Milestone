@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, MoreHorizontal, RefreshCcw } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   AssetValueTimePoint,
   CombinedDayTimePointBase,
@@ -92,6 +92,7 @@ function AssetPage() {
     useQuery<AssetValueTimePoint[]>({
       //const { data: historyData, isLoading } = useQuery<AssetValue[]>({
       queryKey: [...assetGraphValues, assetId, startDate, endDate],
+      placeholderData: keepPreviousData,
       queryFn: async () => {
         const response = await fetch(
           `/api/assets/${assetId}/history/graph?${getDateUrlParams(

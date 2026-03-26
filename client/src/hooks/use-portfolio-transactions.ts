@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/queryClient";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { TransactionTimePoint } from "@shared/schema";
 import { getDateUrlParams } from "@/lib/date";
 import { portfolioGraphTransactions } from "@shared/api/queryKeys";
@@ -10,6 +10,7 @@ export const usePortfolioTransactionHistory = (
 ) =>
   useQuery({
     queryKey: [...portfolioGraphTransactions, startDate, endDate],
+    placeholderData: keepPreviousData,
     queryFn: () => {
       return apiRequest<TransactionTimePoint[]>(
         "GET",

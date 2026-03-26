@@ -5,7 +5,7 @@ import {
   ResolvedUserAsset,
   TransactionTimePoint,
 } from "@shared/schema/portfolio-assets";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 export const useAssetTransactions = (
   assetId: string | undefined,
@@ -14,6 +14,7 @@ export const useAssetTransactions = (
 ) => {
   const assetTransactions = useQuery({
     queryKey: [...assetGraphTransactions, assetId, startDate, endDate],
+    placeholderData: keepPreviousData,
     queryFn: () => {
       return apiRequest<TransactionTimePoint[]>(
         "GET",
