@@ -78,18 +78,18 @@ export function useD3Render({
       .attr("transform", `translate(${dimensions.marginLeft},${dimensions.marginTop})`);
 
     // Draw cartesian grid (horizontal lines only)
-    const yTicks = scales.yScale.ticks(5);
-    g.selectAll(".grid-line")
-      .data(yTicks)
-      .join("line")
-      .attr("class", "grid-line")
-      .attr("x1", 0)
-      .attr("x2", dimensions.boundedWidth)
-      .attr("y1", (d) => scales.yScale(d))
-      .attr("y2", (d) => scales.yScale(d))
-      .attr("stroke", "hsl(var(--border))")
-      .attr("stroke-opacity", 0.5)
-      .attr("stroke-dasharray", "3 3");
+    // const yTicks = scales.yScale.ticks(5);
+    // g.selectAll(".grid-line")
+    //   .data(yTicks)
+    //   .join("line")
+    //   .attr("class", "grid-line")
+    //   .attr("x1", 0)
+    //   .attr("x2", dimensions.boundedWidth)
+    //   .attr("y1", (d) => scales.yScale(d))
+    //   .attr("y2", (d) => scales.yScale(d))
+    //   .attr("stroke", "hsl(var(--border))")
+    //   .attr("stroke-opacity", 0.5)
+    //   .attr("stroke-dasharray", "3 3");
 
     // Draw reference lines (milestones)
     if (showMilestones && milestones && milestones.length > 0) {
