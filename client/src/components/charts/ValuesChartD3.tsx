@@ -84,7 +84,7 @@ export default function ValuesChartD3({
       className={cn("w-full bg-card rounded-lg", className)}
     >
       <div className="">
-        <div className="chart-container w-full mb-5 px-2 relative" ref={containerRef}>
+          <div className="chart-container w-full mb-5 relative" ref={containerRef}>
           <svg
             ref={svgRef}
             width="100%"

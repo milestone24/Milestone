@@ -26,7 +26,7 @@ export function useChartDimensions(
   const {
     height = 240,
     marginTop = 20,
-    marginRight = 80,
+    marginRight = 20,
     marginBottom = 40,
     marginLeft = 60,
   } = options;
