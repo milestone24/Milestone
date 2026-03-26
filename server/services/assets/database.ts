@@ -92,6 +92,7 @@ import {
   buildCacheKey,
   InvalidatesCache,
   queryParamsToKeyRoundedDates,
+  dataRangeQueryToKey,
 } from "@server/services/cache";
 
 const securitiesService = securitiesFactory();
@@ -589,6 +590,18 @@ export class DatabaseAssetService {
     });
   }
 
+  @Cached({
+    namespace: "assets",
+    keyGenerator: (id, query) =>
+      buildCacheKey(
+        "assets",
+        getUserAccountId(),
+        id,
+        "value-history-graph",
+        dataRangeQueryToKey(query)
+      ),
+    ttl: 0,
+  })
   async getUserAssetValueHistoryGraph(
     id: UserAsset["id"],
     query?: DataRangeQuery
@@ -641,6 +654,18 @@ export class DatabaseAssetService {
       .offset(offset ?? 0);
   }
 
+  @Cached({
+    namespace: "assets",
+    keyGenerator: (id, query) =>
+      buildCacheKey(
+        "assets",
+        getUserAccountId(),
+        id,
+        "transaction-history-graph",
+        queryParamsToKeyRoundedDates(query)
+      ),
+    ttl: 0,
+  })
   async getUserAssetTransactionHistoryGraph(
     id: UserAsset["id"],
     query?: QueryParams
