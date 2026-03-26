@@ -87,7 +87,8 @@ export function useD3Render({
       .attr("x2", dimensions.boundedWidth)
       .attr("y1", (d) => scales.yScale(d))
       .attr("y2", (d) => scales.yScale(d))
-      .attr("stroke", "#f0f0f0")
+      .attr("stroke", "hsl(var(--border))")
+      .attr("stroke-opacity", 0.5)
       .attr("stroke-dasharray", "3 3");
 
     // Draw reference lines (milestones)
