@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import BrokerLogoBoxed from "@/components/logo/BrokerLogoBoxed";
 import { AssetSecuritiesList } from "@/components/account/AssetSecuritiesList";
-import AssetHistoryChart, { ChartData } from "@/components/charts/ValuesChart";
+import AssetHistoryChart, { ChartData } from "@/components/charts/ValuesChartD3";
 import DateRangeBar from "@/components/layout/DateRangeBar";
 import { TransactionsPanel } from "@/components/account/TransactionsPanel";
 import { useSecuritiesUpdate } from "@/hooks/use-securities-update";
