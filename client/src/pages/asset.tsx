@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCcw } from "lucide-react";
+import { MoreHorizontal, RefreshCcw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AssetValueTimePoint,
@@ -16,6 +16,22 @@ import {
 } from "@/lib/broker";
 import { useBrokerProviders } from "@/hooks/use-broker-providers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import BrokerLogoBoxed from "@/components/logo/BrokerLogoBoxed";
 import { AssetSecuritiesList } from "@/components/account/AssetSecuritiesList";
 import AssetHistoryChart, { ChartData } from "@/components/charts/ValuesChart";
@@ -34,14 +50,19 @@ import { useAssetTransactions } from "@/hooks/use-asset-transactions";
 import { AssetSecuritiesProvider } from "@/context/AssetSecuritiesContext";
 import { assetGraphValues } from "@shared/api/queryKeys";
 import { useAssetValues } from "@/hooks/use-asset-values";
+import { useAssetDelete } from "@/hooks/use-asset-delete";
 import { AssetValueList } from "@/components/account/AssetValueList";
 import { AccountDetails } from "@/components/account/AccountDetails";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 
 function AssetPage() {
   const params = useParams();
+  const [, setLocation] = useLocation();
 
   const assetId: UserAsset["id"] | undefined = params?.id;
+
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const { mutateAsync: deleteAsset } = useAssetDelete();
 
   const { dateRange } = useDateRange();
 
@@ -212,6 +233,12 @@ function AssetPage() {
 
   const isSecuritiesAsset = asset.valueMethod === "calculated";
 
+  const handleDeleteAccount = async () => {
+    if (!assetId) return;
+    await deleteAsset(assetId);
+    setLocation("/portfolio");
+  };
+
   const handleUpdateAssetHistories = async () => {
     if (!assetId) return;
     setIsUpdatingHistories(true);
@@ -246,7 +273,45 @@ function AssetPage() {
             {getBrokerAccountTypeFullName(asset.accountType)}
           </span>
         </div>
+        <div className="ml-auto">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onSelect={() => setShowDeleteDialog(true)}
+              >
+                Delete Account
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete all data associated with this investment account,
+              are you sure?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={handleDeleteAccount}
+            >
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="bg-card rounded-lg p-4 mb-4 flex flex-row justify-between items-center">
         <div className="flex flex-col">
