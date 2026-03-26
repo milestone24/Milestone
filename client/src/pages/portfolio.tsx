@@ -43,6 +43,7 @@ import { getDateUrlParams } from "@/lib/date";
 import { portfolioGraphValues } from "@shared/api/queryKeys";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
 import { useAssetCreate } from "@/hooks/use-asset-create";
+import { useAssetDelete } from "@/hooks/use-asset-delete";
 import { PosNegNumber } from "@/components/common/PosNegNumber";
 import { cn } from "@/lib/utils";
 import { useAssets } from "@/hooks/use-assets";
@@ -63,10 +64,12 @@ function Portfolio() {
 
   const [, setLocation] = useLocation();
 
-  const { milestones, deleteAsset, isLoading } = usePortfolio(
+  const { milestones, isLoading } = usePortfolio(
     startDate,
     endDate
   );
+
+  const { mutateAsync: deleteAsset } = useAssetDelete();
 
   const {
     data: assets = [],
@@ -233,7 +236,7 @@ function Portfolio() {
   const handleDeleteAccount = useCallback(
     async (accountId: string) => {
       if (accountToDelete) {
-        await deleteAsset.mutateAsync(accountId);
+        await deleteAsset(accountId);
         setAccountToDelete(null);
         setIsEditMode(false);
       }

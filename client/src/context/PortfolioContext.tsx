@@ -1,3 +1,8 @@
+/**
+ * Do not reate new code that uses this Context.
+ * This Context is deprecated and will be removed in the future.
+ */
+
 import {
   createContext,
   useContext,
@@ -62,7 +67,7 @@ type MilestoneUpdate = MilestoneOrphanInsert & {
 
 // Create the context
 const PortfolioContext = createContext<PortfolioContextType | undefined>(
-  undefined
+  undefined,
 );
 // Provider component
 export const PortfolioProvider = ({ children }: { children: ReactNode }) => {
@@ -79,7 +84,9 @@ export const PortfolioProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Custom hook to use the portfolio context
+/**
+ * @deprecated use individual specific hooks instead
+ */
 export const usePortfolio = (startDate?: Date, endDate?: Date) => {
   const context = useContext(PortfolioContext);
 
@@ -99,7 +106,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
       //TODO DOUBLE CHECK USER IS NOT NULL
       return [
         ...path.map((p) =>
-          getEndpointPathWithUserId(p, user?.account.id ?? "none")
+          getEndpointPathWithUserId(p, user?.account.id ?? "none"),
         ),
         ...(user?.account.id ? [user.account.id] : []),
       ];
@@ -162,27 +169,6 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
       : skipToken,
   });
 
-  const deleteAsset = useMutation<void, Error, UserAsset["id"]>({
-    mutationFn: (id) => apiRequest<void>("DELETE", `/api/assets/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: portfolioAssets });
-      queryClient.invalidateQueries({ queryKey: portfolioGraphValues });
-      queryClient.invalidateQueries({ queryKey: portfolioGraphTransactions });
-      toast({
-        title: "Asset deleted",
-        description: "Your asset has been deleted successfully.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error deleting asset",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    },
-  });
-
   // Add new mutations for account history
   const addAssetValue = useMutation<
     UserAssetValueInsert,
@@ -223,7 +209,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
         `/api/assets/${assetId}/history/${historyId}`,
         {
           ...rest,
-        }
+        },
       );
     },
     onSuccess: () => {
@@ -305,7 +291,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
         {
           ...rest,
           recordedAt: new Date(),
-        }
+        },
       );
     },
     onSuccess: (data) => {
@@ -340,7 +326,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
         `/api/assets/${assetId}/contributions/${contributionId}`,
         {
           ...rest,
-        }
+        },
       );
     },
     onSuccess: () => {
@@ -371,7 +357,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     mutationFn: ({ assetId, contributionId }) =>
       apiRequest(
         "DELETE",
-        `/api/assets/${assetId}/contributions/${contributionId}`
+        `/api/assets/${assetId}/contributions/${contributionId}`,
       ),
     onSuccess: () => {
       invalidateAccounts();
@@ -408,7 +394,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
       return apiRequest<Milestone>(
         "POST",
         "/api/milestones",
-        processedMilestone
+        processedMilestone,
       );
     },
     onSuccess: () => {
@@ -486,7 +472,6 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
 
   return {
     ...context,
-    deleteAsset,
     addAssetValue,
     updateAssetValue,
     deleteAssetValue,
