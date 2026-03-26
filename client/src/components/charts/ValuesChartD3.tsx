@@ -84,7 +84,7 @@ export default function ValuesChartD3({
       className={cn("w-full bg-card rounded-lg", className)}
     >
       <div className="">
-          <div className="chart-container w-full mb-5 relative" ref={containerRef}>
+          <div className="chart-container w-full mb-2 relative" ref={containerRef}>
           <svg
             ref={svgRef}
             width="100%"
@@ -131,7 +131,7 @@ export default function ValuesChartD3({
         </div>
 
         {/* Legend */}
-        <div className="flex flex-row items-center justify-center gap-2">
+        <div className="flex flex-row items-center justify-center gap-2 pb-4">
           {data.map((s) => (
             <div className="flex items-center" key={s.id}>
               <div
