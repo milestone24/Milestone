@@ -6,7 +6,7 @@ import {
   UserAssetWithValueChange,
   userAssetWithValueChangeSchema,
 } from "@shared/schema";
-import { skipToken, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, skipToken, useQuery } from "@tanstack/react-query";
 
 export const useAssets = (startDate?: Date, endDate?: Date) => {
   const { user, isSessionPending } = useSession();
@@ -14,6 +14,7 @@ export const useAssets = (startDate?: Date, endDate?: Date) => {
 
   return useQuery<UserAssetWithValueChange[]>({
     queryKey: [...portfolioAssets, startDate, endDate],
+    placeholderData: keepPreviousData,
     queryFn: apiEnabled
       ? async () => {
           const response = await apiRequest<UserAssetWithValueChange[]>(

@@ -14,6 +14,36 @@ export const getRecurringContributionsQueryKey = (assetId: string) => [
   assetId,
 ];
 
+type UpdateVariables = RecurringContributionOrphanInsert & { contributionId: string };
+type DeleteVariables = { contributionId: string };
+type RollbackContext = { previous?: RecurringContribution[] };
+
+function getList(assetId: string | undefined) {
+  return queryClient.getQueryData<RecurringContribution[]>(
+    getRecurringContributionsQueryKey(assetId ?? "")
+  );
+}
+
+function setList(assetId: string | undefined, list: RecurringContribution[]) {
+  queryClient.setQueryData(
+    getRecurringContributionsQueryKey(assetId ?? ""),
+    list
+  );
+}
+
+async function cancelAndSnapshot(assetId: string | undefined): Promise<RollbackContext> {
+  await queryClient.cancelQueries({
+    queryKey: getRecurringContributionsQueryKey(assetId ?? ""),
+  });
+  return { previous: getList(assetId) };
+}
+
+function rollback(assetId: string | undefined, context: RollbackContext | undefined) {
+  if (context?.previous) {
+    setList(assetId, context.previous);
+  }
+}
+
 export function useRecurringContributions(assetId: string | undefined) {
   const query = useQuery<RecurringContribution[]>({
     queryKey: getRecurringContributionsQueryKey(assetId ?? ""),
@@ -58,17 +88,36 @@ export function useRecurringContributions(assetId: string | undefined) {
   const updateMutation = useMutation<
     RecurringContribution,
     Error,
-    RecurringContributionOrphanInsert & { contributionId: string }
+    UpdateVariables,
+    RollbackContext
   >({
-    mutationFn: ({
-      contributionId,
-      ...data
-    }: RecurringContributionOrphanInsert & { contributionId: string }) =>
+    mutationFn: ({ contributionId, ...data }: UpdateVariables) =>
       apiRequest<RecurringContribution>(
         "PUT",
         `/api/assets/${assetId}/recurring-contributions/${contributionId}`,
         data
       ),
+    onMutate: async ({ contributionId, ...data }) => {
+      const ctx = await cancelAndSnapshot(assetId);
+      if (ctx.previous) {
+        setList(
+          assetId,
+          ctx.previous.map((c) =>
+            c.id === contributionId ? { ...c, ...data } : c
+          )
+        );
+      }
+      return ctx;
+    },
+    onError: (_error, _vars, context) => {
+      rollback(assetId, context);
+      toast({
+        title: "Error updating recurring contribution",
+        description:
+          _error instanceof Error ? _error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: getRecurringContributionsQueryKey(assetId ?? ""),
@@ -78,22 +127,14 @@ export function useRecurringContributions(assetId: string | undefined) {
         description: "Recurring contribution has been updated successfully.",
       });
     },
-    onError: (error) => {
-      toast({
-        title: "Error updating recurring contribution",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    },
   });
 
   const deleteMutation = useMutation<
     { success: boolean },
     Error,
-    { contributionId: string }
+    DeleteVariables
   >({
-    mutationFn: ({ contributionId }: { contributionId: string }) =>
+    mutationFn: ({ contributionId }: DeleteVariables) =>
       apiRequest<{ success: boolean }>(
         "DELETE",
         `/api/assets/${assetId}/recurring-contributions/${contributionId}`
@@ -117,7 +158,6 @@ export function useRecurringContributions(assetId: string | undefined) {
     },
   });
 
-  // Bulk create distributed recurring contributions across multiple securities
   const createBulkMutation = useMutation<
     RecurringContribution[],
     Error,

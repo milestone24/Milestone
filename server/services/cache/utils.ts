@@ -1,4 +1,34 @@
+import type { DataRangeQuery } from "@shared/schema";
 import type { QueryParams } from "@server/utils/resource-query-builder";
+
+/**
+ * Rounds a date string or Date to the start of the day (UTC)
+ */
+function roundToDay(dateValue: unknown): string | unknown {
+  if (typeof dateValue === "string") {
+    const date = new Date(dateValue);
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split("T")[0];
+    }
+  }
+  if (dateValue instanceof Date && !isNaN(dateValue.getTime())) {
+    return dateValue.toISOString().split("T")[0];
+  }
+  return dateValue;
+}
+
+/**
+ * Generates a stable, day-rounded cache key segment from a DataRangeQuery.
+ * Rounds start/end to ISO date (YYYY-MM-DD) to prevent cache misses from
+ * millisecond differences in timestamps.
+ */
+export function dataRangeQueryToKey(query?: DataRangeQuery): string {
+  if (!query) return "";
+  const parts: string[] = [];
+  if (query.start) parts.push(`start:${roundToDay(query.start)}`);
+  if (query.end) parts.push(`end:${roundToDay(query.end)}`);
+  return parts.join("|");
+}
 
 /**
  * Generates a deterministic cache key from QueryParams
@@ -45,22 +75,6 @@ export function buildCacheKey<N extends string>(
     (p): p is string | number => p !== undefined && p !== null && p !== ""
   );
   return `${namespace}:${filteredParts.join(":")}` as `${N}:${string}`;
-}
-
-/**
- * Rounds a date string or Date to the start of the day (UTC)
- */
-function roundToDay(dateValue: unknown): string | unknown {
-  if (typeof dateValue === "string") {
-    const date = new Date(dateValue);
-    if (!isNaN(date.getTime())) {
-      return date.toISOString().split("T")[0];
-    }
-  }
-  if (dateValue instanceof Date && !isNaN(dateValue.getTime())) {
-    return dateValue.toISOString().split("T")[0];
-  }
-  return dateValue;
 }
 
 /**

@@ -50,10 +50,16 @@ export default function DateRangeControl({ className }: DateRangeControlProps) {
   );
 }
 
+function startOfDay(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 export const getDateRange = (
   range: DateRangeOption
 ): { start: Date | undefined; end: Date | undefined } => {
-  const end = new Date();
+  const end = startOfDay(new Date());
   let start: Date | undefined;
 
   switch (range) {
@@ -77,15 +83,14 @@ export const getDateRange = (
       start.setFullYear(end.getFullYear() - 1);
       break;
     case "ytd":
-      start = new Date(end.getFullYear(), 0, 1); // January 1st of current year
+      start = new Date(end.getFullYear(), 0, 1);
       break;
     case "max":
-      //TODO: This should be the earliest date of the assets in the database
       start = undefined;
       break;
     default:
       start = new Date(end);
-      start.setMonth(end.getMonth() - 6); // Default to 6 months
+      start.setMonth(end.getMonth() - 6);
   }
 
   return { start, end };

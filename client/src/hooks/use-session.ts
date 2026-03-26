@@ -56,8 +56,10 @@ export function useSession() {
   useQuery<SessionResponse | null>({
     queryKey: ["user"],
     queryFn: async () => {
-      // Dispatch initial user loading action
-      dispatch({ type: "INITIAL_USER_LOADING" });
+      const isFirstLoad = !queryClient.getQueryData(["user"]);
+      if (isFirstLoad) {
+        dispatch({ type: "INITIAL_USER_LOADING" });
+      }
 
       try {
         const responseData = await apiRequest<SessionResponse>(

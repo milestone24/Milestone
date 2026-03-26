@@ -24,15 +24,20 @@ export type SecurityTransactionUpdateRequest = {
   data: SecurityTransactionOrphanInsert;
 };
 
+type DeleteVariables = { assetSecurityId: string; transactionId: string };
+type RollbackContext = { previous?: UserAssetSecurityTransactionResolved[] };
+
 export const useSecurityTransactions = (assetId: string) => {
+  const transactionsQueryKey = [...assetSecuritiesTransactions, assetId];
+
   const { data: transactions, isLoading: isTransactionsLoading } = useQuery<
     UserAssetSecurityTransactionResolved[]
   >({
-    queryKey: [...assetSecuritiesTransactions, assetId],
+    queryKey: transactionsQueryKey,
+    enabled: !!assetId,
     queryFn: async () => {
       const response = await apiRequest(
         "GET",
-        // TODO: Change this to transactions when api is updated
         `/api/assets/${assetId}/securities/transactions`
       );
       const result = userAssetSecurityTransactionResolvedSchema
@@ -47,16 +52,23 @@ export const useSecurityTransactions = (assetId: string) => {
   });
 
   const invalidateRelatedQueries = () => {
-    queryClient.invalidateQueries({
-      queryKey: [...assetSecuritiesTransactions, assetId],
-    });
-    queryClient.invalidateQueries({
-      queryKey: [...assetGraphValues, assetId],
-    });
-    queryClient.invalidateQueries({
-      queryKey: [...assetGraphTransactions, assetId],
-    });
+    queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
+    queryClient.invalidateQueries({ queryKey: [...assetGraphValues, assetId] });
+    queryClient.invalidateQueries({ queryKey: [...assetGraphTransactions, assetId] });
   };
+
+  async function cancelAndSnapshot(): Promise<RollbackContext> {
+    await queryClient.cancelQueries({ queryKey: transactionsQueryKey });
+    return {
+      previous: queryClient.getQueryData<UserAssetSecurityTransactionResolved[]>(transactionsQueryKey),
+    };
+  }
+
+  function rollback(context: RollbackContext | undefined) {
+    if (context?.previous) {
+      queryClient.setQueryData(transactionsQueryKey, context.previous);
+    }
+  }
 
   const addSecurityTransaction = useMutation<
     SecurityTransactionSelect,
@@ -90,7 +102,8 @@ export const useSecurityTransactions = (assetId: string) => {
   const updateSecurityTransaction = useMutation<
     SecurityTransactionSelect,
     Error,
-    SecurityTransactionUpdateRequest
+    SecurityTransactionUpdateRequest,
+    RollbackContext
   >({
     mutationFn: async ({ securityId, transactionId, data }) => {
       return apiRequest(
@@ -99,6 +112,27 @@ export const useSecurityTransactions = (assetId: string) => {
         data
       );
     },
+    onMutate: async ({ transactionId, data }) => {
+      const ctx = await cancelAndSnapshot();
+      if (ctx.previous) {
+        queryClient.setQueryData<UserAssetSecurityTransactionResolved[]>(
+          transactionsQueryKey,
+          ctx.previous.map((t) =>
+            t.id === transactionId ? { ...t, ...data } : t
+          )
+        );
+      }
+      return ctx;
+    },
+    onError: (_error, _vars, context) => {
+      rollback(context);
+      toast({
+        title: "Error updating transaction",
+        description:
+          _error instanceof Error ? _error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
+    },
     onSuccess: () => {
       invalidateRelatedQueries();
       toast({
@@ -106,31 +140,10 @@ export const useSecurityTransactions = (assetId: string) => {
         description: "Security transaction has been updated successfully.",
       });
     },
-    onError: (error) => {
-      toast({
-        title: "Error updating transaction",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    },
   });
 
-  const deleteSecurityTransaction = useMutation<
-    void,
-    Error,
-    {
-      assetSecurityId: string;
-      transactionId: string;
-    }
-  >({
-    mutationFn: ({
-      assetSecurityId,
-      transactionId,
-    }: {
-      assetSecurityId: string;
-      transactionId: string;
-    }) => {
+  const deleteSecurityTransaction = useMutation<void, Error, DeleteVariables>({
+    mutationFn: ({ assetSecurityId, transactionId }: DeleteVariables) => {
       return apiRequest(
         "DELETE",
         `/api/assets/${assetId}/securities/${assetSecurityId}/transactions/${transactionId}`

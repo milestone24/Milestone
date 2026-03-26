@@ -38,7 +38,7 @@ import BrokerLogoBoxed from "@/components/logo/BrokerLogoBoxed";
 import { getPlatformName } from "@/lib/platform";
 import { usePortfolioTransactionHistory } from "@/hooks/use-portfolio-transactions";
 import { CombinedDayTimePointBase } from "shared/schema";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { getDateUrlParams } from "@/lib/date";
 import { portfolioGraphValues } from "@shared/api/queryKeys";
 import { usePortfolioOverview } from "@/hooks/use-portfolio-overview";
@@ -99,6 +99,7 @@ function Portfolio() {
     useQuery<AssetValueTimePoint[]>({
       //const { data: historyData, isLoading } = useQuery<AssetValue[]>({
       queryKey: [...portfolioGraphValues, startDate, endDate],
+      placeholderData: keepPreviousData,
       queryFn: async () => {
         const response = await fetch(
           `/api/assets/portfolio-value/history?${getDateUrlParams(

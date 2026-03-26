@@ -1,12 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { UserAsset, UserAssetOrphanInsert, UserAssetUpdate } from "@shared/schema";
+import { UserAsset, UserAssetUpdate, UserAssetWithValueChange } from "@shared/schema";
 import { toast } from "./use-toast";
 import { asset as assetQueryKey, portfolioAssets, portfolioGraphTransactions, portfolioGraphValues, assetSecuritiesTransactions, assetSecurities } from "@shared/api/queryKeys";
-
-// type UserAssetUpdate = UserAssetOrphanInsert & {
-//   id: UserAsset["id"];
-// };
 
 export const useAssetUpdate = (assetId: string) => {
 
@@ -15,6 +11,29 @@ export const useAssetUpdate = (assetId: string) => {
       console.log("PATCH data", JSON.stringify(data, null, 2));
       return apiRequest<UserAsset>("PATCH", `/api/assets/${assetId}`, {
         ...data,
+      });
+    },
+    onMutate: async (updatedAsset) => {
+      await queryClient.cancelQueries({ queryKey: portfolioAssets });
+      const previous = queryClient.getQueryData<UserAssetWithValueChange[]>(portfolioAssets);
+      if (previous) {
+        queryClient.setQueryData<UserAssetWithValueChange[]>(
+          portfolioAssets,
+          previous.map((a) => (a.id === assetId ? { ...a, ...updatedAsset } : a))
+        );
+      }
+      return { previous };
+    },
+    onError: (_error, _updatedAsset, context) => {
+      const ctx = context as { previous?: UserAssetWithValueChange[] } | undefined;
+      if (ctx?.previous) {
+        queryClient.setQueryData(portfolioAssets, ctx.previous);
+      }
+      toast({
+        title: "Error updating asset",
+        description:
+          _error instanceof Error ? _error.message : "An unknown error occurred",
+        variant: "destructive",
       });
     },
     onSuccess: () => {
@@ -27,14 +46,6 @@ export const useAssetUpdate = (assetId: string) => {
       toast({
         title: "Asset updated",
         description: "Your asset has been updated successfully.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error updating asset",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
       });
     },
   });

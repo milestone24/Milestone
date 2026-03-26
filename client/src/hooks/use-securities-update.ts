@@ -1,4 +1,5 @@
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { assetValues } from "@shared/api/queryKeys";
 import { useMutation } from "@tanstack/react-query";
 
 type SecuritiesUpdateResponse = {
@@ -16,7 +17,7 @@ export const useSecuritiesUpdate = (assetId: string) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: [`/assets/${assetId}/history`],
+        queryKey: [...assetValues, assetId],
       });
     },
     onError: (error) => {

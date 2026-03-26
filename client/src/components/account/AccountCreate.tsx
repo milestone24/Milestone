@@ -43,7 +43,8 @@ import {
   SheetDescription,
   SheetTrigger,
 } from "../ui/sheet";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useDraftState } from "@/hooks/use-draft-state";
 import { Loader2, Trash2 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
@@ -100,28 +101,60 @@ type AccountCreateFormProps = {
   canSubmit?: boolean;
 };
 
+type AccountCreateDraft = {
+  formStage: number;
+  formValues: Partial<UserAssetOrphanInsert>;
+};
+
+const DRAFT_KEY = "draft:add-account";
+
 export const AccountCreate: React.FC<AccountCreateProps> = ({
   onSubmit,
   onCancel,
 }) => {
+  const [draft, setDraft, clearDraft] = useDraftState<AccountCreateDraft>(
+    DRAFT_KEY,
+    { formStage: 1, formValues: {} }
+  );
 
-  const name = `account-${generateId()}`
+  const hasDraftValues = !!draft.formValues.accountType;
 
   const form = useForm<UserAssetOrphanInsert>({
     resolver: zodResolver(userAssetOrphanInsertSchema),
     mode: "all",
-    defaultValues: {
-      name,
-      valueMethod: "calculated",
-    },
+    defaultValues: hasDraftValues
+      ? draft.formValues
+      : { name: `account-${generateId()}`, valueMethod: "calculated" },
   });
 
-  const [formStage, setFormStage] = useState<number>(1);
+  const formStage = draft.formStage;
+  const formStageRef = useRef(formStage);
+  formStageRef.current = formStage;
+
+  useEffect(() => {
+    const { unsubscribe } = form.watch((values) => {
+      setDraft({
+        formStage: formStageRef.current,
+        formValues: values as Partial<UserAssetOrphanInsert>,
+      });
+    });
+    return unsubscribe;
+  }, []);
+
+  const setFormStage = (stage: number) => {
+    setDraft({ formStage: stage, formValues: form.getValues() });
+  };
 
   const submitForm = (data: UserAssetOrphanInsert) => {
     return onSubmit(data).then(() => {
+      clearDraft();
       form.reset();
     });
+  };
+
+  const handleCancel = () => {
+    clearDraft();
+    onCancel();
   };
 
   const stage1Fields: (keyof UserAssetOrphanInsert)[] = ["platformId", "accountType", "startDate"];
@@ -162,20 +195,20 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
           {formStage === 1 && (
             <AccountCreateOne
               onNext={handleNext}
-              onCancel={onCancel}
+              onCancel={handleCancel}
             />
           )}
           {formStage === 2 && (
             <AccountCreateTwo
               onNext={handleNext}
               onBack={() => setFormStage(1)}
-              onCancel={onCancel}
+              onCancel={handleCancel}
             />
           )}
           {formStage === 3 && (
             <AccountCreateThree
               onBack={() => setFormStage(2)}
-              onCancel={onCancel}
+              onCancel={handleCancel}
               canSubmit={true}
             />
           )}
