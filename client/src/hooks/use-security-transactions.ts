@@ -29,6 +29,7 @@ export const useSecurityTransactions = (assetId: string) => {
     UserAssetSecurityTransactionResolved[]
   >({
     queryKey: [...assetSecuritiesTransactions, assetId],
+    enabled: !!assetId,
     queryFn: async () => {
       const response = await apiRequest(
         "GET",

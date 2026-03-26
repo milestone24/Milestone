@@ -23,6 +23,7 @@ export const useAssetTransactions = (
         )}`
       );
     },
+    enabled: !!assetId,
   });
 
   return {
