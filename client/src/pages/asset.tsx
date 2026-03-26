@@ -91,7 +91,7 @@ function AssetPage() {
   const { data: assetValueHistoryData, isLoading: isLoadingAssetValueHistory } =
     useQuery<AssetValueTimePoint[]>({
       //const { data: historyData, isLoading } = useQuery<AssetValue[]>({
-      queryKey: [...assetGraphValues, startDate, endDate],
+      queryKey: [...assetGraphValues, assetId, startDate, endDate],
       queryFn: async () => {
         const response = await fetch(
           `/api/assets/${assetId}/history/graph?${getDateUrlParams(
