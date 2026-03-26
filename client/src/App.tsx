@@ -8,13 +8,18 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import ResponsiveLayout from "@/components/layout/ResponsiveLayout";
 import NotFound from "@/pages/not-found";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/registerPage";
 import { Loader, Loader2 } from "lucide-react";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ErrorBoundary } from "react-error-boundary";
 import { useSocket } from "./hooks/use-socket";
+import { useSession } from "./hooks/use-session";
+import { brokerPlatformsQueryKey } from "./hooks/use-broker-platforms";
+import { brokerProvidersQueryKey } from "./hooks/use-broker-providers";
+import { apiRequest } from "./lib/queryClient";
+import { BrokerPlatform, BrokerProvider } from "@shared/schema";
 
 const Portfolio = lazy(() => import("@/pages/portfolio"));
 const AssetPage = lazy(() => import("@/pages/asset"));
@@ -163,12 +168,31 @@ function Loading() {
   );
 }
 
+function StaticDataPrefetch() {
+  const { isAuthenticated } = useSession();
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    queryClient.prefetchQuery({
+      queryKey: brokerPlatformsQueryKey,
+      queryFn: () => apiRequest<BrokerPlatform[]>("GET", "/api/assets/broker-platforms"),
+    });
+    queryClient.prefetchQuery({
+      queryKey: brokerProvidersQueryKey,
+      queryFn: () => apiRequest<BrokerProvider[]>("GET", "/api/assets/broker-providers"),
+    });
+  }, [isAuthenticated]);
+
+  return null;
+}
+
 function App() {
   useSocket();
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <SessionProvider>
+          <StaticDataPrefetch />
           <PortfolioProvider>
             <Router />
             <Toaster />
