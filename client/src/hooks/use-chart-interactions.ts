@@ -1,22 +1,23 @@
 import { useState, useCallback, RefObject } from "react";
 import * as d3 from "d3";
-import type { CombinedDayTimePointBase } from "shared/schema";
 import type { ChartScales } from "./use-chart-scales";
 import type { ChartDataPoint, ChartData } from "./use-chart-data";
+
+export type SelectedPoint = {
+  seriesName: string;
+  color: string;
+  data: ChartDataPoint;
+};
 
 export type TooltipData = {
   x: number;
   y: number;
-  points: Array<{
-    seriesName: string;
-    color: string;
-    data: ChartDataPoint;
-  }>;
+  points: SelectedPoint[];
 } | null;
 
 export type UseChartInteractionsReturn = {
   tooltipData: TooltipData;
-  selectedPoints: CombinedDayTimePointBase[] | null;
+  selectedPoints: SelectedPoint[] | null;
   handleMouseMove: (event: React.MouseEvent<SVGSVGElement>) => void;
   handleMouseLeave: () => void;
   handleClick: (event: React.MouseEvent<SVGSVGElement>) => void;
@@ -30,7 +31,7 @@ export function useChartInteractions(
   dimensions: { marginLeft: number; marginTop: number }
 ): UseChartInteractionsReturn {
   const [tooltipData, setTooltipData] = useState<TooltipData>(null);
-  const [selectedPoints, setSelectedPoints] = useState<CombinedDayTimePointBase[] | null>(null);
+  const [selectedPoints, setSelectedPoints] = useState<SelectedPoint[] | null>(null);
 
   const findDataPointsAtTimestamp = useCallback(
     (timestamp: number) => {
@@ -125,7 +126,7 @@ export function useChartInteractions(
       const points = findDataPointsAtTimestamp(timestamp);
 
       if (points.length > 0) {
-        setSelectedPoints(points.map((p) => p.data));
+        setSelectedPoints(points);
       }
     },
     [svgRef, scales, dimensions, findDataPointsAtTimestamp]

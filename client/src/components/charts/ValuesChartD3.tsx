@@ -145,34 +145,43 @@ export default function ValuesChartD3({
 
         {/* Selected points detail panel */}
         {selectedPoints &&
-          selectedPoints.map((point) => (
+          selectedPoints.map((point, index) => (
             <div
               className="mt-4 p-4 bg-muted rounded-lg"
-              key={new Date(point.valueDate).getTime()}
+              key={`${point.seriesName}-${new Date(point.data.valueDate).getTime()}`}
             >
               <div className="flex justify-between items-start mb-4">
                 <div>
+                  <div className="flex items-center gap-1 mb-1">
+                    <div
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: point.color }}
+                    />
+                    <p className="text-xs text-muted-foreground">{point.seriesName}</p>
+                  </div>
                   <p className="text-sm text-muted-foreground">
-                    Total Portfolio Value: £{Number(point.value).toLocaleString()}
+                    £{Number(point.data.value).toLocaleString()}
                   </p>
                 </div>
-                <button
-                  onClick={clearSelectedPoints}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  Close
-                </button>
+                {index === 0 && (
+                  <button
+                    onClick={clearSelectedPoints}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    Close
+                  </button>
+                )}
               </div>
 
-              {point.changes && point.changes.length > 0 && (
+              {point.data.changes && point.data.changes.length > 0 && (
                 <div className="mt-4">
                   <h4 className="text-sm font-medium text-foreground mb-2">
                     Account Changes
                   </h4>
                   <div className="space-y-2">
-                    {point.changes.map((change, index) => (
+                    {point.data.changes.map((change, changeIndex) => (
                       <div
-                        key={index}
+                        key={changeIndex}
                         className="flex justify-between items-center text-sm"
                       >
                         <div className="flex items-center space-x-2">
