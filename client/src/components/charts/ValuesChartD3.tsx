@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState, useLayoutEffect } from "react";
 import { cn } from "@/lib/utils";
 import { PosNegNumber } from "../common/PosNegNumber";
 import { useChartDimensions } from "@/hooks/use-chart-dimensions";
@@ -55,6 +55,8 @@ export default function ValuesChartD3({
 }: ValuesChartD3Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
 
   const dimensions = useChartDimensions(containerRef);
   const processedData = useChartData(data);
@@ -79,6 +81,19 @@ export default function ValuesChartD3({
     curve,
   });
 
+  useLayoutEffect(() => {
+    if (!tooltipData || !tooltipRef.current || !containerRef.current) return;
+    const tooltipWidth = tooltipRef.current.offsetWidth;
+    const containerWidth = containerRef.current.offsetWidth;
+    const spaceOnRight = containerWidth - tooltipData.x;
+    const isNearRightEdge = spaceOnRight < tooltipWidth + 20;
+    setTooltipStyle({
+      left: tooltipData.x + (isNearRightEdge ? -10 : 10),
+      top: tooltipData.y - 10,
+      transform: isNearRightEdge ? "translate(-100%, -100%)" : "translate(0, -100%)",
+    });
+  }, [tooltipData]);
+
   return (
     <div
       className={cn("w-full bg-card rounded-lg", className)}
@@ -96,17 +111,11 @@ export default function ValuesChartD3({
           />
 
           {/* Tooltip */}
-          {tooltipData && (() => {
-            const containerWidth = containerRef.current?.offsetWidth ?? 0;
-            const isNearRightEdge = tooltipData.x > containerWidth * 0.6;
-            return (
+          {tooltipData && (
             <div
+              ref={tooltipRef}
               className="absolute bg-card border-none rounded-lg p-2 shadow-sm pointer-events-none"
-              style={{
-                left: tooltipData.x + (isNearRightEdge ? -10 : 10),
-                top: tooltipData.y - 10,
-                transform: isNearRightEdge ? "translate(-100%, -100%)" : "translate(0, -100%)",
-              }}
+              style={tooltipStyle}
             >
               {tooltipData.points.map((point, index) => (
                 <div key={index}>
@@ -130,8 +139,7 @@ export default function ValuesChartD3({
                 </div>
               ))}
             </div>
-            );
-          })()}
+          )}
         </div>
 
         {/* Legend */}
