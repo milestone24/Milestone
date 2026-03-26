@@ -163,7 +163,7 @@ export function useD3Render({
     // Draw X axis
     const xAxis = d3
       .axisBottom(scales.xScale)
-      .ticks(5)
+      .tickValues(scales.xScale.domain())
       .tickFormat((value) => {
         const date = new Date(value as number);
         return date.toLocaleDateString("en-GB", {

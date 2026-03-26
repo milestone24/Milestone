@@ -16,8 +16,7 @@ export function useChartScales(
     const xScale = d3
       .scaleLinear()
       .domain([processedData.minTimestamp, processedData.maxTimestamp])
-      .range([0, dimensions.boundedWidth])
-      .nice();
+      .range([0, dimensions.boundedWidth]);
 
     const yScale = d3
       .scaleLinear()
