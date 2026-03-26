@@ -132,33 +132,13 @@ export function useRecurringContributions(assetId: string | undefined) {
   const deleteMutation = useMutation<
     { success: boolean },
     Error,
-    DeleteVariables,
-    RollbackContext
+    DeleteVariables
   >({
     mutationFn: ({ contributionId }: DeleteVariables) =>
       apiRequest<{ success: boolean }>(
         "DELETE",
         `/api/assets/${assetId}/recurring-contributions/${contributionId}`
       ),
-    onMutate: async ({ contributionId }) => {
-      const ctx = await cancelAndSnapshot(assetId);
-      if (ctx.previous) {
-        setList(
-          assetId,
-          ctx.previous.filter((c) => c.id !== contributionId)
-        );
-      }
-      return ctx;
-    },
-    onError: (_error, _vars, context) => {
-      rollback(assetId, context);
-      toast({
-        title: "Error deleting recurring contribution",
-        description:
-          _error instanceof Error ? _error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: getRecurringContributionsQueryKey(assetId ?? ""),
@@ -166,6 +146,14 @@ export function useRecurringContributions(assetId: string | undefined) {
       toast({
         title: "Recurring contribution deleted",
         description: "Recurring contribution has been deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error deleting recurring contribution",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
       });
     },
   });
