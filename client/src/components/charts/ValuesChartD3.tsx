@@ -96,13 +96,16 @@ export default function ValuesChartD3({
           />
 
           {/* Tooltip */}
-          {tooltipData && (
+          {tooltipData && (() => {
+            const containerWidth = containerRef.current?.offsetWidth ?? 0;
+            const isNearRightEdge = tooltipData.x > containerWidth * 0.6;
+            return (
             <div
               className="absolute bg-card border-none rounded-lg p-2 shadow-sm pointer-events-none"
               style={{
-                left: tooltipData.x + 10,
+                left: tooltipData.x + (isNearRightEdge ? -10 : 10),
                 top: tooltipData.y - 10,
-                transform: "translate(0, -100%)",
+                transform: isNearRightEdge ? "translate(-100%, -100%)" : "translate(0, -100%)",
               }}
             >
               {tooltipData.points.map((point, index) => (
@@ -127,7 +130,8 @@ export default function ValuesChartD3({
                 </div>
               ))}
             </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* Legend */}
