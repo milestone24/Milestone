@@ -181,6 +181,8 @@ export function useD3Render({
         g.select(".domain").remove();
         g.selectAll(".tick line").remove();
         g.selectAll(".tick text").attr("font-size", 10).attr("fill", "#666");
+        g.select(".tick:first-child text").attr("text-anchor", "start");
+        g.select(".tick:last-child text").attr("text-anchor", "end");
       });
 
     // Draw Y axis
