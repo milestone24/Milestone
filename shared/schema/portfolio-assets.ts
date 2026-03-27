@@ -620,3 +620,14 @@ export type PortfolioValue = {
   value: DecimalValueString;
   returnValue: DecimalValueString;
 };
+
+export const portfolioValueSchema = z.object({
+  value: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Value must be a valid decimal string",
+  }),
+  returnValue: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Return value must be a valid decimal string",
+  }),
+});
+
+portfolioValueSchema._output satisfies PortfolioValue;
