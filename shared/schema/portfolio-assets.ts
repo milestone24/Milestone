@@ -412,6 +412,17 @@ export type UserAssetAPIKeyConnection = DBUserAssetAPIKeyConnection;
 
 export type BrokerPlatform = DBBrokerPlatform;
 
+export const brokerPlatformSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  supportsAPIKey: z.boolean(),
+  supportedAccountTypes: z.array(z.enum(accountType)),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+
+brokerPlatformSchema._output satisfies BrokerPlatform;
+
 export type BrokerProvider = DBBrokerProvider;
 
 export type UserAssetSecuritySelect = DBUserAssetSecurity & {
