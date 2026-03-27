@@ -58,6 +58,21 @@ export type AssetTransaction = Omit<
   currencyValue: DecimalValueString;
 };
 
+export const transactionAbstractSchema = z.object({
+  value: decimalValueSchema,
+  valueDate: z.coerce.date(),
+  assetId: z.string(),
+  id: z.string(),
+  transactionType: z.enum(["asset", "security", "synthetic"] as const),
+  recordedAt: z.coerce.date(),
+  currencyValue: decimalValueSchema,
+  accumulativeAssetCurrencyValue: decimalValueSchema,
+  accumulativeAssetCurrencyValueRow: z.number(),
+  currency: z.string(),
+});
+
+transactionAbstractSchema._output satisfies TransactionAbstract;
+
 export const assetTransactionSelectSchema = z.object({
   id: z.string(),
   assetId: z.string(),

@@ -7,6 +7,7 @@ import { ChevronLeft, MoreHorizontal, RefreshCcw } from "lucide-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   AssetValueTimePoint,
+  assetValueTimePointSchema,
   CombinedDayTimePointBase,
   UserAsset,
 } from "@shared/schema";
@@ -99,7 +100,12 @@ function AssetPage() {
         if (!response.ok) {
           throw new Error("Failed to fetch portfolio history");
         }
-        return response.json();
+        const data = await response.json();
+        const result = assetValueTimePointSchema.array().safeParse(data);
+        if (!result.success) {
+          throw new Error(`Invalid asset value history response: ${result.error.message}`);
+        }
+        return result.data;
       },
     });
 

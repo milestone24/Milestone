@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { decimalValueSchema } from "@server/db/schema/utils";
 import { DecimalValueString } from "./utils";
 
 export type ValueAbstract = {
@@ -8,6 +10,13 @@ export type ValueAbstract = {
   //or
   //valueSum: number
 };
+
+export const valueAbstractSchema = z.object({
+  value: decimalValueSchema,
+  valueDate: z.coerce.date(),
+});
+
+valueAbstractSchema._output satisfies ValueAbstract;
 
 export type ValueAbstractType = "asset_value" | "transaction";
 
