@@ -1,8 +1,5 @@
 import { BrokerLogo } from "@/components/logo/BrokerLogo";
-import {
-  BrokerPlatform,
-  BrokerProvider,
-} from "@shared/schema/portfolio-assets";
+import { BrokerPlatform } from "@shared/schema/portfolio-assets";
 
 export const getBrokerName = (
   platformId: string,

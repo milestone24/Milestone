@@ -39,7 +39,6 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { usePortfolio } from "@/context/PortfolioContext";
 import { AssetValue, ResolvedAssetSecurity } from "shared/schema";
-import { useBrokerProviders } from "@/hooks/use-broker-providers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TransactionsPanel } from "@/components/account/TransactionsPanel";
 
@@ -61,9 +60,6 @@ export default function AssetSecurityPage() {
   const nestedId: string | undefined = params?.nestedId;
 
   const { addAssetValue, updateAssetValue, deleteAssetValue } = usePortfolio();
-
-  const { data: providers, isLoading: isProvidersLoading } =
-    useBrokerProviders();
 
   // State for history (values) tab
   const [isAddHistoryOpen, setIsAddHistoryOpen] = useState(false);

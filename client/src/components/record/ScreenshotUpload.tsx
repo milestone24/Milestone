@@ -18,8 +18,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { UserAsset, BrokerProvider } from "shared/schema";
-import { useBrokerProviders } from "@/hooks/use-broker-providers";
+import { UserAsset } from "shared/schema";
 import { getBrokerName } from "@/lib/broker";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";

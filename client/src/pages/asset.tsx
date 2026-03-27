@@ -14,7 +14,6 @@ import {
   getBrokerAccountTypeFullName,
   getBrokerSlugFromName,
 } from "@/lib/broker";
-import { useBrokerProviders } from "@/hooks/use-broker-providers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
@@ -69,9 +68,6 @@ function AssetPage() {
   const { start: startDate, end: endDate } = useMemo(() => {
     return getDateRange(dateRange as DateRangeOption);
   }, [dateRange]);
-
-  const { data: providers, isLoading: isProvidersLoading } =
-    useBrokerProviders();
 
   // Active tab state
   const [activeTab, setActiveTab] = useState<"values" | "contributions">(
