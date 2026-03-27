@@ -58,8 +58,6 @@ export const useAssetSecurities = () => {
       );
 
       const validation = resolvedAssetSecuritiesSchema.safeParse(response);
-
-      console.log("validation", validation);
       if (!validation.success) {
         throw new Error(validation.error.message);
       }
@@ -123,7 +121,6 @@ export const useAssetSecurities = () => {
       );
     },
     onSuccess: () => {
-      console.log("updateSecurity onSuccess");
       queryClient.invalidateQueries({
         queryKey: [...assetSecurities, assetId],
       });
