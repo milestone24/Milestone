@@ -126,9 +126,9 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Security</AlertDialogTitle>
+            <AlertDialogTitle>Delete Investment</AlertDialogTitle>
             <AlertDialogDescription>
-              This will delete all data associated with this security. This
+              This will delete all data associated with this investment. This
               action cannot be undone. Are you sure?
             </AlertDialogDescription>
           </AlertDialogHeader>

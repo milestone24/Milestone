@@ -343,7 +343,7 @@ const AssetSecurityNewFields = () => {
                   isClearable={true}
                   inputValue={searchInput}
                   isLoading={isLoadingSecurities}
-                  placeholder="Search securities..."
+                  placeholder="Search investments..."
                 />
               </FormControl>
               <FormMessage />
@@ -356,11 +356,11 @@ const AssetSecurityNewFields = () => {
         name="initialHolding.shareHolding"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Share Holdings</FormLabel>
+            <FormLabel>Shares Held</FormLabel>
             <FormControl>
               <Input
                 type="number"
-                placeholder="Share Holdings"
+                placeholder="Shares Held"
                 {...field}
                 value={field.value ?? ""}
                 onChange={(e) => {

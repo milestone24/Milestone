@@ -162,9 +162,9 @@ const GroupSecurities = <T extends AssetSecurityLike>({
     <>
       {securitiesFields.length > 0 ? (
         <FormItem>
-          <FormLabel>Security Distribution</FormLabel>
+          <FormLabel>Investment Distribution</FormLabel>
           <FormDescription>
-            How is the money distributed between the securities?
+            How is the money distributed between the investments?
             <br />
             We will automatically record a contribution for each security based
             on day stock prices but you may need to correct the stock price for

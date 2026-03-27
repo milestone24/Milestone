@@ -41,7 +41,7 @@ export const AssetSecuritiesList: FC<AssetSecuritiesListProps> = ({
             onClick={() => setIsAddSecurityOpen(true)}
           >
             <Plus className="w-4 h-4 mr-2" />
-            {"Add Security"}
+            {"Add Investment"}
           </Button>
         </div>
       )}
@@ -57,7 +57,7 @@ export const AssetSecuritiesList: FC<AssetSecuritiesListProps> = ({
           </div>
         ) : securities.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            No securities in this account.
+            No investments in this account.
           </div>
         ) : (
           securities.map((security) => (

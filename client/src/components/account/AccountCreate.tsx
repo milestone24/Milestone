@@ -679,7 +679,7 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
                         <label htmlFor="calculated">Calculated</label>
                         <span className="text-xs block">
                           We will calculate the value of your account based on
-                          the securities you tell us are held in the account
+                          the investments you tell us are held in the account
                         </span>
                       </div>
                     </div>
@@ -712,10 +712,10 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
               render={({ field }) => (
                 <>
                   <div>
-                    <FormLabel>Add Securities</FormLabel>
+                    <FormLabel>Add Investments</FormLabel>
                     <FormDescription>
                       In order to calculate the value of your account, we need to
-                      know which securities are held in the account
+                      know which investments are held in the account
                     </FormDescription>
                   </div>
                   <div className="space-y-2 flex flex-col gap-2">
@@ -733,7 +733,7 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
                       </div>
                     ))}
                     <Button onClick={() => setAddingSecurity(true)}>
-                      Add Security
+                      Add Investment
                     </Button>
                   </div>
                   <FormMessage />
@@ -790,7 +790,7 @@ const SecurityCard = ({ security }: SecurityCardProps) => {
         <span className="text-sm">{security.security.name}</span>
       </div>
       <div className="flex flex-row gap-2 text-sm">
-        <span>Share Holdings:</span>
+        <span>Shares Held:</span>
         <span>{security.initialHolding.shareHolding}</span>
       </div>
       <div className="flex flex-row gap-2 text-sm">

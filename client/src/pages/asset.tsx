@@ -366,7 +366,7 @@ function AssetPage() {
           {/* Holdings Section - only visible for calculated/securities assets */}
           {isSecuritiesAsset && (
             <div className="">
-              <h2 className="text-lg font-medium my-2 md:my-4">Holdings</h2>
+              <h2 className="text-lg font-medium my-2 md:my-4">Investments</h2>
               <AssetSecuritiesList
                 className="my-4"
                 //onItemClick={handleSecurityClick}

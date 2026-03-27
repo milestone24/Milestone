@@ -223,7 +223,7 @@ export const RecurringContributionSecurityDialog = ({
           <DialogDescription>
             {data
               ? "Update the schedule for this recurring contribution."
-              : "Set up a recurring contribution for your securities."}
+              : "Set up a recurring contribution for your investments."}
           </DialogDescription>
         </DialogHeader>
 
@@ -257,10 +257,10 @@ export const RecurringContributionSecurityDialog = ({
                               htmlFor="mode-single"
                               className="text-sm font-medium leading-none cursor-pointer"
                             >
-                              Single Security
+                              Single Investment
                             </label>
                             <span className="text-xs text-muted-foreground">
-                              Contribute to one specific security
+                              Contribute to one specific investment
                             </span>
                           </div>
                         </div>
@@ -278,7 +278,7 @@ export const RecurringContributionSecurityDialog = ({
                               Distributed
                             </label>
                             <span className="text-xs text-muted-foreground">
-                              Split across multiple securities
+                              Split across multiple investments
                             </span>
                           </div>
                         </div>
