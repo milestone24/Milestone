@@ -278,13 +278,8 @@ function Portfolio() {
           )}
           {portfolioOverview ?
               ( <PosNegNumber
-                value={
-                  displayInPercentage
-                    ? // Convert percentage to decimal for sakes of Intl.NumberFormat
-                      Number(portfolioOverview.currentChangePercentage) / 100
-                    : Number(portfolioOverview.currentChange)
-                }
-                displayInPercentage={displayInPercentage}
+                value={Number(portfolioOverview.currentChange)}
+                displayInPercentage={false}
               />
             ) : null}
         </div>
