@@ -28,7 +28,6 @@ const FireLast = lazy(() => import("@/pages/fire-last"));
 const Profile = lazy(() => import("@/pages/profile"));
 const Settings = lazy(() => import("@/pages/settings"));
 const ApiConnections = lazy(() => import("@/pages/api-connections"));
-const NestedAssetPage = lazy(() => import("@/pages/asset-security"));
 const Record = lazy(() => import("@/pages/record"));
 
 function RouteWithLayout({
@@ -139,13 +138,6 @@ function Router() {
             {() => (
               <ProtectedRoute>
                 <RouteWithLayout component={AssetPage} />
-              </ProtectedRoute>
-            )}
-          </Route>
-          <Route path="/asset/broker/:id/item/:nestedId">
-            {() => (
-              <ProtectedRoute>
-                <RouteWithLayout component={NestedAssetPage} />
               </ProtectedRoute>
             )}
           </Route>
