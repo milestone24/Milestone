@@ -22,7 +22,7 @@ import { usePortfolio } from "@/context/PortfolioContext";
 import { useToast } from "@/hooks/use-toast";
 import { getNextMilestone } from "@/lib/utils/milestones";
 import AddAccountDialogue from "@/components/account/AddAccountDialogue";
-import { AssetValueTimePoint, assetValueTimePointSchema, UserAssetOrphanInsert } from "shared/schema";
+import { AssetValueTimePoint, assetValueTimePointSchema, UserAssetOrphanInsert } from "@shared/schema";
 import { DateRangeProvider, useDateRange } from "@/context/DateRangeContext";
 
 import {
@@ -37,7 +37,7 @@ import {
 import BrokerLogoBoxed from "@/components/logo/BrokerLogoBoxed";
 import { getPlatformName } from "@/lib/platform";
 import { usePortfolioTransactionHistory } from "@/hooks/use-portfolio-transactions";
-import { CombinedDayTimePointBase } from "shared/schema";
+import { CombinedDayTimePointBase } from "@shared/schema";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { getDateUrlParams } from "@/lib/date";
 import { portfolioGraphValues } from "@shared/api/queryKeys";
