@@ -28,3 +28,18 @@ export type MilestoneInsert = z.infer<typeof milestoneInsertSchema>;
 
 export type Milestone = DBMilestone;
 
+export const milestoneSchema = z.object({
+  id: z.string(),
+  userAccountId: z.string(),
+  name: z.string(),
+  targetValue: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Target value must be a valid decimal string",
+  }),
+  accountType: z.string().nullable(),
+  isCompleted: z.boolean(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+
+milestoneSchema._output satisfies Milestone;
+

@@ -1,9 +1,8 @@
 import { apiRequest } from "@/lib/queryClient";
 import { ProcessStatus } from "@server/db/schema";
 import { processes as processesKey } from "@shared/api/queryKeys";
+import { ProcessSelect, processSelectSchema } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
-
-type Process = {};
 
 export type UserProcessOptions = {
   filters?: {
@@ -38,12 +37,16 @@ export const useProcesses = (options?: UserProcessOptions) => {
     isLoading,
     isError,
     error,
-  } = useQuery<Process[]>({
+  } = useQuery<ProcessSelect[]>({
     queryKey: [...processesKey, options?.filters],
-    queryFn: () => {
+    queryFn: async () => {
       const url = defineUrl(options);
-      console.log("url", url);
-      return apiRequest<Process[]>("GET", url);
+      const data = await apiRequest<ProcessSelect[]>("GET", url);
+      const result = processSelectSchema.array().safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid processes response: ${result.error.message}`);
+      }
+      return result.data;
     },
   });
 

@@ -32,8 +32,9 @@ import {
   BrandedAbstractTransactionValue,
   recurringContributionGroupInsertSchema,
   TransactionAbstract,
+  transactionAbstractSchema,
 } from "./transaction";
-import { BrandedValue, ValueAbstract, ValueAbstractType } from "./common";
+import { BrandedValue, ValueAbstract, ValueAbstractType, valueAbstractSchema } from "./common";
 
 export { accountType } from "@server/db/schema/index";
 
@@ -412,6 +413,17 @@ export type UserAssetAPIKeyConnection = DBUserAssetAPIKeyConnection;
 
 export type BrokerPlatform = DBBrokerPlatform;
 
+export const brokerPlatformSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  supportsAPIKey: z.boolean(),
+  supportedAccountTypes: z.array(z.enum(accountType)),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+
+brokerPlatformSchema._output satisfies BrokerPlatform;
+
 export type BrokerProvider = DBBrokerProvider;
 
 export type UserAssetSecuritySelect = DBUserAssetSecurity & {
@@ -595,6 +607,84 @@ export type AssetValueTimePoint = CombinedDayTimePoint<{
   metadata: AssetValueMetadata[];
 }>;
 
+const transactionExtraFieldsSchema = transactionAbstractSchema.omit({
+  value: true,
+  valueDate: true,
+  id: true,
+  assetId: true,
+});
+
+export const combinedDayValuesChangeSchema = z.discriminatedUnion("valueType", [
+  z.object({
+    previousValue: decimalValueSchema,
+    newValue: decimalValueSchema,
+    change: decimalValueSchema,
+    assetId: z.string(),
+    valueType: z.literal("asset"),
+  }),
+  z.object({
+    previousValue: decimalValueSchema,
+    newValue: decimalValueSchema,
+    change: decimalValueSchema,
+    assetId: z.string(),
+    valueType: z.literal("synthetic-asset"),
+  }),
+  z.object({
+    previousValue: decimalValueSchema,
+    newValue: decimalValueSchema,
+    change: decimalValueSchema,
+    assetId: z.null(),
+    valueType: z.literal("synthetic"),
+  }),
+]);
+
+combinedDayValuesChangeSchema._output satisfies CombinedDayValuesChange;
+
+export const possibleDummyAssetTransactionValueSchema = z.discriminatedUnion(
+  "valueType",
+  [
+    z.object({
+      valueType: z.literal("synthetic"),
+      valueDate: z.coerce.date(),
+      value: decimalValueSchema,
+      id: z.null(),
+      assetId: z.null(),
+      ...transactionExtraFieldsSchema.partial().shape,
+    }),
+    z.object({
+      valueType: z.literal("synthetic-asset"),
+      valueDate: z.coerce.date(),
+      value: decimalValueSchema,
+      id: z.null(),
+      assetId: z.string(),
+      ...transactionExtraFieldsSchema.shape,
+    }),
+    transactionAbstractSchema.extend({
+      valueType: z.literal("asset"),
+    }),
+  ]
+);
+
+possibleDummyAssetTransactionValueSchema._output satisfies PossibleDummyAssetTransactionValue;
+
+export const combinedDayTimePointBaseSchema = valueAbstractSchema.extend({
+  changes: z.array(combinedDayValuesChangeSchema),
+});
+
+combinedDayTimePointBaseSchema._output satisfies CombinedDayTimePointBase;
+
+export const transactionTimePointSchema = combinedDayTimePointBaseSchema.extend({
+  transactions: z.array(possibleDummyAssetTransactionValueSchema),
+});
+
+transactionTimePointSchema._output satisfies TransactionTimePoint;
+
+export const assetValueTimePointSchema = combinedDayTimePointBaseSchema.extend({
+  metadata: z.array(assetValueMetadataSchema),
+});
+
+assetValueTimePointSchema._output satisfies AssetValueTimePoint;
+
 export type CombinedValueHistory = {
   transactions: TransactionTimePoint[];
   valueHistory: AssetValueTimePoint[];
@@ -609,3 +699,14 @@ export type PortfolioValue = {
   value: DecimalValueString;
   returnValue: DecimalValueString;
 };
+
+export const portfolioValueSchema = z.object({
+  value: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Value must be a valid decimal string",
+  }),
+  returnValue: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Return value must be a valid decimal string",
+  }),
+});
+
+portfolioValueSchema._output satisfies PortfolioValue;

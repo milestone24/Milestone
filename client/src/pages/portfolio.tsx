@@ -22,7 +22,7 @@ import { usePortfolio } from "@/context/PortfolioContext";
 import { useToast } from "@/hooks/use-toast";
 import { getNextMilestone } from "@/lib/utils/milestones";
 import AddAccountDialogue from "@/components/account/AddAccountDialogue";
-import { AssetValueTimePoint, UserAssetOrphanInsert } from "shared/schema";
+import { AssetValueTimePoint, assetValueTimePointSchema, UserAssetOrphanInsert } from "shared/schema";
 import { DateRangeProvider, useDateRange } from "@/context/DateRangeContext";
 
 import {
@@ -110,7 +110,12 @@ function Portfolio() {
         if (!response.ok) {
           throw new Error("Failed to fetch portfolio history");
         }
-        return response.json();
+        const data = await response.json();
+        const result = assetValueTimePointSchema.array().safeParse(data);
+        if (!result.success) {
+          throw new Error(`Invalid portfolio value history response: ${result.error.message}`);
+        }
+        return result.data;
       },
     });
 

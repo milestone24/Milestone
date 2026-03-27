@@ -59,7 +59,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useBrokerProviders } from "@/hooks/use-broker-providers";
+import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
 import { ScreenshotUpload } from "@/components/record/ScreenshotUpload";
 import { useAssets } from "@/hooks/use-assets";
 type AccountFormData = {
@@ -75,7 +75,7 @@ const assetWithValeGuard = (
 export default function Record() {
   const { isLoading } = usePortfolio();
 
-  const { data: brokerProviders } = useBrokerProviders();
+  const { data: brokerPlatforms } = useBrokerPlatforms();
 
   const { data: assets = [], isLoading: isLoadingAssets } = useAssets();
 
@@ -233,8 +233,8 @@ export default function Record() {
   const getAssetName = (assetId: string) => {
     const asset = assets.find((acc) => acc.id === assetId);
 
-    return asset?.providerId
-      ? `${getBrokerName(asset.providerId, brokerProviders ?? [])} (${
+    return asset?.platformId
+      ? `${getBrokerName(asset.platformId, brokerPlatforms ?? [])} (${
           asset.accountType
         })`
       : "Unknown Account";
@@ -599,20 +599,20 @@ export default function Record() {
                             <div className="flex items-center">
                               <div className="w-10 h-10 rounded-md flex items-center justify-center mr-3">
                                 {getProviderLogo(
-                                  asset.providerId
+                                  asset.platformId
                                     ? getBrokerName(
-                                        asset.providerId,
-                                        brokerProviders ?? []
+                                        asset.platformId,
+                                        brokerPlatforms ?? []
                                       )
                                     : "Unknown Account"
                                 )}
                               </div>
                               <div>
                                 <h3 className="font-medium">
-                                  {asset.providerId
+                                  {asset.platformId
                                     ? getBrokerName(
-                                        asset.providerId,
-                                        brokerProviders ?? []
+                                        asset.platformId,
+                                        brokerPlatforms ?? []
                                       )
                                     : "Unknown Account"}
                                 </h3>
@@ -772,20 +772,20 @@ export default function Record() {
                             <div className="flex items-center">
                               <div className="w-10 h-10 rounded-md flex items-center justify-center mr-3">
                                 {getProviderLogo(
-                                  asset.providerId
+                                  asset.platformId
                                     ? getBrokerName(
-                                        asset.providerId,
-                                        brokerProviders ?? []
+                                        asset.platformId,
+                                        brokerPlatforms ?? []
                                       )
                                     : "Unknown Account"
                                 )}
                               </div>
                               <div>
                                 <h3 className="font-medium">
-                                  {asset.providerId
+                                  {asset.platformId
                                     ? getBrokerName(
-                                        asset.providerId,
-                                        brokerProviders ?? []
+                                        asset.platformId,
+                                        brokerPlatforms ?? []
                                       )
                                     : "Unknown Account"}
                                 </h3>

@@ -20,6 +20,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 import {
   Milestone,
+  milestoneSchema,
   SessionUser,
   UserAsset,
   UserAssetOrphanInsert,
@@ -165,7 +166,14 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
   } = useQuery<Milestone[]>({
     queryKey: milestonesQueryKey,
     queryFn: apiEnabled
-      ? async () => apiRequest("GET", milestonesQueryKey[0] ?? "")
+      ? async () => {
+          const data = await apiRequest("GET", milestonesQueryKey[0] ?? "");
+          const result = milestoneSchema.array().safeParse(data);
+          if (!result.success) {
+            throw new Error(`Invalid milestones response: ${result.error.message}`);
+          }
+          return result.data;
+        }
       : skipToken,
   });
 

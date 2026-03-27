@@ -4,6 +4,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   AssetValue,
   UserAssetValueOrphanInsert,
+  assetValueHistorySchema,
 } from "@shared/schema";
 import {
   assetGraphValues,
@@ -14,8 +15,6 @@ import {
   assetValues,
 } from "@shared/api/queryKeys";
 
-const ASSET_VALUES_QUERY_KEY = "user-asset-history";
-
 type AssetValueUpdate = UserAssetValueOrphanInsert & {
   historyId: AssetValue["id"];
 };
@@ -23,11 +22,17 @@ type AssetValueUpdate = UserAssetValueOrphanInsert & {
 export function useAssetValues(assetId: string | undefined) {
   const query = useQuery<AssetValue[]>({
     queryKey: [...assetValues, assetId ?? ""],
-    queryFn: () =>
-      apiRequest<AssetValue[]>(
+    queryFn: async () => {
+      const data = await apiRequest<AssetValue[]>(
         "GET",
         `/api/assets/${assetId}/history?sort=valueDate,desc`
-      ),
+      );
+      const result = assetValueHistorySchema.array().safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid asset values response: ${result.error.message}`);
+      }
+      return result.data;
+    },
     enabled: !!assetId,
   });
 

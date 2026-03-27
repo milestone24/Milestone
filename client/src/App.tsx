@@ -16,10 +16,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ErrorBoundary } from "react-error-boundary";
 import { useSocket } from "./hooks/use-socket";
 import { useSession } from "./hooks/use-session";
-import { brokerPlatformsQueryKey } from "./hooks/use-broker-platforms";
-import { brokerProvidersQueryKey } from "./hooks/use-broker-providers";
-import { apiRequest } from "./lib/queryClient";
-import { BrokerPlatform, BrokerProvider } from "@shared/schema";
+import { brokerPlatformsQueryKey, brokerPlatformsQueryFn } from "./hooks/use-broker-platforms";
 
 const Portfolio = lazy(() => import("@/pages/portfolio"));
 const AssetPage = lazy(() => import("@/pages/asset"));
@@ -31,7 +28,6 @@ const FireLast = lazy(() => import("@/pages/fire-last"));
 const Profile = lazy(() => import("@/pages/profile"));
 const Settings = lazy(() => import("@/pages/settings"));
 const ApiConnections = lazy(() => import("@/pages/api-connections"));
-const NestedAssetPage = lazy(() => import("@/pages/asset-security"));
 const Record = lazy(() => import("@/pages/record"));
 
 function RouteWithLayout({
@@ -145,13 +141,6 @@ function Router() {
               </ProtectedRoute>
             )}
           </Route>
-          <Route path="/asset/broker/:id/item/:nestedId">
-            {() => (
-              <ProtectedRoute>
-                <RouteWithLayout component={NestedAssetPage} />
-              </ProtectedRoute>
-            )}
-          </Route>
           <Route>{() => <RouteWithLayout component={NotFound} />}</Route>
         </Switch>
       </WouterRouter>
@@ -175,11 +164,7 @@ function StaticDataPrefetch() {
     if (!isAuthenticated) return;
     queryClient.prefetchQuery({
       queryKey: brokerPlatformsQueryKey,
-      queryFn: () => apiRequest<BrokerPlatform[]>("GET", "/api/assets/broker-platforms"),
-    });
-    queryClient.prefetchQuery({
-      queryKey: brokerProvidersQueryKey,
-      queryFn: () => apiRequest<BrokerProvider[]>("GET", "/api/assets/broker-providers"),
+      queryFn: brokerPlatformsQueryFn,
     });
   }, [isAuthenticated]);
 

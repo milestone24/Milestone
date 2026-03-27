@@ -3,6 +3,7 @@ import {
   decimalValueSchema,
   decimalValueSchemaRequiredGreaterThanZero,
   recurringContributionProcessTypes,
+  recurringContributionTypes,
 } from "@server/db/schema";
 import type {
   RecurringContributionInsert as DBRecurringContributionInsert,
@@ -56,6 +57,21 @@ export type AssetTransaction = Omit<
   value: DecimalValueString;
   currencyValue: DecimalValueString;
 };
+
+export const transactionAbstractSchema = z.object({
+  value: decimalValueSchema,
+  valueDate: z.coerce.date(),
+  assetId: z.string(),
+  id: z.string(),
+  transactionType: z.enum(["asset", "security", "synthetic"] as const),
+  recordedAt: z.coerce.date(),
+  currencyValue: decimalValueSchema,
+  accumulativeAssetCurrencyValue: decimalValueSchema,
+  accumulativeAssetCurrencyValueRow: z.number(),
+  currency: z.string(),
+});
+
+transactionAbstractSchema._output satisfies TransactionAbstract;
 
 export const assetTransactionSelectSchema = z.object({
   id: z.string(),
@@ -287,6 +303,28 @@ export type RecurringContributionOrphanInsert = z.infer<
 >;
 
 export type RecurringContribution = DBRecurringContributionSelect;
+
+export const recurringContributionSelectSchema = z.object({
+  id: z.string(),
+  groupId: z.string().nullable(),
+  type: z.enum(recurringContributionTypes),
+  process: z.enum(recurringContributionProcessTypes),
+  assetId: z.string(),
+  securityId: z.string().nullable(),
+  amount: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Amount must be a valid decimal string",
+  }),
+  startDate: z.coerce.date(),
+  patternConfig: patternSchema,
+  lastProcessedDate: z.coerce.date().nullable(),
+  isActive: z.boolean(),
+  notificationEmail: z.boolean(),
+  notificationPush: z.boolean(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+
+recurringContributionSelectSchema._output satisfies RecurringContribution;
 
 export type RecurringContributionFormData = Omit<
   RecurringContributionOrphanInsert,
