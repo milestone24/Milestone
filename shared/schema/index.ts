@@ -7,3 +7,4 @@ export * from "./user-account";
 export * from "./projections";
 export * from "./transaction";
 export * from "./common";
+export * from "./process";

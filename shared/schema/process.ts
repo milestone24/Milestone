@@ -59,3 +59,33 @@ export const isUpdateAssetValuesProcess = (
 export const isOtherProcess = (
   process: ProcessSelect
 ): process is OtherProcess => process.key !== "update-asset-values";
+
+const processBaseSchema = z.object({
+  id: z.string(),
+  status: z.enum(processStatuses),
+  startedAt: z.coerce.date(),
+  completedAt: z.coerce.date().nullable(),
+  supersededBy: z.string().nullable(),
+  results: z.record(z.unknown()).nullable(),
+  references: z.array(z.object({ type: z.literal("table") })).nullable(),
+  error: z.string().nullable(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+
+export const processSelectSchema = z.union([
+  processBaseSchema.extend({
+    key: z.literal("update-asset-values"),
+    payload: z.object({
+      accountId: z.string(),
+      assetId: z.string(),
+      startDate: z.coerce.date(),
+    }),
+  }),
+  processBaseSchema.extend({
+    key: z.string(),
+    payload: z.record(z.unknown()),
+  }),
+]);
+
+processSelectSchema._output satisfies ProcessSelect;
