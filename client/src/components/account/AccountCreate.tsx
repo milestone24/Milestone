@@ -7,6 +7,7 @@ import type {
 import {
   accountType,
   userAssetOrphanInsertSchema,
+  userAssetOrphanInsertDraftSchema,
   createDecimalValueString,
 } from "@shared/schema";
 import {
@@ -106,7 +107,7 @@ type AccountCreateDraft = {
   formValues: Partial<UserAssetOrphanInsert>;
 };
 
-const DRAFT_KEY = "draft:add-account";
+export const DRAFT_KEY = "draft:add-account";
 
 export const AccountCreate: React.FC<AccountCreateProps> = ({
   onSubmit,
@@ -119,12 +120,18 @@ export const AccountCreate: React.FC<AccountCreateProps> = ({
 
   const hasDraftValues = !!draft.formValues.accountType;
 
+  const parsedDraft = hasDraftValues
+    ? userAssetOrphanInsertDraftSchema.safeParse(draft.formValues)
+    : null;
+
   const form = useForm<UserAssetOrphanInsert>({
     resolver: zodResolver(userAssetOrphanInsertSchema),
     mode: "all",
-    defaultValues: hasDraftValues
-      ? draft.formValues
-      : { name: `account-${generateId()}`, valueMethod: "calculated" },
+    defaultValues: parsedDraft?.success
+      ? parsedDraft.data
+      : hasDraftValues
+        ? draft.formValues
+        : { name: `account-${generateId()}`, valueMethod: "calculated" },
   });
 
   const formStage = draft.formStage;

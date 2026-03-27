@@ -174,6 +174,20 @@ userAssetOrphanInsertSchema satisfies ZodType<
 
 export type UserAssetOrphanInsert = z.infer<typeof userAssetOrphanInsertSchema>;
 
+export const userAssetOrphanInsertDraftSchema = userAssetOrphanInsertSchema
+  .partial()
+  .extend({
+    securities: z
+      .array(
+        userAssetSecurityOrphanNewCreateInsertSchema
+          .extend({ lid: z.string() })
+          .partial()
+      )
+      .optional(),
+  });
+
+export type UserAssetOrphanInsertDraft = z.infer<typeof userAssetOrphanInsertDraftSchema>;
+
 export const userAssetInsertSchema = userAssetOrphanInsertSchema.extend({
   userAccountId: z.string(),
 });
