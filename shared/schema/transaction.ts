@@ -3,6 +3,7 @@ import {
   decimalValueSchema,
   decimalValueSchemaRequiredGreaterThanZero,
   recurringContributionProcessTypes,
+  recurringContributionTypes,
 } from "@server/db/schema";
 import type {
   RecurringContributionInsert as DBRecurringContributionInsert,
@@ -287,6 +288,28 @@ export type RecurringContributionOrphanInsert = z.infer<
 >;
 
 export type RecurringContribution = DBRecurringContributionSelect;
+
+export const recurringContributionSelectSchema = z.object({
+  id: z.string(),
+  groupId: z.string().nullable(),
+  type: z.enum(recurringContributionTypes),
+  process: z.enum(recurringContributionProcessTypes),
+  assetId: z.string(),
+  securityId: z.string().nullable(),
+  amount: decimalValueSchema.refine(isDecimalValueString, {
+    message: "Amount must be a valid decimal string",
+  }),
+  startDate: z.coerce.date(),
+  patternConfig: patternSchema,
+  lastProcessedDate: z.coerce.date().nullable(),
+  isActive: z.boolean(),
+  notificationEmail: z.boolean(),
+  notificationPush: z.boolean(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+
+recurringContributionSelectSchema._output satisfies RecurringContribution;
 
 export type RecurringContributionFormData = Omit<
   RecurringContributionOrphanInsert,

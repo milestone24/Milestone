@@ -6,6 +6,7 @@ import type {
   RecurringContributionOrphanInsert,
   RecurringContributionBulkInsert,
 } from "@shared/schema";
+import { recurringContributionSelectSchema } from "@shared/schema";
 
 const RECURRING_CONTRIBUTIONS_QUERY_KEY = "recurring-contributions";
 
@@ -47,11 +48,17 @@ function rollback(assetId: string | undefined, context: RollbackContext | undefi
 export function useRecurringContributions(assetId: string | undefined) {
   const query = useQuery<RecurringContribution[]>({
     queryKey: getRecurringContributionsQueryKey(assetId ?? ""),
-    queryFn: () =>
-      apiRequest<RecurringContribution[]>(
+    queryFn: async () => {
+      const data = await apiRequest<RecurringContribution[]>(
         "GET",
         `/api/assets/${assetId}/recurring-contributions`
-      ),
+      );
+      const result = recurringContributionSelectSchema.array().safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid recurring contributions response: ${result.error.message}`);
+      }
+      return result.data;
+    },
     enabled: !!assetId,
   });
 
