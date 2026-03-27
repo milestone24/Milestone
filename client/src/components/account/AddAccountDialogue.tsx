@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import { Button } from "../ui/button";
 import { Dialog, DialogTrigger, DialogContent } from "../ui/dialog";
-import { AccountCreate } from "./AccountCreate";
+import { AccountCreate, DRAFT_KEY } from "./AccountCreate";
 import { UserAssetOrphanInsert } from "@shared/schema";
 
 type AddAccountDialogueProps = {
@@ -15,8 +15,13 @@ const AddAccountDialogue: React.FC<AddAccountDialogueProps> = ({
   onOpenChange,
   onSubmit,
 }) => {
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) sessionStorage.removeItem(DRAFT_KEY);
+    onOpenChange(isOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} modal={true}>
+    <Dialog open={open} onOpenChange={handleOpenChange} modal={true}>
       <DialogTrigger asChild>
         <Button
           variant="outline"
