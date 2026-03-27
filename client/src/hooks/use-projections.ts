@@ -14,6 +14,8 @@ import {
   FireProjectionData,
   fireProjectionDataSchema,
   fireProjectionSchema,
+  projectionResultSchema,
+  milestoneProgressSchema,
 } from "@shared/schema/projections";
 import {
   assetProjection,
@@ -49,11 +51,16 @@ export function useAssetProjection(
         config,
       };
 
-      return apiRequest<ProjectionResult>(
+      const data = await apiRequest<ProjectionResult>(
         "POST",
         `/api/projections/asset/${assetId}`,
         request
       );
+      const result = projectionResultSchema.safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid asset projection response: ${result.error.message}`);
+      }
+      return result.data;
     },
     enabled: !!assetId && !!config && (options?.enabled ?? true),
     ...options,
@@ -115,11 +122,16 @@ export function usePortfolioProjection(
         assetIds,
       };
 
-      return apiRequest<ProjectionResult>(
+      const data = await apiRequest<ProjectionResult>(
         "POST",
         `/api/projections/portfolio`,
         request
       );
+      const result = projectionResultSchema.safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid portfolio projection response: ${result.error.message}`);
+      }
+      return result.data;
     },
     enabled: !!config && (enabled ?? true),
     ...queryOptions,
@@ -160,11 +172,16 @@ export function useMilestoneProjection(
         throw new Error("Milestone ID and config are required");
       }
 
-      return apiRequest<MilestoneProgress>(
+      const data = await apiRequest<MilestoneProgress>(
         "POST",
         `/api/projections/milestone/${milestoneId}`,
         { config }
       );
+      const result = milestoneProgressSchema.safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid milestone projection response: ${result.error.message}`);
+      }
+      return result.data;
     },
     enabled: !!milestoneId && !!config && (options?.enabled ?? true),
     ...options,
@@ -185,11 +202,16 @@ export function useMilestonesProjection(
         throw new Error("Config is required");
       }
 
-      return apiRequest<MilestoneProgress[]>(
+      const data = await apiRequest<MilestoneProgress[]>(
         "POST",
         `/api/projections/milestones`,
         { config }
       );
+      const result = milestoneProgressSchema.array().safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid milestones projection response: ${result.error.message}`);
+      }
+      return result.data;
     },
     enabled: !!config && (options?.enabled ?? true),
     ...options,
@@ -244,12 +266,8 @@ export function useFIREProjection(
 
       const result = fireProjectionSchema.safeParse(data);
       if (!result.success) {
-        console.log("result", result.error);
-        throw new Error("Invalid FIRE projection result");
+        throw new Error(`Invalid FIRE projection response: ${result.error.message}`);
       }
-
-      console.log("result", result.data);
-
       return result.data;
     },
     enabled: !!config && (options?.enabled ?? true),
@@ -308,7 +326,7 @@ export function useCustomFIREProjection(
         throw new Error("Config and FIRE config are required");
       }
 
-      return apiRequest<FireProjection>(
+      const data = await apiRequest<FireProjection>(
         "POST",
         `/api/projections/fire/custom`,
         {
@@ -316,6 +334,11 @@ export function useCustomFIREProjection(
           fireConfig,
         }
       );
+      const result = fireProjectionSchema.safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid custom FIRE projection response: ${result.error.message}`);
+      }
+      return result.data;
     },
     enabled: !!config && !!fireConfig && (options?.enabled ?? true),
     ...options,
@@ -397,11 +420,16 @@ export function usePortfolioWithMilestoneProjection(
         },
       };
 
-      return apiRequest<ProjectionResult>(
+      const data = await apiRequest<ProjectionResult>(
         "POST",
         `/api/projections/portfolio`,
         request
       );
+      const result = projectionResultSchema.safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid portfolio with milestone projection response: ${result.error.message}`);
+      }
+      return result.data;
     },
     enabled: !!config && !!milestoneId && (options?.enabled ?? true),
     ...options,
