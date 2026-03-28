@@ -3,7 +3,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AccountType, Milestone, createDecimalValueString } from "@shared/schema";
-import { usePortfolio } from "@/context/PortfolioContext";
+import { useMilestoneUpdate } from "@/hooks/use-milestone-update";
+import { useAssets } from "@/hooks/use-assets";
 import {
   Dialog,
   DialogContent,
@@ -55,7 +56,8 @@ export function EditMilestoneDialog({
   isOpen,
   onClose,
 }: EditMilestoneDialogProps) {
-  const { updateMilestone, assets } = usePortfolio();
+  const updateMilestone = useMilestoneUpdate();
+  const { data: assets = [] } = useAssets();
 
   // Get the unique account types that exist in the user's portfolio
   const availableAccountTypes = useMemo(() => {

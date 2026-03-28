@@ -6,37 +6,22 @@
 import {
   createContext,
   useContext,
-  useEffect,
   ReactNode,
   useCallback,
 } from "react";
 import {
-  useQuery,
   useMutation,
   useQueryClient,
-  skipToken,
 } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 import {
-  Milestone,
-  milestoneSchema,
-  SessionUser,
   UserAsset,
-  UserAssetOrphanInsert,
-  ValueChange,
   AssetValue,
   UserAssetValueInsert,
   AssetTransaction,
   AssetContributionInsert,
-  MilestoneOrphanInsert,
-  UserAssetWithHistoryAndAccountChange,
-  MilestoneInsert,
 } from "@shared/schema";
-import { getEndpointPathWithUserId } from "@/lib/user";
-import { useSession } from "@/hooks/use-session";
-import { AccountType } from "@shared/schema";
-import { getDateUrlParams } from "@/lib/date";
 import {
   portfolioAssets,
   portfolioGraphTransactions,
@@ -45,7 +30,6 @@ import {
 
 export type PortfolioContextType = {
   assets: UserAsset[];
-  milestones: Milestone[];
   activeSection: string;
 };
 
@@ -62,10 +46,6 @@ type AssetValueDelete = {
   historyId: AssetValue["id"];
 };
 
-type MilestoneUpdate = MilestoneOrphanInsert & {
-  id: Milestone["id"];
-};
-
 // Create the context
 const PortfolioContext = createContext<PortfolioContextType | undefined>(
   undefined,
@@ -74,7 +54,6 @@ const PortfolioContext = createContext<PortfolioContextType | undefined>(
 export const PortfolioProvider = ({ children }: { children: ReactNode }) => {
   const value: PortfolioContextType = {
     assets: [],
-    milestones: [],
     activeSection: "portfolio",
   };
 
@@ -88,33 +67,14 @@ export const PortfolioProvider = ({ children }: { children: ReactNode }) => {
 /**
  * @deprecated use individual specific hooks instead
  */
-export const usePortfolio = (startDate?: Date, endDate?: Date) => {
+export const usePortfolio = () => {
   const context = useContext(PortfolioContext);
 
   if (context === undefined) {
     throw new Error("usePortfolio must be used within a PortfolioProvider");
   }
 
-  const { user, isSessionPending, logout } = useSession();
-
   const queryClient = useQueryClient();
-
-  const apiEnabled = !isSessionPending && !!user;
-
-  const getAuthQueryKey = (
-    (user: SessionUser | null) =>
-    (path: string[]): string[] => {
-      //TODO DOUBLE CHECK USER IS NOT NULL
-      return [
-        ...path.map((p) =>
-          getEndpointPathWithUserId(p, user?.account.id ?? "none"),
-        ),
-        ...(user?.account.id ? [user.account.id] : []),
-      ];
-    }
-  )(user);
-
-  const milestonesQueryKey = getAuthQueryKey(["/api/milestones/user/{userId}"]);
 
   const invalidateAccounts = useCallback(() => {
     queryClient.invalidateQueries({
@@ -122,60 +82,7 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
       //The portolfio chart is out of view and so would not be refetched otherwise
       refetchType: "all",
     });
-    //We are using all for the time being, we can refine this later
-    // [
-    //   { queryKey: accountsQueryKey },
-    //   { queryKey: accountsHistoryQueryKey },
-    //   { queryKey: portfolioValueQueryKey },
-    //   {
-    //     predicate: (query) => {
-    //       console.log("query", query);
-    //       return query.queryKey.includes(portfolioHistoryPath);
-    //     },
-    //   },
-    // ].forEach((query) => {
-    //   queryClient.invalidateQueries(query);
-    // });
-  }, []);
-
-  const invalidateMilestones = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: milestonesQueryKey });
-  }, [milestonesQueryKey]);
-
-  // Fetch assets
-  // const {
-  //   data: assets = [],
-  //   isLoading: isLoadingAssets,
-  //   isError: isAssetsError,
-  // } = useQuery<UserAssetWithHistoryAndAccountChange[]>({
-  //   queryKey: [...portfolioAssets, startDate, endDate],
-  //   queryFn: apiEnabled
-  //     ? async () =>
-  //         apiRequest(
-  //           "GET",
-  //           `/api/assets?${getDateUrlParams(startDate, endDate)}`
-  //         )
-  //     : skipToken,
-  // });
-
-  // Fetch milestones
-  const {
-    data: milestones = [],
-    isLoading: isLoadingMilestones,
-    isError: isMilestonesError,
-  } = useQuery<Milestone[]>({
-    queryKey: milestonesQueryKey,
-    queryFn: apiEnabled
-      ? async () => {
-          const data = await apiRequest("GET", milestonesQueryKey[0] ?? "");
-          const result = milestoneSchema.array().safeParse(data);
-          if (!result.success) {
-            throw new Error(`Invalid milestones response: ${result.error.message}`);
-          }
-          return result.data;
-        }
-      : skipToken,
-  });
+  }, [queryClient]);
 
   // Add new mutations for account history
   const addAssetValue = useMutation<
@@ -384,100 +291,6 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     },
   });
 
-  // Update milestone mutations to handle response data
-  const addMilestone = useMutation<Milestone, Error, MilestoneOrphanInsert>({
-    mutationFn: async (newMilestone) => {
-      if (!user?.account.id) {
-        throw new Error("User account ID is required");
-      }
-
-      const processedMilestone: MilestoneInsert = {
-        ...newMilestone,
-        userAccountId: user.account.id,
-        accountType:
-          newMilestone.accountType === "ALL"
-            ? null
-            : (newMilestone.accountType as AccountType),
-      };
-      return apiRequest<Milestone>(
-        "POST",
-        "/api/milestones",
-        processedMilestone,
-      );
-    },
-    onSuccess: () => {
-      invalidateMilestones();
-      toast({
-        title: "Milestone added",
-        description: "Your investment milestone has been added successfully.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error adding milestone",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const deleteMilestone = useMutation<void, Error, Milestone["id"]>({
-    mutationFn: async (id) => {
-      return apiRequest("DELETE", `/api/milestones/${id}`);
-    },
-    onSuccess: () => {
-      invalidateMilestones();
-      toast({
-        title: "Milestone deleted",
-        description: "Your investment milestone has been deleted successfully.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error deleting milestone",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateMilestone = useMutation<Milestone, Error, MilestoneUpdate>({
-    mutationFn: async (data) => {
-      const { id, ...rest } = data;
-      return apiRequest("PATCH", `/api/milestones/${id}`, data);
-    },
-    onSuccess: () => {
-      invalidateMilestones();
-      toast({
-        title: "Success",
-        description: "Milestone updated successfully",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: `Failed to update milestone: ${error.message}`,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Check for errors and show notifications
-  useEffect(() => {
-    if (isMilestonesError) {
-      toast({
-        title: "Failed to load milestones",
-        description:
-          "There was an error loading your investment milestones. Please try again.",
-        variant: "destructive",
-      });
-    }
-  }, [isMilestonesError]);
-
-  const isLoading = isLoadingMilestones;
-
   return {
     ...context,
     addAssetValue,
@@ -487,10 +300,5 @@ export const usePortfolio = (startDate?: Date, endDate?: Date) => {
     updateAssetContribution,
     deleteAssetContribution,
     connectAssetApi,
-    addMilestone,
-    deleteMilestone,
-    updateMilestone,
-    isLoading,
-    milestones,
   };
 };

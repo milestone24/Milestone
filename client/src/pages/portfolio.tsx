@@ -18,7 +18,7 @@ import { ChartBar, ChartLine, Pencil, Trash2 } from "lucide-react";
 import AssetHistoryChart, { ChartData } from "@/components/charts/ValuesChartD3";
 
 import DateRangeBar from "@/components/layout/DateRangeBar";
-import { usePortfolio } from "@/context/PortfolioContext";
+import { useMilestones } from "@/hooks/use-milestones";
 import { useToast } from "@/hooks/use-toast";
 import { getNextMilestone } from "@/lib/utils/milestones";
 import AddAccountDialogue from "@/components/account/AddAccountDialogue";
@@ -64,10 +64,7 @@ function Portfolio() {
 
   const [, setLocation] = useLocation();
 
-  const { milestones, isLoading } = usePortfolio(
-    startDate,
-    endDate
-  );
+  const { milestones, isLoading } = useMilestones();
 
   const { mutateAsync: deleteAsset } = useAssetDelete();
 

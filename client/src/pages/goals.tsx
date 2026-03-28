@@ -31,7 +31,9 @@ import { Plus, X, Pencil, AlertCircle } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { usePortfolio } from "@/context/PortfolioContext";
+import { useMilestones } from "@/hooks/use-milestones";
+import { useMilestoneCreate } from "@/hooks/use-milestone-create";
+import { useMilestoneDelete } from "@/hooks/use-milestone-delete";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,8 +70,9 @@ const milestoneSchema = z.object({
 });
 
 export default function Goals() {
-  const { milestones, addMilestone, deleteMilestone, isLoading } =
-    usePortfolio();
+  const { milestones, isLoading } = useMilestones();
+  const addMilestone = useMilestoneCreate();
+  const deleteMilestone = useMilestoneDelete();
 
   const { data: assets = [], isLoading: isLoadingAssets } = useAssets();
 

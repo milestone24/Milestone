@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, PlusCircle, Key } from "lucide-react";
-import { usePortfolio } from "@/context/PortfolioContext";
+import { useMilestones } from "@/hooks/use-milestones";
+import { useMilestoneCreate } from "@/hooks/use-milestone-create";
 import {
   generateMilestoneSuggestions,
   SuggestedMilestone,
@@ -18,7 +19,8 @@ import { useAssets } from "@/hooks/use-assets";
 type AccountType = "ISA" | "SIPP" | "LISA" | "GIA";
 
 export default function AISuggestedMilestones() {
-  const { milestones, addMilestone, isLoading } = usePortfolio();
+  const { milestones, isLoading } = useMilestones();
+  const addMilestone = useMilestoneCreate();
 
   const { data: assets = [], isLoading: isLoadingAssets } = useAssets();
 
