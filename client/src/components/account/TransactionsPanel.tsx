@@ -9,7 +9,9 @@ import {
   assetTransactionSelectSchema,
   createDecimalValueString,
 } from "@shared/schema";
-import { usePortfolio } from "@/context/PortfolioContext";
+import { useAssetContributionCreate } from "@/hooks/use-asset-contribution-create";
+import { useAssetContributionUpdate } from "@/hooks/use-asset-contribution-update";
+import { useAssetContributionDelete } from "@/hooks/use-asset-contribution-delete";
 import {
   RecurringContributionFormData,
   AssetContributionFormData,
@@ -37,11 +39,9 @@ type TransactionsPanelProps = {
 };
 
 export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
-  const {
-    addAssetContribution,
-    updateAssetContribution,
-    deleteAssetContribution,
-  } = usePortfolio();
+  const addAssetContribution = useAssetContributionCreate(assetId);
+  const updateAssetContribution = useAssetContributionUpdate(assetId);
+  const deleteAssetContribution = useAssetContributionDelete(assetId);
 
   // Query for asset contributions history
   const { data: contributions, isLoading: isContributionsLoading } = useQuery<
@@ -130,7 +130,6 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
   const handleDeleteContribution = async (contributionId: string) => {
     try {
       await deleteAssetContribution.mutateAsync({
-        assetId: assetId,
         contributionId: contributionId,
       });
       setContributionToDelete(null);

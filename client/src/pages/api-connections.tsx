@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { usePortfolio } from "@/context/PortfolioContext";
+import { useConnectAssetApi } from "@/hooks/use-connect-asset-api";
 import {
   Link as LinkIcon,
   Unlink,
@@ -43,7 +43,7 @@ import {
 import { UserAssetWithHistoryAndAccountChange } from "@shared/schema";
 
 export default function ApiConnections() {
-  const { assets, connectAssetApi } = usePortfolio();
+  const connectAssetApi = useConnectAssetApi();
   const { toast } = useToast();
 
   // State for API dialog

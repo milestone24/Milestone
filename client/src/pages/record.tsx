@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 import { SiTradingview, SiCoinbase } from "react-icons/si";
 import { BsPiggyBank } from "react-icons/bs";
-import { usePortfolio } from "@/context/PortfolioContext";
+import { useMilestones } from "@/hooks/use-milestones";
 import { useToast } from "@/hooks/use-toast";
 import DateRangeBar from "@/components/layout/DateRangeBar";
 import { getBrokerName } from "@/lib/broker";
@@ -73,7 +73,7 @@ const assetWithValeGuard = (
 };
 
 export default function Record() {
-  const { isLoading } = usePortfolio();
+  const { isLoading } = useMilestones();
 
   const { data: brokerPlatforms } = useBrokerPlatforms();
 
