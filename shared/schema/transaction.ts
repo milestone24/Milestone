@@ -67,7 +67,7 @@ export const transactionAbstractSchema = z.object({
   recordedAt: z.coerce.date(),
   currencyValue: decimalValueSchema,
   accumulativeAssetCurrencyValue: decimalValueSchema,
-  accumulativeAssetCurrencyValueRow: z.number(),
+  accumulativeAssetCurrencyValueRow: z.coerce.number(),
   currency: z.string(),
 });
 
