@@ -24,6 +24,7 @@ import {
   inArray,
   lt,
   lte,
+  min,
   not,
   sql,
   sum,
@@ -404,24 +405,38 @@ export class DatabaseAssetService {
     const startResolved = resolveDate(dateRange.start);
     const endResolved = resolveDate(dateRange.end);
 
-    if (!startResolved || !endResolved) {
+    if (!endResolved) {
       throw new Error(
-        "getUserAssetsWithBoundaryCandidates requires both start and end dates for change calculation"
+        "getUserAssetsWithBoundaryCandidates requires an end date for change calculation"
       );
+    }
+
+    // For "Max" range (no start), resolve the earliest recorded value date
+    // across all assets in a single query and use it as the shared start.
+    let resolvedStart = startResolved;
+    if (!resolvedStart && assets.length > 0) {
+      const assetIds = assets.map((a) => a.id);
+      const [earliest] = await this.db
+        .select({ date: min(assetValues.valueDate) })
+        .from(assetValues)
+        .where(inArray(assetValues.assetId, assetIds));
+
+      resolvedStart = earliest?.date ?? null;
+    }
+
+    if (!resolvedStart) {
+      return assets.map((asset) => ({ ...asset, history: [] }));
     }
 
     return await Promise.all(
       assets.map(async (asset) => {
         const candidates = await this.getUserAssetWithBoundaryCandidates(
           asset.id,
-          startResolved,
+          resolvedStart,
           endResolved
         );
 
-        return {
-          ...asset,
-          history: candidates,
-        };
+        return { ...asset, history: candidates };
       })
     );
   }
