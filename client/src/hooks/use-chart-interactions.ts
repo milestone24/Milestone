@@ -42,6 +42,7 @@ export function useChartInteractions(
       }> = [];
 
       data.forEach((series) => {
+        if (!series.data) return;
         // Convert data to include timestamp
         const seriesData = series.data.map(d => ({
           ...d,

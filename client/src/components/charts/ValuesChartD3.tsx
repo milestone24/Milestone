@@ -1,4 +1,5 @@
 import { useRef, useState, useLayoutEffect } from "react";
+import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PosNegNumber } from "../common/PosNegNumber";
 import { useChartDimensions } from "@/hooks/use-chart-dimensions";
@@ -145,12 +146,19 @@ export default function ValuesChartD3({
         {/* Legend */}
         <div className="flex flex-row items-center justify-center gap-2 pb-4">
           {data.map((s) => (
-            <div className="flex items-center" key={s.id}>
+            <div className="flex items-center gap-1" key={s.id}>
               <div
-                className="w-1 h-1 rounded-full"
+                className="w-1 h-1 rounded-full flex-shrink-0"
                 style={{ backgroundColor: s.color }}
               />
-              <p className="text-xs text-muted-foreground">{s.name}</p>
+              {s.error ? (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                  {s.name} unavailable
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">{s.name}</p>
+              )}
             </div>
           ))}
         </div>

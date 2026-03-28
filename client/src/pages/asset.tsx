@@ -85,8 +85,12 @@ function AssetPage() {
   );
   const [isUpdatingHistories, setIsUpdatingHistories] = useState(false);
 
-  const { data: assetValueHistoryData, isLoading: isLoadingAssetValueHistory } =
-    useQuery<AssetValueTimePoint[]>({
+  const {
+    data: assetValueHistoryData,
+    isLoading: isLoadingAssetValueHistory,
+    isError: isErrorAssetValueHistory,
+    error: assetValueHistoryError,
+  } = useQuery<AssetValueTimePoint[]>({
       //const { data: historyData, isLoading } = useQuery<AssetValue[]>({
       queryKey: [...assetGraphValues, assetId, startDate, endDate],
       placeholderData: keepPreviousData,
@@ -153,7 +157,11 @@ function AssetPage() {
     startDate,
     endDate
   );
-  const { data: transactionHistoryData = [] } = assetTransactions;
+  const {
+    data: transactionHistoryData = [],
+    isError: isErrorTransactionHistory,
+    error: transactionHistoryError,
+  } = assetTransactions;
 
   const transactionChartData: CombinedDayTimePointBase[] =
     transactionHistoryData && transactionHistoryData.length > 0
@@ -179,14 +187,18 @@ function AssetPage() {
     {
       id: "1",
       name: "Total Portfolio Value",
-      data: valuesChartData,
       color: assetColor,
+      ...(isErrorAssetValueHistory
+        ? { error: assetValueHistoryError ?? new Error("Failed to load asset value history") }
+        : { data: valuesChartData }),
     },
     {
       id: "2",
       name: "Transactions Input Value",
-      data: transactionChartData,
       color: txnColor,
+      ...(isErrorTransactionHistory
+        ? { error: transactionHistoryError ?? new Error("Failed to load transaction history") }
+        : { data: transactionChartData }),
     },
   ];
 

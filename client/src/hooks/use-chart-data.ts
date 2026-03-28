@@ -1,12 +1,23 @@
 import { useMemo } from "react";
 import type { CombinedDayTimePointBase } from "shared/schema";
 
-export type ChartDataItem = {
+export type ChartDataItemSuccess = {
   id: string;
   name: string;
-  data: CombinedDayTimePointBase[];
   color: string;
+  data: CombinedDayTimePointBase[];
+  error?: never;
 };
+
+export type ChartDataItemError = {
+  id: string;
+  name: string;
+  color: string;
+  error: Error;
+  data?: never;
+};
+
+export type ChartDataItem = ChartDataItemSuccess | ChartDataItemError;
 
 export type ChartData = ChartDataItem[];
 
@@ -29,6 +40,7 @@ export function useChartData(data: ChartData): ProcessedChartData {
     const allValues: number[] = [];
 
     data.forEach((series) => {
+      if (!series.data) return;
       series.data.forEach((point) => {
         // Compute timestamp if not present
         const timestamp = (point as ChartDataPoint).timestamp ??

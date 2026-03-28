@@ -131,7 +131,7 @@ export function useD3Render({
       .y((d) => scales.yScale(d.value));
 
     data.forEach((series) => {
-      if (series.data.length === 0) return;
+      if (!series.data || series.data.length === 0) return;
 
       const lineData = series.data.map((d) => ({
         timestamp: (d as ChartDataPoint).timestamp ?? new Date(d.valueDate).getTime(),

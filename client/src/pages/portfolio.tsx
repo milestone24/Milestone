@@ -92,8 +92,12 @@ function Portfolio() {
   const { toast } = useToast();
 
   //const { data: historyData, isLoading } = useQuery<AssetHistoryTimePoint[]>({
-  const { data: assetValueHistoryData, isLoading: isLoadingAssetValueHistory } =
-    useQuery<AssetValueTimePoint[]>({
+  const {
+    data: assetValueHistoryData,
+    isLoading: isLoadingAssetValueHistory,
+    isError: isErrorAssetValueHistory,
+    error: assetValueHistoryError,
+  } = useQuery<AssetValueTimePoint[]>({
       //const { data: historyData, isLoading } = useQuery<AssetValue[]>({
       queryKey: [...portfolioGraphValues, startDate, endDate],
       placeholderData: keepPreviousData,
@@ -155,10 +159,11 @@ function Portfolio() {
         })
       : [];
 
-  const { data: transactionHistoryData = [] } = usePortfolioTransactionHistory(
-    startDate,
-    endDate
-  );
+  const {
+    data: transactionHistoryData = [],
+    isError: isErrorTransactionHistory,
+    error: transactionHistoryError,
+  } = usePortfolioTransactionHistory(startDate, endDate);
 
   const transactionChartData: CombinedDayTimePointBase[] =
     transactionHistoryData && transactionHistoryData.length > 0
@@ -184,14 +189,18 @@ function Portfolio() {
     {
       id: "1",
       name: "Total Portfolio Value",
-      data: valuesChartData,
       color: assetColor,
+      ...(isErrorAssetValueHistory
+        ? { error: assetValueHistoryError ?? new Error("Failed to load portfolio value history") }
+        : { data: valuesChartData }),
     },
     {
       id: "2",
       name: "Transactions Input Value",
-      data: transactionChartData,
       color: txnColor,
+      ...(isErrorTransactionHistory
+        ? { error: transactionHistoryError ?? new Error("Failed to load transaction history") }
+        : { data: transactionChartData }),
     },
   ];
 
