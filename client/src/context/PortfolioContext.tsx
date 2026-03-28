@@ -160,37 +160,10 @@ export const usePortfolio = () => {
     },
   });
 
-  const connectAssetApi = useMutation<
-    void,
-    Error,
-    { id: UserAsset["id"]; apiKey: string }
-  >({
-    mutationFn: async ({ id, apiKey }) =>
-      apiRequest("PATCH", `/api/assets/${id}/connect-api`, {
-        apiKey,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: portfolioAssets });
-      toast({
-        title: "API connected",
-        description: "Your asset has been connected to the API successfully.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error adding asset value",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    },
-  });
-
   return {
     ...context,
     addAssetValue,
     updateAssetValue,
     deleteAssetValue,
-    connectAssetApi,
   };
 };
