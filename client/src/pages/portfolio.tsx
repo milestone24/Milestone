@@ -94,7 +94,7 @@ function Portfolio() {
   //const { data: historyData, isLoading } = useQuery<AssetHistoryTimePoint[]>({
   const {
     data: assetValueHistoryData,
-    isLoading: isLoadingAssetValueHistory,
+    isFetching: isFetchingAssetValueHistory,
     isError: isErrorAssetValueHistory,
     error: assetValueHistoryError,
   } = useQuery<AssetValueTimePoint[]>({
@@ -161,6 +161,7 @@ function Portfolio() {
 
   const {
     data: transactionHistoryData = [],
+    isFetching: isFetchingTransactionHistory,
     isError: isErrorTransactionHistory,
     error: transactionHistoryError,
   } = usePortfolioTransactionHistory(startDate, endDate);
@@ -190,6 +191,7 @@ function Portfolio() {
       id: "1",
       name: "Total Portfolio Value",
       color: assetColor,
+      isLoading: isFetchingAssetValueHistory,
       ...(isErrorAssetValueHistory
         ? { error: assetValueHistoryError ?? new Error("Failed to load portfolio value history") }
         : { data: valuesChartData }),
@@ -198,6 +200,7 @@ function Portfolio() {
       id: "2",
       name: "Transactions Input Value",
       color: txnColor,
+      isLoading: isFetchingTransactionHistory,
       ...(isErrorTransactionHistory
         ? { error: transactionHistoryError ?? new Error("Failed to load transaction history") }
         : { data: transactionChartData }),

@@ -87,7 +87,7 @@ function AssetPage() {
 
   const {
     data: assetValueHistoryData,
-    isLoading: isLoadingAssetValueHistory,
+    isFetching: isFetchingAssetValueHistory,
     isError: isErrorAssetValueHistory,
     error: assetValueHistoryError,
   } = useQuery<AssetValueTimePoint[]>({
@@ -159,6 +159,7 @@ function AssetPage() {
   );
   const {
     data: transactionHistoryData = [],
+    isFetching: isFetchingTransactionHistory,
     isError: isErrorTransactionHistory,
     error: transactionHistoryError,
   } = assetTransactions;
@@ -188,6 +189,7 @@ function AssetPage() {
       id: "1",
       name: "Total Portfolio Value",
       color: assetColor,
+      isLoading: isFetchingAssetValueHistory,
       ...(isErrorAssetValueHistory
         ? { error: assetValueHistoryError ?? new Error("Failed to load asset value history") }
         : { data: valuesChartData }),
@@ -196,6 +198,7 @@ function AssetPage() {
       id: "2",
       name: "Transactions Input Value",
       color: txnColor,
+      isLoading: isFetchingTransactionHistory,
       ...(isErrorTransactionHistory
         ? { error: transactionHistoryError ?? new Error("Failed to load transaction history") }
         : { data: transactionChartData }),

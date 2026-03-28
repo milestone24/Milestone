@@ -1,5 +1,5 @@
 import { useRef, useState, useLayoutEffect } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PosNegNumber } from "../common/PosNegNumber";
 import { useChartDimensions } from "@/hooks/use-chart-dimensions";
@@ -59,6 +59,8 @@ export default function ValuesChartD3({
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
 
+  const isAnyDatasetLoading = data.some((s) => s.isLoading);
+
   const dimensions = useChartDimensions(containerRef);
   const processedData = useChartData(data);
   const scales = useChartScales(dimensions, processedData);
@@ -100,7 +102,13 @@ export default function ValuesChartD3({
       className={cn("w-full bg-card rounded-lg", className)}
     >
       <div className="">
-          <div className="chart-container w-full mb-2 relative" ref={containerRef}>
+          <div
+            className={cn(
+              "chart-container w-full mb-2 relative transition-opacity duration-300",
+              isAnyDatasetLoading && "opacity-50"
+            )}
+            ref={containerRef}
+          >
           <svg
             ref={svgRef}
             width="100%"
@@ -157,7 +165,10 @@ export default function ValuesChartD3({
                   {s.name} unavailable
                 </p>
               ) : (
-                <p className="text-xs text-muted-foreground">{s.name}</p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  {s.isLoading && <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin" />}
+                  {s.name}
+                </p>
               )}
             </div>
           ))}

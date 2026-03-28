@@ -7,6 +7,7 @@ export type ChartDataItemSuccess = {
   color: string;
   data: CombinedDayTimePointBase[];
   error?: never;
+  isLoading?: boolean;
 };
 
 export type ChartDataItemError = {
@@ -15,6 +16,7 @@ export type ChartDataItemError = {
   color: string;
   error: Error;
   data?: never;
+  isLoading?: boolean;
 };
 
 export type ChartDataItem = ChartDataItemSuccess | ChartDataItemError;
