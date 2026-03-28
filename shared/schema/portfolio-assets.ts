@@ -680,7 +680,7 @@ export const transactionTimePointSchema = combinedDayTimePointBaseSchema.extend(
 transactionTimePointSchema._output satisfies TransactionTimePoint;
 
 export const assetValueTimePointSchema = combinedDayTimePointBaseSchema.extend({
-  metadata: z.array(assetValueMetadataSchema),
+  metadata: z.array(assetValueMetadataSchema).nullish().transform((v) => v ?? []),
 });
 
 assetValueTimePointSchema._output satisfies AssetValueTimePoint;
