@@ -2,7 +2,6 @@ import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-import { PortfolioProvider } from "@/context/PortfolioContext";
 import { SessionProvider } from "@/context/SessionContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -178,10 +177,8 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <SessionProvider>
           <StaticDataPrefetch />
-          <PortfolioProvider>
-            <Router />
-            <Toaster />
-          </PortfolioProvider>
+          <Router />
+          <Toaster />
         </SessionProvider>
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
