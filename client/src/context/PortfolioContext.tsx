@@ -19,8 +19,6 @@ import {
   UserAsset,
   AssetValue,
   UserAssetValueInsert,
-  AssetTransaction,
-  AssetContributionInsert,
 } from "@shared/schema";
 import {
   portfolioAssets,
@@ -35,10 +33,6 @@ export type PortfolioContextType = {
 
 type AssetValueUpdate = UserAssetValueInsert & {
   historyId: AssetValue["id"];
-};
-
-type AssetContributionUpdate = AssetContributionInsert & {
-  contributionId: AssetTransaction["id"];
 };
 
 type AssetValueDelete = {
@@ -192,113 +186,11 @@ export const usePortfolio = () => {
     },
   });
 
-  // Asset contribution mutations
-  const addAssetContribution = useMutation<
-    AssetTransaction,
-    Error,
-    AssetContributionInsert
-  >({
-    mutationFn: (data: AssetContributionInsert) => {
-      const { assetId, ...rest } = data;
-      return apiRequest<AssetTransaction>(
-        "POST",
-        `/api/assets/${assetId}/contributions`,
-        {
-          ...rest,
-          recordedAt: new Date(),
-        },
-      );
-    },
-    onSuccess: (data) => {
-      invalidateAccounts();
-      queryClient.invalidateQueries({
-        queryKey: ["asset", data.assetId, "contributions"],
-      });
-      toast({
-        title: "Contribution recorded",
-        description: "Your contribution has been recorded successfully.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error recording contribution",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateAssetContribution = useMutation<
-    AssetTransaction,
-    Error,
-    AssetContributionUpdate
-  >({
-    mutationFn: (data) => {
-      const { assetId, contributionId, ...rest } = data;
-      return apiRequest<AssetTransaction>(
-        "PUT",
-        `/api/assets/${assetId}/contributions/${contributionId}`,
-        {
-          ...rest,
-        },
-      );
-    },
-    onSuccess: () => {
-      invalidateAccounts();
-      toast({
-        title: "Contribution updated",
-        description: "Your contribution has been updated successfully.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error updating contribution",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const deleteAssetContribution = useMutation<
-    void,
-    Error,
-    {
-      assetId: UserAsset["id"];
-      contributionId: AssetTransaction["id"];
-    }
-  >({
-    mutationFn: ({ assetId, contributionId }) =>
-      apiRequest(
-        "DELETE",
-        `/api/assets/${assetId}/contributions/${contributionId}`,
-      ),
-    onSuccess: () => {
-      invalidateAccounts();
-      toast({
-        title: "Contribution deleted",
-        description: "Your contribution has been deleted successfully.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error deleting contribution",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    },
-  });
-
   return {
     ...context,
     addAssetValue,
     updateAssetValue,
     deleteAssetValue,
-    addAssetContribution,
-    updateAssetContribution,
-    deleteAssetContribution,
     connectAssetApi,
   };
 };
