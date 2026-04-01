@@ -4,6 +4,7 @@ import {
   UserAssetSecuritySelect,
   UserAssetSecurityTransactionResolved,
 } from "@shared/schema";
+import { TransactionSourceBadges } from "./TransactionSourceBadges";
 import { cn } from "@/lib/utils";
 import { Layers2, Loader2, Trash2 } from "lucide-react";
 import {
@@ -110,14 +111,20 @@ export const AssetSecurityTransactionItem = ({
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           )}
         </div>
-        <p className="text-sm text-muted-foreground">
-          {new Date(transaction.valueDate).toLocaleDateString("en-GB", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          })}
-          {" · "}£{transaction.currencyValue.toLocaleString()}
-        </p>
+        <div className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+          <TransactionSourceBadges
+            source={transaction.source}
+            flags={transaction.flags}
+          />
+          <span>
+            {new Date(transaction.valueDate).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+            {" · "}£{transaction.currencyValue.toLocaleString()}
+          </span>
+        </div>
       </div>
 
       {/* Actions Section */}
