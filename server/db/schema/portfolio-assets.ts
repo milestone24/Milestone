@@ -42,6 +42,24 @@ export const schedulePatternTypeEnum = pgEnum(
 
 export type SchedulePatternType = (typeof schedulePatternType)[number];
 
+export const assetTransactionSources = [
+  "manual",
+  "recurring",
+  "ocr",
+  "import",
+] as const;
+export const assetTransactionSourceEnum = pgEnum(
+  "asset_transaction_source",
+  assetTransactionSources
+);
+export type AssetTransactionSource = (typeof assetTransactionSources)[number];
+
+export type AssetTransactionFlags = {
+  estimated?: boolean;
+  suspect?: boolean;
+  verified?: boolean;
+};
+
 export type CronPattern = {
   type: Extract<SchedulePatternType, "cron">;
   expression: string; // e.g., "0 0 1 * *" for 1st of month
@@ -274,6 +292,8 @@ export const assetTransactions = pgTable(
     currency: text("currency").notNull().default("GBP"),
     valueDate: timestamp("value_date").notNull(),
     recordedAt: timestamp("recorded_at").notNull(),
+    source: assetTransactionSourceEnum("source").notNull().default("manual"),
+    flags: jsonb("flags").$type<AssetTransactionFlags>(),
     ...timestampColumns(),
   },
   (table) => [index("asset_transactions_value_date_idx").on(table.valueDate)]
