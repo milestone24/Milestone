@@ -113,6 +113,8 @@ export const userAssetTransactionOrphanInsertSchema = z.object({
   currencyValue: decimalValueSchema.optional(),
   fees: decimalValueSchema.optional(),
   currency: z.string().optional(),
+  source: z.enum(assetTransactionSources).optional(),
+  flags: assetTransactionFlagsSchema.optional(),
 });
 
 userAssetTransactionOrphanInsertSchema._output satisfies Omit<
