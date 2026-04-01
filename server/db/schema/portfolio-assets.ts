@@ -304,6 +304,32 @@ export type AssetTransactionInsert = InferInsertModelBasic<
   typeof assetTransactions
 >;
 
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userAccountId: uuid("user_account_id")
+      .notNull()
+      .references(() => userAccounts.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id").references(() => userAssets.id, {
+      onDelete: "set null",
+    }),
+    fileName: text("file_name").notNull(),
+    fileUrl: text("file_url").notNull(),
+    mimeType: text("mime_type").notNull(),
+    ...timestampColumns(),
+  },
+  (table) => [
+    index("documents_user_account_id_idx").on(table.userAccountId),
+    index("documents_asset_id_idx").on(table.assetId),
+  ]
+);
+
+export type DocumentSelect = InferSelectModel<typeof documents>;
+export type DocumentInsert = InferInsertModelBasic<typeof documents>;
+
 export type UserAssetSelect = InferSelectModel<typeof userAssets>;
 export type UserAssetInsert = InferInsertModelBasic<typeof userAssets>;
 

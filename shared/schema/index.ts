@@ -8,3 +8,4 @@ export * from "./projections";
 export * from "./transaction";
 export * from "./common";
 export * from "./process";
+export * from "./document";
