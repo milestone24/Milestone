@@ -275,7 +275,7 @@ export const assetTransactions = pgTable(
   "asset_transactions",
   {
     id: uuid("id")
-      .notNull()
+      .primaryKey()
       .default(sql`gen_random_uuid()`),
     assetId: uuid("asset_id")
       .notNull()
@@ -329,6 +329,39 @@ export const documents = pgTable(
 
 export type DocumentSelect = InferSelectModel<typeof documents>;
 export type DocumentInsert = InferInsertModelBasic<typeof documents>;
+
+export const assetTransactionDocuments = pgTable(
+  "asset_transaction_documents",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    assetTransactionId: uuid("asset_transaction_id")
+      .notNull()
+      .references(() => assetTransactions.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "restrict" }),
+    ...timestampColumns(),
+  },
+  (table) => [
+    unique("asset_transaction_documents_unique").on(
+      table.assetTransactionId,
+      table.documentId
+    ),
+    index("asset_transaction_documents_asset_transaction_id_idx").on(
+      table.assetTransactionId
+    ),
+    index("asset_transaction_documents_document_id_idx").on(table.documentId),
+  ]
+);
+
+export type AssetTransactionDocumentSelect = InferSelectModel<
+  typeof assetTransactionDocuments
+>;
+export type AssetTransactionDocumentInsert = InferInsertModelBasic<
+  typeof assetTransactionDocuments
+>;
 
 export type UserAssetSelect = InferSelectModel<typeof userAssets>;
 export type UserAssetInsert = InferInsertModelBasic<typeof userAssets>;
@@ -402,6 +435,39 @@ export const securityTransactionRelations = relations(
     }),
   })
 );
+
+export const securityTransactionDocuments = pgTable(
+  "security_transaction_documents",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    securityTransactionId: uuid("security_transaction_id")
+      .notNull()
+      .references(() => securityTransactions.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "restrict" }),
+    ...timestampColumns(),
+  },
+  (table) => [
+    unique("security_transaction_documents_unique").on(
+      table.securityTransactionId,
+      table.documentId
+    ),
+    index("security_transaction_documents_security_transaction_id_idx").on(
+      table.securityTransactionId
+    ),
+    index("security_transaction_documents_document_id_idx").on(table.documentId),
+  ]
+);
+
+export type SecurityTransactionDocumentSelect = InferSelectModel<
+  typeof securityTransactionDocuments
+>;
+export type SecurityTransactionDocumentInsert = InferInsertModelBasic<
+  typeof securityTransactionDocuments
+>;
 
 /**
  * TODO we need to have a intermediate state where the user confirms
