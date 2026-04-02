@@ -2,6 +2,10 @@ import { z } from "zod";
 import type {
   DocumentInsert as DBDocumentInsert,
   DocumentSelect as DBDocumentSelect,
+  AssetTransactionDocumentInsert as DBAssetTransactionDocumentInsert,
+  AssetTransactionDocumentSelect as DBAssetTransactionDocumentSelect,
+  SecurityTransactionDocumentInsert as DBSecurityTransactionDocumentInsert,
+  SecurityTransactionDocumentSelect as DBSecurityTransactionDocumentSelect,
 } from "@server/db/schema";
 
 export type Document = DBDocumentSelect;
@@ -30,3 +34,50 @@ export const documentInsertSchema = z.object({
 documentInsertSchema._output satisfies DBDocumentInsert;
 
 export type DocumentInsert = z.infer<typeof documentInsertSchema>;
+
+const transactionDocumentBaseSchema = z.object({
+  id: z.string().uuid(),
+  documentId: z.string().uuid(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+
+const transactionDocumentBaseInsertSchema = z.object({
+  documentId: z.string().uuid(),
+});
+
+export const assetTransactionDocumentSelectSchema =
+  transactionDocumentBaseSchema.extend({
+    assetTransactionId: z.string().uuid(),
+  });
+
+assetTransactionDocumentSelectSchema._output satisfies DBAssetTransactionDocumentSelect;
+
+export const assetTransactionDocumentInsertSchema =
+  transactionDocumentBaseInsertSchema.extend({
+    assetTransactionId: z.string().uuid(),
+  });
+
+assetTransactionDocumentInsertSchema._output satisfies DBAssetTransactionDocumentInsert;
+
+export type AssetTransactionDocumentInsert = z.infer<
+  typeof assetTransactionDocumentInsertSchema
+>;
+
+export const securityTransactionDocumentSelectSchema =
+  transactionDocumentBaseSchema.extend({
+    securityTransactionId: z.string().uuid(),
+  });
+
+securityTransactionDocumentSelectSchema._output satisfies DBSecurityTransactionDocumentSelect;
+
+export const securityTransactionDocumentInsertSchema =
+  transactionDocumentBaseInsertSchema.extend({
+    securityTransactionId: z.string().uuid(),
+  });
+
+securityTransactionDocumentInsertSchema._output satisfies DBSecurityTransactionDocumentInsert;
+
+export type SecurityTransactionDocumentInsert = z.infer<
+  typeof securityTransactionDocumentInsertSchema
+>;
