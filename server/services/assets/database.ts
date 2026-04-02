@@ -786,6 +786,7 @@ export class DatabaseAssetService {
           recordedAt: new Date(),
           createdAt: new Date(),
           updatedAt: new Date(),
+          source: "manual",
         });
 
         await tx.insert(assetValues).values({
@@ -1082,6 +1083,7 @@ export class DatabaseAssetService {
         ...data,
         assetId: id,
         recordedAt: new Date(),
+        source: data.source ?? "manual",
       })
       .returning();
 
@@ -1184,6 +1186,7 @@ export class DatabaseAssetService {
         assetSecurityId,
         ...data,
         recordedAt: data.recordedAt ?? new Date(),
+        source: data.source ?? "manual",
       })
       .returning();
 
@@ -1867,6 +1870,8 @@ export class DatabaseAssetService {
           // currency: "GBP", default GBP is set at the DB level
           // currencyValue: contribution.currencyValue, set to default zero at DB level
           // fees: contribution.fees, set to default zero at DB level
+          source: "recurring",
+          flags: { estimated: true },
         });
 
         // Update the last processed date
@@ -2013,6 +2018,7 @@ export class DatabaseAssetService {
           currencyValue: data.initialHolding.currencyValue,
           recordedAt: new Date(),
           valueDate: data.startDate,
+          source: "manual",
         })
         .returning();
 

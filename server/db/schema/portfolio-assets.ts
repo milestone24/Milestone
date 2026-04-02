@@ -42,6 +42,24 @@ export const schedulePatternTypeEnum = pgEnum(
 
 export type SchedulePatternType = (typeof schedulePatternType)[number];
 
+export const assetTransactionSources = [
+  "manual",
+  "recurring",
+  "ocr",
+  "import",
+] as const;
+export const assetTransactionSourceEnum = pgEnum(
+  "asset_transaction_source",
+  assetTransactionSources
+);
+export type AssetTransactionSource = (typeof assetTransactionSources)[number];
+
+export type AssetTransactionFlags = {
+  estimated?: boolean;
+  suspect?: boolean;
+  verified?: boolean;
+};
+
 export type CronPattern = {
   type: Extract<SchedulePatternType, "cron">;
   expression: string; // e.g., "0 0 1 * *" for 1st of month
@@ -257,7 +275,7 @@ export const assetTransactions = pgTable(
   "asset_transactions",
   {
     id: uuid("id")
-      .notNull()
+      .primaryKey()
       .default(sql`gen_random_uuid()`),
     assetId: uuid("asset_id")
       .notNull()
@@ -274,6 +292,8 @@ export const assetTransactions = pgTable(
     currency: text("currency").notNull().default("GBP"),
     valueDate: timestamp("value_date").notNull(),
     recordedAt: timestamp("recorded_at").notNull(),
+    source: assetTransactionSourceEnum("source").notNull().default("manual"),
+    flags: jsonb("flags").$type<AssetTransactionFlags>(),
     ...timestampColumns(),
   },
   (table) => [index("asset_transactions_value_date_idx").on(table.valueDate)]
@@ -282,6 +302,65 @@ export const assetTransactions = pgTable(
 export type AssetTransactionSelect = InferSelectModel<typeof assetTransactions>;
 export type AssetTransactionInsert = InferInsertModelBasic<
   typeof assetTransactions
+>;
+
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userAccountId: uuid("user_account_id")
+      .notNull()
+      .references(() => userAccounts.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id").references(() => userAssets.id, {
+      onDelete: "set null",
+    }),
+    fileName: text("file_name").notNull(),
+    fileUrl: text("file_url").notNull(),
+    mimeType: text("mime_type").notNull(),
+    ...timestampColumns(),
+  },
+  (table) => [
+    index("documents_user_account_id_idx").on(table.userAccountId),
+    index("documents_asset_id_idx").on(table.assetId),
+  ]
+);
+
+export type DocumentSelect = InferSelectModel<typeof documents>;
+export type DocumentInsert = InferInsertModelBasic<typeof documents>;
+
+export const assetTransactionDocuments = pgTable(
+  "asset_transaction_documents",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    assetTransactionId: uuid("asset_transaction_id")
+      .notNull()
+      .references(() => assetTransactions.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "restrict" }),
+    ...timestampColumns(),
+  },
+  (table) => [
+    unique("asset_transaction_documents_unique").on(
+      table.assetTransactionId,
+      table.documentId
+    ),
+    index("asset_transaction_documents_asset_transaction_id_idx").on(
+      table.assetTransactionId
+    ),
+    index("asset_transaction_documents_document_id_idx").on(table.documentId),
+  ]
+);
+
+export type AssetTransactionDocumentSelect = InferSelectModel<
+  typeof assetTransactionDocuments
+>;
+export type AssetTransactionDocumentInsert = InferInsertModelBasic<
+  typeof assetTransactionDocuments
 >;
 
 export type UserAssetSelect = InferSelectModel<typeof userAssets>;
@@ -327,6 +406,8 @@ export const securityTransactions = pgTable(
     currency: text("currency").notNull().default("GBP"),
     valueDate: timestamp("value_date").notNull(),
     recordedAt: timestamp("recorded_at").notNull(),
+    source: assetTransactionSourceEnum("source").notNull().default("manual"),
+    flags: jsonb("flags").$type<AssetTransactionFlags>(),
     ...timestampColumns(),
   },
   (table) => [
@@ -354,6 +435,39 @@ export const securityTransactionRelations = relations(
     }),
   })
 );
+
+export const securityTransactionDocuments = pgTable(
+  "security_transaction_documents",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    securityTransactionId: uuid("security_transaction_id")
+      .notNull()
+      .references(() => securityTransactions.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "restrict" }),
+    ...timestampColumns(),
+  },
+  (table) => [
+    unique("security_transaction_documents_unique").on(
+      table.securityTransactionId,
+      table.documentId
+    ),
+    index("security_transaction_documents_security_transaction_id_idx").on(
+      table.securityTransactionId
+    ),
+    index("security_transaction_documents_document_id_idx").on(table.documentId),
+  ]
+);
+
+export type SecurityTransactionDocumentSelect = InferSelectModel<
+  typeof securityTransactionDocuments
+>;
+export type SecurityTransactionDocumentInsert = InferInsertModelBasic<
+  typeof securityTransactionDocuments
+>;
 
 /**
  * TODO we need to have a intermediate state where the user confirms

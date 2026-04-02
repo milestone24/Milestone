@@ -9,6 +9,7 @@ import {
   assetTransactionSelectSchema,
   createDecimalValueString,
 } from "@shared/schema";
+import { TransactionSourceBadges } from "./TransactionSourceBadges";
 import { useAssetContributionCreate } from "@/hooks/use-asset-contribution-create";
 import { useAssetContributionUpdate } from "@/hooks/use-asset-contribution-update";
 import { useAssetContributionDelete } from "@/hooks/use-asset-contribution-delete";
@@ -290,13 +291,19 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
                   £{Number(contribution.value).toLocaleString()}
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {new Date(contribution.recordedAt).toLocaleDateString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })}
-              </p>
+              <div className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+                <TransactionSourceBadges
+                  source={contribution.source}
+                  flags={contribution.flags}
+                />
+                <span>
+                  {new Date(contribution.recordedAt).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-2 self-end sm:self-center">
               <Button

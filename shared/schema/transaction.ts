@@ -4,6 +4,7 @@ import {
   decimalValueSchemaRequiredGreaterThanZero,
   recurringContributionProcessTypes,
   recurringContributionTypes,
+  assetTransactionSources,
 } from "@server/db/schema";
 import type {
   RecurringContributionInsert as DBRecurringContributionInsert,
@@ -12,6 +13,7 @@ import type {
   AssetTransactionSelect as DBAssetTransactionSelect,
   SecurityTransactionInsert as DBSecurityTransactionInsert,
   SecurityTransactionSelect as DBSecurityTransactionSelect,
+  AssetTransactionFlags,
 } from "@server/db/schema";
 import {
   createDecimalValueString,
@@ -28,6 +30,18 @@ export const patternSchema = z.object({
 });
 
 export type SchedulePatternInsert = z.infer<typeof patternSchema>;
+
+export const assetTransactionFlagsSchema = z.object({
+  estimated: z.boolean().optional(),
+  suspect: z.boolean().optional(),
+  verified: z.boolean().optional(),
+});
+
+assetTransactionFlagsSchema._output satisfies AssetTransactionFlags;
+
+export type AssetTransactionFlagsInsert = z.infer<
+  typeof assetTransactionFlagsSchema
+>;
 
 export type TransactionType = "asset" | "security" | "synthetic";
 
@@ -82,6 +96,8 @@ export const assetTransactionSelectSchema = z.object({
   currency: z.string(),
   valueDate: z.coerce.date(),
   recordedAt: z.coerce.date(),
+  source: z.enum(assetTransactionSources),
+  flags: assetTransactionFlagsSchema.nullable(),
   // TODO: replace createdAt/updatedAt with a shared timestamp fields schema when one is available
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
@@ -97,6 +113,8 @@ export const userAssetTransactionOrphanInsertSchema = z.object({
   currencyValue: decimalValueSchema.optional(),
   fees: decimalValueSchema.optional(),
   currency: z.string().optional(),
+  source: z.enum(assetTransactionSources).optional(),
+  flags: assetTransactionFlagsSchema.optional(),
 });
 
 userAssetTransactionOrphanInsertSchema._output satisfies Omit<
@@ -127,6 +145,8 @@ export const assetContributionOrphanInsertSchema = z.object({
   currencyValue: decimalValueSchema.optional(),
   fees: decimalValueSchema.optional(),
   currency: z.string().optional(),
+  source: z.enum(assetTransactionSources).optional(),
+  flags: assetTransactionFlagsSchema.optional(),
 });
 
 assetContributionOrphanInsertSchema._output satisfies Omit<
@@ -170,6 +190,8 @@ export const securityTransactionOrphanInsertSchema = z.object({
   currency: z.string().optional(),
   valueDate: z.coerce.date(),
   recordedAt: z.coerce.date().optional(),
+  source: z.enum(assetTransactionSources).optional(),
+  flags: assetTransactionFlagsSchema.optional(),
 });
 
 securityTransactionOrphanInsertSchema._output satisfies Omit<
@@ -212,6 +234,8 @@ export const securityTransactionSelectSchema = z.object({
   currency: z.string(),
   valueDate: z.coerce.date(),
   recordedAt: z.coerce.date(),
+  source: z.enum(assetTransactionSources),
+  flags: assetTransactionFlagsSchema.nullable(),
   // TODO: replace createdAt/updatedAt with a shared timestamp fields schema when one is available
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
