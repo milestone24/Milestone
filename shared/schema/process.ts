@@ -42,6 +42,15 @@ export type UpdateSecuritiesDailyHistoryCacheProcess = Omit<
   };
 };
 
+export type DocumentOcrProcess = Omit<DBProcessSelect, "key" | "payload"> & {
+  key: "document-ocr";
+  payload: {
+    documentId: string;
+    platformKey: string;
+    accountId: string;
+  };
+};
+
 export type OtherProcess = Omit<DBProcessSelect, "key" | "payload"> & {
   key: string;
   payload: Record<string, unknown>;

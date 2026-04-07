@@ -81,3 +81,19 @@ securityTransactionDocumentInsertSchema._output satisfies DBSecurityTransactionD
 export type SecurityTransactionDocumentInsert = z.infer<
   typeof securityTransactionDocumentInsertSchema
 >;
+
+export const extractedAmountSchema = z.object({
+  platformName: z.string(),
+  amount: z.number(),
+  confidence: z.number().min(0).max(1),
+  accountType: z.string().optional(),
+});
+
+export type ExtractedAmount = z.infer<typeof extractedAmountSchema>;
+
+export const documentOcrResponseSchema = z.object({
+  jobId: z.string().uuid(),
+  documentId: z.string().uuid(),
+});
+
+export type DocumentOcrResponse = z.infer<typeof documentOcrResponseSchema>;
