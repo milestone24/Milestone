@@ -2,6 +2,7 @@ import { Router, Request } from "express";
 import multer from "multer";
 import { AuthService } from "server/auth";
 import { DocumentService } from "@server/services/documents";
+import { startDocumentOcr } from "@server/services/process/document-ocr";
 
 const upload = multer({ storage: multer.memoryStorage() });
 const documentService = new DocumentService();
@@ -23,6 +24,25 @@ export async function registerRoutes(
 
       const document = await documentService.upload(req.file);
       res.status(201).json(document);
+    }
+  );
+
+  router.post(
+    "/:platformKey/extract",
+    requireUser,
+    upload.single("file"),
+    async (req: Request, res) => {
+      if (!req.file) {
+        return res.status(400).json({ error: "A file is required" });
+      }
+
+      const { platformKey } = req.params;
+      const platformNames: string[] = req.body.platformNames
+        ? JSON.parse(req.body.platformNames)
+        : [];
+
+      const result = await startDocumentOcr(req.file, platformKey!, platformNames);
+      res.status(202).json(result);
     }
   );
 
