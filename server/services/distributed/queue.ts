@@ -108,9 +108,42 @@ type NotificationMessage = {
   message: string;
 };
 
+type DocumentOcrMessageBase = {
+  jobId: string;
+  accountId: string;
+  documentId: string;
+};
+
+type DocumentOcrStartedMessage = DocumentOcrMessageBase & {
+  type: "document-ocr-started";
+};
+
+type DocumentOcrCompletedMessage = DocumentOcrMessageBase & {
+  type: "document-ocr-completed";
+  extractedValues: import("@shared/schema/document").ExtractedAmount[];
+};
+
+type DocumentOcrFailedMessage = Omit<DocumentOcrMessageBase, "jobId"> & {
+  type: "document-ocr-failed";
+  jobId?: string;
+  message?: string;
+};
+
+export type DocumentOcrMessage =
+  | DocumentOcrStartedMessage
+  | DocumentOcrCompletedMessage
+  | DocumentOcrFailedMessage;
+
+export const isDocumentOcrMessage = (
+  message: Message
+): message is DocumentOcrMessage => {
+  return message.type.startsWith("document-ocr-");
+};
+
 export type Message =
   | AssetValuesUpdateMessage
   | SecuritiesDailyHistoryCacheUpdateMessage
+  | DocumentOcrMessage
   | NotificationMessage;
 
 type MessageCallback = (message: Message) => Promise<void>;
