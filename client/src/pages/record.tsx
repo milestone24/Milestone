@@ -526,23 +526,6 @@ export default function Record() {
                 />
                 <span>{formatDateForDisplay(date)}</span>
               </Button>
-              {activeTab === "values" && (
-                <DocumentUpload
-                  assets={assets}
-                  onExtractedValues={(extractedValues) => {
-                    // Create a new object to hold the values
-                    const newValues = { ...accountValues };
-
-                    // Update values with the extracted ones
-                    extractedValues.forEach(({ assetId, value }) => {
-                      newValues[assetId] = value;
-                    });
-
-                    // Set the new values
-                    setAccountValues(newValues);
-                  }}
-                />
-              )}
             </div>
           </div>
         </CardHeader>
@@ -584,6 +567,18 @@ export default function Record() {
                 {/* Account Values Tab */}
                 <TabsContent value="values">
                   <div className="space-y-4">
+                    <DocumentUpload
+                      assets={assets}
+                      onExtractedValues={(extractedValues) => {
+                        const newValues = { ...accountValues };
+
+                        extractedValues.forEach(({ assetId, value }) => {
+                          newValues[assetId] = value;
+                        });
+
+                        setAccountValues(newValues);
+                      }}
+                    />
                     {[...assets]
                       .sort(
                         (a, b) =>

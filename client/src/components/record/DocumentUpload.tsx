@@ -84,9 +84,10 @@ export function DocumentUpload({ assets, onExtractedValues }: DocumentUploadProp
     const file = e.target.files?.[0] ?? null;
     setSelectedFile(file);
     setUploadState({ status: "idle" });
+    e.target.value = "";
   };
 
-  const handleSubmit = async () => {
+  const startUpload = () => {
     if (!selectedFile) return;
 
     setUploadState({ status: "processing", jobId: "" });
@@ -102,6 +103,14 @@ export function DocumentUpload({ assets, onExtractedValues }: DocumentUploadProp
         },
       }
     );
+  };
+
+  const handlePrimaryClick = () => {
+    if (!selectedFile) {
+      fileInputRef.current?.click();
+      return;
+    }
+    startUpload();
   };
 
   const handleSave = () => {
@@ -127,9 +136,9 @@ export function DocumentUpload({ assets, onExtractedValues }: DocumentUploadProp
 
   return (
     <div className="space-y-4">
-      <div
+      <label
+        htmlFor="document-upload-file-input"
         className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center gap-3 cursor-pointer hover:border-primary/50 transition-colors"
-        onClick={() => fileInputRef.current?.click()}
       >
         <FileText className="h-8 w-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground text-center">
@@ -138,13 +147,14 @@ export function DocumentUpload({ assets, onExtractedValues }: DocumentUploadProp
             : "Click to upload an image or PDF statement"}
         </p>
         <input
+          id="document-upload-file-input"
           ref={fileInputRef}
           type="file"
           accept="image/*,application/pdf"
-          className="hidden"
+          className="sr-only"
           onChange={handleFileChange}
         />
-      </div>
+      </label>
 
       <div className="space-y-2">
         <label className="text-sm font-medium">Platform</label>
@@ -163,14 +173,21 @@ export function DocumentUpload({ assets, onExtractedValues }: DocumentUploadProp
         </Select>
       </div>
 
-      {uploadState.status === "idle" && (
+      {uploadState.status === "error" && (
+        <div className="flex items-center gap-2 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          {uploadState.message}
+        </div>
+      )}
+
+      {(uploadState.status === "idle" || uploadState.status === "error") && (
         <Button
-          onClick={handleSubmit}
-          disabled={!selectedFile}
+          type="button"
+          onClick={handlePrimaryClick}
           className="w-full"
         >
           <Upload className="h-4 w-4 mr-2" />
-          Upload and Extract
+          {selectedFile ? "Upload and extract" : "Choose a file"}
         </Button>
       )}
 
@@ -178,13 +195,6 @@ export function DocumentUpload({ assets, onExtractedValues }: DocumentUploadProp
         <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           Processing document…
-        </div>
-      )}
-
-      {uploadState.status === "error" && (
-        <div className="flex items-center gap-2 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          {uploadState.message}
         </div>
       )}
 
