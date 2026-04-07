@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { ANTHROPIC_MESSAGES_MODEL } from '@server/constants/anthropic-messages-model';
 import { log, error } from '../log';
 
-// The newest Anthropic model is "claude-3-7-sonnet-20250219" which was released February 24, 2025
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
@@ -27,7 +27,7 @@ export async function extractAccountValuesFromImage(
     const providersString = providerNames.join(", ");
     
     const response = await anthropic.messages.create({
-      model: "claude-3-7-sonnet-20250219",
+      model: ANTHROPIC_MESSAGES_MODEL,
       max_tokens: 1000,
       system: `You are a financial assistant that extracts account balances from screenshots of financial accounts.
       

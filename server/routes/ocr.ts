@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { ANTHROPIC_MESSAGES_MODEL } from '@server/constants/anthropic-messages-model';
 import { extractAccountValuesFromImage } from '../services/anthropic';
 import { log, error } from '../log';
 import { AuthRequest } from '../auth/types';
@@ -62,7 +63,7 @@ export async function registerRoutes(router: Router) {
       });
       
       const response = await anthropic.messages.create({
-        model: "claude-3-7-sonnet-20250219",
+        model: ANTHROPIC_MESSAGES_MODEL,
         max_tokens: 100,
         messages: [{ role: "user", content: "Hello, can you respond with just the word 'working'?" }],
       });
@@ -74,7 +75,7 @@ export async function registerRoutes(router: Router) {
       return res.status(200).json({ 
         status: 'success',
         message: responseText,
-        model: "claude-3-7-sonnet-20250219"
+        model: ANTHROPIC_MESSAGES_MODEL
       });
     } catch (err: any) {
       console.log('API test error:', JSON.stringify(err));

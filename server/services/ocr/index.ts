@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { error, log } from "@server/log";
+import { ANTHROPIC_MESSAGES_MODEL } from "@server/constants/anthropic-messages-model";
+import { log } from "@server/log";
 import { extractedAmountSchema, type ExtractedAmount } from "@shared/schema/document";
 import { z } from "zod";
 
@@ -25,6 +26,74 @@ export function isSupportedMimeType(mimeType: string): mimeType is SupportedMime
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
+
+const JSON_ONLY_SUFFIX = `
+Output rules (strict):
+- Respond with ONLY a JSON array. No sentences, no preamble, no "Here is", no markdown code fences.
+- Start your reply with "[" and end with "]".
+- Use [] if there are no balances.`;
+
+function collectTextFromMessageContent(
+  content: Anthropic.Message["content"]
+): string {
+  if (typeof content === "string") return content;
+  const parts: string[] = [];
+  for (const block of content) {
+    if (block.type === "text" && "text" in block) {
+      parts.push(block.text);
+    }
+  }
+  return parts.join("\n");
+}
+
+/**
+ * Parses model output that may include markdown fences or leading prose.
+ */
+function stripMarkdownCodeFence(s: string): string {
+  const m = s.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (m?.[1]) return m[1].trim();
+  return s.trim();
+}
+
+function parseExtractedAmountsFromModelText(raw: string): ExtractedAmount[] | null {
+  let s = stripMarkdownCodeFence(raw.trim());
+
+  const tryValidate = (parsed: unknown): ExtractedAmount[] | null => {
+    const validated = z.array(extractedAmountSchema).safeParse(parsed);
+    return validated.success ? validated.data : null;
+  };
+
+  try {
+    const direct = JSON.parse(s);
+    const ok = tryValidate(direct);
+    if (ok) return ok;
+  } catch {
+    // fall through
+  }
+
+  const start = s.indexOf("[");
+  if (start === -1) return null;
+
+  let depth = 0;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (c === "[") depth++;
+    else if (c === "]") {
+      depth--;
+      if (depth === 0) {
+        try {
+          const slice = s.slice(start, i + 1);
+          const parsed = JSON.parse(slice);
+          return tryValidate(parsed);
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+
+  return null;
+}
 
 export class OcrService {
   /**
@@ -66,9 +135,9 @@ export class OcrService {
           };
 
     const response = await anthropic.messages.create({
-      model: "claude-3-7-sonnet-20250219",
-      max_tokens: 1024,
-      system: systemPrompt,
+      model: ANTHROPIC_MESSAGES_MODEL,
+      max_tokens: 2048,
+      system: `${systemPrompt}${JSON_ONLY_SUFFIX}`,
       messages: [
         {
           role: "user",
@@ -76,31 +145,32 @@ export class OcrService {
             contentBlock,
             {
               type: "text",
-              text: "Extract all account balances from this financial document. Return only a JSON array.",
+              text: `Extract all account balances from this document.
+
+Return ONLY a single JSON array of objects with keys: platformName (string), amount (number), confidence (number 0-1), optional accountType (string).
+Example: [{"platformName":"Example Broker","amount":12345.67,"confidence":0.9,"accountType":"ISA"}]
+If none: []`,
             },
           ],
         },
       ],
     });
 
-    const textBlock = response.content[0];
-    if (!textBlock || textBlock.type !== "text") {
-      log("OcrService: unexpected response format from Anthropic");
+    const replyText = collectTextFromMessageContent(response.content);
+    if (!replyText.trim()) {
+      log("OcrService: empty text content from Anthropic");
       return [];
     }
 
-    try {
-      const parsed = JSON.parse(textBlock.text.trim());
-      const validated = z.array(extractedAmountSchema).safeParse(parsed);
-      if (!validated.success) {
-        log("OcrService: response failed schema validation");
-        return [];
-      }
-      return validated.data;
-    } catch (parseError) {
-      error(`OcrService: failed to parse Anthropic response: ${parseError}`);
+    const results = parseExtractedAmountsFromModelText(replyText);
+    if (results === null) {
+      log(
+        `OcrService: could not parse JSON array from model reply (prefix=${JSON.stringify(replyText.slice(0, 80))})`
+      );
       return [];
     }
+
+    return results;
   }
 
   private buildSystemPrompt(platformKey: string, platformsString: string): string {
@@ -108,16 +178,14 @@ export class OcrService {
       // TBC: platform identification prompt
       return `You are a financial assistant that extracts account balances from financial documents.
 Identify the broker platform and extract all account balances you can find.
-Format your response as JSON only, as an array with this structure:
-[{ "platformName": "Platform Name", "amount": 12345.67, "confidence": 0.95, "accountType": "ISA" }]
-If you cannot identify any balances, return an empty array [].`;
+Each object must be: { "platformName": string, "amount": number, "confidence": number between 0 and 1, "accountType": string optional }.
+If you cannot identify any balances, return [].`;
     }
 
     return `You are a financial assistant that extracts account balances from financial documents.
 Extract account balances for the following platform: ${platformsString}.
-Format your response as JSON only, as an array with this structure:
-[{ "platformName": "Platform Name", "amount": 12345.67, "confidence": 0.95, "accountType": "ISA" }]
+Each object must be: { "platformName": string, "amount": number, "confidence": number between 0 and 1, "accountType": string optional }.
 Only include accounts where you can clearly read a balance value.
-If you cannot identify any balances, return an empty array [].`;
+If you cannot identify any balances, return [].`;
   }
 }
