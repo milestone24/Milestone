@@ -60,7 +60,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
-import { ScreenshotUpload } from "@/components/record/ScreenshotUpload";
+import { DocumentUpload } from "@/components/record/DocumentUpload";
 import { useAssets } from "@/hooks/use-assets";
 type AccountFormData = {
   [key: string]: number | undefined;
@@ -527,7 +527,7 @@ export default function Record() {
                 <span>{formatDateForDisplay(date)}</span>
               </Button>
               {activeTab === "values" && (
-                <ScreenshotUpload
+                <DocumentUpload
                   assets={assets}
                   onExtractedValues={(extractedValues) => {
                     // Create a new object to hold the values
