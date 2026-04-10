@@ -1,6 +1,6 @@
 ---
 name: OCR text-first pipeline and capture schema
-overview: Improve extraction quality via native PDF text + multi-step LLM, evolve capture types for security_transactions (DB + shared Zod), reserve a processing path for email-origin OCR input (how email is received—not yet decided), and evaluate orchestration + provider-agnostic LLM access (multi-provider, local/Ollama, future non-OCR features) vs plain TS before heavy graph work.
+overview: Improve extraction quality via native PDF text + multi-step LLM, evolve capture types for security_transactions (DB + shared Zod), reserve a processing path for email-origin OCR input (how email is received—not yet decided), and run two ordered orchestration spikes—first plain TypeScript + thin LLM gateway, then time-boxed LangGraph—for provider-agnostic access (Ollama, AWS Bedrock, etc.) without debugging graph and PDF/vision at once.
 todos:
   - id: schema-gap-analysis
     content: Define shared Zod for OCR security-transaction candidates vs securityTransactionOrphanInsertSchema; document resolution path to assetSecurityId
@@ -20,8 +20,11 @@ todos:
   - id: phase2-verify
     content: Optional groundedness verify pass + feature flag
     status: pending
-  - id: orchestration-library-spike
-    content: Evaluate orchestration + multi-provider/local (Ollama) LLM access; spike plain TS gateway vs framework; record decision before multi-agent build-out
+  - id: orchestration-spike-1-ts-gateway
+    content: Spike 1 — thin LlmGateway + explicit TS orchestration for OCR phases (aligned with docs/Transaction-OCR-flow.md); no LangGraph until PDF text + OcrService transcript/vision split is stable; validate structured I/O with existing Zod
+    status: pending
+  - id: orchestration-spike-2-langgraph
+    content: Spike 2 — time-boxed LangGraph (+ LangChain chat models) on one vertical slice; evaluate Ollama + AWS Bedrock (or other) via same gateway pattern; record decision vs staying on plain TS
     status: pending
   - id: phase3-raster-ocr
     content: Optional Tesseract/managed OCR when PDF text layer insufficient
@@ -153,7 +156,7 @@ These constraints should drive the spike and any long-term abstraction—not onl
 
 Implication: evaluate both **orchestration** (graphs, routing) and **provider abstraction** (unified client or gateway). Options include a **thin internal module** (`LlmGateway` / `complete({ modelRef, messages })`) implemented with vendor SDKs behind an interface, or a **library** that already normalises providers (often with tradeoffs for vision/PDF and streaming).
 
-### Options to compare (spike, do not commit until Phase 1 text-path is stable)
+### Options to compare (Spike 2 and beyond; Spike 1 stays plain TS—see **Ordered spikes** below)
 
 | Direction | Role | Fit for this project |
 |-----------|------|----------------------|
@@ -175,15 +178,29 @@ Implication: evaluate both **orchestration** (graphs, routing) and **provider ab
 7. **Team cost** — Debuggability in production vs plain functions.
 8. **Dependencies** — Match [package.json](package.json) discipline; avoid a heavy tree for a single feature.
 
-### Recommendation in the plan
+### Ordered spikes (agreed)
 
-- **Phase 1 (PDF text + split `OcrService`)** — **No new orchestration library**; keep **explicit routing** in code. Optionally sketch a **minimal `LlmGateway` interface** (signatures only) if it clarifies future refactors—implementation can still call Anthropic directly until the spike completes.
-- **Spike (time-boxed)** — Prototype **one** OCR sub-flow (e.g. transcript → structured JSON) using: **(A)** plain TS gateway + 2 providers (e.g. Anthropic + Ollama text), and **(B)** one candidate framework from the table **if** (A) is too much boilerplate for planned branching. Record: provider swap cost, vision/PDF story, dependency weight, and fit for a **hypothetical second feature** (e.g. search).
-- **Document the outcome** in this plan or a short internal note: chosen **gateway + orchestration** approach, explicit **non-goals**, and which features must use which **model tier** (router vs extractor vs future search).
+1. **Spike 1 — Plain TypeScript + thin `LlmGateway` (first)**  
+   - **Goal:** Establish a **diversifiable foundation** before adding a graph library: one internal contract (`modelRef`, messages in, **Zod-validated** structured data out, timeouts, logging) with **per-provider adapters** (Anthropic SDK today; **Ollama** HTTP and **AWS Bedrock** later behind the same interface).  
+   - **Orchestration:** **Explicit** functions or a tiny hand-rolled state machine that mirror [`docs/Transaction-OCR-flow.md`](../../docs/Transaction-OCR-flow.md) (document ready → prep → Phase 1 LLM → code verifiers → Phase 2 LLM → …). **No LangGraph** in this spike so we do not couple **PDF text extraction**, **transcript vs vision split**, and **graph debugging**.  
+   - **Exit criteria (example):** One vertical slice (e.g. transcript → `statementPlatformBrandIdentificationSchema` or security row schema) runs through gateway + verifiers; second provider (e.g. Ollama **text**) proves **swap cost** is acceptable.
+
+2. **Spike 2 — LangGraph (time-boxed, after Spike 1 is stable)**  
+   - **Goal:** Decide whether **LangGraph** (+ **LangChain.js** chat models) earns its **dependency weight** for named nodes, conditional edges, and future checkpoints—while **reusing** the same **gateway** for Bedrock / Ollama / Anthropic. LangGraph does **not** replace the gateway; it sits **above** it.  
+   - **Scope:** Re-implement **one** slice of the same pipeline as a small graph; compare **debuggability** and **boilerplate** vs Spike 1.  
+   - **Exit criteria:** Written decision: adopt LangGraph for OCR orchestration, defer, or use only for a subset; note **non-goals** and **model tier** per feature (extract vs verify vs future search).
+
+### Recommendation in the plan (summary)
+
+- **PDF text + split `OcrService`** remains the **first implementation priority** alongside Spike 1 gateway work where they touch the same code paths.  
+- **Do not** introduce LangGraph until **Spike 1** exit criteria are met (text path + explicit orchestration stable enough that graph issues are isolatable).  
+- **Document the outcome** of both spikes in this plan (or a short note): chosen **gateway + optional LangGraph**, explicit **non-goals**, and which routes use **which provider** (including Bedrock when adopted).
 
 ---
 
 ## Suggested implementation order
+
+0. **Orchestration spikes (ordered)** — Follow **Ordered spikes (agreed)** above and the diagram in [`docs/Transaction-OCR-flow.md`](../../docs/Transaction-OCR-flow.md) § **Implementation evolution**; Spike 1 before LangGraph (Spike 2).
 
 1. **Schema & contract** — Add `extractedSecurityTransactionCandidateSchema` (or equivalent) in `shared/schema`, aligned with orphan insert fields + security identity fields; update queue/WebSocket types and handler to emit candidates (may coexist temporarily with `ExtractedAmount` for Record-only flows).
 2. **PDF text + LLM split** — As above; prompt JSON must match the new schema.
