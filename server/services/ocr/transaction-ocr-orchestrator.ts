@@ -84,6 +84,19 @@ export type FullDocumentOcrResult = {
   extractedValues: ExtractedAmount[];
 };
 
+/** Optional stderr-style trace for CLI / debugging (timings, raw model text, verifier inputs). */
+export type OcrPipelineVerboseLog = (
+  step: string,
+  detail?: Record<string, unknown>
+) => void;
+
+const VERBOSE_RAW_TEXT_MAX_CHARS = 80_000;
+
+function truncateForVerbose(text: string, maxChars = VERBOSE_RAW_TEXT_MAX_CHARS): string {
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars)}\n... [truncated, ${String(text.length)} total chars]`;
+}
+
 /**
  * Runs Phase 3a–3c (brand) and Phase 4a–4c (securities), then balance extraction via {@link extractBalances}.
  * PDF native text vs vision is decided once; all LLM phases reuse the same document blocks.
@@ -98,15 +111,27 @@ export async function runFullDocumentOcrPipeline(params: {
     prepared: PreparedOcrDocumentUserContent
   ) => Promise<ExtractedAmount[]>;
   llm?: LlmGateway;
+  /** When set, emits structured steps (e.g. raw 3a/4a model text, DB match before assert). */
+  verboseLog?: OcrPipelineVerboseLog;
 }): Promise<FullDocumentOcrResult> {
+  const v = params.verboseLog;
   const llm = params.llm ?? createDefaultAnthropicLlmGateway();
   const pdfTextConfig = loadPdfTextExtractionConfigFromEnv();
 
+  const tPrepare0 = Date.now();
   const prepared = await prepareOcrDocumentUserContentBase(
     params.buffer,
     params.mimeType,
     pdfTextConfig
   );
+  v?.("document_prepared", {
+    elapsedMs: Date.now() - tPrepare0,
+    llmPath: prepared.meta.path,
+    nativePdfCharCount: prepared.meta.charCount ?? null,
+    wordCount: prepared.meta.wordCount ?? null,
+    totalPages: prepared.meta.totalPages ?? null,
+    model: ANTHROPIC_MESSAGES_MODEL,
+  });
 
   const brandInstruction = `Task: inspect the attached document content and produce the JSON object described in the system message (key "candidates").`;
 
@@ -115,6 +140,13 @@ export async function runFullDocumentOcrPipeline(params: {
     brandInstruction
   );
 
+  v?.("3a_llm_request", {
+    phase: "brand_identification",
+    maxTokens: 1024,
+    userContentBlockCount: brandUserContent.length,
+  });
+
+  const t3a0 = Date.now();
   const brandResponse = await llm.createNonStreamingMessage({
     model: ANTHROPIC_MESSAGES_MODEL,
     max_tokens: 1024,
@@ -123,6 +155,12 @@ export async function runFullDocumentOcrPipeline(params: {
   });
 
   const brandText = collectTextFromMessageContent(brandResponse.content);
+  v?.("3a_llm_response", {
+    elapsedMs: Date.now() - t3a0,
+    charCount: brandText.length,
+    rawText: truncateForVerbose(brandText),
+  });
+
   if (!brandText.trim()) {
     throw new Error("OCR phase 3a: empty model response for brand identification");
   }
@@ -133,14 +171,39 @@ export async function runFullDocumentOcrPipeline(params: {
     "Phase 3a brand identification"
   );
 
-  const configuredBrokerPlatformId = parseConfiguredBrokerPlatformId(
-    params.platformKey
-  );
+  v?.("3a_parsed", { brandIdentification });
 
+  let configuredBrokerPlatformId: string | undefined;
+  try {
+    configuredBrokerPlatformId = parseConfiguredBrokerPlatformId(params.platformKey);
+  } catch (e) {
+    v?.("3c_platform_key_parse_error", {
+      platformKey: params.platformKey,
+      message: e instanceof Error ? e.message : String(e),
+    });
+    throw e;
+  }
+
+  v?.("3b_3c_before_db_verify", {
+    platformKey: params.platformKey,
+    configuredBrokerPlatformId: configuredBrokerPlatformId ?? null,
+  });
+
+  const tVerify0 = Date.now();
   const brandDbMatch = await verifyStatementPlatformBrand({
     identification: brandIdentification,
     configuredBrokerPlatformId,
   });
+  v?.("3b_3c_brand_db_match", {
+    elapsedMs: Date.now() - tVerify0,
+    brandDbMatch,
+    ok: brandDbMatch.ok,
+    hint:
+      !brandDbMatch.ok && brandDbMatch.rejectReason === "config_platform_mismatch"
+        ? "Document matched a different broker_platforms row than --platform UUID. Use --platform unknown or the UUID that matches the statement."
+        : undefined,
+  });
+
   assertBrandVerificationPassed(brandDbMatch);
 
   const securitiesInstruction = `Task: inspect the same document content and produce the JSON array described in the system message.`;
@@ -150,6 +213,13 @@ export async function runFullDocumentOcrPipeline(params: {
     securitiesInstruction
   );
 
+  v?.("4a_llm_request", {
+    phase: "securities_extraction",
+    maxTokens: 4096,
+    userContentBlockCount: securitiesUserContent.length,
+  });
+
+  const t4a0 = Date.now();
   const securitiesResponse = await llm.createNonStreamingMessage({
     model: ANTHROPIC_MESSAGES_MODEL,
     max_tokens: 4096,
@@ -158,6 +228,12 @@ export async function runFullDocumentOcrPipeline(params: {
   });
 
   const securitiesText = collectTextFromMessageContent(securitiesResponse.content);
+  v?.("4a_llm_response", {
+    elapsedMs: Date.now() - t4a0,
+    charCount: securitiesText.length,
+    rawText: truncateForVerbose(securitiesText),
+  });
+
   if (!securitiesText.trim()) {
     throw new Error("OCR phase 4a: empty model response for securities extraction");
   }
@@ -168,10 +244,14 @@ export async function runFullDocumentOcrPipeline(params: {
     "Phase 4a securities extraction"
   );
 
+  v?.("4a_parsed", { rowCount: securityHoldings.length });
+
+  const t4c0 = Date.now();
   await verifySecurityHoldingsOwnedByUser({
     accountId: params.accountId,
     rows: securityHoldings,
   });
+  v?.("4c_holdings_ownership_ok", { elapsedMs: Date.now() - t4c0, accountId: params.accountId });
 
   const pipeline: DocumentOcrPipelineResult = {
     brandIdentification,
@@ -181,7 +261,13 @@ export async function runFullDocumentOcrPipeline(params: {
     nativePdfCharCount: prepared.meta.charCount,
   };
 
+  const tBal0 = Date.now();
   const extractedValues = await params.extractBalances(prepared);
+  v?.("balances_pipeline_step_done", {
+    elapsedMs: Date.now() - tBal0,
+    extractedCount: extractedValues.length,
+    note: "includes balance LLM + parse (see balances_llm_* steps above)",
+  });
 
   return { pipeline, extractedValues };
 }

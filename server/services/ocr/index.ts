@@ -13,6 +13,7 @@ import {
   prepareOcrDocumentUserContentBase,
   type PreparedOcrDocumentUserContent,
 } from "./document-user-content";
+import type { OcrPipelineVerboseLog } from "./transaction-ocr-orchestrator";
 
 const SUPPORTED_IMAGE_TYPES = [
   "image/jpeg",
@@ -124,14 +125,20 @@ export class OcrService {
     buffer: Buffer,
     mimeType: SupportedMimeType,
     platformKey: string,
-    platformNames: string[]
+    platformNames: string[],
+    options?: { verboseLog?: OcrPipelineVerboseLog }
   ): Promise<ExtractedAmount[]> {
     const prepared = await prepareOcrDocumentUserContentBase(
       buffer,
       mimeType,
       this.pdfTextConfig
     );
-    return this.extractFromPrepared(prepared, platformKey, platformNames);
+    return this.extractFromPrepared(
+      prepared,
+      platformKey,
+      platformNames,
+      options
+    );
   }
 
   /**
@@ -141,8 +148,10 @@ export class OcrService {
   async extractFromPrepared(
     prepared: PreparedOcrDocumentUserContent,
     platformKey: string,
-    platformNames: string[]
+    platformNames: string[],
+    options?: { verboseLog?: OcrPipelineVerboseLog }
   ): Promise<ExtractedAmount[]> {
+    const v = options?.verboseLog;
     const platformsString = platformNames.join(", ");
 
     const systemPrompt = this.buildSystemPrompt(platformKey, platformsString);
@@ -158,6 +167,13 @@ If none: []`;
       extractionInstruction
     );
 
+    v?.("balances_llm_request", {
+      maxTokens: 2048,
+      userContentBlockCount: userContent.length,
+      platformKey,
+    });
+
+    const t0 = Date.now();
     const response = await this.llm.createNonStreamingMessage({
       model: ANTHROPIC_MESSAGES_MODEL,
       max_tokens: 2048,
@@ -171,6 +187,17 @@ If none: []`;
     });
 
     const replyText = collectTextFromMessageContent(response.content);
+    const rawMax = 80_000;
+    const rawLogged =
+      replyText.length <= rawMax
+        ? replyText
+        : `${replyText.slice(0, rawMax)}\n... [truncated, ${String(replyText.length)} total chars]`;
+    v?.("balances_llm_response", {
+      elapsedMs: Date.now() - t0,
+      charCount: replyText.length,
+      rawText: rawLogged,
+    });
+
     if (!replyText.trim()) {
       log("OcrService: empty text content from Anthropic");
       return [];
@@ -183,6 +210,8 @@ If none: []`;
       );
       return [];
     }
+
+    v?.("balances_parsed", { count: results.length, results });
 
     return results;
   }
@@ -207,4 +236,5 @@ If you cannot identify any balances, return [].`;
 export {
   runFullDocumentOcrPipeline,
   type FullDocumentOcrResult,
+  type OcrPipelineVerboseLog,
 } from "./transaction-ocr-orchestrator";

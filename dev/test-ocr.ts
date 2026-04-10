@@ -10,6 +10,7 @@
  * Usage (from repo root):
  *   npm run test:ocr -- ./path/to/statement.pdf
  *   npm run test:ocr -- ./path/to/statement.pdf --spike1 --account-id <user-account-uuid>
+ *   npm run test:ocr -- ./file.pdf --spike1 --account-id <uuid> -v
  *   OCR_TEST_ACCOUNT_ID=<uuid> npm run test:ocr -- ./file.pdf --spike1
  *
  * Loads `.local.env` from the project root **before** importing server modules.
@@ -48,6 +49,7 @@ Options:
   --account-id <uuid> User account id for phase 4c (portfolio ownership). Implies --spike1.
   --platform <key>   Broker platform key: "unknown" or broker_platforms.id UUID (default: unknown)
   --names <list>     Comma-separated platform display names for the balance-extraction prompt
+  --verbose, -v      Log timings, raw model text (truncated if huge), parsed brand, DB match before fail
   -h, --help         Show this help
 
 Environment:
@@ -72,6 +74,7 @@ type Parsed =
       platformNames: string[];
       mode: RunMode;
       accountId: string | undefined;
+      verbose: boolean;
     };
 
 function parseArgs(argv: string[]): Parsed {
@@ -80,6 +83,7 @@ function parseArgs(argv: string[]): Parsed {
   let namesRaw = "";
   let spike1 = false;
   let accountId: string | undefined;
+  let verbose = false;
 
   const args = [...argv];
   while (args.length > 0) {
@@ -87,6 +91,10 @@ function parseArgs(argv: string[]): Parsed {
     if (a === undefined) break;
     if (a === "--help" || a === "-h") {
       return { kind: "help", exitCode: 0 };
+    }
+    if (a === "--verbose" || a === "-v") {
+      verbose = true;
+      continue;
     }
     if (a === "--platform") {
       platformKey = args.shift() ?? "unknown";
@@ -133,6 +141,16 @@ function parseArgs(argv: string[]): Parsed {
     platformNames,
     mode: spike1 ? "spike1" : "balances",
     accountId: resolvedAccount,
+    verbose,
+  };
+}
+
+function createVerboseLogger() {
+  return (step: string, detail?: Record<string, unknown>) => {
+    console.error(`[ocr-verbose] ${step}`);
+    if (detail !== undefined) {
+      console.error(JSON.stringify(detail, null, 2));
+    }
   };
 }
 
@@ -191,18 +209,20 @@ async function main(): Promise<void> {
   const buffer = await readFile(absolutePath);
   console.error(`Reading ${absolutePath} (${mimeType}, ${buffer.length} bytes)`);
   console.error(
-    `platformKey=${parsed.platformKey} platformNames=[${parsed.platformNames.join(", ")}] mode=${parsed.mode}`
+    `platformKey=${parsed.platformKey} platformNames=[${parsed.platformNames.join(", ")}] mode=${parsed.mode} verbose=${parsed.verbose}`
   );
 
   const ocr = new OcrService();
   const start = Date.now();
+  const verboseLog = parsed.verbose ? createVerboseLogger() : undefined;
 
   if (parsed.mode === "balances") {
     const results = await ocr.extract(
       buffer,
       mimeType,
       parsed.platformKey,
-      parsed.platformNames
+      parsed.platformNames,
+      verboseLog ? { verboseLog } : undefined
     );
     const ms = Date.now() - start;
     console.log(JSON.stringify({ elapsedMs: ms, count: results.length, results }, null, 2));
@@ -218,8 +238,14 @@ async function main(): Promise<void> {
     platformKey: parsed.platformKey,
     platformNames: parsed.platformNames,
     accountId,
+    verboseLog,
     extractBalances: (prepared) =>
-      ocr.extractFromPrepared(prepared, parsed.platformKey, parsed.platformNames),
+      ocr.extractFromPrepared(
+        prepared,
+        parsed.platformKey,
+        parsed.platformNames,
+        verboseLog ? { verboseLog } : undefined
+      ),
   });
 
   const ms = Date.now() - start;
