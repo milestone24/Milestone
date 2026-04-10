@@ -7,10 +7,10 @@ todos:
     status: completed
   - id: pdf-text-module
     content: Add PDF native text extraction + isTextSufficient heuristic; choose library after ESM compatibility check
-    status: pending
+    status: completed
   - id: ocr-service-split
     content: Refactor OcrService — extractFromTranscript, extractFromVision, extract orchestration
-    status: pending
+    status: completed
   - id: pipeline-wire-logging
     content: Handler + structured logs (path=text|vision, charCount); optional CLI --dump-text
     status: pending
@@ -134,8 +134,8 @@ flowchart TD
 
 Implementation phases (unchanged in spirit):
 
-1. PDF text module + heuristic + CLI `--dump-text`.
-2. Split `OcrService`: transcript vs vision; orchestration in `extract`.
+1. PDF text module + heuristic + CLI `--dump-text`. **Done:** [`server/services/pdf-text/`](../../server/services/pdf-text/) + env-configurable thresholds; CLI `--dump-text` still **pending** (`pipeline-wire-logging` todo).
+2. Split `OcrService`: transcript vs vision; orchestration in `extract`. **Done:** `buildTranscriptPdfUserContent` / `buildVisionPdfUserContent` / `buildVisionImageUserContent`.
 3. Logging (`path=text|vision`, `charCount`).
 4. Optional second LLM pass for groundedness.
 5. Optional OCR vendor/Tesseract when text layer empty.
@@ -205,7 +205,7 @@ These are the **decision points** called out when starting Spike 1. Each row sta
 | Decision | Notes | Must be resolved by |
 |----------|--------|----------------------|
 | **Gateway v1 contract** | First `LlmGateway` implementation: `createNonStreamingMessage` accepts Anthropic **`MessageCreateParamsNonStreaming`** today; **`LlmModelRef`** / `LlmProviderId` in [`server/services/llm/llm-gateway.ts`](../../server/services/llm/llm-gateway.ts) are reserved for routing when Bedrock / Ollama adapters land. | **Spike 1 — gateway scaffolding** (land baseline; adjust signatures only when adding the second adapter if needed). |
-| **Native PDF text vs transcript-first slice** | Whether all paths wait on **native PDF text + `isTextSufficient`** before any LLM call, or a **transcript-only / bytes-only** slice ships first and PDF text follows. | Completion of **`pdf-text-module`** + **`ocr-service-split`** todos — **document the chosen order** in this plan when those tasks close. |
+| **Native PDF text vs transcript-first slice** | **Resolved (Spike 1):** For `application/pdf`, [`server/services/pdf-text/`](../../server/services/pdf-text/) runs **in-process** in the same worker as `OcrService` (not a separate service). **All pages** extracted via **`unpdf`**; **password-protected** PDFs throw `PdfPasswordProtectedError`. If native text is **sufficient** (`OCR_PDF_TEXT_MIN_CHARS`, `OCR_PDF_TEXT_MIN_WORDS`), `OcrService` uses **transcript-only** LLM messages; otherwise **Anthropic PDF document** vision path. **Non-PDF** skips PDF extraction. | — |
 | **`platformKey` / OCR config shape** | How `POST …/extract` and `processes` carry platform identity (`unknown`, slug, **`broker_platforms.id` UUID**, etc.) so **3c** can compare apples-to-apples with DB rows. | **First implementation** that runs **3b/3c** brand verification against **`broker_platforms`** (before persisting or enforcing config alignment in prod). |
 | **Where orchestration runs** | Same Node process as **`document-ocr-distributed-handler`** vs separate worker / future durable engine (Temporal, Inngest). | **Before Spike 2 (LangGraph)** if checkpoints or long-running state need a host; **default** for Spike 1: **in-process** in the existing handler path unless product says otherwise. |
 | **Second provider priority** | First non-Anthropic adapter after gateway: **Ollama (text)** vs **AWS Bedrock** vs other — driven by dev cost, AWS alignment, and structured-output quality on a vertical slice. | **`orchestration-spike-1-ts-gateway` exit** (or explicit hand-off note when starting **`orchestration-spike-2-langgraph`**). |

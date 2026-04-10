@@ -25,6 +25,7 @@ flowchart TD
 - **Gateway** stays the **provider diversification** layer in both spikes; **LangGraph** (if adopted) sits **above** the gateway, not instead of it.
 - The **flowchart** and **sequence** sections below describe **runtime behaviour**; this section describes **how we build toward it** without blocking product flow on a graph library on day one.
 - **When to decide what:** timing for open questions (`platformKey` shape, PDF text vs transcript-first, orchestration host, second provider order, dual-track payloads) is tracked in [OCR text-first pipeline plan](../.cursor/plans/ocr_text-first_pipeline.plan.md) **Open implementation decisions (by phase)**.
+- **PDF native text:** implemented as an in-repo ESM module ([`server/services/pdf-text/`](../server/services/pdf-text/)) invoked from `OcrService` in the **same** distributed handler process (not a separate PDF microservice). Password-protected PDFs are rejected; non-PDF MIME types skip PDF parsing.
 
 ```mermaid
 flowchart TD
