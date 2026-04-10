@@ -13,6 +13,7 @@ import type {
   StatementPlatformBrandMatchKind,
 } from "@shared/schema/platform-brand-ocr";
 import type { SecurityTransactionOcrExtractionRow } from "@shared/schema/transaction";
+import type { OcrPipelineVerboseLog } from "./transaction-ocr-orchestrator";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -233,22 +234,51 @@ function normSymbol(s: string): string {
   return s.trim().toUpperCase();
 }
 
-function rowMatchesUserSecurity(
+type HoldingIdentity = { symbol: string; isin: string | null; name: string };
+
+/** Mirrors {@link rowMatchesUserSecurity} checks for verbose diagnostics (keep in sync). */
+function scoreOcrRowAgainstHolding(
   row: SecurityTransactionOcrExtractionRow,
-  holding: { symbol: string; isin: string | null; name: string }
-): boolean {
+  holding: HoldingIdentity
+): {
+  symbolExactMatch: boolean;
+  isinExactMatch: boolean;
+  nameNormalizedEqual: boolean;
+  nameFuzzyRatio: number;
+  matched: boolean;
+} {
   const rowSym = row.symbol?.trim();
   const rowIsin = row.isin?.trim();
   const rowName = row.name?.trim();
-  if (rowSym && normSymbol(rowSym) === normSymbol(holding.symbol)) return true;
-  if (rowIsin && holding.isin && rowIsin.toUpperCase() === holding.isin.toUpperCase())
-    return true;
-  if (rowName && normalizeLabel(rowName) === normalizeLabel(holding.name)) return true;
-  const ratio = fuzzyRatio(
-    normalizeLabel(rowName ?? ""),
-    normalizeLabel(holding.name)
-  );
-  return ratio >= 0.92;
+  const symbolExactMatch =
+    !!rowSym && normSymbol(rowSym) === normSymbol(holding.symbol);
+  const isinExactMatch =
+    !!rowIsin &&
+    !!holding.isin &&
+    rowIsin.toUpperCase() === holding.isin.toUpperCase();
+  const rn = normalizeLabel(rowName ?? "");
+  const hn = normalizeLabel(holding.name);
+  const nameNormalizedEqual = !!rowName && rn === hn;
+  const nameFuzzyRatio = fuzzyRatio(rn, hn);
+  const matched =
+    symbolExactMatch ||
+    isinExactMatch ||
+    nameNormalizedEqual ||
+    nameFuzzyRatio >= 0.92;
+  return {
+    symbolExactMatch,
+    isinExactMatch,
+    nameNormalizedEqual,
+    nameFuzzyRatio,
+    matched,
+  };
+}
+
+function rowMatchesUserSecurity(
+  row: SecurityTransactionOcrExtractionRow,
+  holding: HoldingIdentity
+): boolean {
+  return scoreOcrRowAgainstHolding(row, holding).matched;
 }
 
 /**
@@ -257,8 +287,9 @@ function rowMatchesUserSecurity(
 export async function verifySecurityHoldingsOwnedByUser(params: {
   accountId: string;
   rows: SecurityTransactionOcrExtractionRow[];
+  verboseLog?: OcrPipelineVerboseLog;
 }): Promise<void> {
-  const { accountId, rows } = params;
+  const { accountId, rows, verboseLog: v } = params;
   if (rows.length === 0) return;
 
   const holdings = await db
@@ -278,6 +309,34 @@ export async function verifySecurityHoldingsOwnedByUser(params: {
     const row = rows[i]!;
     const ok = holdings.some((h) => rowMatchesUserSecurity(row, h));
     if (!ok) {
+      const perHolding = holdings.map((h) => {
+        const s = scoreOcrRowAgainstHolding(row, h);
+        return {
+          db: { symbol: h.symbol, isin: h.isin, name: h.name },
+          symbolExactMatch: s.symbolExactMatch,
+          isinExactMatch: s.isinExactMatch,
+          nameNormalizedEqual: s.nameNormalizedEqual,
+          nameFuzzyRatio: s.nameFuzzyRatio,
+          matched: s.matched,
+        };
+      });
+      const bestFuzzy = perHolding.reduce(
+        (max, p) => Math.max(max, p.nameFuzzyRatio),
+        0
+      );
+      v?.("4c_row_validation_failed", {
+        rowIndex: i + 1,
+        accountId,
+        ocrRow: {
+          symbol: row.symbol ?? null,
+          isin: row.isin ?? null,
+          name: row.name ?? null,
+        },
+        holdingsCompared: holdings.length,
+        nameFuzzyPassThreshold: 0.92,
+        bestNameFuzzyRatioAcrossHoldings: bestFuzzy,
+        perHolding,
+      });
       throw new Error(
         `OCR phase 4c: security row ${i + 1} (${row.symbol ?? row.name ?? "?"}) does not match any holding for this account`
       );

@@ -250,6 +250,7 @@ export async function runFullDocumentOcrPipeline(params: {
   await verifySecurityHoldingsOwnedByUser({
     accountId: params.accountId,
     rows: securityHoldings,
+    verboseLog: v,
   });
   v?.("4c_holdings_ownership_ok", { elapsedMs: Date.now() - t4c0, accountId: params.accountId });
 
