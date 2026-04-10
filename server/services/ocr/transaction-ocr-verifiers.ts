@@ -309,7 +309,7 @@ export async function verifySecurityHoldingsOwnedByUser(params: {
     const row = rows[i]!;
     const ok = holdings.some((h) => rowMatchesUserSecurity(row, h));
     if (!ok) {
-      const perHolding = holdings.map((h) => {
+      const scored = holdings.map((h) => {
         const s = scoreOcrRowAgainstHolding(row, h);
         return {
           db: { symbol: h.symbol, isin: h.isin, name: h.name },
@@ -320,9 +320,16 @@ export async function verifySecurityHoldingsOwnedByUser(params: {
           matched: s.matched,
         };
       });
-      const bestFuzzy = perHolding.reduce(
+      const bestFuzzy = scored.reduce(
         (max, p) => Math.max(max, p.nameFuzzyRatio),
         0
+      );
+      const FUZZY_VERBOSE_MIN = 0.2;
+      const perHolding = scored.filter(
+        (p) =>
+          p.symbolExactMatch ||
+          p.isinExactMatch ||
+          p.nameFuzzyRatio > FUZZY_VERBOSE_MIN
       );
       v?.("4c_row_validation_failed", {
         rowIndex: i + 1,
@@ -334,7 +341,9 @@ export async function verifySecurityHoldingsOwnedByUser(params: {
         },
         holdingsCompared: holdings.length,
         nameFuzzyPassThreshold: 0.92,
+        verboseNameFuzzyMin: FUZZY_VERBOSE_MIN,
         bestNameFuzzyRatioAcrossHoldings: bestFuzzy,
+        perHoldingVerboseCount: perHolding.length,
         perHolding,
       });
       throw new Error(
