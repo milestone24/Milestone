@@ -1,5 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ANTHROPIC_MESSAGES_MODEL } from "@server/constants/anthropic-messages-model";
+import {
+  createDefaultAnthropicLlmGateway,
+  type LlmGateway,
+} from "@server/services/llm";
 import { log } from "@server/log";
 import { extractedAmountSchema, type ExtractedAmount } from "@shared/schema/document";
 import { z } from "zod";
@@ -22,10 +26,6 @@ type SupportedMimeType = (typeof SUPPORTED_MIME_TYPES)[number];
 export function isSupportedMimeType(mimeType: string): mimeType is SupportedMimeType {
   return (SUPPORTED_MIME_TYPES as readonly string[]).includes(mimeType);
 }
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
 
 const JSON_ONLY_SUFFIX = `
 Output rules (strict):
@@ -96,6 +96,12 @@ function parseExtractedAmountsFromModelText(raw: string): ExtractedAmount[] | nu
 }
 
 export class OcrService {
+  private readonly llm: LlmGateway;
+
+  constructor(llm: LlmGateway = createDefaultAnthropicLlmGateway()) {
+    this.llm = llm;
+  }
+
   /**
    * Extracts financial account values from a document buffer.
    * Supports images (jpeg, png, gif, webp) and PDFs.
@@ -134,7 +140,7 @@ export class OcrService {
             },
           };
 
-    const response = await anthropic.messages.create({
+    const response = await this.llm.createNonStreamingMessage({
       model: ANTHROPIC_MESSAGES_MODEL,
       max_tokens: 2048,
       system: `${systemPrompt}${JSON_ONLY_SUFFIX}`,
