@@ -1,20 +1,29 @@
 /**
- * Exercise {@link OcrService} against a local image or PDF (no HTTP, no DB).
+ * Exercise OCR from the CLI (no HTTP).
+ *
+ * Modes:
+ * - **Balances only** (default): single {@link OcrService.extract} — no DB.
+ * - **Spike 1 full pipeline**: {@link runFullDocumentOcrPipeline} — phases 3a–3c, 4a–4c, then
+ *   balance extraction. Requires DB (`DATABASE_URL` / Neon per server config) and
+ *   `--account-id` or `OCR_TEST_ACCOUNT_ID` for phase 4c.
  *
  * Usage (from repo root):
- *   npx tsx dev/test-ocr.ts <file-path> [--platform <key>] [--names <comma-separated>]
  *   npm run test:ocr -- ./path/to/statement.pdf
+ *   npm run test:ocr -- ./path/to/statement.pdf --spike1 --account-id <user-account-uuid>
+ *   OCR_TEST_ACCOUNT_ID=<uuid> npm run test:ocr -- ./file.pdf --spike1
  *
- * Loads `ANTHROPIC_API_KEY` from `.local.env` in the project root.
+ * Loads `.local.env` from the project root **before** importing server modules.
  */
 import { readFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
-import { OcrService, isSupportedMimeType } from "@server/services/ocr";
+import { z } from "zod";
 
 const projectRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 dotenv.config({ path: resolve(projectRoot, ".local.env") });
+
+const accountIdSchema = z.string().uuid();
 
 function mimeFromPath(filePath: string): string | null {
   const ext = extname(filePath).toLowerCase();
@@ -34,23 +43,43 @@ function printHelp(): void {
   npx tsx dev/test-ocr.ts <file-path> [options]
 
 Options:
-  --platform <key>   Broker platform key (default: unknown)
-  --names <list>     Comma-separated platform display names for the prompt
+  --spike1           Run full Spike 1 pipeline (brand + DB verify + securities + 4c + balances).
+                     Requires DB and --account-id or OCR_TEST_ACCOUNT_ID.
+  --account-id <uuid> User account id for phase 4c (portfolio ownership). Implies --spike1.
+  --platform <key>   Broker platform key: "unknown" or broker_platforms.id UUID (default: unknown)
+  --names <list>     Comma-separated platform display names for the balance-extraction prompt
   -h, --help         Show this help
 
-Example:
-  npm run test:ocr -- ./samples/statement.pdf --platform hl --names "Hargreaves Lansdown"
+Environment:
+  ANTHROPIC_API_KEY     Required for all modes.
+  OCR_TEST_ACCOUNT_ID   Default account id when --spike1 and --account-id omitted.
+  DATABASE_URL          Required for --spike1 (same as the app).
+
+Examples:
+  npm run test:ocr -- ./samples/statement.pdf
+  npm run test:ocr -- ./samples/statement.pdf --spike1 --account-id 00000000-0000-0000-0000-000000000000
 `);
 }
 
+type RunMode = "balances" | "spike1";
+
 type Parsed =
   | { kind: "help"; exitCode: number }
-  | { kind: "run"; filePath: string; platformKey: string; platformNames: string[] };
+  | {
+      kind: "run";
+      filePath: string;
+      platformKey: string;
+      platformNames: string[];
+      mode: RunMode;
+      accountId: string | undefined;
+    };
 
 function parseArgs(argv: string[]): Parsed {
   const positional: string[] = [];
   let platformKey = "unknown";
   let namesRaw = "";
+  let spike1 = false;
+  let accountId: string | undefined;
 
   const args = [...argv];
   while (args.length > 0) {
@@ -65,6 +94,14 @@ function parseArgs(argv: string[]): Parsed {
     }
     if (a === "--names") {
       namesRaw = args.shift() ?? "";
+      continue;
+    }
+    if (a === "--spike1") {
+      spike1 = true;
+      continue;
+    }
+    if (a === "--account-id") {
+      accountId = args.shift();
       continue;
     }
     if (a.startsWith("-")) {
@@ -83,11 +120,19 @@ function parseArgs(argv: string[]): Parsed {
     .map((s) => s.trim())
     .filter(Boolean);
 
+  const envAccount = process.env.OCR_TEST_ACCOUNT_ID;
+  const resolvedAccount = accountId ?? envAccount;
+  if (resolvedAccount !== undefined) {
+    spike1 = true;
+  }
+
   return {
     kind: "run",
     filePath,
     platformKey,
     platformNames,
+    mode: spike1 ? "spike1" : "balances",
+    accountId: resolvedAccount,
   };
 }
 
@@ -103,6 +148,26 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  if (parsed.mode === "spike1") {
+    if (!parsed.accountId?.trim()) {
+      console.error(
+        "Spike 1 mode requires --account-id <uuid> or OCR_TEST_ACCOUNT_ID in the environment."
+      );
+      process.exit(1);
+    }
+    const acc = accountIdSchema.safeParse(parsed.accountId.trim());
+    if (!acc.success) {
+      console.error(`Invalid --account-id: must be a UUID (${acc.error.message})`);
+      process.exit(1);
+    }
+    if (!process.env.DATABASE_URL?.trim()) {
+      console.error(
+        "Spike 1 mode requires DATABASE_URL (set in .local.env like the main app)."
+      );
+      process.exit(1);
+    }
+  }
+
   const absolutePath = resolve(process.cwd(), parsed.filePath);
   const mimeType = mimeFromPath(absolutePath);
   if (!mimeType) {
@@ -111,6 +176,13 @@ async function main(): Promise<void> {
     );
     process.exit(1);
   }
+
+  const {
+    OcrService,
+    isSupportedMimeType,
+    runFullDocumentOcrPipeline,
+  } = await import("@server/services/ocr");
+
   if (!isSupportedMimeType(mimeType)) {
     console.error(`Unsupported MIME type: ${mimeType}`);
     process.exit(1);
@@ -119,20 +191,57 @@ async function main(): Promise<void> {
   const buffer = await readFile(absolutePath);
   console.error(`Reading ${absolutePath} (${mimeType}, ${buffer.length} bytes)`);
   console.error(
-    `platformKey=${parsed.platformKey} platformNames=[${parsed.platformNames.join(", ")}]`
+    `platformKey=${parsed.platformKey} platformNames=[${parsed.platformNames.join(", ")}] mode=${parsed.mode}`
   );
 
   const ocr = new OcrService();
   const start = Date.now();
-  const results = await ocr.extract(
+
+  if (parsed.mode === "balances") {
+    const results = await ocr.extract(
+      buffer,
+      mimeType,
+      parsed.platformKey,
+      parsed.platformNames
+    );
+    const ms = Date.now() - start;
+    console.log(JSON.stringify({ elapsedMs: ms, count: results.length, results }, null, 2));
+    return;
+  }
+
+  const accountId = parsed.accountId!.trim();
+  console.error(`accountId=${accountId} (phase 4c portfolio check)`);
+
+  const { pipeline, extractedValues } = await runFullDocumentOcrPipeline({
     buffer,
     mimeType,
-    parsed.platformKey,
-    parsed.platformNames
-  );
-  const ms = Date.now() - start;
+    platformKey: parsed.platformKey,
+    platformNames: parsed.platformNames,
+    accountId,
+    extractBalances: (prepared) =>
+      ocr.extractFromPrepared(prepared, parsed.platformKey, parsed.platformNames),
+  });
 
-  console.log(JSON.stringify({ elapsedMs: ms, count: results.length, results }, null, 2));
+  const ms = Date.now() - start;
+  console.log(
+    JSON.stringify(
+      {
+        elapsedMs: ms,
+        pipeline: {
+          llmPath: pipeline.llmPath,
+          nativePdfCharCount: pipeline.nativePdfCharCount,
+          brandDbMatch: pipeline.brandDbMatch,
+          brandIdentification: pipeline.brandIdentification,
+          securityHoldingsCount: pipeline.securityHoldings.length,
+          securityHoldings: pipeline.securityHoldings,
+        },
+        balanceExtractCount: extractedValues.length,
+        extractedValues,
+      },
+      null,
+      2
+    )
+  );
 }
 
 main().catch((err) => {
