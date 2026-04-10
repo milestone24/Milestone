@@ -34,7 +34,10 @@ isProject: false
 
 # OCR text-first pipeline and security-transaction capture schema
 
-**Related:** [DocumentUpload OCR Refactor — Phase 2](documentupload_ocr_refactor_1e50c3b2.plan.md) (current wire-up uses `ExtractedAmount[]`, which is insufficient for securities).
+**Related:**
+
+- [DocumentUpload OCR Refactor — Phase 2](documentupload_ocr_refactor_1e50c3b2.plan.md) (current wire-up uses `ExtractedAmount[]`, which is insufficient for securities).
+- **Transaction OCR flow (canonical mermaid):** [`docs/Transaction-OCR-flow.md`](../../docs/Transaction-OCR-flow.md) — document-first, multi-phase AI orchestration (brand / platform then securities), DB and schema verification steps; extend that file as the pipeline evolves.
 
 ---
 
@@ -193,3 +196,4 @@ Implication: evaluate both **orchestration** (graphs, routing) and **provider ab
 ## Documentation
 
 - Keep [DocumentUpload OCR Refactor](documentupload_ocr_refactor_1e50c3b2.plan.md) in sync: add a one-line pointer that extraction payloads will evolve toward security-transaction candidates per this plan.
+- Keep [`docs/Transaction-OCR-flow.md`](../../docs/Transaction-OCR-flow.md) as the **living** end-to-end pipeline diagram (mermaid); this plan’s phases should stay aligned with that document when steps change.
