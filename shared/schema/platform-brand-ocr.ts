@@ -67,11 +67,7 @@ export type StatementPlatformBrandMatchRejectReason = z.infer<
   typeof statementPlatformBrandMatchRejectReason
 >;
 
-/**
- * Result of **code** verification after resolving AI candidates against `broker_platforms`
- * (and optional alignment with the platform id supplied for this OCR run — step 3c).
- */
-export const statementPlatformBrandDbMatchSchema = z.object({
+const statementPlatformBrandDbMatchBaseSchema = z.object({
   matchedBrokerPlatformId: z.string().uuid().nullable(),
   matchKind: statementPlatformBrandMatchKind,
   fuzzyScore: z.number().min(0).max(1).optional(),
@@ -85,6 +81,138 @@ export const statementPlatformBrandDbMatchSchema = z.object({
   ok: z.boolean(),
   rejectReason: statementPlatformBrandMatchRejectReason.optional(),
 });
+
+/**
+ * Result of **code** verification after resolving AI candidates against `broker_platforms`
+ * (and optional alignment with the platform id supplied for this OCR run — step 3c).
+ */
+export const statementPlatformBrandDbMatchSchema =
+  statementPlatformBrandDbMatchBaseSchema.superRefine((v, ctx) => {
+    if (v.ok) {
+      if (v.rejectReason !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "rejectReason must be omitted when ok is true",
+          path: ["rejectReason"],
+        });
+      }
+      if (v.matchedBrokerPlatformId === null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "matchedBrokerPlatformId is required when ok is true",
+          path: ["matchedBrokerPlatformId"],
+        });
+      }
+      if (v.matchKind === "none") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "matchKind cannot be none when ok is true",
+          path: ["matchKind"],
+        });
+      }
+      if (
+        v.configuredBrokerPlatformId !== undefined &&
+        v.matchesConfiguredPlatform !== true
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "matchesConfiguredPlatform must be true when ok is true and configuredBrokerPlatformId is set",
+          path: ["matchesConfiguredPlatform"],
+        });
+      }
+      if (
+        v.configuredBrokerPlatformId !== undefined &&
+        v.matchedBrokerPlatformId !== null &&
+        v.matchedBrokerPlatformId !== v.configuredBrokerPlatformId
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "matchedBrokerPlatformId must equal configuredBrokerPlatformId when ok is true",
+          path: ["matchedBrokerPlatformId"],
+        });
+      }
+    } else if (v.rejectReason === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "rejectReason is required when ok is false",
+        path: ["rejectReason"],
+      });
+    }
+
+    if (v.configuredBrokerPlatformId === undefined) {
+      if (v.matchesConfiguredPlatform !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "matchesConfiguredPlatform must be omitted when configuredBrokerPlatformId is omitted",
+          path: ["matchesConfiguredPlatform"],
+        });
+      }
+    } else if (v.matchesConfiguredPlatform === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "matchesConfiguredPlatform is required when configuredBrokerPlatformId is set",
+        path: ["matchesConfiguredPlatform"],
+      });
+    } else if (v.matchesConfiguredPlatform === true) {
+      if (v.matchedBrokerPlatformId === null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "matchedBrokerPlatformId is required when matchesConfiguredPlatform is true",
+          path: ["matchedBrokerPlatformId"],
+        });
+      } else if (v.matchedBrokerPlatformId !== v.configuredBrokerPlatformId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "matchedBrokerPlatformId must equal configuredBrokerPlatformId when matchesConfiguredPlatform is true",
+          path: ["matchesConfiguredPlatform"],
+        });
+      }
+    } else {
+      // matchesConfiguredPlatform === false (configured id is set)
+      if (v.ok) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "ok must be false when matchesConfiguredPlatform is false",
+          path: ["ok"],
+        });
+      }
+      if (v.rejectReason === undefined) {
+        // Global rule already requires rejectReason when ok is false; skip reason-specific checks.
+      } else if (v.matchedBrokerPlatformId === null) {
+        if (
+          v.rejectReason !== "no_database_match" &&
+          v.rejectReason !== "ambiguous_match"
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              "rejectReason must be no_database_match or ambiguous_match when matchesConfiguredPlatform is false and there is no matched platform",
+            path: ["rejectReason"],
+          });
+        }
+      } else if (v.matchedBrokerPlatformId === v.configuredBrokerPlatformId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "matchesConfiguredPlatform cannot be false when matched and configured broker platform ids are equal",
+          path: ["matchesConfiguredPlatform"],
+        });
+      } else if (v.rejectReason !== "config_platform_mismatch") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "rejectReason must be config_platform_mismatch when matchesConfiguredPlatform is false and matched differs from configured broker platform",
+          path: ["rejectReason"],
+        });
+      }
+    }
+  });
 
 export type StatementPlatformBrandDbMatch = z.infer<
   typeof statementPlatformBrandDbMatchSchema
