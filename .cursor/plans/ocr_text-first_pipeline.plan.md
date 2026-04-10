@@ -4,7 +4,7 @@ overview: Improve extraction quality via native PDF text + multi-step LLM, evolv
 todos:
   - id: schema-gap-analysis
     content: Define shared Zod for OCR security-transaction candidates vs securityTransactionOrphanInsertSchema; document resolution path to assetSecurityId
-    status: pending
+    status: completed
   - id: pdf-text-module
     content: Add PDF native text extraction + isTextSufficient heuristic; choose library after ESM compatibility check
     status: pending
