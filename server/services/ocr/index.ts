@@ -4,6 +4,12 @@ import {
   createDefaultAnthropicLlmGateway,
   type LlmGateway,
 } from "@server/services/llm";
+import {
+  analyzeDocumentForOcrTranscript,
+  loadPdfTextExtractionConfigFromEnv,
+  type DocumentTranscriptAnalysis,
+  type PdfTextExtractionConfig,
+} from "@server/services/pdf-text";
 import { log } from "@server/log";
 import { extractedAmountSchema, type ExtractedAmount } from "@shared/schema/document";
 import { z } from "zod";
@@ -97,9 +103,14 @@ function parseExtractedAmountsFromModelText(raw: string): ExtractedAmount[] | nu
 
 export class OcrService {
   private readonly llm: LlmGateway;
+  private readonly pdfTextConfig: PdfTextExtractionConfig;
 
-  constructor(llm: LlmGateway = createDefaultAnthropicLlmGateway()) {
+  constructor(
+    llm: LlmGateway = createDefaultAnthropicLlmGateway(),
+    pdfTextConfig: PdfTextExtractionConfig = loadPdfTextExtractionConfigFromEnv()
+  ) {
     this.llm = llm;
+    this.pdfTextConfig = pdfTextConfig;
   }
 
   /**
@@ -121,24 +132,18 @@ export class OcrService {
 
     const systemPrompt = this.buildSystemPrompt(platformKey, platformsString);
 
-    const contentBlock: Anthropic.ImageBlockParam | Anthropic.DocumentBlockParam =
-      mimeType === "application/pdf"
-        ? {
-            type: "document",
-            source: {
-              type: "base64",
-              media_type: "application/pdf",
-              data: base64,
-            },
-          }
-        : {
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: mimeType as SupportedImageType,
-              data: base64,
-            },
-          };
+    const extractionInstruction = `Extract all account balances from this document.
+
+Return ONLY a single JSON array of objects with keys: platformName (string), amount (number), confidence (number 0-1), optional accountType (string).
+Example: [{"platformName":"Example Broker","amount":12345.67,"confidence":0.9,"accountType":"ISA"}]
+If none: []`;
+
+    const userContent = await this.buildUserContentForExtract(
+      buffer,
+      mimeType,
+      base64,
+      extractionInstruction
+    );
 
     const response = await this.llm.createNonStreamingMessage({
       model: ANTHROPIC_MESSAGES_MODEL,
@@ -147,17 +152,7 @@ export class OcrService {
       messages: [
         {
           role: "user",
-          content: [
-            contentBlock,
-            {
-              type: "text",
-              text: `Extract all account balances from this document.
-
-Return ONLY a single JSON array of objects with keys: platformName (string), amount (number), confidence (number 0-1), optional accountType (string).
-Example: [{"platformName":"Example Broker","amount":12345.67,"confidence":0.9,"accountType":"ISA"}]
-If none: []`,
-            },
-          ],
+          content: userContent,
         },
       ],
     });
@@ -177,6 +172,99 @@ If none: []`,
     }
 
     return results;
+  }
+
+  /**
+   * Route: non-PDF → vision image; PDF → native text analysis → transcript LLM or vision PDF document.
+   */
+  private async buildUserContentForExtract(
+    buffer: Buffer,
+    mimeType: SupportedMimeType,
+    base64: string,
+    extractionInstruction: string
+  ): Promise<Anthropic.ContentBlockParam[]> {
+    if (mimeType !== "application/pdf") {
+      return this.buildVisionImageUserContent(
+        mimeType,
+        base64,
+        extractionInstruction
+      );
+    }
+
+    const analysis = await analyzeDocumentForOcrTranscript(
+      buffer,
+      mimeType,
+      this.pdfTextConfig
+    );
+
+    if (analysis.kind !== "pdf_transcript") {
+      throw new Error(
+        `OcrService: expected PDF transcript analysis for mime ${mimeType}`
+      );
+    }
+
+    log(
+      `OcrService: pdf native text pages=${analysis.totalPages} chars=${analysis.charCount} words=${analysis.wordCount} transcriptPath=${analysis.useTranscriptPath}`
+    );
+
+    if (analysis.useTranscriptPath) {
+      return this.buildTranscriptPdfUserContent(analysis, extractionInstruction);
+    }
+
+    return this.buildVisionPdfUserContent(base64, extractionInstruction);
+  }
+
+  private buildVisionImageUserContent(
+    mimeType: SupportedImageType,
+    base64: string,
+    extractionInstruction: string
+  ): Anthropic.ContentBlockParam[] {
+    log(`OcrService: extractionPath=vision mimeType=${mimeType} (image)`);
+    const imageBlock: Anthropic.ImageBlockParam = {
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: mimeType,
+        data: base64,
+      },
+    };
+    return [imageBlock, { type: "text", text: extractionInstruction }];
+  }
+
+  private buildTranscriptPdfUserContent(
+    analysis: Extract<
+      DocumentTranscriptAnalysis,
+      { kind: "pdf_transcript" }
+    >,
+    extractionInstruction: string
+  ): Anthropic.ContentBlockParam[] {
+    log("OcrService: extractionPath=transcript (native PDF text)");
+    return [
+      {
+        type: "text",
+        text: `Below is the full plain text extracted from all ${analysis.totalPages} PDF page(s). Use only this transcript (no PDF image is attached).`,
+      },
+      { type: "text", text: analysis.fullTranscript },
+      { type: "text", text: extractionInstruction },
+    ];
+  }
+
+  private buildVisionPdfUserContent(
+    base64: string,
+    extractionInstruction: string
+  ): Anthropic.ContentBlockParam[] {
+    log(
+      "OcrService: extractionPath=vision (Anthropic PDF document — sparse native text)"
+    );
+    const documentBlock: Anthropic.DocumentBlockParam = {
+      type: "document",
+      source: {
+        type: "base64",
+        media_type: "application/pdf",
+        data: base64,
+      },
+    };
+    return [documentBlock, { type: "text", text: extractionInstruction }];
   }
 
   private buildSystemPrompt(platformKey: string, platformsString: string): string {
