@@ -51,3 +51,52 @@ flowchart TD
 - **Phase 1:** **3a** is its own **model run**; **3b** is deterministic / service verification against **`platforms`** (or equivalent); **3c** runs **only when** a **platform key** was supplied for this OCR run—confirm the resolved row **matches** that config; otherwise **failure** (no silent mismatch).
 - **Phase 2:** **4a** is a **second** model run (securities evaluation); **4b** is schema / shape validation on **candidate rows**; **4c** is **ownership** (candidates must map to securities the **user** actually holds—cache / DB, not model assertion alone).
 - **TBC:** Further steps (persistence, UI confirm, more AI phases, etc.) go after **4c**.
+
+---
+
+## Sequence view (AI calls vs code verifiers)
+
+The **flowchart** above is best for **branching and outcomes** (what can fail, what is skipped). The **sequence diagram** below is best for **time order** and **who talks to whom**: each **LLM** invocation is explicit, and **code** runs **between** phases to validate structured output before the next model call or exit.
+
+Keep both diagrams **in sync** when steps change.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Orch as Orchestrator
+  participant LLM as LLM
+  participant Code as Code verifiers
+
+  Note over Orch: 1 Document ready — buffer / text in hand
+  Orch->>Orch: 2 Prepare AI OCR orchestration
+
+  Orch->>LLM: 3a Phase 1 — brand identification
+  LLM-->>Orch: Structured brand / platform result
+
+  Orch->>Code: 3b Verify brand in DB
+  Code-->>Orch: Pass or fail
+
+  alt Platform key in OCR config
+    Orch->>Code: 3c Verify DB match to configured platform
+    Code-->>Orch: Match or exit failure
+  else No platform key in config
+    Note over Orch,Code: Skip 3c — continue to phase 2
+  end
+
+  Orch->>LLM: 4a Phase 2 — securities evaluation
+  LLM-->>Orch: Securities candidate rows
+
+  Orch->>Code: 4b Evaluate rows vs satisfactory schemas
+  Code-->>Orch: Satisfactory or fail
+
+  Orch->>Code: 4c Verify candidates are user-owned securities
+  Code-->>Orch: Pass or fail
+
+  Note over Orch: … To be continued
+```
+
+**Legend (sequence)**
+
+- **Orchestrator** — your runner / graph / LangChain chain: holds document context, chooses the next step, passes **validated** inputs into the next LLM call.
+- **LLM** — **separate** completions (phase 1 vs phase 2), each with its own **messages** and **output schema**; not one endless thread unless you deliberately reuse conversation state.
+- **Code verifiers** — **synchronous** checks in process (DB lookups, Zod parse, portfolio membership, config vs resolved row). Failures **short-circuit** before the next LLM call where the flowchart shows an edge to **Exit failure**.
