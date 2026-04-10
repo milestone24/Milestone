@@ -54,7 +54,7 @@ Anthropic's API natively supports: `image/jpeg`, `image/png`, `image/gif`, `imag
 
 The Phase 2 payload today is **`ExtractedAmount[]`** (`platformName`, `amount`, confidence, etc.), which is **not** sufficient to build rows aligned with **`security_transactions`** and [`securityTransactionOrphanInsertSchema` / `securityTransactionInsertSchema`](shared/schema/transaction.ts) (e.g. **share `value`**, **`currencyValue`**, **`valueDate`**, security identity for `assetSecurityId` resolution).
 
-**End-to-end pipeline (mermaid, living):** [`docs/Transaction-OCR-flow.md`](../../docs/Transaction-OCR-flow.md) — document-ready → orchestration → brand / platform phases → securities phases (extend in place as steps grow).
+**End-to-end pipeline (mermaid, living):** [`docs/Transaction-OCR-flow.md`](../../docs/Transaction-OCR-flow.md) — document-ready → orchestration → brand / platform phases → securities phases (extend in place as steps grow). **Orchestration adoption:** follow that doc’s **Implementation evolution** and [OCR text-first pipeline](ocr_text-first_pipeline.plan.md) **Ordered spikes (agreed)** — **Spike 1** (plain TS + `LlmGateway`) before **Spike 2** (LangGraph).
 
 See **[OCR text-first pipeline and capture schema](ocr_text-first_pipeline.plan.md)** for:
 

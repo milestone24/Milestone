@@ -9,6 +9,21 @@ This file holds the **authoritative mermaid** for transaction-related OCR. **Ext
 - **Multiple AI runs** for **different jobs** (e.g. brand / platform vs securities evaluation)—each with its own **messages / agent role** and **structured purpose**, not one long undifferentiated chat.
 - **Orchestration** (step 2) sets up that **multi-phase** flow (routing, tools, schemas, conversation state).
 - **Verification** steps (**3b**, **3c**, **4b**, **4c**) are **not** the same as the LLM calls: DB checks, config vs DB alignment, Zod / schema gates, and **user portfolio** checks sit **between** or **after** AI phases as appropriate.
+- **Implementation evolution (product decision):** **Spike 1** ships a **thin `LlmGateway`** and **explicit TypeScript** orchestration aligned with this diagram—**no LangGraph** until the **PDF text + transcript/vision split** is stable, so graph and document plumbing are not debugged together. **Spike 2** is a **time-boxed LangGraph** (+ LangChain chat models) trial on **one vertical slice**, reusing the same gateway for **Ollama**, **AWS Bedrock**, Anthropic, etc.; outcome is **adopt / defer / hybrid**, recorded in [OCR text-first pipeline plan](../.cursor/plans/ocr_text-first_pipeline.plan.md) **Ordered spikes (agreed)**.
+
+## Implementation evolution (spikes)
+
+High-level **order of adoption** (details and exit criteria live in the plan above):
+
+```mermaid
+flowchart TD
+  S1["Spike 1 — thin LlmGateway + explicit TS orchestration + stable PDF text and OcrService transcript/vision split"]
+  S2["Spike 2 — time-boxed LangGraph + LangChain chat models reusing the gateway; evaluate Bedrock Ollama Anthropic etc."]
+  S1 -->|"when Spike 1 exit criteria met"| S2
+```
+
+- **Gateway** stays the **provider diversification** layer in both spikes; **LangGraph** (if adopted) sits **above** the gateway, not instead of it.
+- The **flowchart** and **sequence** sections below describe **runtime behaviour**; this section describes **how we build toward it** without blocking product flow on a graph library on day one.
 
 ```mermaid
 flowchart TD
@@ -47,8 +62,8 @@ flowchart TD
 
 **Legend**
 
-- **1 → 2:** Nothing AI runs until there is a **document**; orchestration prepares **phases**, prompts, and outputs (e.g. LangChain-style graphs or explicit runners).
-- **Phase 1:** **3a** is its own **model run**; **3b** is deterministic / service verification against **`platforms`** (or equivalent); **3c** runs **only when** a **platform key** was supplied for this OCR run—confirm the resolved row **matches** that config; otherwise **failure** (no silent mismatch).
+- **1 → 2:** Nothing AI runs until there is a **document**; orchestration prepares **phases**, prompts, and outputs (Spike 1: explicit TS runner; Spike 2 may introduce LangGraph—see **Implementation evolution**).
+- **Phase 1:** **3a** is its own **model run**; **3b** is deterministic / service verification against **`broker_platforms`** (or equivalent); **3c** runs **only when** a **platform key** was supplied for this OCR run—confirm the resolved row **matches** that config; otherwise **failure** (no silent mismatch).
 - **Phase 2:** **4a** is a **second** model run (securities evaluation); **4b** is schema / shape validation on **candidate rows**; **4c** is **ownership** (candidates must map to securities the **user** actually holds—cache / DB, not model assertion alone).
 - **TBC:** Further steps (persistence, UI confirm, more AI phases, etc.) go after **4c**.
 
@@ -97,6 +112,6 @@ sequenceDiagram
 
 **Legend (sequence)**
 
-- **Orchestrator** — your runner / graph / LangChain chain: holds document context, chooses the next step, passes **validated** inputs into the next LLM call.
+- **Orchestrator** — your runner (explicit TS first; optional LangGraph later): holds document context, chooses the next step, passes **validated** inputs into the next LLM call.
 - **LLM** — **separate** completions (phase 1 vs phase 2), each with its own **messages** and **output schema**; not one endless thread unless you deliberately reuse conversation state.
 - **Code verifiers** — **synchronous** checks in process (DB lookups, Zod parse, portfolio membership, config vs resolved row). Failures **short-circuit** before the next LLM call where the flowchart shows an edge to **Exit failure**.
