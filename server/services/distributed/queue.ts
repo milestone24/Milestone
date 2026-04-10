@@ -121,6 +121,7 @@ type DocumentOcrStartedMessage = DocumentOcrMessageBase & {
 type DocumentOcrCompletedMessage = DocumentOcrMessageBase & {
   type: "document-ocr-completed";
   extractedValues: import("@shared/schema/document").ExtractedAmount[];
+  pipeline?: import("@shared/schema/document").DocumentOcrPipelineResult;
 };
 
 type DocumentOcrFailedMessage = Omit<DocumentOcrMessageBase, "jobId"> & {

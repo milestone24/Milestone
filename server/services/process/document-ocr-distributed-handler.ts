@@ -13,7 +13,11 @@ import {
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
 } from "@server/utils/shutdown";
 import { DocumentService } from "@server/services/documents";
-import { OcrService, isSupportedMimeType } from "@server/services/ocr";
+import {
+  OcrService,
+  isSupportedMimeType,
+  runFullDocumentOcrPipeline,
+} from "@server/services/ocr";
 
 type Event = {
   jobId: string;
@@ -90,24 +94,31 @@ export const handler = async (event: Event): Promise<void> => {
 
     const { buffer } = await documentService.getBuffer(documentId);
 
-    const extractedValues = await ocrService.extract(
+    const { pipeline, extractedValues } = await runFullDocumentOcrPipeline({
       buffer,
       mimeType,
       platformKey,
-      platformNames
-    );
+      platformNames,
+      accountId,
+      extractBalances: (prepared) =>
+        ocrService.extractFromPrepared(prepared, platformKey, platformNames),
+    });
 
     await updateProcessStatus(jobId, "completed");
     await queueService.publish({
       ...messageBase,
       type: "document-ocr-completed",
       extractedValues,
+      pipeline,
     });
 
     console.log(
-      "[document-ocr] Completed jobId=%s extracted=%d values",
+      "[document-ocr] Completed jobId=%s path=%s charCount=%s extracted=%d securityRows=%d",
       jobId,
-      extractedValues.length
+      pipeline.llmPath,
+      pipeline.nativePdfCharCount ?? "n/a",
+      extractedValues.length,
+      pipeline.securityHoldings.length
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

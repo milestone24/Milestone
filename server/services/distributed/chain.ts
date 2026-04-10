@@ -58,6 +58,7 @@ export const initUpdateChain = async () => {
           jobId: message.jobId,
           documentId: message.documentId,
           extractedValues: message.extractedValues,
+          pipeline: message.pipeline,
         } as any);
       }
       if (message.type === "document-ocr-failed") {
