@@ -24,6 +24,7 @@ flowchart TD
 
 - **Gateway** stays the **provider diversification** layer in both spikes; **LangGraph** (if adopted) sits **above** the gateway, not instead of it.
 - The **flowchart** and **sequence** sections below describe **runtime behaviour**; this section describes **how we build toward it** without blocking product flow on a graph library on day one.
+- **When to decide what:** timing for open questions (`platformKey` shape, PDF text vs transcript-first, orchestration host, second provider order, dual-track payloads) is tracked in [OCR text-first pipeline plan](../.cursor/plans/ocr_text-first_pipeline.plan.md) **Open implementation decisions (by phase)**.
 
 ```mermaid
 flowchart TD

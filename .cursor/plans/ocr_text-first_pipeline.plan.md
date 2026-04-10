@@ -181,7 +181,7 @@ Implication: evaluate both **orchestration** (graphs, routing) and **provider ab
 ### Ordered spikes (agreed)
 
 1. **Spike 1 — Plain TypeScript + thin `LlmGateway` (first)**  
-   - **Goal:** Establish a **diversifiable foundation** before adding a graph library: one internal contract (`modelRef`, messages in, **Zod-validated** structured data out, timeouts, logging) with **per-provider adapters** (Anthropic SDK today; **Ollama** HTTP and **AWS Bedrock** later behind the same interface).  
+   - **Goal:** Establish a **diversifiable foundation** before adding a graph library: one internal contract (`modelRef`, messages in, **Zod-validated** structured data out, timeouts, logging) with **per-provider adapters** (Anthropic SDK today; **Ollama** HTTP and **AWS Bedrock** later behind the same interface). **Baseline code:** [`server/services/llm/`](../../server/services/llm/) (`LlmGateway`, `AnthropicLlmGateway`, `createDefaultAnthropicLlmGateway`) with **`OcrService`** calling the gateway for `messages.create`.  
    - **Orchestration:** **Explicit** functions or a tiny hand-rolled state machine that mirror [`docs/Transaction-OCR-flow.md`](../../docs/Transaction-OCR-flow.md) (document ready → prep → Phase 1 LLM → code verifiers → Phase 2 LLM → …). **No LangGraph** in this spike so we do not couple **PDF text extraction**, **transcript vs vision split**, and **graph debugging**.  
    - **Exit criteria (example):** One vertical slice (e.g. transcript → `statementPlatformBrandIdentificationSchema` or security row schema) runs through gateway + verifiers; second provider (e.g. Ollama **text**) proves **swap cost** is acceptable.
 
@@ -195,6 +195,21 @@ Implication: evaluate both **orchestration** (graphs, routing) and **provider ab
 - **PDF text + split `OcrService`** remains the **first implementation priority** alongside Spike 1 gateway work where they touch the same code paths.  
 - **Do not** introduce LangGraph until **Spike 1** exit criteria are met (text path + explicit orchestration stable enough that graph issues are isolatable).  
 - **Document the outcome** of both spikes in this plan (or a short note): chosen **gateway + optional LangGraph**, explicit **non-goals**, and which routes use **which provider** (including Bedrock when adopted).
+
+---
+
+## Open implementation decisions (by phase)
+
+These are the **decision points** called out when starting Spike 1. Each row states **when** the decision must be taken so work stays sequenced and reviewable.
+
+| Decision | Notes | Must be resolved by |
+|----------|--------|----------------------|
+| **Gateway v1 contract** | First `LlmGateway` implementation: `createNonStreamingMessage` accepts Anthropic **`MessageCreateParamsNonStreaming`** today; **`LlmModelRef`** / `LlmProviderId` in [`server/services/llm/llm-gateway.ts`](../../server/services/llm/llm-gateway.ts) are reserved for routing when Bedrock / Ollama adapters land. | **Spike 1 — gateway scaffolding** (land baseline; adjust signatures only when adding the second adapter if needed). |
+| **Native PDF text vs transcript-first slice** | Whether all paths wait on **native PDF text + `isTextSufficient`** before any LLM call, or a **transcript-only / bytes-only** slice ships first and PDF text follows. | Completion of **`pdf-text-module`** + **`ocr-service-split`** todos — **document the chosen order** in this plan when those tasks close. |
+| **`platformKey` / OCR config shape** | How `POST …/extract` and `processes` carry platform identity (`unknown`, slug, **`broker_platforms.id` UUID**, etc.) so **3c** can compare apples-to-apples with DB rows. | **First implementation** that runs **3b/3c** brand verification against **`broker_platforms`** (before persisting or enforcing config alignment in prod). |
+| **Where orchestration runs** | Same Node process as **`document-ocr-distributed-handler`** vs separate worker / future durable engine (Temporal, Inngest). | **Before Spike 2 (LangGraph)** if checkpoints or long-running state need a host; **default** for Spike 1: **in-process** in the existing handler path unless product says otherwise. |
+| **Second provider priority** | First non-Anthropic adapter after gateway: **Ollama (text)** vs **AWS Bedrock** vs other — driven by dev cost, AWS alignment, and structured-output quality on a vertical slice. | **`orchestration-spike-1-ts-gateway` exit** (or explicit hand-off note when starting **`orchestration-spike-2-langgraph`**). |
+| **Dual-track OCR payloads** | Record **asset-value** OCR vs **security-transaction** OCR: modes, routes, WebSocket / queue payloads, coexistence with `ExtractedAmount[]`. | **`product-dual-track` todo** before **`ExtractedAmount`-only** is removed as the sole production contract. |
 
 ---
 
@@ -214,3 +229,4 @@ Implication: evaluate both **orchestration** (graphs, routing) and **provider ab
 
 - Keep [DocumentUpload OCR Refactor](documentupload_ocr_refactor_1e50c3b2.plan.md) in sync: add a one-line pointer that extraction payloads will evolve toward security-transaction candidates per this plan.
 - Keep [`docs/Transaction-OCR-flow.md`](../../docs/Transaction-OCR-flow.md) as the **living** end-to-end pipeline diagram (mermaid); this plan’s phases should stay aligned with that document when steps change.
+- Keep **Open implementation decisions (by phase)** (above) updated when a row is decided or deferred.
