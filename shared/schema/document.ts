@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  statementPlatformBrandDbMatchSchema,
+  statementPlatformBrandIdentificationSchema,
+} from "./platform-brand-ocr";
+import { securityTransactionOcrExtractionListSchema } from "./transaction";
 import type {
   DocumentInsert as DBDocumentInsert,
   DocumentSelect as DBDocumentSelect,
@@ -97,3 +102,14 @@ export const documentOcrResponseSchema = z.object({
 });
 
 export type DocumentOcrResponse = z.infer<typeof documentOcrResponseSchema>;
+
+/** Result of multi-phase transaction OCR (brand → securities verifiers) for WebSocket / queue payloads. */
+export const documentOcrPipelineResultSchema = z.object({
+  brandIdentification: statementPlatformBrandIdentificationSchema,
+  brandDbMatch: statementPlatformBrandDbMatchSchema,
+  securityHoldings: securityTransactionOcrExtractionListSchema,
+  llmPath: z.enum(["text", "vision"]),
+  nativePdfCharCount: z.number().int().nonnegative().optional(),
+});
+
+export type DocumentOcrPipelineResult = z.infer<typeof documentOcrPipelineResultSchema>;
