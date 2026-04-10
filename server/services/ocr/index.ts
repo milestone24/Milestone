@@ -4,15 +4,15 @@ import {
   createDefaultAnthropicLlmGateway,
   type LlmGateway,
 } from "@server/services/llm";
-import {
-  analyzeDocumentForOcrTranscript,
-  loadPdfTextExtractionConfigFromEnv,
-  type DocumentTranscriptAnalysis,
-  type PdfTextExtractionConfig,
-} from "@server/services/pdf-text";
+import { loadPdfTextExtractionConfigFromEnv, type PdfTextExtractionConfig } from "@server/services/pdf-text";
 import { log } from "@server/log";
 import { extractedAmountSchema, type ExtractedAmount } from "@shared/schema/document";
 import { z } from "zod";
+import {
+  appendPhaseInstruction,
+  prepareOcrDocumentUserContentBase,
+  type PreparedOcrDocumentUserContent,
+} from "./document-user-content";
 
 const SUPPORTED_IMAGE_TYPES = [
   "image/jpeg",
@@ -26,8 +26,7 @@ const SUPPORTED_MIME_TYPES = [
   "application/pdf",
 ] as const;
 
-type SupportedImageType = (typeof SUPPORTED_IMAGE_TYPES)[number];
-type SupportedMimeType = (typeof SUPPORTED_MIME_TYPES)[number];
+export type SupportedMimeType = (typeof SUPPORTED_MIME_TYPES)[number];
 
 export function isSupportedMimeType(mimeType: string): mimeType is SupportedMimeType {
   return (SUPPORTED_MIME_TYPES as readonly string[]).includes(mimeType);
@@ -127,7 +126,23 @@ export class OcrService {
     platformKey: string,
     platformNames: string[]
   ): Promise<ExtractedAmount[]> {
-    const base64 = buffer.toString("base64");
+    const prepared = await prepareOcrDocumentUserContentBase(
+      buffer,
+      mimeType,
+      this.pdfTextConfig
+    );
+    return this.extractFromPrepared(prepared, platformKey, platformNames);
+  }
+
+  /**
+   * Balance extraction using document blocks from {@link prepareOcrDocumentUserContentBase}
+   * (avoids re-running PDF native text extraction when the orchestrator already prepared the document).
+   */
+  async extractFromPrepared(
+    prepared: PreparedOcrDocumentUserContent,
+    platformKey: string,
+    platformNames: string[]
+  ): Promise<ExtractedAmount[]> {
     const platformsString = platformNames.join(", ");
 
     const systemPrompt = this.buildSystemPrompt(platformKey, platformsString);
@@ -138,10 +153,8 @@ Return ONLY a single JSON array of objects with keys: platformName (string), amo
 Example: [{"platformName":"Example Broker","amount":12345.67,"confidence":0.9,"accountType":"ISA"}]
 If none: []`;
 
-    const userContent = await this.buildUserContentForExtract(
-      buffer,
-      mimeType,
-      base64,
+    const userContent = appendPhaseInstruction(
+      prepared.baseUserContent,
       extractionInstruction
     );
 
@@ -174,99 +187,6 @@ If none: []`;
     return results;
   }
 
-  /**
-   * Route: non-PDF → vision image; PDF → native text analysis → transcript LLM or vision PDF document.
-   */
-  private async buildUserContentForExtract(
-    buffer: Buffer,
-    mimeType: SupportedMimeType,
-    base64: string,
-    extractionInstruction: string
-  ): Promise<Anthropic.ContentBlockParam[]> {
-    if (mimeType !== "application/pdf") {
-      return this.buildVisionImageUserContent(
-        mimeType,
-        base64,
-        extractionInstruction
-      );
-    }
-
-    const analysis = await analyzeDocumentForOcrTranscript(
-      buffer,
-      mimeType,
-      this.pdfTextConfig
-    );
-
-    if (analysis.kind !== "pdf_transcript") {
-      throw new Error(
-        `OcrService: expected PDF transcript analysis for mime ${mimeType}`
-      );
-    }
-
-    log(
-      `OcrService: pdf native text pages=${analysis.totalPages} chars=${analysis.charCount} words=${analysis.wordCount} transcriptPath=${analysis.useTranscriptPath}`
-    );
-
-    if (analysis.useTranscriptPath) {
-      return this.buildTranscriptPdfUserContent(analysis, extractionInstruction);
-    }
-
-    return this.buildVisionPdfUserContent(base64, extractionInstruction);
-  }
-
-  private buildVisionImageUserContent(
-    mimeType: SupportedImageType,
-    base64: string,
-    extractionInstruction: string
-  ): Anthropic.ContentBlockParam[] {
-    log(`OcrService: extractionPath=vision mimeType=${mimeType} (image)`);
-    const imageBlock: Anthropic.ImageBlockParam = {
-      type: "image",
-      source: {
-        type: "base64",
-        media_type: mimeType,
-        data: base64,
-      },
-    };
-    return [imageBlock, { type: "text", text: extractionInstruction }];
-  }
-
-  private buildTranscriptPdfUserContent(
-    analysis: Extract<
-      DocumentTranscriptAnalysis,
-      { kind: "pdf_transcript" }
-    >,
-    extractionInstruction: string
-  ): Anthropic.ContentBlockParam[] {
-    log("OcrService: extractionPath=transcript (native PDF text)");
-    return [
-      {
-        type: "text",
-        text: `Below is the full plain text extracted from all ${analysis.totalPages} PDF page(s). Use only this transcript (no PDF image is attached).`,
-      },
-      { type: "text", text: analysis.fullTranscript },
-      { type: "text", text: extractionInstruction },
-    ];
-  }
-
-  private buildVisionPdfUserContent(
-    base64: string,
-    extractionInstruction: string
-  ): Anthropic.ContentBlockParam[] {
-    log(
-      "OcrService: extractionPath=vision (Anthropic PDF document — sparse native text)"
-    );
-    const documentBlock: Anthropic.DocumentBlockParam = {
-      type: "document",
-      source: {
-        type: "base64",
-        media_type: "application/pdf",
-        data: base64,
-      },
-    };
-    return [documentBlock, { type: "text", text: extractionInstruction }];
-  }
-
   private buildSystemPrompt(platformKey: string, platformsString: string): string {
     if (platformKey === "unknown") {
       // TBC: platform identification prompt
@@ -283,3 +203,8 @@ Only include accounts where you can clearly read a balance value.
 If you cannot identify any balances, return [].`;
   }
 }
+
+export {
+  runFullDocumentOcrPipeline,
+  type FullDocumentOcrResult,
+} from "./transaction-ocr-orchestrator";
