@@ -233,6 +233,29 @@ function normSymbol(s: string): string {
   return s.trim().toUpperCase();
 }
 
+/** Compare ISINs ignoring case and internal spaces. */
+function isinsEqual(a: string, b: string): boolean {
+  return a.replace(/\s/g, "").toUpperCase() === b.replace(/\s/g, "").toUpperCase();
+}
+
+/**
+ * True when OCR and DB tickers refer to the same instrument under common variants
+ * (e.g. `VWRL` vs `VWRL.L`, same base before the first dot).
+ */
+function symbolsCompatible(ocrSymbol: string | undefined, dbSymbol: string): boolean {
+  const raw = ocrSymbol?.trim();
+  if (!raw) return false;
+  const o = normSymbol(raw);
+  const d = normSymbol(dbSymbol);
+  if (o === d) return true;
+  const baseO = o.includes(".") ? o.slice(0, o.indexOf(".")) : o;
+  const baseD = d.includes(".") ? d.slice(0, d.indexOf(".")) : d;
+  if (baseO.length < 2 || baseD.length < 2) return false;
+  return baseO === baseD;
+}
+
+const OCR_NAME_PREFIX_MIN_LEN = 10;
+
 function rowMatchesUserSecurity(
   row: SecurityTransactionOcrExtractionRow,
   holding: { symbol: string; isin: string | null; name: string }
@@ -240,15 +263,29 @@ function rowMatchesUserSecurity(
   const rowSym = row.symbol?.trim();
   const rowIsin = row.isin?.trim();
   const rowName = row.name?.trim();
-  if (rowSym && normSymbol(rowSym) === normSymbol(holding.symbol)) return true;
-  if (rowIsin && holding.isin && rowIsin.toUpperCase() === holding.isin.toUpperCase())
-    return true;
-  if (rowName && normalizeLabel(rowName) === normalizeLabel(holding.name)) return true;
-  const ratio = fuzzyRatio(
-    normalizeLabel(rowName ?? ""),
-    normalizeLabel(holding.name)
-  );
-  return ratio >= 0.92;
+
+  const symMatch = symbolsCompatible(rowSym, holding.symbol);
+  const isinMatch =
+    !!rowIsin &&
+    !!holding.isin &&
+    isinsEqual(rowIsin, holding.isin);
+
+  // Near-definitive when both identifiers agree (OCR and DB each supply ISIN).
+  if (symMatch && isinMatch) return true;
+  if (symMatch) return true;
+  if (isinMatch) return true;
+
+  if (!rowName) return false;
+
+  const rn = normalizeLabel(rowName);
+  const hn = normalizeLabel(holding.name);
+  if (rn.length === 0) return false;
+  if (hn === rn) return true;
+  // Short OCR title vs longer canonical name, e.g. "Vanguard FTSE Developed World" vs
+  // "Vanguard FTSE Developed World UCITS ETF USD Accumulation"
+  if (rn.length >= OCR_NAME_PREFIX_MIN_LEN && hn.startsWith(rn)) return true;
+
+  return fuzzyRatio(rn, hn) >= 0.92;
 }
 
 /**
