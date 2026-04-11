@@ -20,6 +20,12 @@ todos:
   - id: orchestration-spike-1-ts-gateway
     content: "LlmGateway (Anthropic) + explicit TS orchestration in runFullDocumentOcrPipeline — docs/Transaction-OCR-flow 3a–3c, 4a–4c + balances; shared Zod for brand + securities; wired in document-ocr handler."
     status: completed
+  - id: ocr-jobs-schema
+    content: "ocr_jobs Drizzle schema — document_id FK SET NULL, process_id FK SET NULL, platform_key, status (reuse processStatus enum), extracted_values jsonb, pipeline jsonb, error, started_at, completed_at; exported from server/db/schema/index.ts"
+    status: completed
+  - id: ocr-jobs-wire-handler
+    content: "Wire document-ocr-distributed-handler to insert/update ocr_jobs on start, complete and fail; persistence must not rely solely on the queue message"
+    status: pending
   - id: product-dual-track
     content: "Clarify Record asset-values OCR vs security-transaction OCR — decide payload shape (securityCandidates field on document-ocr-completed vs separate mode/route); securityHoldings are currently computed and dropped downstream."
     status: pending
