@@ -12,7 +12,10 @@ todos:
     content: Refactor OcrService — extractFromTranscript, extractFromVision, extract orchestration
     status: completed
   - id: pipeline-wire-logging
-    content: Handler + structured logs (path=text|vision, charCount); optional CLI --dump-text
+    content: "Done: document-ocr handler logs path/charCount/row counts; document-ocr-completed carries pipeline; dev/test-ocr --verbose (LLM + 4c diagnostics). Remaining: optional --dump-text CLI for PDF transcript only"
+    status: completed
+  - id: ocr-cli-dump-text
+    content: Optional dev CLI --dump-text — dump native PDF transcript without Anthropic (e.g. extend dev/test-ocr or small script)
     status: pending
   - id: product-dual-track
     content: Clarify Record asset-values OCR vs security-transaction OCR (mode, routes, or separate flows)
@@ -21,7 +24,10 @@ todos:
     content: Optional groundedness verify pass + feature flag
     status: pending
   - id: orchestration-spike-1-ts-gateway
-    content: Spike 1 — thin LlmGateway + explicit TS orchestration for OCR phases (aligned with docs/Transaction-OCR-flow.md); no LangGraph until PDF text + OcrService transcript/vision split is stable; validate structured I/O with existing Zod
+    content: "LlmGateway (Anthropic) + explicit TS orchestration in runFullDocumentOcrPipeline — docs/Transaction-OCR-flow 3a–3c, 4a–4c + balances; shared Zod for brand + securities; wired in document-ocr handler. Open for Spike 1 exit: second provider (e.g. Ollama text) + short write-up/decision"
+    status: completed
+  - id: orchestration-spike-1-exit-provider
+    content: Spike 1 exit — second LlmGateway adapter (e.g. Ollama HTTP text) and one vertical slice through gateway; note decision / non-goals in plan or doc
     status: pending
   - id: orchestration-spike-2-langgraph
     content: Spike 2 — time-boxed LangGraph (+ LangChain chat models) on one vertical slice; evaluate Ollama + AWS Bedrock (or other) via same gateway pattern; record decision vs staying on plain TS
@@ -134,9 +140,9 @@ flowchart TD
 
 Implementation phases (unchanged in spirit):
 
-1. PDF text module + heuristic + CLI `--dump-text`. **Done:** [`server/services/pdf-text/`](../../server/services/pdf-text/) + env-configurable thresholds; CLI `--dump-text` still **pending** (`pipeline-wire-logging` todo).
-2. Split `OcrService`: transcript vs vision; orchestration in `extract`. **Done:** `buildTranscriptPdfUserContent` / `buildVisionPdfUserContent` / `buildVisionImageUserContent`.
-3. Logging (`path=text|vision`, `charCount`).
+1. PDF text module + heuristic. **Done:** [`server/services/pdf-text/`](../../server/services/pdf-text/) + env-configurable thresholds. **CLI `--dump-text`:** still **pending** — see todo `ocr-cli-dump-text`.
+2. Split `OcrService`: transcript vs vision; shared `prepareOcrDocumentUserContentBase`. **Done:** `document-user-content.ts` + `extract` / `extractFromPrepared`.
+3. Logging (`path=text|vision`, `charCount`). **Done:** document-ocr handler completion log; `document-ocr-completed.pipeline`; dev `test-ocr --verbose` for LLM / 4c traces.
 4. Optional second LLM pass for groundedness.
 5. Optional OCR vendor/Tesseract when text layer empty.
 

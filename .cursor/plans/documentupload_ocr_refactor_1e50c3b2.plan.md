@@ -3,38 +3,38 @@ name: DocumentUpload OCR Refactor
 overview: Wire document uploads into a non-blocking, distributed OCR extraction process. The HTTP upload returns a jobId immediately; Anthropic runs async in the background; the client receives extracted values via WebSocket when the job completes. Builds on top of the Document Service Infrastructure (Phase 1).
 todos:
   - id: shared-schema
-    content: Add extractedAmountSchema and documentOcrResponseSchema to shared/schema/document.ts and export from index
-    status: pending
+    content: shared/schema/document.ts — extractedAmountSchema, documentOcrResponseSchema, documentOcrPipelineResultSchema (phased OCR payload); exported via shared/schema/index
+    status: completed
   - id: queue-messages
-    content: Add DocumentOcrMessage types (started, completed, failed) to server/services/distributed/queue.ts and include in the Message union
-    status: pending
+    content: DocumentOcrMessage types (started, completed, failed) in server/services/distributed/queue.ts on Message union + isDocumentOcrMessage
+    status: completed
   - id: process-schema
-    content: Add DocumentOcrProcess type to shared/schema/process.ts
-    status: pending
+    content: DocumentOcrProcess type in shared/schema/process.ts (key document-ocr, payload documentId/platformKey/accountId)
+    status: completed
   - id: ocr-service
-    content: Create server/services/ocr/index.ts — OcrService with extract(buffer, mimeType, platformKey); no knowledge of documents or storage
-    status: pending
+    content: server/services/ocr — OcrService (extract, extractFromPrepared), pdf transcript vs vision, LlmGateway; no document/storage coupling
+    status: completed
   - id: server-process-service
-    content: Create server/services/process/document-ocr.ts — orchestrates DocumentService.upload + processes row insert + fires handler; returns { jobId, documentId }
-    status: pending
+    content: server/services/process/document-ocr.ts — startDocumentOcr (upload, processes row, fire handler, reconcile TTL)
+    status: completed
   - id: server-handler
-    content: Create server/services/process/document-ocr-distributed-handler.ts — full lifecycle using DocumentService.getBuffer and OcrService.extract
-    status: pending
+    content: document-ocr-distributed-handler — getBuffer, runFullDocumentOcrPipeline (brand + securities + balances), queue document-ocr-completed with extractedValues + pipeline
+    status: completed
   - id: chain-subscriber
-    content: Add document-ocr-started, document-ocr-completed, and document-ocr-failed handlers to server/services/distributed/chain.ts
-    status: pending
+    content: chain.ts — document-ocr-started / completed / failed → WebSocket notifications (pipeline on completed)
+    status: completed
   - id: server-route-extract
-    content: Add POST /:platformKey/extract to server/routes/documents.ts (multer + requireUser + startDocumentOcr); returns 202 { jobId, documentId }
-    status: pending
+    content: POST /api/documents/:platformKey/extract — multer, requireUser, startDocumentOcr, 202 { jobId, documentId }
+    status: completed
   - id: client-hook
-    content: Create client/src/hooks/use-document-upload.ts — useMutation building FormData, posting to /api/documents/:platformKey/extract, returning { jobId, documentId }
-    status: pending
+    content: client/src/hooks/use-document-upload.ts — mutation to extract endpoint
+    status: completed
   - id: client-component
-    content: Create client/src/components/record/DocumentUpload.tsx — file picker, platform selector, waiting state, WebSocket-delivered results with review/edit/verify UX
-    status: pending
+    content: client/src/components/record/DocumentUpload.tsx — picker, platform selector, WS for document-ocr-completed, review UX for extracted amounts
+    status: completed
   - id: record-page
-    content: Replace ScreenshotUpload with DocumentUpload in client/src/pages/record.tsx
-    status: pending
+    content: record.tsx — DocumentUpload on Account Values tab (ScreenshotUpload retained as reference per plan)
+    status: completed
 isProject: false
 ---
 
@@ -52,7 +52,7 @@ Anthropic's API natively supports: `image/jpeg`, `image/png`, `image/gif`, `imag
 
 ### Follow-on: extraction quality and security-transaction capture
 
-The Phase 2 payload today is **`ExtractedAmount[]`** (`platformName`, `amount`, confidence, etc.), which is **not** sufficient to build rows aligned with **`security_transactions`** and [`securityTransactionOrphanInsertSchema` / `securityTransactionInsertSchema`](shared/schema/transaction.ts) (e.g. **share `value`**, **`currencyValue`**, **`valueDate`**, security identity for `assetSecurityId` resolution).
+The Phase 2 **balance** payload remains **`ExtractedAmount[]`** (`platformName`, `amount`, confidence, etc.) for the Record flow. **`document-ocr-completed`** may also include **`pipeline`** (phased brand + securities OCR per [`docs/Transaction-OCR-flow.md`](../../docs/Transaction-OCR-flow.md)). **`ExtractedAmount[]` alone** is **not** sufficient to build rows aligned with **`security_transactions`** and [`securityTransactionOrphanInsertSchema` / `securityTransactionInsertSchema`](shared/schema/transaction.ts) (e.g. **share `value`**, **`currencyValue`**, **`valueDate`**, security identity for `assetSecurityId` resolution) until product dual-track / client wiring consumes `pipeline`.
 
 **End-to-end pipeline (mermaid, living):** [`docs/Transaction-OCR-flow.md`](../../docs/Transaction-OCR-flow.md) — document-ready → orchestration → brand / platform phases → securities phases (extend in place as steps grow). **Orchestration adoption:** follow that doc’s **Implementation evolution** and [OCR text-first pipeline](ocr_text-first_pipeline.plan.md) **Ordered spikes (agreed)** — **Spike 1** (plain TS + `LlmGateway`) before **Spike 2** (LangGraph). **Open decisions (timing):** [OCR text-first pipeline — Open implementation decisions (by phase)](ocr_text-first_pipeline.plan.md#open-implementation-decisions-by-phase) (e.g. `platformKey` shape, orchestration host, PDF text ordering).
 
