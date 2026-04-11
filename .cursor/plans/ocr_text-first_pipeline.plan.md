@@ -25,7 +25,7 @@ todos:
     status: completed
   - id: ocr-jobs-wire-handler
     content: "Wire document-ocr-distributed-handler to insert/update ocr_jobs on start, complete and fail; persistence must not rely solely on the queue message"
-    status: pending
+    status: completed
   - id: product-dual-track
     content: "Clarify Record asset-values OCR vs security-transaction OCR — decide payload shape (securityCandidates field on document-ocr-completed vs separate mode/route); securityHoldings are currently computed and dropped downstream."
     status: pending

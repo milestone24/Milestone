@@ -7,6 +7,11 @@ import {
   Message,
 } from "@server/services/distributed/queue";
 import { updateProcessStatus } from "./job-helpers";
+import {
+  createOcrJobRecord,
+  completeOcrJobRecord,
+  failOcrJobRecord,
+} from "./ocr-job-store";
 import { createJobScope } from "./job-scope";
 import {
   registerShutdownHandler,
@@ -54,6 +59,10 @@ export const handler = async (event: Event): Promise<void> => {
 
   const messageBase = { jobId, accountId, documentId };
 
+  // Holds the ocr_jobs row id once created; used by the shutdown handler and
+  // catch block to mark the record failed if the pipeline does not complete.
+  let ocrJobId: string | undefined;
+
   const callback = async (message: Message) => {
     if (!isDocumentOcrMessage(message)) return;
     if (message.type === "document-ocr-failed" && message.jobId === jobId) {
@@ -69,11 +78,15 @@ export const handler = async (event: Event): Promise<void> => {
         signal,
         jobId
       );
-      await updateProcessStatus(jobId, "failed", `Shutdown: ${signal}`);
+      const shutdownError = `Shutdown: ${signal}`;
+      await updateProcessStatus(jobId, "failed", shutdownError);
+      if (ocrJobId) {
+        await failOcrJobRecord({ ocrJobId, error: shutdownError });
+      }
       await queueService.publish({
         ...messageBase,
         type: "document-ocr-failed",
-        message: `Shutdown: ${signal}`,
+        message: shutdownError,
       });
     },
     { timeout: DEFAULT_SHUTDOWN_TIMEOUT_MS }
@@ -87,6 +100,8 @@ export const handler = async (event: Event): Promise<void> => {
   try {
     await updateProcessStatus(jobId, "running");
     await queueService.publish({ ...messageBase, type: "document-ocr-started" });
+
+    ocrJobId = await createOcrJobRecord({ documentId, processId: jobId, platformKey });
 
     if (!isSupportedMimeType(mimeType)) {
       throw new Error(`Unsupported MIME type: ${mimeType}`);
@@ -105,6 +120,9 @@ export const handler = async (event: Event): Promise<void> => {
     });
 
     await updateProcessStatus(jobId, "completed");
+    if (ocrJobId) {
+      await completeOcrJobRecord({ ocrJobId, extractedValues, pipeline });
+    }
     await queueService.publish({
       ...messageBase,
       type: "document-ocr-completed",
@@ -124,6 +142,9 @@ export const handler = async (event: Event): Promise<void> => {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[document-ocr] Failed jobId=%s error=%s", jobId, message);
     await updateProcessStatus(jobId, "failed", message);
+    if (ocrJobId) {
+      await failOcrJobRecord({ ocrJobId, error: message });
+    }
     await queueService.publish({
       ...messageBase,
       type: "document-ocr-failed",
