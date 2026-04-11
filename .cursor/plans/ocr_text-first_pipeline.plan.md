@@ -1,6 +1,6 @@
 ---
 name: OCR text-first pipeline and capture schema
-overview: Improve extraction quality via native PDF text + multi-step LLM, evolve capture types for security_transactions (DB + shared Zod), reserve a processing path for email-origin OCR input (how email is received—not yet decided), and run two ordered orchestration spikes—first plain TypeScript + thin LLM gateway, then time-boxed LangGraph—for provider-agnostic access (Ollama, AWS Bedrock, etc.) without debugging graph and PDF/vision at once.
+overview: Improve extraction quality via native PDF text + multi-step LLM, evolve capture types for security_transactions (DB + shared Zod), reserve a processing path for email-origin OCR input (how email is received—not yet decided). Foundation is a plain TypeScript LlmGateway (Anthropic); product features (dual-track payload, resolution, persistence, client review) are the current priority. A second gateway provider and LangGraph evaluation are deferred until the product pipeline is stable end-to-end.
 todos:
   - id: schema-gap-analysis
     content: Define shared Zod for OCR security-transaction candidates vs securityTransactionOrphanInsertSchema; document resolution path to assetSecurityId
@@ -17,26 +17,35 @@ todos:
   - id: ocr-cli-dump-text
     content: "dev/test-ocr.ts --dump-text — native PDF transcript to stdout (stderr JSON meta); unpdf + same thresholds as OCR"
     status: completed
+  - id: orchestration-spike-1-ts-gateway
+    content: "LlmGateway (Anthropic) + explicit TS orchestration in runFullDocumentOcrPipeline — docs/Transaction-OCR-flow 3a–3c, 4a–4c + balances; shared Zod for brand + securities; wired in document-ocr handler."
+    status: completed
   - id: product-dual-track
-    content: Clarify Record asset-values OCR vs security-transaction OCR (mode, routes, or separate flows)
+    content: "Clarify Record asset-values OCR vs security-transaction OCR — decide payload shape (securityCandidates field on document-ocr-completed vs separate mode/route); securityHoldings are currently computed and dropped downstream."
+    status: pending
+  - id: candidate-resolution
+    content: "Resolution step: map verified OCR candidate { symbol, isin, name } + userAccountId → assetSecurityId (securities cache / DB); prerequisite for persistence."
+    status: pending
+  - id: candidate-persistence
+    content: "Persist resolved security transaction candidates as security_transactions rows with source: ocr after 4c + resolution; no write path exists today."
+    status: pending
+  - id: client-candidate-review
+    content: "Client UI: surface security transaction candidates to user for confirmation before insert; handle unresolved candidates (new security not yet in portfolio)."
     status: pending
   - id: phase2-verify
-    content: Optional groundedness verify pass + feature flag
-    status: pending
-  - id: orchestration-spike-1-ts-gateway
-    content: "LlmGateway (Anthropic) + explicit TS orchestration in runFullDocumentOcrPipeline — docs/Transaction-OCR-flow 3a–3c, 4a–4c + balances; shared Zod for brand + securities; wired in document-ocr handler. Open for Spike 1 exit: second provider (e.g. Ollama text) + short write-up/decision"
-    status: completed
-  - id: orchestration-spike-1-exit-provider
-    content: Spike 1 exit — second LlmGateway adapter (e.g. Ollama HTTP text) and one vertical slice through gateway; note decision / non-goals in plan or doc
-    status: pending
-  - id: orchestration-spike-2-langgraph
-    content: Spike 2 — time-boxed LangGraph (+ LangChain chat models) on one vertical slice; evaluate Ollama + AWS Bedrock (or other) via same gateway pattern; record decision vs staying on plain TS
-    status: pending
-  - id: phase3-raster-ocr
-    content: Optional Tesseract/managed OCR when PDF text layer insufficient
+    content: Optional groundedness verify pass + feature flag (second LLM pass after 4a to flag suspect rows)
     status: pending
   - id: email-origin-ocr-path
     content: Define server-side processing entry for email-sourced statements (normalised to documents + same document-ocr flow); do not implement email receipt (HTTP vs provider vs other) until ingestion is decided
+    status: pending
+  - id: orchestration-spike-1-exit-provider
+    content: "Deferred — second LlmGateway adapter (e.g. Ollama HTTP text) to prove gateway swap cost; revisit after product pipeline is end-to-end."
+    status: pending
+  - id: orchestration-spike-2-langgraph
+    content: "Deferred — time-boxed LangGraph (+ LangChain chat models) evaluation on one vertical slice; revisit only once the plain TS pipeline is stable end-to-end and a second provider is warranted."
+    status: pending
+  - id: phase3-raster-ocr
+    content: Optional Tesseract/managed OCR when PDF text layer insufficient
     status: pending
 isProject: false
 ---
@@ -184,23 +193,13 @@ Implication: evaluate both **orchestration** (graphs, routing) and **provider ab
 7. **Team cost** — Debuggability in production vs plain functions.
 8. **Dependencies** — Match [package.json](package.json) discipline; avoid a heavy tree for a single feature.
 
-### Ordered spikes (agreed)
+### Gateway and orchestration status
 
-1. **Spike 1 — Plain TypeScript + thin `LlmGateway` (first)**  
-   - **Goal:** Establish a **diversifiable foundation** before adding a graph library: one internal contract (`modelRef`, messages in, **Zod-validated** structured data out, timeouts, logging) with **per-provider adapters** (Anthropic SDK today; **Ollama** HTTP and **AWS Bedrock** later behind the same interface). **Baseline code:** [`server/services/llm/`](../../server/services/llm/) (`LlmGateway`, `AnthropicLlmGateway`, `createDefaultAnthropicLlmGateway`) with **`OcrService`** calling the gateway for `messages.create`.  
-   - **Orchestration:** **Explicit** functions or a tiny hand-rolled state machine that mirror [`docs/Transaction-OCR-flow.md`](../../docs/Transaction-OCR-flow.md) (document ready → prep → Phase 1 LLM → code verifiers → Phase 2 LLM → …). **No LangGraph** in this spike so we do not couple **PDF text extraction**, **transcript vs vision split**, and **graph debugging**.  
-   - **Exit criteria (example):** One vertical slice (e.g. transcript → `statementPlatformBrandIdentificationSchema` or security row schema) runs through gateway + verifiers; second provider (e.g. Ollama **text**) proves **swap cost** is acceptable.
+**Spike 1 is complete** — [`server/services/llm/`](../../server/services/llm/) (`LlmGateway`, `AnthropicLlmGateway`, `createDefaultAnthropicLlmGateway`) is the foundation; explicit TS orchestration in `runFullDocumentOcrPipeline` mirrors the flow diagram. This is sufficient for the current product pipeline.
 
-2. **Spike 2 — LangGraph (time-boxed, after Spike 1 is stable)**  
-   - **Goal:** Decide whether **LangGraph** (+ **LangChain.js** chat models) earns its **dependency weight** for named nodes, conditional edges, and future checkpoints—while **reusing** the same **gateway** for Bedrock / Ollama / Anthropic. LangGraph does **not** replace the gateway; it sits **above** it.  
-   - **Scope:** Re-implement **one** slice of the same pipeline as a small graph; compare **debuggability** and **boilerplate** vs Spike 1.  
-   - **Exit criteria:** Written decision: adopt LangGraph for OCR orchestration, defer, or use only for a subset; note **non-goals** and **model tier** per feature (extract vs verify vs future search).
+**Spike 1 exit (second provider)** and **Spike 2 (LangGraph)** are **deferred** until the product pipeline (dual-track payload → resolution → persistence → client review) is end-to-end stable. Rationale: the plain TS gateway is enough for proof of concept; adding a second provider or a graph library before the product flow is working adds complexity without product value right now.
 
-### Recommendation in the plan (summary)
-
-- **PDF text + split `OcrService`** remains the **first implementation priority** alongside Spike 1 gateway work where they touch the same code paths.  
-- **Do not** introduce LangGraph until **Spike 1** exit criteria are met (text path + explicit orchestration stable enough that graph issues are isolatable).  
-- **Document the outcome** of both spikes in this plan (or a short note): chosen **gateway + optional LangGraph**, explicit **non-goals**, and which routes use **which provider** (including Bedrock when adopted).
+When revisiting: the gateway contract (`createNonStreamingMessage`) is designed to accept a second adapter without touching call sites; LangGraph (if evaluated) would sit **above** the gateway, not replace it.
 
 ---
 
@@ -213,21 +212,23 @@ These are the **decision points** called out when starting Spike 1. Each row sta
 | **Gateway v1 contract** | First `LlmGateway` implementation: `createNonStreamingMessage` accepts Anthropic **`MessageCreateParamsNonStreaming`** today; **`LlmModelRef`** / `LlmProviderId` in [`server/services/llm/llm-gateway.ts`](../../server/services/llm/llm-gateway.ts) are reserved for routing when Bedrock / Ollama adapters land. | **Spike 1 — gateway scaffolding** (land baseline; adjust signatures only when adding the second adapter if needed). |
 | **Native PDF text vs transcript-first slice** | **Resolved (Spike 1):** For `application/pdf`, [`server/services/pdf-text/`](../../server/services/pdf-text/) runs **in-process** in the same worker as `OcrService` (not a separate service). **All pages** extracted via **`unpdf`**; **password-protected** PDFs throw `PdfPasswordProtectedError`. If native text is **sufficient** (`OCR_PDF_TEXT_MIN_CHARS`, `OCR_PDF_TEXT_MIN_WORDS`), `OcrService` uses **transcript-only** LLM messages; otherwise **Anthropic PDF document** vision path. **Non-PDF** skips PDF extraction. | — |
 | **`platformKey` / OCR config shape** | How `POST …/extract` and `processes` carry platform identity (`unknown`, slug, **`broker_platforms.id` UUID**, etc.) so **3c** can compare apples-to-apples with DB rows. | **First implementation** that runs **3b/3c** brand verification against **`broker_platforms`** (before persisting or enforcing config alignment in prod). |
-| **Where orchestration runs** | Same Node process as **`document-ocr-distributed-handler`** vs separate worker / future durable engine (Temporal, Inngest). | **Before Spike 2 (LangGraph)** if checkpoints or long-running state need a host; **default** for Spike 1: **in-process** in the existing handler path unless product says otherwise. |
-| **Second provider priority** | First non-Anthropic adapter after gateway: **Ollama (text)** vs **AWS Bedrock** vs other — driven by dev cost, AWS alignment, and structured-output quality on a vertical slice. | **`orchestration-spike-1-ts-gateway` exit** (or explicit hand-off note when starting **`orchestration-spike-2-langgraph`**). |
+| **Where orchestration runs** | Same Node process as **`document-ocr-distributed-handler`** vs separate worker / future durable engine (Temporal, Inngest). | **Default: in-process** (existing handler path). Revisit only if durable steps are needed — deferred past `client-candidate-review`. |
+| **Second provider priority** | First non-Anthropic adapter: **Ollama (text)** vs **AWS Bedrock** vs other. | **Deferred** — revisit after product pipeline is end-to-end (`orchestration-spike-1-exit-provider`). |
 | **Dual-track OCR payloads** | Record **asset-value** OCR vs **security-transaction** OCR: modes, routes, WebSocket / queue payloads, coexistence with `ExtractedAmount[]`. | **`product-dual-track` todo** before **`ExtractedAmount`-only** is removed as the sole production contract. |
 
 ---
 
 ## Suggested implementation order
 
-0. **Orchestration spikes (ordered)** — Follow **Ordered spikes (agreed)** above and the diagram in [`docs/Transaction-OCR-flow.md`](../../docs/Transaction-OCR-flow.md) § **Implementation evolution**; Spike 1 before LangGraph (Spike 2).
+The gateway foundation (Spike 1) is complete. Product features are the priority; a second provider and LangGraph evaluation (`orchestration-spike-1-exit-provider`, `orchestration-spike-2-langgraph`) are deferred until the pipeline is end-to-end stable.
 
-1. **Schema & contract** — Add `extractedSecurityTransactionCandidateSchema` (or equivalent) in `shared/schema`, aligned with orphan insert fields + security identity fields; update queue/WebSocket types and handler to emit candidates (may coexist temporarily with `ExtractedAmount` for Record-only flows).
-2. **PDF text + LLM split** — As above; prompt JSON must match the new schema.
-3. **Resolution service** (separate from `OcrService`) — Map candidate + `userAccountId` → `assetSecurityId` (securities cache, fuzzy name, ISIN lookup); out of scope for pure “OcrService” module.
-4. **Client** — Review UI for candidates, mapping to holdings, confirm before insert.
-5. **Email-origin OCR path** — Processing entry and normalisation to documents + `document-ocr` once ingestion is decided; **no** HTTP email receipt in this plan until receipt design is agreed.
+1. **Dual-track payload** (`product-dual-track`) — Decide how `securityHoldings` candidates flow through `document-ocr-completed` and the WebSocket to the client; may coexist with `ExtractedAmount[]` for Record-only flows temporarily.
+2. **Resolution service** (`candidate-resolution`) — Map verified candidate `{ symbol, isin, name }` + `userAccountId` → `assetSecurityId` (securities cache, fuzzy name, ISIN lookup); separate from `OcrService`.
+3. **Persistence** (`candidate-persistence`) — Insert resolved candidates as `security_transactions` with `source: "ocr"` after 4c + resolution.
+4. **Client candidate review** (`client-candidate-review`) — UI to surface candidates, confirm/reject rows, handle unresolved (new security not in portfolio).
+5. **Phase 2 verify** (`phase2-verify`) — Optional groundedness/suspect-row pass; feature-flagged, additive.
+6. **Email-origin OCR path** (`email-origin-ocr-path`) — Server-side processing entry once ingestion transport is decided; no HTTP email receipt in this plan until then.
+7. **Second provider + LangGraph** (`orchestration-spike-1-exit-provider`, `orchestration-spike-2-langgraph`) — Deferred; revisit when the above is stable and provider flexibility is needed.
 
 ---
 
