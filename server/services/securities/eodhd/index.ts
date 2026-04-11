@@ -10,12 +10,12 @@ import { EODHD_NAME, EODHD_SOURCE_IDENTIFIER } from "./const";
 
 export type EODHDSecurity = {
   Code: string;
-  Country: string;
-  Currency: string;
-  Exchange: string;
-  ISIN: string;
+  Country: string | null;
+  Currency: string | null;
+  Exchange: string | null;
+  ISIN: string | null;
   Name: string;
-  Type: string;
+  Type: string | null;
   previousClose: number;
   previousCloseDate: string;
 }
@@ -23,11 +23,11 @@ export type EODHDSecurity = {
 const normalizeSecurityInfo = (security: EODHDSecurity): SecuritySearchResult => ({
   symbol: security.Code,
   name: security.Name,
-  exchange: security.Exchange,
-  country: security.Country,
-  currency: security.Currency,
-  type: security.Type,
-  isin: security.ISIN,
+  exchange: security.Exchange ?? undefined,
+  country: security.Country ?? undefined,
+  currency: security.Currency ?? undefined,
+  type: security.Type ?? undefined,
+  isin: security.ISIN ?? undefined,
   cusip: undefined,
   figi: undefined,
   fromCache: false,
