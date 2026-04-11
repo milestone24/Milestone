@@ -80,6 +80,12 @@ export type ExtractCommonFields<T, U> = Pick<
 // Define the branded type for a float string
 export type DecimalValueString = DBDecimalValueString;
 
+// Utility type for mapping DB schema types to application schema types.
+// Takes a DB type T and a union of keys K that are nullable in the DB,
+// making those keys optional (null→undefined) while leaving all other keys unchanged.
+export type NullableKeysToOptional<T, K extends keyof T> =
+  Omit<T, K> & { [P in K]?: Exclude<T[P], null> };
+
 // A type guard function to check if a string is a valid float string
 export function isDecimalValueString(
   value: string

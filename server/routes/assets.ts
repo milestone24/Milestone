@@ -242,6 +242,8 @@ export async function registerRoutes(
     }
   );
 
+  // NOTE: This route appears currently unused on the client.
+  // Returns UserAssetSecuritySelect — does NOT include calculatedValue.
   router.get(
     regExpPath(
       `/${uuidRouteParam("assetId")}/securities/${uuidRouteParam("securityId")}`

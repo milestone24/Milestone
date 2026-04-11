@@ -1,4 +1,5 @@
 import { SecuritySearchResult, SecuritySelect } from "@shared/schema/securities";
+import type { SecuritySelect as DBSecuritySelect } from "@server/db/schema/securities";
 
 // Type helper to replace null with undefined in all properties
 type NullToUndefined<T> = {
@@ -16,6 +17,29 @@ function valuesNullToUndefined<T extends object>(values: T): NullToUndefined<T> 
   return result;
 }
 
+// Maps a raw Drizzle DB security row (with nulls) to the application SecuritySelect type (with undefineds).
+// This is the single point of null→undefined transformation for security DB reads.
+export function mapDbSecurityToSelect(security: DBSecuritySelect): SecuritySelect {
+  if (!security.createdAt) {
+    throw new Error(`Security ${security.id} has no createdAt — data integrity violation`);
+  }
+  return {
+    id: security.id,
+    sourceIdentifier: security.sourceIdentifier,
+    symbol: security.symbol,
+    name: security.name,
+    createdAt: security.createdAt,
+    updatedAt: security.updatedAt ?? undefined,
+    exchange: security.exchange ?? undefined,
+    country: security.country ?? undefined,
+    currency: security.currency ?? undefined,
+    type: security.type ?? undefined,
+    isin: security.isin ?? undefined,
+    cusip: security.cusip ?? undefined,
+    figi: security.figi ?? undefined,
+  };
+}
+
 // Helper function to combine and deduplicate security results
 export function combineSecurityResults(cached: SecuritySelect[], external: SecuritySearchResult[]): SecuritySearchResult[] {
   const symbolMap = new Map<string, SecuritySearchResult>();
@@ -27,7 +51,9 @@ export function combineSecurityResults(cached: SecuritySelect[], external: Secur
     }
   });
   
-  // Add cached results only if not already present from external
+  // Add cached results only if not already present from external.
+  // TODO: valuesNullToUndefined is now redundant — SecuritySelect no longer contains nulls
+  // since mapDbSecurityToSelect transforms them at the DB boundary. Can be removed.
   cached.forEach(security => {
     if (!symbolMap.has(security.symbol)) {
       if(security.symbol) {

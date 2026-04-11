@@ -82,6 +82,7 @@ import {
 } from "@shared/utils/assets";
 import { factory as securitiesFactory } from "@server/services/securities";
 import { AssetSecurity } from "../securities/types";
+import { mapDbSecurityToSelect } from "@server/utils/securities";
 import { getNextExecutionDate } from "@shared/utils/scheduling";
 import { randomUUID } from "node:crypto";
 import { calculatedAssetsQueryBuilder, securityTransactionsAccumulatedCTEBuilder } from "./query";
@@ -166,6 +167,8 @@ export class DatabaseAssetService {
   ): Promise<UserAsset[]> {
     const { where, orderBy, limit, offset } =
       userAssetsQueryBuilder.buildQuery(query);
+    // TODO: the securities join here is wasteful — UserAsset[] does not expose securities
+    // in its return type so the fetched data is unused. Consider removing the join.
     const brokerAssets = await this.db.query.userAssets.findMany({
       with: { provider: true, securities: { with: { security: true } } },
       where: and(eq(userAssets.userAccountId, userId), where),
@@ -572,6 +575,7 @@ export class DatabaseAssetService {
 
         return {
           ...security,
+          security: mapDbSecurityToSelect(security.security),
           calculatedValue: {
             value: lastValue
               ? createDecimalValueString(
@@ -1911,19 +1915,26 @@ export class DatabaseAssetService {
   ): Promise<UserAssetSecuritySelect[]> {
     const { where, orderBy, limit, offset } =
       userAssetSecuritiesQueryBuilder.buildQuery(query);
-    return this.db.query.userAssetSecurities.findMany({
+    const rows = await this.db.query.userAssetSecurities.findMany({
       with: { security: true },
       where: and(eq(userAssetSecurities.userAssetId, assetId), where),
       orderBy: orderBy || [desc(userAssetSecurities.createdAt)],
       limit,
       offset,
     });
+    return rows.map((row) => ({ ...row, security: mapDbSecurityToSelect(row.security) }));
   }
 
+  /**
+   * Returns a single user asset security with its related security record.
+   * NOTE: Returns UserAssetSecuritySelect — does NOT compute calculatedValue.
+   * If calculatedValue is required, use getResolvedUserAssetSecurities instead.
+   * NOTE: The corresponding GET route for this method appears currently unused on the client.
+   */
   async getUserAssetSecurity(
     assetId: UserAsset["id"],
     securityId: UserAssetSecuritySelect["id"]
-  ): Promise<ResolvedAssetSecurity> {
+  ): Promise<UserAssetSecuritySelect> {
     const security = await this.db.query.userAssetSecurities.findFirst({
       where: and(
         eq(userAssetSecurities.userAssetId, assetId),
@@ -1936,7 +1947,7 @@ export class DatabaseAssetService {
         `User asset security with ID ${securityId} not found for asset ${assetId}`
       );
     }
-    return security as ResolvedAssetSecurity;
+    return { ...security, security: mapDbSecurityToSelect(security.security) };
   }
 
   @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
@@ -1997,7 +2008,7 @@ export class DatabaseAssetService {
         .values(values)
         .returning();
 
-      const value = await tx.query.userAssetSecurities.findFirst({
+      const valueRaw = await tx.query.userAssetSecurities.findFirst({
         where: and(
           eq(userAssetSecurities.userAssetId, assetId),
           eq(userAssetSecurities.securityId, securityId)
@@ -2005,9 +2016,11 @@ export class DatabaseAssetService {
         with: { security: true },
       });
 
-      if (!value) {
+      if (!valueRaw) {
         throw new Error("Failed to create user asset security");
       }
+
+      const value = { ...valueRaw, security: mapDbSecurityToSelect(valueRaw.security) };
 
       const [transaction] = await tx
         .insert(securityTransactions)
@@ -2093,7 +2106,7 @@ export class DatabaseAssetService {
         .where(eq(userAssetSecurities.id, securityId))
         .returning();
 
-      const value = await tx.query.userAssetSecurities.findFirst({
+      const valueRaw = await tx.query.userAssetSecurities.findFirst({
         where: and(
           eq(userAssetSecurities.id, securityId),
           eq(userAssetSecurities.userAssetId, assetId)
@@ -2101,7 +2114,7 @@ export class DatabaseAssetService {
         with: { security: true },
       });
 
-      return value;
+      return valueRaw ? { ...valueRaw, security: mapDbSecurityToSelect(valueRaw.security) } : undefined;
     });
 
     if (!value) {
