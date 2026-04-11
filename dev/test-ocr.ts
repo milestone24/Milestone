@@ -12,6 +12,7 @@
  *   npm run test:ocr -- ./path/to/statement.pdf --spike1 --account-id <user-account-uuid>
  *   npm run test:ocr -- ./file.pdf --spike1 --account-id <uuid> -v
  *   OCR_TEST_ACCOUNT_ID=<uuid> npm run test:ocr -- ./file.pdf --spike1
+ *   npm run test:ocr -- ./file.pdf --dump-text   # native PDF text only (no Anthropic, no DB)
  *
  * Loads `.local.env` from the project root **before** importing server modules.
  */
@@ -50,16 +51,19 @@ Options:
   --platform <key>   Broker platform key: "unknown" or broker_platforms.id UUID (default: unknown)
   --names <list>     Comma-separated platform display names for the balance-extraction prompt
   --verbose, -v      Log timings, raw model text (truncated if huge), parsed brand, DB match before fail
+  --dump-text        PDF only: print native extracted text to stdout (metadata on stderr). No Anthropic/DB.
+                     Cannot be used with --spike1 or --account-id.
   -h, --help         Show this help
 
 Environment:
-  ANTHROPIC_API_KEY     Required for all modes.
+  ANTHROPIC_API_KEY     Required for OCR modes (not for --dump-text).
   OCR_TEST_ACCOUNT_ID   Default account id when --spike1 and --account-id omitted.
   DATABASE_URL          Required for --spike1 (same as the app).
 
 Examples:
   npm run test:ocr -- ./samples/statement.pdf
   npm run test:ocr -- ./samples/statement.pdf --spike1 --account-id 00000000-0000-0000-0000-000000000000
+  npm run test:ocr -- ./samples/statement.pdf --dump-text
 `);
 }
 
@@ -67,6 +71,7 @@ type RunMode = "balances" | "spike1";
 
 type Parsed =
   | { kind: "help"; exitCode: number }
+  | { kind: "dump-text"; filePath: string }
   | {
       kind: "run";
       filePath: string;
@@ -84,6 +89,7 @@ function parseArgs(argv: string[]): Parsed {
   let spike1 = false;
   let accountId: string | undefined;
   let verbose = false;
+  let dumpText = false;
 
   const args = [...argv];
   while (args.length > 0) {
@@ -91,6 +97,10 @@ function parseArgs(argv: string[]): Parsed {
     if (a === undefined) break;
     if (a === "--help" || a === "-h") {
       return { kind: "help", exitCode: 0 };
+    }
+    if (a === "--dump-text") {
+      dumpText = true;
+      continue;
     }
     if (a === "--verbose" || a === "-v") {
       verbose = true;
@@ -121,6 +131,16 @@ function parseArgs(argv: string[]): Parsed {
   const filePath = positional[0];
   if (!filePath) {
     return { kind: "help", exitCode: 1 };
+  }
+
+  if (dumpText) {
+    if (spike1) {
+      throw new Error("Cannot combine --dump-text with --spike1");
+    }
+    if (accountId !== undefined) {
+      throw new Error("Cannot combine --dump-text with --account-id");
+    }
+    return { kind: "dump-text", filePath };
   }
 
   const platformNames = namesRaw
@@ -154,11 +174,62 @@ function createVerboseLogger() {
   };
 }
 
+async function runDumpText(filePath: string): Promise<void> {
+  const absolutePath = resolve(process.cwd(), filePath);
+  const mimeType = mimeFromPath(absolutePath);
+  if (mimeType !== "application/pdf") {
+    console.error("--dump-text requires a .pdf file.");
+    process.exit(1);
+  }
+
+  const buffer = await readFile(absolutePath);
+  const {
+    analyzeDocumentForOcrTranscript,
+    loadPdfTextExtractionConfigFromEnv,
+  } = await import("@server/services/pdf-text");
+
+  const config = loadPdfTextExtractionConfigFromEnv();
+  const analysis = await analyzeDocumentForOcrTranscript(
+    buffer,
+    mimeType,
+    config
+  );
+
+  if (analysis.kind !== "pdf_transcript") {
+    console.error(`Unexpected analysis kind: ${analysis.kind}`);
+    process.exit(1);
+  }
+
+  console.error(
+    JSON.stringify(
+      {
+        file: absolutePath,
+        bytes: buffer.length,
+        totalPages: analysis.totalPages,
+        charCount: analysis.charCount,
+        wordCount: analysis.wordCount,
+        useTranscriptPathInOcr: analysis.useTranscriptPath,
+      },
+      null,
+      2
+    )
+  );
+  process.stdout.write(analysis.fullTranscript);
+  if (!analysis.fullTranscript.endsWith("\n")) {
+    process.stdout.write("\n");
+  }
+}
+
 async function main(): Promise<void> {
   const parsed = parseArgs(process.argv.slice(2));
   if (parsed.kind === "help") {
     printHelp();
     process.exit(parsed.exitCode);
+  }
+
+  if (parsed.kind === "dump-text") {
+    await runDumpText(parsed.filePath);
+    return;
   }
 
   if (!process.env.ANTHROPIC_API_KEY) {

@@ -12,11 +12,11 @@ todos:
     content: Refactor OcrService — extractFromTranscript, extractFromVision, extract orchestration
     status: completed
   - id: pipeline-wire-logging
-    content: "Done: document-ocr handler logs path/charCount/row counts; document-ocr-completed carries pipeline; dev/test-ocr --verbose (LLM + 4c diagnostics). Remaining: optional --dump-text CLI for PDF transcript only"
+    content: "Done: document-ocr handler logs path/charCount/row counts; document-ocr-completed carries pipeline; dev/test-ocr --verbose (LLM + 4c diagnostics); dev/test-ocr --dump-text (native PDF transcript)"
     status: completed
   - id: ocr-cli-dump-text
-    content: Optional dev CLI --dump-text — dump native PDF transcript without Anthropic (e.g. extend dev/test-ocr or small script)
-    status: pending
+    content: "dev/test-ocr.ts --dump-text — native PDF transcript to stdout (stderr JSON meta); unpdf + same thresholds as OCR"
+    status: completed
   - id: product-dual-track
     content: Clarify Record asset-values OCR vs security-transaction OCR (mode, routes, or separate flows)
     status: pending
@@ -140,7 +140,7 @@ flowchart TD
 
 Implementation phases (unchanged in spirit):
 
-1. PDF text module + heuristic. **Done:** [`server/services/pdf-text/`](../../server/services/pdf-text/) + env-configurable thresholds. **CLI `--dump-text`:** still **pending** — see todo `ocr-cli-dump-text`.
+1. PDF text module + heuristic + **`--dump-text`**. **Done:** [`server/services/pdf-text/`](../../server/services/pdf-text/) + env-configurable thresholds; **`npm run test:ocr -- <file.pdf> --dump-text`** (see todo `ocr-cli-dump-text`).
 2. Split `OcrService`: transcript vs vision; shared `prepareOcrDocumentUserContentBase`. **Done:** `document-user-content.ts` + `extract` / `extractFromPrepared`.
 3. Logging (`path=text|vision`, `charCount`). **Done:** document-ocr handler completion log; `document-ocr-completed.pipeline`; dev `test-ocr --verbose` for LLM / 4c traces.
 4. Optional second LLM pass for groundedness.
