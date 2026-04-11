@@ -278,8 +278,10 @@ const AssetSecurityNewFields = () => {
     3
   );
 
-  const { data: securities, isLoading: isLoadingSecurities } =
+  const { data: securities, isLoading: isLoadingSecurities, isError: isSecuritiesError } =
     useFindSecurities(searchInput);
+
+  const hasSearchError = isSecuritiesError;
 
   return (
     <>
@@ -297,6 +299,11 @@ const AssetSecurityNewFields = () => {
                 <br />
                 You must enter at least three characters to search.
               </FormDescription>
+              {hasSearchError && (
+                <p className="text-sm font-medium text-destructive">
+                  Unable to search for investments. Please try again.
+                </p>
+              )}
               <FormControl>
                 <RSelect
                   {...fieldProps}
