@@ -37,6 +37,14 @@ Underdstanding the client application, its structure and files
 - Types for API and client data types should be generated using Zod definitionsa and then infered to Typescript.
 - Component-specific types should be defined within the component file
 
+# Components
+- Components should always use custom hooks over nested business or application logic
+_ Components should always choose not to use the useEffect hook where possible
+- The latest built in react hooks should always be evaluated for the best possible solution
+
+## Forms
+- Always use react hook forms with zod resolvers
+
 ## Validation
 - When using React Hook Form forms should always be validated using zod resolver
 - When using React Query responses from API’s should always be validated with a zpd schema safeParse
