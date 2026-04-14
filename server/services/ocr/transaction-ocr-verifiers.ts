@@ -130,11 +130,15 @@ function sortBrandCandidates(
 export async function verifyStatementPlatformBrand(params: {
   identification: StatementPlatformBrandIdentification;
   configuredBrokerPlatformId?: string;
+  /** When set, checked after DB reads so shutdown can preempt CPU-bound matching. */
+  abortSignal?: AbortSignal;
 }): Promise<StatementPlatformBrandDbMatch> {
-  const { identification, configuredBrokerPlatformId } = params;
+  const { identification, configuredBrokerPlatformId, abortSignal } = params;
   const platforms = await db
     .select({ id: brokerPlatforms.id, name: brokerPlatforms.name })
     .from(brokerPlatforms);
+
+  abortSignal?.throwIfAborted();
 
   const ordered = sortBrandCandidates(identification.candidates);
 
@@ -385,8 +389,10 @@ export async function buildOcrAssetCandidateResults(params: {
   accountId: string;
   rows: SecurityTransactionOcrExtractionRow[];
   verboseLog?: OcrPipelineVerboseLog;
+  /** When set, checked after the holdings query so shutdown can preempt tree build. */
+  abortSignal?: AbortSignal;
 }): Promise<OcrAssetCandidateResult[]> {
-  const { accountId, rows, verboseLog: v } = params;
+  const { accountId, rows, verboseLog: v, abortSignal } = params;
   if (rows.length === 0) {
     return [];
   }
@@ -406,6 +412,8 @@ export async function buildOcrAssetCandidateResults(params: {
     .where(
       and(eq(userAssets.userAccountId, accountId), eq(userAssetSecurities.archived, false))
     );
+
+  abortSignal?.throwIfAborted();
 
   const assetsWithHoldings = groupHoldingsByAsset(flat);
 

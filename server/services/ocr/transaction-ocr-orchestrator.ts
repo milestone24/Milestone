@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ANTHROPIC_MESSAGES_MODEL } from "@server/constants/anthropic-messages-model";
 import {
   createDefaultAnthropicLlmGateway,
+  createNonStreamingMessageWithAbort,
   type LlmGateway,
 } from "@server/services/llm";
 import { loadPdfTextExtractionConfigFromEnv } from "@server/services/pdf-text";
@@ -97,6 +98,10 @@ function truncateForVerbose(text: string, maxChars = VERBOSE_RAW_TEXT_MAX_CHARS)
   return `${text.slice(0, maxChars)}\n... [truncated, ${String(text.length)} total chars]`;
 }
 
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  signal?.throwIfAborted();
+}
+
 /**
  * Runs Phase 3a–3c (brand), Phase 4a–4b (securities extract + Zod), Phase 4c (asset-candidate tree),
  * then balance extraction via {@link extractBalances}.
@@ -110,8 +115,11 @@ export async function runFullDocumentOcrPipeline(params: {
   accountId: string;
   /** Upload context: `user_assets.id` when OCR was started from an asset-scoped extract route. */
   nominatedUserAssetId?: string;
+  /** Cooperative cancel: forwarded to LLM requests and balance extraction; checked between phases. */
+  abortSignal?: AbortSignal;
   extractBalances: (
-    prepared: PreparedOcrDocumentUserContent
+    prepared: PreparedOcrDocumentUserContent,
+    options?: { abortSignal?: AbortSignal }
   ) => Promise<ExtractedAmount[]>;
   llm?: LlmGateway;
   /** When set, emits structured steps (e.g. raw 3a/4a model text, DB match before assert). */
@@ -119,14 +127,19 @@ export async function runFullDocumentOcrPipeline(params: {
 }): Promise<FullDocumentOcrResult> {
   const v = params.verboseLog;
   const llm = params.llm ?? createDefaultAnthropicLlmGateway();
+  const signal = params.abortSignal;
   const pdfTextConfig = loadPdfTextExtractionConfigFromEnv();
+
+  throwIfAborted(signal);
 
   const tPrepare0 = Date.now();
   const prepared = await prepareOcrDocumentUserContentBase(
     params.buffer,
     params.mimeType,
-    pdfTextConfig
+    pdfTextConfig,
+    signal
   );
+  throwIfAborted(signal);
   v?.("document_prepared", {
     elapsedMs: Date.now() - tPrepare0,
     llmPath: prepared.meta.path,
@@ -150,12 +163,16 @@ export async function runFullDocumentOcrPipeline(params: {
   });
 
   const t3a0 = Date.now();
-  const brandResponse = await llm.createNonStreamingMessage({
-    model: ANTHROPIC_MESSAGES_MODEL,
-    max_tokens: 1024,
-    system: PHASE_3A_SYSTEM + JSON_OBJECT_ONLY_SUFFIX,
-    messages: [{ role: "user", content: brandUserContent }],
-  });
+  const brandResponse = await createNonStreamingMessageWithAbort(
+    llm,
+    {
+      model: ANTHROPIC_MESSAGES_MODEL,
+      max_tokens: 1024,
+      system: PHASE_3A_SYSTEM + JSON_OBJECT_ONLY_SUFFIX,
+      messages: [{ role: "user", content: brandUserContent }],
+    },
+    signal
+  );
 
   const brandText = collectTextFromMessageContent(brandResponse.content);
   v?.("3a_llm_response", {
@@ -173,6 +190,8 @@ export async function runFullDocumentOcrPipeline(params: {
     statementPlatformBrandIdentificationSchema,
     "Phase 3a brand identification"
   );
+
+  throwIfAborted(signal);
 
   v?.("3a_parsed", { brandIdentification });
 
@@ -196,7 +215,9 @@ export async function runFullDocumentOcrPipeline(params: {
   const brandDbMatch = await verifyStatementPlatformBrand({
     identification: brandIdentification,
     configuredBrokerPlatformId,
+    abortSignal: signal,
   });
+  throwIfAborted(signal);
   v?.("3b_3c_brand_db_match", {
     elapsedMs: Date.now() - tVerify0,
     brandDbMatch,
@@ -208,6 +229,8 @@ export async function runFullDocumentOcrPipeline(params: {
   });
 
   assertBrandVerificationPassed(brandDbMatch);
+
+  throwIfAborted(signal);
 
   const securitiesInstruction = `Task: inspect the same document content and produce the JSON array described in the system message.`;
 
@@ -223,12 +246,16 @@ export async function runFullDocumentOcrPipeline(params: {
   });
 
   const t4a0 = Date.now();
-  const securitiesResponse = await llm.createNonStreamingMessage({
-    model: ANTHROPIC_MESSAGES_MODEL,
-    max_tokens: 4096,
-    system: PHASE_4A_SYSTEM + JSON_ARRAY_ONLY_SUFFIX,
-    messages: [{ role: "user", content: securitiesUserContent }],
-  });
+  const securitiesResponse = await createNonStreamingMessageWithAbort(
+    llm,
+    {
+      model: ANTHROPIC_MESSAGES_MODEL,
+      max_tokens: 4096,
+      system: PHASE_4A_SYSTEM + JSON_ARRAY_ONLY_SUFFIX,
+      messages: [{ role: "user", content: securitiesUserContent }],
+    },
+    signal
+  );
 
   const securitiesText = collectTextFromMessageContent(securitiesResponse.content);
   v?.("4a_llm_response", {
@@ -249,12 +276,16 @@ export async function runFullDocumentOcrPipeline(params: {
 
   v?.("4a_parsed", { rowCount: securityHoldings.length });
 
+  throwIfAborted(signal);
+
   const t4c0 = Date.now();
   const assetCandidates = await buildOcrAssetCandidateResults({
     accountId: params.accountId,
     rows: securityHoldings,
     verboseLog: v,
+    abortSignal: signal,
   });
+  throwIfAborted(signal);
   v?.("4c_asset_candidates_done", {
     elapsedMs: Date.now() - t4c0,
     accountId: params.accountId,
@@ -272,7 +303,9 @@ export async function runFullDocumentOcrPipeline(params: {
   };
 
   const tBal0 = Date.now();
-  const extractedValues = await params.extractBalances(prepared);
+  const extractedValues = await params.extractBalances(prepared, {
+    abortSignal: signal,
+  });
   v?.("balances_pipeline_step_done", {
     elapsedMs: Date.now() - tBal0,
     extractedCount: extractedValues.length,

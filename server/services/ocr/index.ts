@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ANTHROPIC_MESSAGES_MODEL } from "@server/constants/anthropic-messages-model";
 import {
   createDefaultAnthropicLlmGateway,
+  createNonStreamingMessageWithAbort,
   type LlmGateway,
 } from "@server/services/llm";
 import { loadPdfTextExtractionConfigFromEnv, type PdfTextExtractionConfig } from "@server/services/pdf-text";
@@ -149,9 +150,10 @@ export class OcrService {
     prepared: PreparedOcrDocumentUserContent,
     platformKey: string,
     platformNames: string[],
-    options?: { verboseLog?: OcrPipelineVerboseLog }
+    options?: { verboseLog?: OcrPipelineVerboseLog; abortSignal?: AbortSignal }
   ): Promise<ExtractedAmount[]> {
     const v = options?.verboseLog;
+    const signal = options?.abortSignal;
     const platformsString = platformNames.join(", ");
 
     const systemPrompt = this.buildSystemPrompt(platformKey, platformsString);
@@ -173,18 +175,24 @@ If none: []`;
       platformKey,
     });
 
+    signal?.throwIfAborted();
+
     const t0 = Date.now();
-    const response = await this.llm.createNonStreamingMessage({
-      model: ANTHROPIC_MESSAGES_MODEL,
-      max_tokens: 2048,
-      system: `${systemPrompt}${JSON_ONLY_SUFFIX}`,
-      messages: [
-        {
-          role: "user",
-          content: userContent,
-        },
-      ],
-    });
+    const response = await createNonStreamingMessageWithAbort(
+      this.llm,
+      {
+        model: ANTHROPIC_MESSAGES_MODEL,
+        max_tokens: 2048,
+        system: `${systemPrompt}${JSON_ONLY_SUFFIX}`,
+        messages: [
+          {
+            role: "user",
+            content: userContent,
+          },
+        ],
+      },
+      signal
+    );
 
     const replyText = collectTextFromMessageContent(response.content);
     const rawMax = 80_000;
