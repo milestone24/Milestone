@@ -6,11 +6,16 @@ import {
   isDocumentOcrMessage,
   Message,
 } from "@server/services/distributed/queue";
-import { updateProcessStatus } from "./job-helpers";
 import {
-  createOcrJobRecord,
-  completeOcrJobRecord,
-  failOcrJobRecord,
+  createAbortCompletionPromise,
+  racePromiseWithAbortSignal,
+  updateProcessStatus,
+} from "./job-helpers";
+import {
+  tryAbortOcrJobRecord,
+  tryCompleteOcrJobRecord,
+  tryFailOcrJobRecord,
+  tryMarkOcrJobRunning,
 } from "./ocr-job-store";
 import { createJobScope } from "./job-scope";
 import {
@@ -26,6 +31,7 @@ import {
 
 type Event = {
   jobId: string;
+  ocrJobId: string;
   documentId: string;
   platformKey: string;
   platformNames: string[];
@@ -37,9 +43,18 @@ type Event = {
 const documentService = new DocumentService();
 const ocrService = new OcrService();
 
+/**
+ * Document OCR distributed handler.
+ *
+ * Shutdown and external cancel follow the same pattern as {@link handler} in
+ * `asset-values-distributed-handler.ts` and `securities-cache-distributed-handler.ts`:
+ * `AbortController` + `createAbortCompletionPromise` so SIGINT/SIGTERM waits until
+ * `processes.status` is `aborted` in the DB before the shutdown coordinator proceeds.
+ */
 export const handler = async (event: Event): Promise<void> => {
   const {
     jobId,
+    ocrJobId,
     documentId,
     platformKey,
     platformNames,
@@ -63,42 +78,64 @@ export const handler = async (event: Event): Promise<void> => {
     throw new Error(`[document-ocr] Job not found jobId=${jobId}`);
   }
 
+  const abortController = new AbortController();
+  const { promise: abortCompletePromise, resolve: resolveAbort } =
+    createAbortCompletionPromise(jobId);
+
+  let abortSequenceDone = false;
+
   const queueService = queueFactory();
 
   const messageBase = { jobId, accountId, documentId };
 
-  // Holds the ocr_jobs row id once created; used by the shutdown handler and
-  // catch block to mark the record failed if the pipeline does not complete.
-  let ocrJobId: string | undefined;
-
-  const callback = async (message: Message) => {
-    if (!isDocumentOcrMessage(message)) return;
-    if (message.type === "document-ocr-failed" && message.jobId === jobId) {
-      console.log("[document-ocr] External abort received jobId=%s", jobId);
+  const finalizeAbortSequence = async (reason: string): Promise<void> => {
+    if (abortSequenceDone) {
+      return;
     }
+    abortSequenceDone = true;
+    const text = reason.trim().length > 0 ? reason.trim() : "Aborted";
+    await updateProcessStatus(jobId, "aborted");
+    const ocrOk = await tryAbortOcrJobRecord({ ocrJobId, error: text });
+    if (!ocrOk) {
+      console.error(
+        "[document-ocr] Failed to persist ocr_jobs aborted jobId=%s ocrJobId=%s",
+        jobId,
+        ocrJobId
+      );
+    }
+    await queueService.publish({
+      ...messageBase,
+      type: "document-ocr-aborted",
+      message: text,
+    });
+    resolveAbort();
   };
-  queueService.subscribe(callback);
 
   const unregisterShutdown = registerShutdownHandler(
     async (signal) => {
       console.log(
-        "[document-ocr] Shutdown signal=%s jobId=%s — marking failed",
+        "[document-ocr] Shutdown signal=%s jobId=%s — signalling abort",
         signal,
         jobId
       );
-      const shutdownError = `Shutdown: ${signal}`;
-      await updateProcessStatus(jobId, "failed", shutdownError);
-      if (ocrJobId) {
-        await failOcrJobRecord({ ocrJobId, error: shutdownError });
-      }
-      await queueService.publish({
-        ...messageBase,
-        type: "document-ocr-failed",
-        message: shutdownError,
-      });
+      abortController.abort(`shutdown signal: ${signal}`);
+      await abortCompletePromise;
+      console.log(
+        "[document-ocr] Job confirmed aborted in DB jobId=%s",
+        jobId
+      );
     },
     { timeout: DEFAULT_SHUTDOWN_TIMEOUT_MS }
   );
+
+  const callback = async (message: Message) => {
+    if (!isDocumentOcrMessage(message)) return;
+    if (message.type === "document-ocr-abort" && message.jobId === jobId) {
+      console.log("[document-ocr] External abort received jobId=%s", jobId);
+      abortController.abort("document-ocr-abort");
+    }
+  };
+  queueService.subscribe(callback);
 
   await using _jobScope = createJobScope({
     unregisterShutdown,
@@ -107,9 +144,15 @@ export const handler = async (event: Event): Promise<void> => {
 
   try {
     await updateProcessStatus(jobId, "running");
+    const runningMarked = await tryMarkOcrJobRunning(ocrJobId);
+    if (!runningMarked) {
+      console.error(
+        "[document-ocr] Failed to mark ocr_jobs running jobId=%s ocrJobId=%s",
+        jobId,
+        ocrJobId
+      );
+    }
     await queueService.publish({ ...messageBase, type: "document-ocr-started" });
-
-    ocrJobId = await createOcrJobRecord({ documentId, processId: jobId, platformKey });
 
     if (!isSupportedMimeType(mimeType)) {
       throw new Error(`Unsupported MIME type: ${mimeType}`);
@@ -117,21 +160,43 @@ export const handler = async (event: Event): Promise<void> => {
 
     const { buffer } = await documentService.getBuffer(documentId);
 
-    const { pipeline, extractedValues } = await runFullDocumentOcrPipeline({
+    const pipelinePromise = runFullDocumentOcrPipeline({
       buffer,
       mimeType,
       platformKey,
       platformNames,
       accountId,
       nominatedUserAssetId,
-      extractBalances: (prepared) =>
-        ocrService.extractFromPrepared(prepared, platformKey, platformNames),
+      abortSignal: abortController.signal,
+      extractBalances: (prepared, opts) =>
+        ocrService.extractFromPrepared(prepared, platformKey, platformNames, {
+          abortSignal: opts?.abortSignal,
+        }),
     });
 
-    await updateProcessStatus(jobId, "completed");
-    if (ocrJobId) {
-      await completeOcrJobRecord({ ocrJobId, extractedValues, pipeline });
+    const { pipeline, extractedValues } = await racePromiseWithAbortSignal(
+      pipelinePromise,
+      abortController.signal
+    );
+
+    const completedOk = await tryCompleteOcrJobRecord({
+      ocrJobId,
+      extractedValues,
+      pipeline,
+    });
+    if (!completedOk) {
+      const persistMsg = "Failed to persist OCR job results";
+      await updateProcessStatus(jobId, "failed", persistMsg);
+      await tryFailOcrJobRecord({ ocrJobId, error: persistMsg });
+      await queueService.publish({
+        ...messageBase,
+        type: "document-ocr-failed",
+        message: persistMsg,
+      });
+      return;
     }
+
+    await updateProcessStatus(jobId, "completed");
     await queueService.publish({
       ...messageBase,
       type: "document-ocr-completed",
@@ -148,11 +213,24 @@ export const handler = async (event: Event): Promise<void> => {
       pipeline.securityHoldings.length
     );
   } catch (err) {
+    const isAbort =
+      (err instanceof DOMException && err.name === "AbortError") ||
+      (err instanceof Error && err.name === "AbortError");
+    if (isAbort) {
+      await finalizeAbortSequence(err.message);
+      return;
+    }
+
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[document-ocr] Failed jobId=%s error=%s", jobId, message);
     await updateProcessStatus(jobId, "failed", message);
-    if (ocrJobId) {
-      await failOcrJobRecord({ ocrJobId, error: message });
+    const ocrFailOk = await tryFailOcrJobRecord({ ocrJobId, error: message });
+    if (!ocrFailOk) {
+      console.error(
+        "[document-ocr] Failed to persist ocr_jobs failure jobId=%s ocrJobId=%s",
+        jobId,
+        ocrJobId
+      );
     }
     await queueService.publish({
       ...messageBase,
