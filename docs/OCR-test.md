@@ -4,16 +4,17 @@ Account Gary 5d4f0f7f-723c-4296-a4cf-d4a7e41db225
 Account Chris 11867a08-da4a-49ad-a23b-a3de92febb83
 Platform Trading f60ee75b-43f5-4449-a671-fba3dcbe07e2
 Platform InvestEngine f9e9e99d-e91d-44f1-9758-415cbbf0888b
-Platform Vanguard ??
+Platform Vanguard 0257fda4-eed1-4968-a9fb-2ae8b2fc8c35
+
+Asset Chris InvestEngine 547962dc-6b42-4a35-96f1-0b4375fc0338
 
 setup
 ```bash
 
-export PLATFORM_ID=f9e9e99d-e91d-44f1-9758-415cbbf0888b
-
 # Chris Vanguard
+export PLATFORM_ID=f9e9e99d-e91d-44f1-9758-415cbbf0888b
 export USER_ACCOUNT=11867a08-da4a-49ad-a23b-a3de92febb83
-export ASSET_ID=17197d3c-ef61-4493-a9ae-c0520e18d069
+export ASSET_ID=547962dc-6b42-4a35-96f1-0b4375fc0338
 
 export STATEMENT_PDF="./dev/statements/Fwd Your portfolio has been updated.pdf"
 export PLATFORM_NAMES="InvestEngine"
