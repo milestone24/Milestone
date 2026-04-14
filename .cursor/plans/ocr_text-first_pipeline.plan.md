@@ -30,8 +30,8 @@ todos:
     content: "Decided: same document-ocr-completed event carries both extractedValues (Record balance flow) and the asset-candidate tree (security-transaction flow). No separate mode or route needed at this stage."
     status: completed
   - id: asset-candidate-result-schema
-    content: "Define OcrAssetCandidateResult Zod schema in shared/schema: asset-first tree where every asset candidate lists ALL OCR security rows each annotated with verified + matched + userAssetSecurityId. Replaces the flat securityHoldings array as the resolution output. Include matchedCount and totalCount per asset for decision logic (auto-insert when matchedCount === totalCount on exactly one asset)."
-    status: pending
+    content: "shared/schema/transaction.ts — ocrAssetCandidateSecuritySchema, ocrAssetCandidateResultSchema, ocrAssetCandidateResultListSchema; documentOcrPipelineResultSchema.assetCandidates optional"
+    status: completed
   - id: candidate-resolution
     content: "Replace 4c throw-on-fail with asset-candidate resolution: query all user_asset_securities across all user assets, build the asset-candidate tree (asset-first, all OCR rows listed under each asset, matched flag per row). Return tree instead of throwing — caller decides whether to auto-insert or surface to user."
     status: pending

@@ -33,6 +33,7 @@ type OcrJobPipeline = {
   brandIdentification: Record<string, unknown>;
   brandDbMatch: Record<string, unknown>;
   securityHoldings: Array<Record<string, unknown>>;
+  assetCandidates?: Array<Record<string, unknown>>;
   llmPath: "text" | "vision";
   nativePdfCharCount?: number;
 };

@@ -341,6 +341,51 @@ export const securityTransactionOcrExtractionListSchema = z.array(
 );
 
 /**
+ * One OCR security row as evaluated under a specific user asset candidate.
+ * Every asset candidate lists **all** document rows; `matched` indicates whether
+ * that row mapped to a holding within that asset. `verified` reflects the schema
+ * gate (4b) — rows already in the pipeline are typically `true` after Zod parse.
+ */
+export const ocrAssetCandidateSecuritySchema = z
+  .object({
+    ocrRow: securityTransactionOcrExtractionRowSchema,
+    verified: z.boolean(),
+    matched: z.boolean(),
+    userAssetSecurityId: z.string().uuid().nullable(),
+  })
+  .refine((s) => !s.matched || s.userAssetSecurityId !== null, {
+    message: "userAssetSecurityId is required when matched is true",
+  });
+
+export type OcrAssetCandidateSecurity = z.infer<typeof ocrAssetCandidateSecuritySchema>;
+
+/**
+ * One user asset (account) evaluated as a candidate for explaining the statement.
+ * `securities` contains every OCR row from the document — same length and order
+ * across all asset candidates in a result. `matchedCount` / `totalCount` are
+ * denormalised for decision logic (e.g. auto-insert when exactly one asset has
+ * `matchedCount === totalCount`).
+ */
+export const ocrAssetCandidateResultSchema = z
+  .object({
+    userAssetId: z.string().uuid(),
+    assetName: z.string(),
+    matchedCount: z.number().int().nonnegative(),
+    totalCount: z.number().int().nonnegative(),
+    securities: z.array(ocrAssetCandidateSecuritySchema),
+  })
+  .refine((v) => v.matchedCount <= v.totalCount, {
+    message: "matchedCount must not exceed totalCount",
+  })
+  .refine((v) => v.securities.length === v.totalCount, {
+    message: "securities length must equal totalCount",
+  });
+
+export type OcrAssetCandidateResult = z.infer<typeof ocrAssetCandidateResultSchema>;
+
+export const ocrAssetCandidateResultListSchema = z.array(ocrAssetCandidateResultSchema);
+
+/**
  * Strips OCR-only fields and sets `source: "ocr"` for persistence.
  */
 export function securityTransactionOcrRowToOrphanInsert(

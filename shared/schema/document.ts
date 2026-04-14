@@ -3,7 +3,10 @@ import {
   statementPlatformBrandDbMatchSchema,
   statementPlatformBrandIdentificationSchema,
 } from "./platform-brand-ocr";
-import { securityTransactionOcrExtractionListSchema } from "./transaction";
+import {
+  ocrAssetCandidateResultListSchema,
+  securityTransactionOcrExtractionListSchema,
+} from "./transaction";
 import type {
   DocumentInsert as DBDocumentInsert,
   DocumentSelect as DBDocumentSelect,
@@ -108,6 +111,8 @@ export const documentOcrPipelineResultSchema = z.object({
   brandIdentification: statementPlatformBrandIdentificationSchema,
   brandDbMatch: statementPlatformBrandDbMatchSchema,
   securityHoldings: securityTransactionOcrExtractionListSchema,
+  /** Asset-first resolution tree; optional until candidate-resolution is implemented. */
+  assetCandidates: ocrAssetCandidateResultListSchema.optional(),
   llmPath: z.enum(["text", "vision"]),
   nativePdfCharCount: z.number().int().nonnegative().optional(),
 });
