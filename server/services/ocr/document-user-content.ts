@@ -96,18 +96,24 @@ function buildVisionPdfBase(base64: string): PreparedOcrDocumentUserContent {
 export async function prepareOcrDocumentUserContentBase(
   buffer: Buffer,
   mimeType: SupportedOcrDocumentMimeType,
-  pdfTextConfig: PdfTextExtractionConfig
+  pdfTextConfig: PdfTextExtractionConfig,
+  abortSignal?: AbortSignal
 ): Promise<PreparedOcrDocumentUserContent> {
+  abortSignal?.throwIfAborted();
+
   const base64 = buffer.toString("base64");
 
   if (mimeType !== "application/pdf") {
     return buildVisionImageBase(mimeType, base64);
   }
 
+  abortSignal?.throwIfAborted();
+
   const analysis = await analyzeDocumentForOcrTranscript(
     buffer,
     mimeType,
-    pdfTextConfig
+    pdfTextConfig,
+    { abortSignal }
   );
 
   if (analysis.kind !== "pdf_transcript") {

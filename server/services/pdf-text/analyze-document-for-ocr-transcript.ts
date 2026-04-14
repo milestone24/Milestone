@@ -21,13 +21,17 @@ export type DocumentTranscriptAnalysis =
 export async function analyzeDocumentForOcrTranscript(
   buffer: Buffer,
   mimeType: string,
-  config: PdfTextExtractionConfig
+  config: PdfTextExtractionConfig,
+  options?: { abortSignal?: AbortSignal }
 ): Promise<DocumentTranscriptAnalysis> {
   if (mimeType !== "application/pdf") {
     return { kind: "not_pdf", mimeType };
   }
 
-  const { fullTranscript, totalPages } = await extractPdfNativeText(buffer);
+  const { fullTranscript, totalPages } = await extractPdfNativeText(buffer, {
+    abortSignal: options?.abortSignal,
+  });
+  options?.abortSignal?.throwIfAborted();
   const { charCount, wordCount, sufficient } = isNativePdfTextSufficient(
     fullTranscript,
     config
