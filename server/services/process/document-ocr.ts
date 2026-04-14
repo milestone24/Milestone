@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@server/db";
-import { processes, userAssets } from "@server/db/schema";
+import { ocrJobs, processes, userAssets } from "@server/db/schema";
 import { getUserAccountId } from "@server/auth";
 import { DocumentService } from "@server/services/documents";
 import {
@@ -49,27 +49,47 @@ export async function startDocumentOcr(
 
   const document = await documentService.upload(file);
 
-  const [job] = await db
-    .insert(processes)
-    .values({
-      key: "document-ocr",
-      status: "pending",
-      startedAt: new Date(),
-      payload: {
-        documentId: document.id,
-        platformKey,
-        accountId,
-        ...(nominatedUserAssetId ? { nominatedUserAssetId } : {}),
-      },
-    })
-    .returning();
+  const { job, ocrJobId } = await db.transaction(async (tx) => {
+    const [jobRow] = await tx
+      .insert(processes)
+      .values({
+        key: "document-ocr",
+        status: "pending",
+        startedAt: new Date(),
+        payload: {
+          documentId: document.id,
+          platformKey,
+          accountId,
+          ...(nominatedUserAssetId ? { nominatedUserAssetId } : {}),
+        },
+      })
+      .returning();
 
-  if (!job) {
-    throw new Error("Failed to create document OCR process");
-  }
+    if (!jobRow) {
+      throw new Error("Failed to create document OCR process");
+    }
+
+    const [ocrRow] = await tx
+      .insert(ocrJobs)
+      .values({
+        documentId: document.id,
+        processId: jobRow.id,
+        platformKey,
+        status: "pending",
+        startedAt: new Date(),
+      })
+      .returning({ id: ocrJobs.id });
+
+    if (!ocrRow) {
+      throw new Error("Failed to create ocr_jobs row");
+    }
+
+    return { job: jobRow, ocrJobId: ocrRow.id };
+  });
 
   handler({
     jobId: job.id,
+    ocrJobId,
     documentId: document.id,
     platformKey,
     platformNames,

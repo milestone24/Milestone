@@ -1,25 +1,15 @@
 /**
- * Thin write layer for ocr_jobs rows.
+ * Best-effort writes for `ocr_jobs` rows (same spirit as {@link updateProcessStatus}):
+ * errors are logged and not rethrown so distributed handlers stay resilient.
  *
- * Mirrors the error-handling philosophy of job-helpers.ts: all errors are
- * caught and logged rather than rethrown so that a DB hiccup does not abort
- * the handler or leave the process in an inconsistent terminal state.
- *
- * One ocr_jobs row is created per handler invocation (not per process row).
- * document_id and process_id are SET NULL on delete so the OCR record
- * outlives both the document being removed and the processes row being purged.
+ * Rows are inserted with `processes` in `startDocumentOcr` so every started job
+ * has an `ocr_jobs` record.
  */
 import { db } from "@server/db";
-import { ocrJobs, type OcrJobSelect } from "@server/db/schema";
+import { ocrJobs } from "@server/db/schema";
 import { eq } from "drizzle-orm";
 import type { ExtractedAmount } from "@shared/schema/document";
 import type { DocumentOcrPipelineResult } from "@shared/schema/document";
-
-type CreateParams = {
-  documentId: string;
-  processId: string;
-  platformKey: string;
-};
 
 type CompleteParams = {
   ocrJobId: string;
@@ -32,35 +22,33 @@ type FailParams = {
   error: string;
 };
 
-export async function createOcrJobRecord(
-  params: CreateParams
-): Promise<string | undefined> {
+type AbortParams = {
+  ocrJobId: string;
+  error: string;
+};
+
+/** @returns whether the DB update succeeded */
+export async function tryMarkOcrJobRunning(ocrJobId: string): Promise<boolean> {
   try {
-    const [row] = await db
-      .insert(ocrJobs)
-      .values({
-        documentId: params.documentId,
-        processId: params.processId,
-        platformKey: params.platformKey,
-        status: "running",
-        startedAt: new Date(),
-      })
-      .returning({ id: ocrJobs.id });
-    return row?.id;
+    await db
+      .update(ocrJobs)
+      .set({ status: "running" })
+      .where(eq(ocrJobs.id, ocrJobId));
+    return true;
   } catch (error) {
     console.error(
-      "[ocr-job-store] Failed to create ocr_jobs row documentId=%s processId=%s",
-      params.documentId,
-      params.processId,
+      "[ocr-job-store] Failed to mark ocr_jobs running ocrJobId=%s",
+      ocrJobId,
       error
     );
-    return undefined;
+    return false;
   }
 }
 
-export async function completeOcrJobRecord(
+/** @returns whether the DB update succeeded */
+export async function tryCompleteOcrJobRecord(
   params: CompleteParams
-): Promise<void> {
+): Promise<boolean> {
   try {
     await db
       .update(ocrJobs)
@@ -71,16 +59,19 @@ export async function completeOcrJobRecord(
         completedAt: new Date(),
       })
       .where(eq(ocrJobs.id, params.ocrJobId));
+    return true;
   } catch (error) {
     console.error(
       "[ocr-job-store] Failed to complete ocr_jobs row ocrJobId=%s",
       params.ocrJobId,
       error
     );
+    return false;
   }
 }
 
-export async function failOcrJobRecord(params: FailParams): Promise<void> {
+/** @returns whether the DB update succeeded */
+export async function tryFailOcrJobRecord(params: FailParams): Promise<boolean> {
   try {
     await db
       .update(ocrJobs)
@@ -90,11 +81,35 @@ export async function failOcrJobRecord(params: FailParams): Promise<void> {
         completedAt: new Date(),
       })
       .where(eq(ocrJobs.id, params.ocrJobId));
+    return true;
   } catch (error) {
     console.error(
       "[ocr-job-store] Failed to fail ocr_jobs row ocrJobId=%s",
       params.ocrJobId,
       error
     );
+    return false;
+  }
+}
+
+/** @returns whether the DB update succeeded */
+export async function tryAbortOcrJobRecord(params: AbortParams): Promise<boolean> {
+  try {
+    await db
+      .update(ocrJobs)
+      .set({
+        status: "aborted",
+        error: params.error,
+        completedAt: new Date(),
+      })
+      .where(eq(ocrJobs.id, params.ocrJobId));
+    return true;
+  } catch (error) {
+    console.error(
+      "[ocr-job-store] Failed to abort ocr_jobs row ocrJobId=%s",
+      params.ocrJobId,
+      error
+    );
+    return false;
   }
 }
