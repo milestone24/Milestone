@@ -111,10 +111,10 @@ export const documentOcrPipelineResultSchema = z.object({
   brandIdentification: statementPlatformBrandIdentificationSchema,
   brandDbMatch: statementPlatformBrandDbMatchSchema,
   securityHoldings: securityTransactionOcrExtractionListSchema,
-  /** Asset-first resolution tree; optional until candidate-resolution is implemented. */
-  assetCandidates: ocrAssetCandidateResultListSchema.optional(),
-  /** Upload context: `user_assets.id` when OCR was started from an asset-scoped route; otherwise null. Optional on disk for rows written before this field existed. */
-  nominatedUserAssetId: z.string().uuid().nullable().optional(),
+  /** Asset-first resolution tree; always an array (empty when no portfolio rows match the account). */
+  assetCandidates: ocrAssetCandidateResultListSchema.default([]),
+  /** Upload context: `user_assets.id` when OCR was started from an asset-scoped route; otherwise null. */
+  nominatedUserAssetId: z.string().uuid().nullable().default(null),
   llmPath: z.enum(["text", "vision"]),
   nativePdfCharCount: z.number().int().nonnegative().optional(),
 });
