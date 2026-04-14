@@ -17,8 +17,8 @@ import {
 import { parseJsonArrayWithSchema, parseJsonObjectWithSchema } from "./model-json";
 import {
   assertBrandVerificationPassed,
+  buildOcrAssetCandidateResults,
   parseConfiguredBrokerPlatformId,
-  verifySecurityHoldingsOwnedByUser,
   verifyStatementPlatformBrand,
 } from "./transaction-ocr-verifiers";
 
@@ -98,7 +98,8 @@ function truncateForVerbose(text: string, maxChars = VERBOSE_RAW_TEXT_MAX_CHARS)
 }
 
 /**
- * Runs Phase 3a–3c (brand) and Phase 4a–4c (securities), then balance extraction via {@link extractBalances}.
+ * Runs Phase 3a–3c (brand), Phase 4a–4b (securities extract + Zod), Phase 4c (asset-candidate tree),
+ * then balance extraction via {@link extractBalances}.
  * PDF native text vs vision is decided once; all LLM phases reuse the same document blocks.
  */
 export async function runFullDocumentOcrPipeline(params: {
@@ -247,17 +248,22 @@ export async function runFullDocumentOcrPipeline(params: {
   v?.("4a_parsed", { rowCount: securityHoldings.length });
 
   const t4c0 = Date.now();
-  await verifySecurityHoldingsOwnedByUser({
+  const assetCandidates = await buildOcrAssetCandidateResults({
     accountId: params.accountId,
     rows: securityHoldings,
     verboseLog: v,
   });
-  v?.("4c_holdings_ownership_ok", { elapsedMs: Date.now() - t4c0, accountId: params.accountId });
+  v?.("4c_asset_candidates_done", {
+    elapsedMs: Date.now() - t4c0,
+    accountId: params.accountId,
+    assetCandidateCount: assetCandidates.length,
+  });
 
   const pipeline: DocumentOcrPipelineResult = {
     brandIdentification,
     brandDbMatch,
     securityHoldings,
+    assetCandidates,
     llmPath: prepared.meta.path,
     nativePdfCharCount: prepared.meta.charCount,
   };

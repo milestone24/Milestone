@@ -33,8 +33,8 @@ todos:
     content: "shared/schema/transaction.ts — ocrAssetCandidateSecuritySchema, ocrAssetCandidateResultSchema, ocrAssetCandidateResultListSchema; documentOcrPipelineResultSchema.assetCandidates optional"
     status: completed
   - id: candidate-resolution
-    content: "Replace 4c throw-on-fail with asset-candidate resolution: query all user_asset_securities across all user assets, build the asset-candidate tree (asset-first, all OCR rows listed under each asset, matched flag per row). Return tree instead of throwing — caller decides whether to auto-insert or surface to user."
-    status: pending
+    content: "buildOcrAssetCandidateResults in transaction-ocr-verifiers — per-user-asset holdings, all OCR rows under each asset with matched + userAssetSecurityId; runFullDocumentOcrPipeline sets pipeline.assetCandidates (no 4c throw)"
+    status: completed
   - id: candidate-persistence
     content: "Persist resolved security transaction candidates as security_transactions rows with source: ocr; only auto-insert when exactly one asset candidate has matchedCount === totalCount; otherwise surface tree to client for user resolution."
     status: pending

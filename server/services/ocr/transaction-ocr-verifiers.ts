@@ -12,7 +12,11 @@ import type {
   StatementPlatformBrandIdentification,
   StatementPlatformBrandMatchKind,
 } from "@shared/schema/platform-brand-ocr";
-import type { SecurityTransactionOcrExtractionRow } from "@shared/schema/transaction";
+import {
+  ocrAssetCandidateResultSchema,
+  type OcrAssetCandidateResult,
+  type SecurityTransactionOcrExtractionRow,
+} from "@shared/schema/transaction";
 import type { OcrPipelineVerboseLog } from "./transaction-ocr-orchestrator";
 
 const UUID_RE =
@@ -281,76 +285,155 @@ function rowMatchesUserSecurity(
   return scoreOcrRowAgainstHolding(row, holding).matched;
 }
 
+type AssetHoldingRow = {
+  userAssetSecurityId: string;
+  symbol: string;
+  isin: string | null;
+  name: string;
+};
+
+type AssetWithHoldings = {
+  userAssetId: string;
+  assetName: string;
+  holdings: AssetHoldingRow[];
+};
+
+function groupHoldingsByAsset(
+  flat: Array<{
+    userAssetId: string;
+    assetName: string;
+    userAssetSecurityId: string;
+    symbol: string;
+    isin: string | null;
+    securityName: string;
+  }>
+): AssetWithHoldings[] {
+  const byAsset = new Map<string, AssetWithHoldings>();
+  for (const r of flat) {
+    let entry = byAsset.get(r.userAssetId);
+    if (!entry) {
+      entry = {
+        userAssetId: r.userAssetId,
+        assetName: r.assetName,
+        holdings: [],
+      };
+      byAsset.set(r.userAssetId, entry);
+    }
+    entry.holdings.push({
+      userAssetSecurityId: r.userAssetSecurityId,
+      symbol: r.symbol,
+      isin: r.isin,
+      name: r.securityName,
+    });
+  }
+  return [...byAsset.values()];
+}
+
+function pickFirstMatchingUserAssetSecurityId(
+  row: SecurityTransactionOcrExtractionRow,
+  holdings: AssetHoldingRow[]
+): string | null {
+  for (const h of holdings) {
+    const identity: HoldingIdentity = {
+      symbol: h.symbol,
+      isin: h.isin,
+      name: h.name,
+    };
+    if (rowMatchesUserSecurity(row, identity)) {
+      return h.userAssetSecurityId;
+    }
+  }
+  return null;
+}
+
+function buildOcrAssetCandidateForAsset(params: {
+  userAssetId: string;
+  assetName: string;
+  ocrRows: SecurityTransactionOcrExtractionRow[];
+  holdings: AssetHoldingRow[];
+}): OcrAssetCandidateResult {
+  const totalCount = params.ocrRows.length;
+  const securities = params.ocrRows.map((ocrRow) => {
+    const userAssetSecurityId = pickFirstMatchingUserAssetSecurityId(
+      ocrRow,
+      params.holdings
+    );
+    const matched = userAssetSecurityId !== null;
+    return {
+      ocrRow,
+      verified: true,
+      matched,
+      userAssetSecurityId: matched ? userAssetSecurityId : null,
+    };
+  });
+  const matchedCount = securities.filter((s) => s.matched).length;
+  return ocrAssetCandidateResultSchema.parse({
+    userAssetId: params.userAssetId,
+    assetName: params.assetName,
+    matchedCount,
+    totalCount,
+    securities,
+  });
+}
+
 /**
- * Step 4c: each OCR security row must match at least one non-archived holding for the account.
+ * Step 4c (revised): build an asset-first tree — each user asset with holdings lists
+ * every OCR row with per-asset `matched` / `userAssetSecurityId`. No throw; callers
+ * use `matchedCount === totalCount` to decide auto-insert vs user resolution.
  */
-export async function verifySecurityHoldingsOwnedByUser(params: {
+export async function buildOcrAssetCandidateResults(params: {
   accountId: string;
   rows: SecurityTransactionOcrExtractionRow[];
   verboseLog?: OcrPipelineVerboseLog;
-}): Promise<void> {
+}): Promise<OcrAssetCandidateResult[]> {
   const { accountId, rows, verboseLog: v } = params;
-  if (rows.length === 0) return;
+  if (rows.length === 0) {
+    return [];
+  }
 
-  const holdings = await db
+  const flat = await db
     .select({
+      userAssetId: userAssets.id,
+      assetName: userAssets.name,
+      userAssetSecurityId: userAssetSecurities.id,
       symbol: securities.symbol,
       isin: securities.isin,
-      name: securities.name,
+      securityName: securities.name,
     })
-    .from(userAssetSecurities)
-    .innerJoin(userAssets, eq(userAssetSecurities.userAssetId, userAssets.id))
+    .from(userAssets)
+    .innerJoin(userAssetSecurities, eq(userAssetSecurities.userAssetId, userAssets.id))
     .innerJoin(securities, eq(userAssetSecurities.securityId, securities.id))
     .where(
       and(eq(userAssets.userAccountId, accountId), eq(userAssetSecurities.archived, false))
     );
 
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i]!;
-    const ok = holdings.some((h) => rowMatchesUserSecurity(row, h));
-    if (!ok) {
-      const scored = holdings.map((h) => {
-        const s = scoreOcrRowAgainstHolding(row, h);
-        return {
-          db: { symbol: h.symbol, isin: h.isin, name: h.name },
-          symbolExactMatch: s.symbolExactMatch,
-          isinExactMatch: s.isinExactMatch,
-          nameNormalizedEqual: s.nameNormalizedEqual,
-          nameFuzzyRatio: s.nameFuzzyRatio,
-          matched: s.matched,
-        };
-      });
-      const bestFuzzy = scored.reduce(
-        (max, p) => Math.max(max, p.nameFuzzyRatio),
-        0
-      );
-      const FUZZY_VERBOSE_MIN = 0.2;
-      const perHolding = scored.filter(
-        (p) =>
-          p.symbolExactMatch ||
-          p.isinExactMatch ||
-          p.nameFuzzyRatio > FUZZY_VERBOSE_MIN
-      );
-      v?.("4c_row_validation_failed", {
-        rowIndex: i + 1,
-        accountId,
-        ocrRow: {
-          symbol: row.symbol ?? null,
-          isin: row.isin ?? null,
-          name: row.name ?? null,
-        },
-        holdingsCompared: holdings.length,
-        nameFuzzyPassThreshold: 0.92,
-        verboseNameFuzzyMin: FUZZY_VERBOSE_MIN,
-        bestNameFuzzyRatioAcrossHoldings: bestFuzzy,
-        perHoldingVerboseCount: perHolding.length,
-        perHolding,
-      });
-      throw new Error(
-        `OCR phase 4c: security row ${i + 1} (${row.symbol ?? row.name ?? "?"}) does not match any holding for this account`
-      );
+  const assetsWithHoldings = groupHoldingsByAsset(flat);
+
+  const candidates: OcrAssetCandidateResult[] = [];
+  for (const asset of assetsWithHoldings) {
+    if (asset.holdings.length === 0) {
+      continue;
     }
+    candidates.push(
+      buildOcrAssetCandidateForAsset({
+        userAssetId: asset.userAssetId,
+        assetName: asset.assetName,
+        ocrRows: rows,
+        holdings: asset.holdings,
+      })
+    );
   }
+
+  v?.("4c_asset_candidates_built", {
+    accountId,
+    ocrRowCount: rows.length,
+    assetCandidateCount: candidates.length,
+    fullMatchAssetIds: candidates
+      .filter((c) => c.matchedCount === c.totalCount && c.totalCount > 0)
+      .map((c) => c.userAssetId),
+  });
+
+  return candidates;
 }
 
 export function assertBrandVerificationPassed(
