@@ -31,14 +31,22 @@ type Event = {
   platformNames: string[];
   accountId: string;
   mimeType: string;
+  nominatedUserAssetId?: string;
 };
 
 const documentService = new DocumentService();
 const ocrService = new OcrService();
 
 export const handler = async (event: Event): Promise<void> => {
-  const { jobId, documentId, platformKey, platformNames, accountId, mimeType } =
-    event;
+  const {
+    jobId,
+    documentId,
+    platformKey,
+    platformNames,
+    accountId,
+    mimeType,
+    nominatedUserAssetId,
+  } = event;
 
   console.log(
     "[document-ocr] Handler started jobId=%s documentId=%s platformKey=%s",
@@ -115,6 +123,7 @@ export const handler = async (event: Event): Promise<void> => {
       platformKey,
       platformNames,
       accountId,
+      nominatedUserAssetId,
       extractBalances: (prepared) =>
         ocrService.extractFromPrepared(prepared, platformKey, platformNames),
     });

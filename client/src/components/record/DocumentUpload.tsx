@@ -17,6 +17,8 @@ import { useDocumentUpload } from "@/hooks/use-document-upload";
 interface DocumentUploadProps {
   assets: UserAsset[];
   onExtractedValues: (data: { assetId: string; value: number }[]) => void;
+  /** When set, OCR extract uses the asset-scoped API and sets `pipeline.nominatedUserAssetId`. */
+  nominatedAssetId?: string;
 }
 
 type UploadState =
@@ -30,7 +32,11 @@ interface ExtractedValueEdit extends ExtractedAmount {
   matchedAssetId?: string;
 }
 
-export function DocumentUpload({ assets, onExtractedValues }: DocumentUploadProps) {
+export function DocumentUpload({
+  assets,
+  onExtractedValues,
+  nominatedAssetId,
+}: DocumentUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [platformKey, setPlatformKey] = useState<string>("unknown");
@@ -93,7 +99,12 @@ export function DocumentUpload({ assets, onExtractedValues }: DocumentUploadProp
     setUploadState({ status: "processing", jobId: "" });
 
     mutation.mutate(
-      { file: selectedFile, platformKey, platformNames },
+      {
+        file: selectedFile,
+        platformKey,
+        platformNames,
+        ...(nominatedAssetId ? { nominatedAssetId } : {}),
+      },
       {
         onSuccess: (result) => {
           setUploadState({ status: "processing", jobId: result.jobId });

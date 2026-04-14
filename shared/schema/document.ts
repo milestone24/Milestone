@@ -113,6 +113,8 @@ export const documentOcrPipelineResultSchema = z.object({
   securityHoldings: securityTransactionOcrExtractionListSchema,
   /** Asset-first resolution tree; optional until candidate-resolution is implemented. */
   assetCandidates: ocrAssetCandidateResultListSchema.optional(),
+  /** Upload context: `user_assets.id` when OCR was started from an asset-scoped route; otherwise null. */
+  nominatedUserAssetId: z.string().uuid().nullable(),
   llmPath: z.enum(["text", "vision"]),
   nativePdfCharCount: z.number().int().nonnegative().optional(),
 });

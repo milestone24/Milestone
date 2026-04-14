@@ -36,10 +36,10 @@ todos:
     content: "buildOcrAssetCandidateResults in transaction-ocr-verifiers — per-user-asset holdings, all OCR rows under each asset with matched + userAssetSecurityId; runFullDocumentOcrPipeline sets pipeline.assetCandidates (no 4c throw)"
     status: completed
   - id: ocr-nominated-asset-context
-    content: "Optional assetId on document OCR start (user_assets.id) — validate belongs to userAccountId or throw; pipeline.nominatedUserAssetId when provided; full assetCandidates unchanged for ambiguity/conflict; wire processes payload, handler event, runFullDocumentOcrPipeline, documentOcrPipelineResultSchema, queue document-ocr-completed, ocr_jobs.pipeline, client extract hook"
-    status: pending
+    content: "POST /api/assets/:assetId/documents/:platformKey/extract + NominatedUserAssetInvalidError; startDocumentOcr options; processes.payload.nominatedUserAssetId; handler + pipeline.nominatedUserAssetId; useDocumentUpload nominatedAssetId; DocumentUpload optional prop"
+    status: completed
   - id: candidate-persistence
-    content: "Persist resolved security transaction candidates as security_transactions rows with source: ocr; auto-insert only when resolution rules allow (e.g. single full match on assetCandidates, or nominee among full matches — exact rules TBD alongside ocr-nominated-asset-context); otherwise surface tree to client."
+    content: "Persist resolved security transaction candidates as security_transactions rows with source: ocr; auto-insert only when resolution rules allow (e.g. single full match on assetCandidates, or nominee among full matches — exact rules TBD); otherwise surface tree to client."
     status: pending
   - id: client-candidate-review
     content: "Client UI: render asset-candidate tree — show which assets had full/partial matches, let user pick the correct asset when ambiguous, confirm before insert; handle unmatched security rows (new holding not yet in portfolio)."
@@ -167,7 +167,7 @@ When OCR is started from a **specific asset** (e.g. asset detail / holdings page
 
 **Edge case — nominee absent from `assetCandidates`:** candidates are only built for assets that have at least one non-archived `user_asset_securities` row. If the nominated asset has **no** such holdings, it will **not** appear in `assetCandidates`. **`nominatedUserAssetId` is still set** so upload intent stays explicit; absence from the list is a strong signal (“no holdings rows to score for that asset”), not ambiguous intent.
 
-**Wire-through (implementation checklist):** optional `assetId` on `POST …/extract` (multipart field or query — product choice); `DocumentOcrProcess` / `processes.payload`; `document-ocr-distributed-handler` event; `runFullDocumentOcrPipeline` param; `documentOcrPipelineResultSchema` + `ocr_jobs.pipeline` jsonb; queue `document-ocr-completed`; client upload hook.
+**Wire-through (implemented):** **`POST /api/assets/:assetId/documents/:platformKey/extract`** (same multipart as account-wide extract: `file`, `platformNames`); account-wide remains **`POST /api/documents/:platformKey/extract`** without nominee. `DocumentOcrProcess` / `processes.payload` optional `nominatedUserAssetId`; handler event; `runFullDocumentOcrPipeline`; `documentOcrPipelineResultSchema.nominatedUserAssetId` (nullable); `ocr_jobs.pipeline`; queue `document-ocr-completed` carries `pipeline`; `useDocumentUpload({ nominatedAssetId })`; `DocumentUpload` optional `nominatedAssetId` prop.
 
 ### Email-origin input → OCR processing path
 
@@ -270,7 +270,7 @@ These are the **decision points** called out when starting Spike 1. Each row sta
 | **Where orchestration runs** | Same Node process as **`document-ocr-distributed-handler`** vs separate worker / future durable engine (Temporal, Inngest). | **Default: in-process** (existing handler path). Revisit only if durable steps are needed — deferred past `client-candidate-review`. |
 | **Second provider priority** | First non-Anthropic adapter: **Ollama (text)** vs **AWS Bedrock** vs other. | **Deferred** — revisit after product pipeline is end-to-end (`orchestration-spike-1-exit-provider`). |
 | **Dual-track OCR payloads** | **Resolved:** same `document-ocr-completed` event; `extractedValues` + `pipeline.assetCandidates` (+ optional `pipeline.nominatedUserAssetId`). | — |
-| **Optional upload-context `assetId`** | Optional `user_assets.id` when starting OCR from an asset-scoped UI; **`nominatedUserAssetId`** on pipeline when valid; validate **`assetId` ∈ account** or throw. | **`ocr-nominated-asset-context` todo** before persistence rules that prefer nominee among full matches. |
+| **Optional upload-context `assetId`** | **Resolved:** asset-first route **`POST /api/assets/:assetId/documents/:platformKey/extract`**; **`nominatedUserAssetId`** on pipeline; validate **`assetId` ∈ account** or **`NominatedUserAssetInvalidError`** → 400. | — |
 
 ---
 
@@ -281,7 +281,7 @@ The gateway foundation (Spike 1) is complete. Product features are the priority;
 1. ~~**Dual-track payload**~~ (`product-dual-track`) — **Done:** same `document-ocr-completed` event; `extractedValues` for Record, `assetCandidates` tree for security-transaction flow.
 2. ~~**Asset-candidate result schema**~~ (`asset-candidate-result-schema`) — **Done:** `OcrAssetCandidateResult` Zod in `shared/schema`; `documentOcrPipelineResultSchema.assetCandidates`.
 3. ~~**Resolution service**~~ (`candidate-resolution`) — **Done:** asset-candidate tree builder; `pipeline.assetCandidates`.
-4. **Nominated upload context** (`ocr-nominated-asset-context`) — Optional `assetId` on extract; validate against `userAccountId`; `pipeline.nominatedUserAssetId`; wire process payload, handler, queue, `ocr_jobs`, shared Zod, client hook.
+4. ~~**Nominated upload context**~~ (`ocr-nominated-asset-context`) — **Done:** `POST /api/assets/:assetId/documents/:platformKey/extract`, validation, `pipeline.nominatedUserAssetId`, client hook + `DocumentUpload` prop.
 5. **Persistence** (`candidate-persistence`) — Auto-insert `security_transactions` with `source: "ocr"` when resolution rules allow (e.g. exactly one full match, or nominee among full matches — exact rules TBD); otherwise surface tree to client.
 6. **Client candidate review** (`client-candidate-review`) — UI renders asset-candidate tree; pass optional `assetId` from asset page; user picks asset when ambiguous, confirms before insert, handles unmatched rows.
 7. **Phase 2 verify** (`phase2-verify`) — Optional groundedness/suspect-row pass; feature-flagged, additive.

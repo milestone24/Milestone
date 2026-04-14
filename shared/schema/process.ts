@@ -48,6 +48,8 @@ export type DocumentOcrProcess = Omit<DBProcessSelect, "key" | "payload"> & {
     documentId: string;
     platformKey: string;
     accountId: string;
+    /** Present when started via `POST /api/assets/:assetId/documents/:platformKey/extract`. */
+    nominatedUserAssetId?: string;
   };
 };
 

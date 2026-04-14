@@ -108,6 +108,8 @@ export async function runFullDocumentOcrPipeline(params: {
   platformKey: string;
   platformNames: string[];
   accountId: string;
+  /** Upload context: `user_assets.id` when OCR was started from an asset-scoped extract route. */
+  nominatedUserAssetId?: string;
   extractBalances: (
     prepared: PreparedOcrDocumentUserContent
   ) => Promise<ExtractedAmount[]>;
@@ -264,6 +266,7 @@ export async function runFullDocumentOcrPipeline(params: {
     brandDbMatch,
     securityHoldings,
     assetCandidates,
+    nominatedUserAssetId: params.nominatedUserAssetId ?? null,
     llmPath: prepared.meta.path,
     nativePdfCharCount: prepared.meta.charCount,
   };
