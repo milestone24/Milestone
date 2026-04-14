@@ -27,16 +27,19 @@ todos:
     content: "Wire document-ocr-distributed-handler to insert/update ocr_jobs on start, complete and fail; persistence must not rely solely on the queue message"
     status: completed
   - id: product-dual-track
-    content: "Clarify Record asset-values OCR vs security-transaction OCR — decide payload shape (securityCandidates field on document-ocr-completed vs separate mode/route); securityHoldings are currently computed and dropped downstream."
+    content: "Decided: same document-ocr-completed event carries both extractedValues (Record balance flow) and the asset-candidate tree (security-transaction flow). No separate mode or route needed at this stage."
+    status: completed
+  - id: asset-candidate-result-schema
+    content: "Define OcrAssetCandidateResult Zod schema in shared/schema: asset-first tree where every asset candidate lists ALL OCR security rows each annotated with verified + matched + userAssetSecurityId. Replaces the flat securityHoldings array as the resolution output. Include matchedCount and totalCount per asset for decision logic (auto-insert when matchedCount === totalCount on exactly one asset)."
     status: pending
   - id: candidate-resolution
-    content: "Resolution step: map verified OCR candidate { symbol, isin, name } + userAccountId → assetSecurityId (securities cache / DB); prerequisite for persistence."
+    content: "Replace 4c throw-on-fail with asset-candidate resolution: query all user_asset_securities across all user assets, build the asset-candidate tree (asset-first, all OCR rows listed under each asset, matched flag per row). Return tree instead of throwing — caller decides whether to auto-insert or surface to user."
     status: pending
   - id: candidate-persistence
-    content: "Persist resolved security transaction candidates as security_transactions rows with source: ocr after 4c + resolution; no write path exists today."
+    content: "Persist resolved security transaction candidates as security_transactions rows with source: ocr; only auto-insert when exactly one asset candidate has matchedCount === totalCount; otherwise surface tree to client for user resolution."
     status: pending
   - id: client-candidate-review
-    content: "Client UI: surface security transaction candidates to user for confirmation before insert; handle unresolved candidates (new security not yet in portfolio)."
+    content: "Client UI: render asset-candidate tree — show which assets had full/partial matches, let user pick the correct asset when ambiguous, confirm before insert; handle unmatched security rows (new holding not yet in portfolio)."
     status: pending
   - id: phase2-verify
     content: Optional groundedness verify pass + feature flag (second LLM pass after 4a to flag suspect rows)
@@ -111,14 +114,44 @@ At minimum, per **line or holding** on the document:
 
 The LLM should **not** emit `assetSecurityId` unless you add an unsafe auto-match; prefer **candidate + UI/service resolution** → then `securityTransactionInsertSchema`.
 
-### Product / API implication
+### Product / API implication — decided
 
-The Record flow today expects **`{ assetId, value }[]`** for **asset** values. Security-transaction capture is a **different** outcome:
+**Same `document-ocr-completed` WebSocket event carries both tracks.** No separate mode or route at this stage:
 
-- Either introduce an **extraction mode** (e.g. asset snapshot vs security holdings) on upload/route, **or**
-- Separate endpoint / process key / client flow for “statement → security transaction candidates”.
+- `extractedValues` — `ExtractedAmount[]` for the existing Record balance flow (unchanged).
+- `assetCandidates` — `OcrAssetCandidateResult[]` — the new asset-candidate tree for the security-transaction flow (see **Asset-candidate result model** below).
 
-Document that choice explicitly before implementing schema swaps on the existing `document-ocr-completed` payload.
+Both are also persisted in `ocr_jobs` (`extracted_values` and `pipeline` jsonb) so the client can re-fetch if the WebSocket message is missed.
+
+### Asset-candidate result model
+
+The resolution output is an **asset-first tree**. Every `userAsset` that has at least one security matching an OCR row becomes an **asset candidate**. Every asset candidate lists **all** OCR security rows — each annotated with whether it was verified (schema gate) and whether it matched a holding within that specific asset.
+
+```
+OcrAssetCandidateResult {
+  userAssetId: string
+  assetName: string
+  matchedCount: number        // OCR rows matched within this asset
+  totalCount: number          // total OCR rows (same across all candidates)
+  securities: Array<{
+    ocrRow: SecurityTransactionOcrExtractionRow   // raw OCR output
+    verified: boolean                             // passed 4b schema gate
+    matched: boolean                              // found in this asset's holdings
+    userAssetSecurityId: string | null            // null when matched = false
+  }>
+}
+```
+
+**Decision logic (auto-insert vs user resolution):**
+
+| Condition | Action |
+|-----------|--------|
+| Exactly **one** asset candidate where `matchedCount === totalCount` | Auto-insert eligible — all securities resolved to one asset |
+| **Multiple** asset candidates with full match | Ambiguous — user picks the correct asset |
+| **No** asset candidate with full match | Partial match — user reviews unmatched rows (new holding, wrong account, etc.) |
+| Individual rows with `verified: false` | Flagged as suspect — user must confirm or discard |
+
+This replaces the current 4c hard-throw behaviour. Instead of aborting on the first unmatched row, the pipeline builds the full tree and returns it — the caller (handler → WebSocket → client) decides whether to proceed automatically or surface it for user resolution.
 
 ### Email-origin input → OCR processing path
 
@@ -228,10 +261,11 @@ These are the **decision points** called out when starting Spike 1. Each row sta
 
 The gateway foundation (Spike 1) is complete. Product features are the priority; a second provider and LangGraph evaluation (`orchestration-spike-1-exit-provider`, `orchestration-spike-2-langgraph`) are deferred until the pipeline is end-to-end stable.
 
-1. **Dual-track payload** (`product-dual-track`) — Decide how `securityHoldings` candidates flow through `document-ocr-completed` and the WebSocket to the client; may coexist with `ExtractedAmount[]` for Record-only flows temporarily.
-2. **Resolution service** (`candidate-resolution`) — Map verified candidate `{ symbol, isin, name }` + `userAccountId` → `assetSecurityId` (securities cache, fuzzy name, ISIN lookup); separate from `OcrService`.
-3. **Persistence** (`candidate-persistence`) — Insert resolved candidates as `security_transactions` with `source: "ocr"` after 4c + resolution.
-4. **Client candidate review** (`client-candidate-review`) — UI to surface candidates, confirm/reject rows, handle unresolved (new security not in portfolio).
+1. ~~**Dual-track payload**~~ (`product-dual-track`) — **Done:** same `document-ocr-completed` event; `extractedValues` for Record, `assetCandidates` tree for security-transaction flow.
+2. **Asset-candidate result schema** (`asset-candidate-result-schema`) — Define `OcrAssetCandidateResult` Zod schema in `shared/schema`; asset-first tree with all OCR rows per asset, `verified` + `matched` + `userAssetSecurityId` per row, `matchedCount` / `totalCount` per asset.
+3. **Resolution service** (`candidate-resolution`) — Replace 4c hard-throw with asset-candidate tree builder: query all user assets + securities, score each OCR row against each asset's holdings, return `OcrAssetCandidateResult[]`.
+4. **Persistence** (`candidate-persistence`) — Auto-insert `security_transactions` with `source: "ocr"` when exactly one asset candidate has full match; otherwise surface tree to client.
+5. **Client candidate review** (`client-candidate-review`) — UI renders asset-candidate tree; user picks asset when ambiguous, confirms before insert, handles unmatched rows.
 5. **Phase 2 verify** (`phase2-verify`) — Optional groundedness/suspect-row pass; feature-flagged, additive.
 6. **Email-origin OCR path** (`email-origin-ocr-path`) — Server-side processing entry once ingestion transport is decided; no HTTP email receipt in this plan until then.
 7. **Second provider + LangGraph** (`orchestration-spike-1-exit-provider`, `orchestration-spike-2-langgraph`) — Deferred; revisit when the above is stable and provider flexibility is needed.
