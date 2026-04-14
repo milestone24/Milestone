@@ -550,19 +550,12 @@ async function main(): Promise<void> {
   });
 
   const ms = Date.now() - start;
+
   console.log(
     JSON.stringify(
       {
         elapsedMs: ms,
-        pipeline: {
-          llmPath: pipeline.llmPath,
-          nativePdfCharCount: pipeline.nativePdfCharCount,
-          nominatedUserAssetId: pipeline.nominatedUserAssetId,
-          brandDbMatch: pipeline.brandDbMatch,
-          brandIdentification: pipeline.brandIdentification,
-          securityHoldingsCount: pipeline.securityHoldings.length,
-          securityHoldings: pipeline.securityHoldings,
-        },
+        pipeline,
         balanceExtractCount: extractedValues.length,
         extractedValues,
       },
