@@ -114,6 +114,11 @@ type DocumentOcrMessageBase = {
   documentId: string;
 };
 
+type DocumentOcrAbortMessage = {
+  type: "document-ocr-abort";
+  jobId: string;
+};
+
 type DocumentOcrStartedMessage = DocumentOcrMessageBase & {
   type: "document-ocr-started";
 };
@@ -130,10 +135,17 @@ type DocumentOcrFailedMessage = Omit<DocumentOcrMessageBase, "jobId"> & {
   message?: string;
 };
 
+type DocumentOcrAbortedMessage = DocumentOcrMessageBase & {
+  type: "document-ocr-aborted";
+  message?: string;
+};
+
 export type DocumentOcrMessage =
+  | DocumentOcrAbortMessage
   | DocumentOcrStartedMessage
   | DocumentOcrCompletedMessage
-  | DocumentOcrFailedMessage;
+  | DocumentOcrFailedMessage
+  | DocumentOcrAbortedMessage;
 
 export const isDocumentOcrMessage = (
   message: Message
