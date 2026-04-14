@@ -1,6 +1,6 @@
 ---
 name: OCR text-first pipeline and capture schema
-overview: Improve extraction quality via native PDF text + multi-step LLM, evolve capture types for security_transactions (DB + shared Zod), reserve a processing path for email-origin OCR input (how email is received—not yet decided). Foundation is a plain TypeScript LlmGateway (Anthropic); product features (dual-track payload, resolution, persistence, client review) are the current priority. A second gateway provider and LangGraph evaluation are deferred until the product pipeline is stable end-to-end.
+overview: Improve extraction quality via native PDF text + multi-step LLM, evolve capture types for security_transactions (DB + shared Zod), reserve a processing path for email-origin OCR input (how email is received—not yet decided). Foundation is a plain TypeScript LlmGateway (Anthropic); product features (dual-track payload, asset-candidate resolution, optional upload-context nominee via nominatedUserAssetId, persistence, client review) are the current priority. A second gateway provider and LangGraph evaluation are deferred until the product pipeline is stable end-to-end.
 todos:
   - id: schema-gap-analysis
     content: Define shared Zod for OCR security-transaction candidates vs securityTransactionOrphanInsertSchema; document resolution path to assetSecurityId
@@ -35,8 +35,11 @@ todos:
   - id: candidate-resolution
     content: "buildOcrAssetCandidateResults in transaction-ocr-verifiers — per-user-asset holdings, all OCR rows under each asset with matched + userAssetSecurityId; runFullDocumentOcrPipeline sets pipeline.assetCandidates (no 4c throw)"
     status: completed
+  - id: ocr-nominated-asset-context
+    content: "Optional assetId on document OCR start (user_assets.id) — validate belongs to userAccountId or throw; pipeline.nominatedUserAssetId when provided; full assetCandidates unchanged for ambiguity/conflict; wire processes payload, handler event, runFullDocumentOcrPipeline, documentOcrPipelineResultSchema, queue document-ocr-completed, ocr_jobs.pipeline, client extract hook"
+    status: pending
   - id: candidate-persistence
-    content: "Persist resolved security transaction candidates as security_transactions rows with source: ocr; only auto-insert when exactly one asset candidate has matchedCount === totalCount; otherwise surface tree to client for user resolution."
+    content: "Persist resolved security transaction candidates as security_transactions rows with source: ocr; auto-insert only when resolution rules allow (e.g. single full match on assetCandidates, or nominee among full matches — exact rules TBD alongside ocr-nominated-asset-context); otherwise surface tree to client."
     status: pending
   - id: client-candidate-review
     content: "Client UI: render asset-candidate tree — show which assets had full/partial matches, let user pick the correct asset when ambiguous, confirm before insert; handle unmatched security rows (new holding not yet in portfolio)."
@@ -120,8 +123,9 @@ The LLM should **not** emit `assetSecurityId` unless you add an unsafe auto-matc
 
 - `extractedValues` — `ExtractedAmount[]` for the existing Record balance flow (unchanged).
 - `assetCandidates` — `OcrAssetCandidateResult[]` — the new asset-candidate tree for the security-transaction flow (see **Asset-candidate result model** below).
+- `nominatedUserAssetId` — `string | null` (`user_assets.id`) when the client passed optional upload-context **`assetId`**; **`nominatedUserAssetId != null`** means “has a nominee” without scanning `assetCandidates` (see **Optional upload context asset** below).
 
-Both are also persisted in `ocr_jobs` (`extracted_values` and `pipeline` jsonb) so the client can re-fetch if the WebSocket message is missed.
+Both balance and pipeline payloads are also persisted in `ocr_jobs` (`extracted_values` and `pipeline` jsonb) so the client can re-fetch if the WebSocket message is missed.
 
 ### Asset-candidate result model
 
@@ -152,6 +156,18 @@ OcrAssetCandidateResult {
 | Individual rows with `verified: false` | Flagged as suspect — user must confirm or discard |
 
 This replaces the current 4c hard-throw behaviour. Instead of aborting on the first unmatched row, the pipeline builds the full tree and returns it — the caller (handler → WebSocket → client) decides whether to proceed automatically or surface it for user resolution.
+
+### Optional upload context asset (`nominatedUserAssetId`)
+
+When OCR is started from a **specific asset** (e.g. asset detail / holdings page), the client may pass optional **`assetId`** (`user_assets.id`). The pipeline sets **`nominatedUserAssetId`** to that same UUID when valid, otherwise **`null`**. **Has a nominee:** `nominatedUserAssetId != null` — no need to scan `assetCandidates` for a flag.
+
+**Keep the full `assetCandidates` tree** (unchanged rule: one candidate per user asset that has at least one non-archived holding). The nominee does **not** replace the tree — downstream logic can still see **ambiguity** (multiple assets with `matchedCount === totalCount`) or **conflict** (nominee not among full matches, or nominee missing from the list).
+
+**Validation:** if **`assetId`** is provided, it **must** belong to the same **`userAccountId`** as the OCR job. Otherwise **throw** a clear client error at **`startDocumentOcr`** (or equivalent boundary) — never silently ignore or strip the field.
+
+**Edge case — nominee absent from `assetCandidates`:** candidates are only built for assets that have at least one non-archived `user_asset_securities` row. If the nominated asset has **no** such holdings, it will **not** appear in `assetCandidates`. **`nominatedUserAssetId` is still set** so upload intent stays explicit; absence from the list is a strong signal (“no holdings rows to score for that asset”), not ambiguous intent.
+
+**Wire-through (implementation checklist):** optional `assetId` on `POST …/extract` (multipart field or query — product choice); `DocumentOcrProcess` / `processes.payload`; `document-ocr-distributed-handler` event; `runFullDocumentOcrPipeline` param; `documentOcrPipelineResultSchema` + `ocr_jobs.pipeline` jsonb; queue `document-ocr-completed`; client upload hook.
 
 ### Email-origin input → OCR processing path
 
@@ -253,7 +269,8 @@ These are the **decision points** called out when starting Spike 1. Each row sta
 | **`platformKey` / OCR config shape** | How `POST …/extract` and `processes` carry platform identity (`unknown`, slug, **`broker_platforms.id` UUID**, etc.) so **3c** can compare apples-to-apples with DB rows. | **First implementation** that runs **3b/3c** brand verification against **`broker_platforms`** (before persisting or enforcing config alignment in prod). |
 | **Where orchestration runs** | Same Node process as **`document-ocr-distributed-handler`** vs separate worker / future durable engine (Temporal, Inngest). | **Default: in-process** (existing handler path). Revisit only if durable steps are needed — deferred past `client-candidate-review`. |
 | **Second provider priority** | First non-Anthropic adapter: **Ollama (text)** vs **AWS Bedrock** vs other. | **Deferred** — revisit after product pipeline is end-to-end (`orchestration-spike-1-exit-provider`). |
-| **Dual-track OCR payloads** | Record **asset-value** OCR vs **security-transaction** OCR: modes, routes, WebSocket / queue payloads, coexistence with `ExtractedAmount[]`. | **`product-dual-track` todo** before **`ExtractedAmount`-only** is removed as the sole production contract. |
+| **Dual-track OCR payloads** | **Resolved:** same `document-ocr-completed` event; `extractedValues` + `pipeline.assetCandidates` (+ optional `pipeline.nominatedUserAssetId`). | — |
+| **Optional upload-context `assetId`** | Optional `user_assets.id` when starting OCR from an asset-scoped UI; **`nominatedUserAssetId`** on pipeline when valid; validate **`assetId` ∈ account** or throw. | **`ocr-nominated-asset-context` todo** before persistence rules that prefer nominee among full matches. |
 
 ---
 
@@ -262,18 +279,19 @@ These are the **decision points** called out when starting Spike 1. Each row sta
 The gateway foundation (Spike 1) is complete. Product features are the priority; a second provider and LangGraph evaluation (`orchestration-spike-1-exit-provider`, `orchestration-spike-2-langgraph`) are deferred until the pipeline is end-to-end stable.
 
 1. ~~**Dual-track payload**~~ (`product-dual-track`) — **Done:** same `document-ocr-completed` event; `extractedValues` for Record, `assetCandidates` tree for security-transaction flow.
-2. **Asset-candidate result schema** (`asset-candidate-result-schema`) — Define `OcrAssetCandidateResult` Zod schema in `shared/schema`; asset-first tree with all OCR rows per asset, `verified` + `matched` + `userAssetSecurityId` per row, `matchedCount` / `totalCount` per asset.
-3. **Resolution service** (`candidate-resolution`) — Replace 4c hard-throw with asset-candidate tree builder: query all user assets + securities, score each OCR row against each asset's holdings, return `OcrAssetCandidateResult[]`.
-4. **Persistence** (`candidate-persistence`) — Auto-insert `security_transactions` with `source: "ocr"` when exactly one asset candidate has full match; otherwise surface tree to client.
-5. **Client candidate review** (`client-candidate-review`) — UI renders asset-candidate tree; user picks asset when ambiguous, confirms before insert, handles unmatched rows.
-5. **Phase 2 verify** (`phase2-verify`) — Optional groundedness/suspect-row pass; feature-flagged, additive.
-6. **Email-origin OCR path** (`email-origin-ocr-path`) — Server-side processing entry once ingestion transport is decided; no HTTP email receipt in this plan until then.
-7. **Second provider + LangGraph** (`orchestration-spike-1-exit-provider`, `orchestration-spike-2-langgraph`) — Deferred; revisit when the above is stable and provider flexibility is needed.
+2. ~~**Asset-candidate result schema**~~ (`asset-candidate-result-schema`) — **Done:** `OcrAssetCandidateResult` Zod in `shared/schema`; `documentOcrPipelineResultSchema.assetCandidates`.
+3. ~~**Resolution service**~~ (`candidate-resolution`) — **Done:** asset-candidate tree builder; `pipeline.assetCandidates`.
+4. **Nominated upload context** (`ocr-nominated-asset-context`) — Optional `assetId` on extract; validate against `userAccountId`; `pipeline.nominatedUserAssetId`; wire process payload, handler, queue, `ocr_jobs`, shared Zod, client hook.
+5. **Persistence** (`candidate-persistence`) — Auto-insert `security_transactions` with `source: "ocr"` when resolution rules allow (e.g. exactly one full match, or nominee among full matches — exact rules TBD); otherwise surface tree to client.
+6. **Client candidate review** (`client-candidate-review`) — UI renders asset-candidate tree; pass optional `assetId` from asset page; user picks asset when ambiguous, confirms before insert, handles unmatched rows.
+7. **Phase 2 verify** (`phase2-verify`) — Optional groundedness/suspect-row pass; feature-flagged, additive.
+8. **Email-origin OCR path** (`email-origin-ocr-path`) — Server-side processing entry once ingestion transport is decided; no HTTP email receipt in this plan until then.
+9. **Second provider + LangGraph** (`orchestration-spike-1-exit-provider`, `orchestration-spike-2-langgraph`) — Deferred; revisit when the above is stable and provider flexibility is needed.
 
 ---
 
 ## Documentation
 
-- Keep [DocumentUpload OCR Refactor](documentupload_ocr_refactor_1e50c3b2.plan.md) in sync: add a one-line pointer that extraction payloads will evolve toward security-transaction candidates per this plan.
+- Keep [DocumentUpload OCR Refactor](documentupload_ocr_refactor_1e50c3b2.plan.md) in sync: extraction payloads include `pipeline.assetCandidates`, optional **`nominatedUserAssetId`**, and optional **`assetId`** on extract per this plan.
 - Keep [`docs/Transaction-OCR-flow.md`](../../docs/Transaction-OCR-flow.md) as the **living** end-to-end pipeline diagram (mermaid); this plan’s phases should stay aligned with that document when steps change.
 - Keep **Open implementation decisions (by phase)** (above) updated when a row is decided or deferred.
