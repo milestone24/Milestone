@@ -1,4 +1,10 @@
-export type { LlmGateway, LlmModelRef, LlmProviderId } from "./llm-gateway";
+export type {
+  LlmGateway,
+  LlmModelRef,
+  LlmProviderId,
+  LlmRequestOptions,
+} from "./llm-gateway";
+export { createNonStreamingMessageWithAbort } from "./llm-gateway";
 export {
   AnthropicLlmGateway,
   createDefaultAnthropicLlmGateway,

@@ -1,5 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { LlmGateway } from "@server/services/llm/llm-gateway";
+import type {
+  LlmGateway,
+  LlmRequestOptions,
+} from "@server/services/llm/llm-gateway";
 
 /**
  * {@link LlmGateway} backed by `@anthropic-ai/sdk` (Messages API, non-streaming).
@@ -12,9 +15,13 @@ export class AnthropicLlmGateway implements LlmGateway {
   }
 
   createNonStreamingMessage(
-    params: Anthropic.MessageCreateParamsNonStreaming
+    params: Anthropic.MessageCreateParamsNonStreaming,
+    options?: LlmRequestOptions
   ): Promise<Anthropic.Message> {
-    return this.client.messages.create({ ...params, stream: false });
+    return this.client.messages.create(
+      { ...params, stream: false },
+      { signal: options?.signal }
+    );
   }
 }
 
