@@ -110,6 +110,7 @@ type NotificationMessage = {
 
 type DocumentOcrMessageBase = {
   jobId: string;
+  ocrJobId: string;
   accountId: string;
   documentId: string;
 };
@@ -129,8 +130,11 @@ type DocumentOcrCompletedMessage = DocumentOcrMessageBase & {
   pipeline?: import("@shared/schema/document").DocumentOcrPipelineResult;
 };
 
-type DocumentOcrFailedMessage = Omit<DocumentOcrMessageBase, "jobId"> & {
+type DocumentOcrFailedMessage = {
   type: "document-ocr-failed";
+  accountId: string;
+  documentId: string;
+  ocrJobId: string;
   jobId?: string;
   message?: string;
 };

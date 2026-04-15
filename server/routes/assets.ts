@@ -26,6 +26,9 @@ import {
   startDocumentOcr,
 } from "@server/services/process/document-ocr";
 import { runWithContext } from "@server/context/request-context";
+import { and, eq } from "drizzle-orm";
+import { userAssets } from "@server/db/schema";
+import { listPendingOcrReviewsForAsset } from "@server/services/ocr/ocr-job-review-service";
 
 const assetService = new DatabaseAssetService(db);
 const documentExtractUpload = multer({ storage: multer.memoryStorage() });
@@ -118,6 +121,43 @@ export async function registerRoutes(
         }
         throw err;
       }
+    }
+  );
+
+  router.get(
+    regExpPath(`/${uuidRouteParam("assetId")}/ocr-pending-review`),
+    requireUser,
+    async (req: AuthRequest, res: Response) => {
+      const assetId = req.params.assetId;
+      if (!assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+
+      const rows = await requireTenantWithUserAccountId(
+        req.tenant,
+        async (tenant) => {
+          const owned = await db.query.userAssets.findFirst({
+            where: and(
+              eq(userAssets.id, assetId),
+              eq(userAssets.userAccountId, tenant.userAccountId)
+            ),
+            columns: { id: true },
+          });
+          if (!owned) {
+            return null;
+          }
+          return listPendingOcrReviewsForAsset({
+            userAccountId: tenant.userAccountId,
+            assetId,
+          });
+        }
+      );
+
+      if (rows === null) {
+        return res.status(404).json({ error: "Asset not found" });
+      }
+
+      res.json(rows);
     }
   );
 

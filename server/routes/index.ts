@@ -8,6 +8,7 @@ import { registerRoutes as registerSecuritiesRoutes} from "./securities";
 import { registerRoutes as registerAuthRoutes } from "./auth";
 import { registerRoutes as registerOcrRoutes } from "./ocr";
 import { registerRoutes as registerDocumentsRoutes } from "./documents";
+import { registerRoutes as registerOcrJobsRoutes } from "./ocr-jobs";
 //import { registerRoutes as registerVerificationRoutes } from "./verification"
 import { AuthService } from "server/auth";
 import { registerRoutes as registerTrackingRoutes } from "./tracking";
@@ -33,6 +34,10 @@ export async function registerRoutes(
   router.use("/auth", await registerAuthRoutes(Router(), authService));
   router.use("/ocr", await registerOcrRoutes(Router()));
   router.use("/documents", await registerDocumentsRoutes(Router(), authService));
+  router.use(
+    "/ocr-jobs",
+    await registerOcrJobsRoutes(Router(), authService)
+  );
   router.use("/tracking", await registerTrackingRoutes(Router(), authService));
   router.use(
     "/projections",

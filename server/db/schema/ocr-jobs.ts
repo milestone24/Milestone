@@ -2,6 +2,7 @@ import {
   check,
   index,
   jsonb,
+  pgEnum,
   pgTable,
   text,
   timestamp,
@@ -39,6 +40,17 @@ type OcrJobPipeline = {
   nativePdfCharCount?: number;
 };
 
+export const ocrJobReviewStates = [
+  "pending_review",
+  "accepted",
+  "rejected",
+] as const;
+export const ocrJobReviewState = pgEnum(
+  "ocr_job_review_state",
+  ocrJobReviewStates
+);
+export type OcrJobReviewState = (typeof ocrJobReviewStates)[number];
+
 export const ocrJobs = pgTable(
   "ocr_jobs",
   {
@@ -59,6 +71,7 @@ export const ocrJobs = pgTable(
     error: text("error"),
     startedAt: timestamp("started_at").notNull(),
     completedAt: timestamp("completed_at"),
+    reviewState: ocrJobReviewState("review_state"),
     ...timestampColumns(),
   },
   (table) => [

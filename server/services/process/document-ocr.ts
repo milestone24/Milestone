@@ -30,7 +30,7 @@ export async function startDocumentOcr(
   platformKey: string,
   platformNames: string[],
   options?: StartDocumentOcrOptions
-): Promise<{ jobId: string; documentId: string }> {
+): Promise<{ jobId: string; documentId: string; ocrJobId: string }> {
   const accountId = getUserAccountId();
   const nominatedUserAssetId = options?.nominatedUserAssetId;
 
@@ -106,5 +106,5 @@ export async function startDocumentOcr(
     runningTtlMs: DEFAULT_RUNNING_TTL_MS,
   });
 
-  return { jobId: job.id, documentId: document.id };
+  return { jobId: job.id, documentId: document.id, ocrJobId };
 }

@@ -49,17 +49,19 @@ export const initUpdateChain = async () => {
       if (message.type === "document-ocr-started") {
         sendNotification(message.accountId, {
           type: "notification",
-          message: "Processing document...",
+          message: "Statement OCR started.",
         });
       }
       if (message.type === "document-ocr-completed") {
         sendNotification(message.accountId, {
           type: "document-ocr-completed",
           jobId: message.jobId,
+          ocrJobId: message.ocrJobId,
+          accountId: message.accountId,
           documentId: message.documentId,
           extractedValues: message.extractedValues,
           pipeline: message.pipeline,
-        } as any);
+        });
       }
       if (message.type === "document-ocr-failed") {
         sendNotification(message.accountId, {

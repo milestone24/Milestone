@@ -86,7 +86,7 @@ export const handler = async (event: Event): Promise<void> => {
 
   const queueService = queueFactory();
 
-  const messageBase = { jobId, accountId, documentId };
+  const messageBase = { jobId, ocrJobId, accountId, documentId };
 
   const finalizeAbortSequence = async (reason: string): Promise<void> => {
     if (abortSequenceDone) {

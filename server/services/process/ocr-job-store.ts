@@ -57,6 +57,7 @@ export async function tryCompleteOcrJobRecord(
         extractedValues: params.extractedValues,
         pipeline: params.pipeline,
         completedAt: new Date(),
+        reviewState: "pending_review",
       })
       .where(eq(ocrJobs.id, params.ocrJobId));
     return true;
@@ -79,6 +80,7 @@ export async function tryFailOcrJobRecord(params: FailParams): Promise<boolean> 
         status: "failed",
         error: params.error,
         completedAt: new Date(),
+        reviewState: null,
       })
       .where(eq(ocrJobs.id, params.ocrJobId));
     return true;
@@ -101,6 +103,7 @@ export async function tryAbortOcrJobRecord(params: AbortParams): Promise<boolean
         status: "aborted",
         error: params.error,
         completedAt: new Date(),
+        reviewState: null,
       })
       .where(eq(ocrJobs.id, params.ocrJobId));
     return true;

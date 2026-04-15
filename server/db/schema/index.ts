@@ -7,4 +7,5 @@ export * from "./api-keys";
 export * from "./utils";
 export * from "./processes";
 export * from "./ocr-jobs";
+export * from "./ocr-job-security-transactions";
 export * from "./contributor";
