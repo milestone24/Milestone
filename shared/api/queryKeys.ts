@@ -43,3 +43,5 @@ export const milestonesProjection = ["projections", "milestones"];
 export const fireProjection = ["projections", "fire"];
 export const fireCustomProjection = ["projections", "fire", "custom"];
 
+
+export const documents = ["documents"];

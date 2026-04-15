@@ -106,6 +106,23 @@ export const documentOcrResponseSchema = z.object({
 
 export type DocumentOcrResponse = z.infer<typeof documentOcrResponseSchema>;
 
+export const documentOcrJobSummarySchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(["pending", "running", "completed", "failed", "aborted"]),
+  platformKey: z.string(),
+  startedAt: z.coerce.date(),
+  completedAt: z.coerce.date().nullable(),
+  error: z.string().nullable(),
+});
+
+export type DocumentOcrJobSummary = z.infer<typeof documentOcrJobSummarySchema>;
+
+export const documentWithOcrSchema = documentSelectSchema.extend({
+  ocrJob: documentOcrJobSummarySchema.nullable(),
+});
+
+export type DocumentWithOcr = z.infer<typeof documentWithOcrSchema>;
+
 /** Result of multi-phase transaction OCR (brand → securities verifiers) for WebSocket / queue payloads. */
 export const documentOcrPipelineResultSchema = z.object({
   brandIdentification: statementPlatformBrandIdentificationSchema,

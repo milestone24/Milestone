@@ -1,20 +1,17 @@
 import { useMutation } from "@tanstack/react-query";
 import type { DocumentOcrResponse } from "@shared/schema/document";
 
-interface UploadDocumentParams {
-  file: File;
+export interface OcrUploadConfig {
   platformKey: string;
   platformNames: string[];
-  /** When set, uses asset-scoped extract (`POST /api/assets/:id/documents/:platformKey/extract`). */
+  /** When set, uses the asset-scoped extract endpoint. */
   nominatedAssetId?: string;
 }
 
-async function uploadDocument({
-  file,
-  platformKey,
-  platformNames,
-  nominatedAssetId,
-}: UploadDocumentParams): Promise<DocumentOcrResponse> {
+async function uploadDocument(
+  file: File,
+  { platformKey, platformNames, nominatedAssetId }: OcrUploadConfig
+): Promise<DocumentOcrResponse> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("platformNames", JSON.stringify(platformNames));
@@ -38,8 +35,14 @@ async function uploadDocument({
   return res.json() as Promise<DocumentOcrResponse>;
 }
 
-export const useDocumentUpload = () => {
-  return useMutation<DocumentOcrResponse, Error, UploadDocumentParams>({
-    mutationFn: uploadDocument,
+/**
+ * Returns a mutation whose variable is a plain `File`.
+ * OCR-specific params (platformKey, platformNames, nominatedAssetId) are
+ * captured as configuration so the generic DocumentUpload component only
+ * needs to hand over the file.
+ */
+export const useDocumentUpload = (config: OcrUploadConfig) => {
+  return useMutation<DocumentOcrResponse, Error, File>({
+    mutationFn: (file) => uploadDocument(file, config),
   });
 };

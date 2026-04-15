@@ -60,7 +60,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
-import { DocumentUpload } from "@/components/record/DocumentUpload";
+import { OcrDocumentUpload, OcrCompleteResult } from "@/components/ocr/OcrDocumentUpload";
+import { OcrResultReview } from "@/components/ocr/OcrResultReview";
 import { useAssets } from "@/hooks/use-assets";
 type AccountFormData = {
   [key: string]: number | undefined;
@@ -113,6 +114,8 @@ export default function Record() {
   const [activeTab, setActiveTab] = useState<"values" | "contributions">(
     "values"
   );
+
+  const [ocrResult, setOcrResult] = useState<OcrCompleteResult | null>(null);
 
   // Helper to get logo for provider
   const getProviderLogo = (providerName: string) => {
@@ -567,18 +570,24 @@ export default function Record() {
                 {/* Account Values Tab */}
                 <TabsContent value="values">
                   <div className="space-y-4">
-                    <DocumentUpload
-                      assets={assets}
-                      onExtractedValues={(extractedValues) => {
-                        const newValues = { ...accountValues };
-
-                        extractedValues.forEach(({ assetId, value }) => {
-                          newValues[assetId] = value;
-                        });
-
-                        setAccountValues(newValues);
-                      }}
-                    />
+                    {ocrResult ? (
+                      <OcrResultReview
+                        pipeline={ocrResult.pipeline}
+                        extractedValues={ocrResult.extractedValues}
+                        assets={assets}
+                        onConfirmed={() => setOcrResult(null)}
+                        onDismissed={() => setOcrResult(null)}
+                        onBalancesSaved={(extractedValues) => {
+                          const newValues = { ...accountValues };
+                          extractedValues.forEach(({ assetId, value }) => {
+                            newValues[assetId] = value;
+                          });
+                          setAccountValues(newValues);
+                        }}
+                      />
+                    ) : (
+                      <OcrDocumentUpload onOcrComplete={setOcrResult} />
+                    )}
                     {[...assets]
                       .sort(
                         (a, b) =>

@@ -28,6 +28,7 @@ const Profile = lazy(() => import("@/pages/profile"));
 const Settings = lazy(() => import("@/pages/settings"));
 const ApiConnections = lazy(() => import("@/pages/api-connections"));
 const Record = lazy(() => import("@/pages/record"));
+const Documents = lazy(() => import("@/pages/documents"));
 
 function RouteWithLayout({
   component: Component,
@@ -84,6 +85,13 @@ function Router() {
             {() => (
               <ProtectedRoute>
                 <RouteWithLayout component={Record} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/documents">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={Documents} />
               </ProtectedRoute>
             )}
           </Route>

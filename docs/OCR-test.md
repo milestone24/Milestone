@@ -197,3 +197,46 @@ psql
 (3 rows)
 
 IE00BK5BQV03\
+```
+
+```bash
+# Uses USER_ACCOUNT and PLATFORM_ID from setup (Chris + InvestEngine in this doc).
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<SQL
+-- One row per user_asset for that user account and broker platform; includes account_type (LISA, SIPP, etc.); linked_securities_json lists each link row and nested security (name, symbol, ISIN, exchange as listing venue, country as regional market).
+SELECT
+  ua.id AS user_asset_id,
+  ua.name AS user_asset_name,
+  ua.user_account_id,
+  ua.account_type,
+  COALESCE(
+    json_agg(
+      json_build_object(
+        'user_asset_security_id', uas.id,
+        'security_name', s.name,
+        'symbol', s.symbol,
+        'isin', s.isin,
+        'exchange', s.exchange,
+        'country', s.country
+      )
+      ORDER BY s.name NULLS LAST
+    ) FILTER (WHERE uas.id IS NOT NULL),
+    '[]'::json
+  ) AS linked_securities_json
+FROM user_assets ua
+LEFT JOIN user_asset_securities uas
+  ON uas.user_asset_id = ua.id AND uas.archived = false
+LEFT JOIN securities s ON s.id = uas.security_id
+WHERE ua.user_account_id = '$USER_ACCOUNT'::uuid
+  AND ua.platform_id = '$PLATFORM_ID'::uuid
+GROUP BY ua.id
+ORDER BY ua.user_account_id, ua.name;
+SQL
+```
+
+
+Chris Invest Egine assets
+
+SIPP
+
+Vanguard FTSE Developed World UCITS ETF USD Accumulation - VHVG
+Vanguard FTSE Emerging Markets UCITS ETF USD Accumulation GBP - VFEG

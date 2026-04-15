@@ -4,7 +4,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, desc } from "drizzle-orm";
 import path from "path";
 import { db } from "@server/db";
 import {
@@ -12,11 +12,53 @@ import {
   assetTransactionDocuments,
   securityTransactionDocuments,
   processes,
+  ocrJobs,
 } from "@server/db/schema";
 import type { DocumentSelect } from "@server/db/schema";
+import type { DocumentWithOcr } from "@shared/schema/document";
 import { getUserAccountId } from "@server/auth";
 
 const appEnv = process.env.APP_ENV ?? process.env.NODE_ENV ?? "development";
+
+type DocumentRow = {
+  id: string;
+  userAccountId: string;
+  assetId: string | null;
+  fileName: string;
+  fileUrl: string;
+  mimeType: string;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  ocrJobId: string | null;
+  ocrJobStatus: "pending" | "running" | "completed" | "failed" | "aborted" | null;
+  ocrJobPlatformKey: string | null;
+  ocrJobStartedAt: Date | null;
+  ocrJobCompletedAt: Date | null;
+  ocrJobError: string | null;
+};
+
+function mapDocumentRow(row: DocumentRow): DocumentWithOcr {
+  return {
+    id: row.id,
+    userAccountId: row.userAccountId,
+    assetId: row.assetId,
+    fileName: row.fileName,
+    fileUrl: row.fileUrl,
+    mimeType: row.mimeType,
+    createdAt: row.createdAt ?? new Date(),
+    updatedAt: row.updatedAt ?? new Date(),
+    ocrJob: row.ocrJobId
+      ? {
+          id: row.ocrJobId,
+          status: row.ocrJobStatus!,
+          platformKey: row.ocrJobPlatformKey!,
+          startedAt: row.ocrJobStartedAt!,
+          completedAt: row.ocrJobCompletedAt,
+          error: row.ocrJobError,
+        }
+      : null,
+  };
+}
 
 function buildS3Key(userAccountId: string, originalName: string): string {
   const ext = path.extname(originalName);
@@ -31,7 +73,7 @@ export class DocumentService {
     this.s3 = new S3Client({
       region: process.env.AWS_REGION ?? "ap-southeast-1",
     });
-    this.bucket = process.env.S3_BUCKET ?? "";
+    this.bucket = process.env.AWS_BUCKET_DOCUMENTS ?? "";
   }
 
   /**
@@ -106,6 +148,32 @@ export class DocumentService {
    * if S3 fails, the transaction rolls back and the documents row is restored,
    * keeping DB and S3 in a consistent state.
    */
+  async getForAccount(userAccountId: string): Promise<DocumentWithOcr[]> {
+    const rows = await db
+      .select({
+        id: documents.id,
+        userAccountId: documents.userAccountId,
+        assetId: documents.assetId,
+        fileName: documents.fileName,
+        fileUrl: documents.fileUrl,
+        mimeType: documents.mimeType,
+        createdAt: documents.createdAt,
+        updatedAt: documents.updatedAt,
+        ocrJobId: ocrJobs.id,
+        ocrJobStatus: ocrJobs.status,
+        ocrJobPlatformKey: ocrJobs.platformKey,
+        ocrJobStartedAt: ocrJobs.startedAt,
+        ocrJobCompletedAt: ocrJobs.completedAt,
+        ocrJobError: ocrJobs.error,
+      })
+      .from(documents)
+      .leftJoin(ocrJobs, eq(ocrJobs.documentId, documents.id))
+      .where(eq(documents.userAccountId, userAccountId))
+      .orderBy(desc(documents.createdAt));
+
+    return rows.map(mapDocumentRow);
+  }
+
   async delete(documentId: string): Promise<void> {
     const accountId = getUserAccountId();
 

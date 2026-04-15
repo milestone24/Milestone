@@ -25,6 +25,7 @@ import {
   NominatedUserAssetInvalidError,
   startDocumentOcr,
 } from "@server/services/process/document-ocr";
+import { runWithContext } from "@server/context/request-context";
 
 const assetService = new DatabaseAssetService(db);
 const documentExtractUpload = multer({ storage: multer.memoryStorage() });
@@ -104,9 +105,12 @@ export async function registerRoutes(
         ? JSON.parse(req.body.platformNames as string)
         : [];
       try {
-        const result = await startDocumentOcr(req.file, platformKey, platformNames, {
-          nominatedUserAssetId: assetId,
-        });
+        const result = await runWithContext(
+          { userAccountId: req.tenant!.userAccountId! },
+          () => startDocumentOcr(req.file!, platformKey, platformNames, {
+            nominatedUserAssetId: assetId,
+          })
+        );
         return res.status(202).json(result);
       } catch (err) {
         if (err instanceof NominatedUserAssetInvalidError) {

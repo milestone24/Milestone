@@ -54,6 +54,9 @@ import { useAssetDelete } from "@/hooks/use-asset-delete";
 import { AssetValueList } from "@/components/account/AssetValueList";
 import { AccountDetails } from "@/components/account/AccountDetails";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { OcrDocumentUpload, OcrCompleteResult } from "@/components/ocr/OcrDocumentUpload";
+import { OcrResultReview } from "@/components/ocr/OcrResultReview";
+import { CardHeader, CardTitle } from "@/components/ui/card";
 
 function AssetPage() {
   const params = useParams();
@@ -62,6 +65,7 @@ function AssetPage() {
   const assetId: UserAsset["id"] | undefined = params?.id;
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [ocrResult, setOcrResult] = useState<OcrCompleteResult | null>(null);
   const { mutateAsync: deleteAsset } = useAssetDelete();
 
   const { dateRange } = useDateRange();
@@ -388,6 +392,30 @@ function AssetPage() {
                 className="my-4"
                 //onItemClick={handleSecurityClick}
               />
+              <Card className="my-4">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Import from statement</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {ocrResult ? (
+                    <OcrResultReview
+                      pipeline={ocrResult.pipeline}
+                      extractedValues={ocrResult.extractedValues}
+                      assets={[asset]}
+                      onConfirmed={() => setOcrResult(null)}
+                      onDismissed={() => setOcrResult(null)}
+                      onBalancesSaved={() => {}}
+                    />
+                  ) : (
+                    <OcrDocumentUpload
+                      nominatedAssetId={assetId}
+                      initialPlatformKey={asset.platformId ?? undefined}
+                      showPlatformSelect={false}
+                      onOcrComplete={setOcrResult}
+                    />
+                  )}
+                </CardContent>
+              </Card>
             </div>
           )}
           <Tabs

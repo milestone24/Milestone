@@ -1,148 +1,66 @@
-import { useState, useEffect, useRef } from "react";
-import { Upload, Loader2, AlertCircle, FileText, Check } from "lucide-react";
+import { useRef, useState } from "react";
+import { Upload, Loader2, AlertCircle, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { UserAsset, BrokerPlatform } from "@shared/schema";
-import { ExtractedAmount } from "@shared/schema/document";
-import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
-import { useDocumentUpload } from "@/hooks/use-document-upload";
+import { UseMutationResult } from "@tanstack/react-query";
 
-interface DocumentUploadProps {
-  assets: UserAsset[];
-  onExtractedValues: (data: { assetId: string; value: number }[]) => void;
-  /** When set, OCR extract uses the asset-scoped API and sets `pipeline.nominatedUserAssetId`. */
-  nominatedAssetId?: string;
+interface DocumentUploadProps<TResponse> {
+  /** Mime types accepted by the file input (e.g. "image/*,application/pdf"). */
+  accept?: string;
+  /** Label shown inside the drop zone when no file is selected. */
+  label?: string;
+  /** Mutation provided by the consumer — controls which endpoint is called. */
+  uploadMutation: UseMutationResult<TResponse, Error, File>;
+  /** Called with the parsed response once the POST succeeds. */
+  onUploadResponse: (response: TResponse) => void;
+  /** Called when the POST fails. */
+  onError?: (error: Error) => void;
+  /** Optional controls rendered between the drop zone and the upload button. */
+  children?: React.ReactNode;
 }
 
-type UploadState =
-  | { status: "idle" }
-  | { status: "processing"; jobId: string }
-  | { status: "complete"; extractedValues: ExtractedAmount[] }
-  | { status: "error"; message: string };
+type UploadState = "idle" | "uploading" | "error";
 
-interface ExtractedValueEdit extends ExtractedAmount {
-  editedAmount: number;
-  matchedAssetId?: string;
-}
-
-export function DocumentUpload({
-  assets,
-  onExtractedValues,
-  nominatedAssetId,
-}: DocumentUploadProps) {
+export function DocumentUpload<TResponse>({
+  accept = "image/*,application/pdf",
+  label = "Click to upload an image or PDF",
+  uploadMutation,
+  onUploadResponse,
+  onError,
+  children,
+}: DocumentUploadProps<TResponse>) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [platformKey, setPlatformKey] = useState<string>("unknown");
-  const [uploadState, setUploadState] = useState<UploadState>({ status: "idle" });
-  const [editedValues, setEditedValues] = useState<ExtractedValueEdit[]>([]);
-
-  const { data: platforms } = useBrokerPlatforms();
-  const mutation = useDocumentUpload();
-
-  const platformNames = platforms?.map((p: BrokerPlatform) => p.name) ?? [];
-
-  useEffect(() => {
-    if (uploadState.status !== "processing") return;
-
-    const { jobId } = uploadState;
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(`${protocol}://${window.location.host}/`);
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-
-        if (data.type === "document-ocr-completed" && data.jobId === jobId) {
-          const values: ExtractedValueEdit[] = (data.extractedValues ?? []).map(
-            (v: ExtractedAmount) => ({
-              ...v,
-              editedAmount: v.amount,
-              matchedAssetId: undefined,
-            })
-          );
-          setEditedValues(values);
-          setUploadState({ status: "complete", extractedValues: data.extractedValues });
-          ws.close();
-        }
-
-        if (data.type === "notification" && data.message?.includes("failed")) {
-          setUploadState({ status: "error", message: data.message });
-          ws.close();
-        }
-      } catch {
-        // ignore malformed messages
-      }
-    };
-
-    return () => {
-      ws.close();
-    };
-  }, [uploadState, assets]);
+  const [uploadState, setUploadState] = useState<UploadState>("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     setSelectedFile(file);
-    setUploadState({ status: "idle" });
+    setUploadState("idle");
+    setErrorMessage(null);
     e.target.value = "";
   };
 
-  const startUpload = () => {
-    if (!selectedFile) return;
-
-    setUploadState({ status: "processing", jobId: "" });
-
-    mutation.mutate(
-      {
-        file: selectedFile,
-        platformKey,
-        platformNames,
-        ...(nominatedAssetId ? { nominatedAssetId } : {}),
-      },
-      {
-        onSuccess: (result) => {
-          setUploadState({ status: "processing", jobId: result.jobId });
-        },
-        onError: (err) => {
-          setUploadState({ status: "error", message: err.message });
-        },
-      }
-    );
-  };
-
-  const handlePrimaryClick = () => {
+  const handleUpload = () => {
     if (!selectedFile) {
       fileInputRef.current?.click();
       return;
     }
-    startUpload();
-  };
 
-  const handleSave = () => {
-    const mapped = editedValues
-      .filter((v) => v.matchedAssetId)
-      .map((v) => ({ assetId: v.matchedAssetId!, value: v.editedAmount }));
-    onExtractedValues(mapped);
-  };
+    setUploadState("uploading");
+    setErrorMessage(null);
 
-  const handleAmountChange = (index: number, value: string) => {
-    setEditedValues((prev) =>
-      prev.map((v, i) =>
-        i === index ? { ...v, editedAmount: parseFloat(value) || 0 } : v
-      )
-    );
-  };
-
-  const handleAssetMatch = (index: number, assetId: string) => {
-    setEditedValues((prev) =>
-      prev.map((v, i) => (i === index ? { ...v, matchedAssetId: assetId } : v))
-    );
+    uploadMutation.mutate(selectedFile, {
+      onSuccess: (response) => {
+        setUploadState("idle");
+        onUploadResponse(response);
+      },
+      onError: (err) => {
+        setUploadState("error");
+        setErrorMessage(err.message);
+        onError?.(err);
+      },
+    });
   };
 
   return (
@@ -153,119 +71,37 @@ export function DocumentUpload({
       >
         <FileText className="h-8 w-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground text-center">
-          {selectedFile
-            ? selectedFile.name
-            : "Click to upload an image or PDF statement"}
+          {selectedFile ? selectedFile.name : label}
         </p>
         <input
           id="document-upload-file-input"
           ref={fileInputRef}
           type="file"
-          accept="image/*,application/pdf"
+          accept={accept}
           className="sr-only"
           onChange={handleFileChange}
         />
       </label>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Platform</label>
-        <Select value={platformKey} onValueChange={setPlatformKey}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select platform or leave unknown" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="unknown">Unknown — identify automatically</SelectItem>
-            {platforms?.map((p: BrokerPlatform) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {children}
 
-      {uploadState.status === "error" && (
+      {uploadState === "error" && errorMessage && (
         <div className="flex items-center gap-2 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          {uploadState.message}
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {errorMessage}
         </div>
       )}
 
-      {(uploadState.status === "idle" || uploadState.status === "error") && (
-        <Button
-          type="button"
-          onClick={handlePrimaryClick}
-          className="w-full"
-        >
-          <Upload className="h-4 w-4 mr-2" />
-          {selectedFile ? "Upload and extract" : "Choose a file"}
-        </Button>
-      )}
-
-      {uploadState.status === "processing" && (
-        <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+      {uploadState === "uploading" ? (
+        <div className="flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Processing document…
+          Uploading…
         </div>
-      )}
-
-      {uploadState.status === "complete" && editedValues.length === 0 && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <AlertCircle className="h-4 w-4" />
-          No account balances could be extracted from this document.
-        </div>
-      )}
-
-      {uploadState.status === "complete" && editedValues.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-sm font-medium">Extracted values — review and confirm</p>
-          {editedValues.map((v, i) => (
-            <div key={i} className="border rounded-lg p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">{v.platformName}</span>
-                {v.accountType && (
-                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                    {v.accountType}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground w-16">Amount</span>
-                <Input
-                  type="number"
-                  value={v.editedAmount}
-                  onChange={(e) => handleAmountChange(i, e.target.value)}
-                  className="h-7 text-sm"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground w-16">Asset</span>
-                <Select
-                  value={v.matchedAssetId ?? ""}
-                  onValueChange={(val) => handleAssetMatch(i, val)}
-                >
-                  <SelectTrigger className="h-7 text-sm">
-                    <SelectValue placeholder="Match to asset…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {assets.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Confidence: {Math.round(v.confidence * 100)}%
-              </div>
-            </div>
-          ))}
-          <Button onClick={handleSave} className="w-full">
-            <Check className="h-4 w-4 mr-2" />
-            Save extracted values
-          </Button>
-        </div>
+      ) : (
+        <Button type="button" onClick={handleUpload} className="w-full">
+          <Upload className="h-4 w-4 mr-2" />
+          {selectedFile ? "Upload" : "Choose a file"}
+        </Button>
       )}
     </div>
   );

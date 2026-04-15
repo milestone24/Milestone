@@ -1,0 +1,73 @@
+import { useEffect, useState } from "react";
+import type { ExtractedAmount } from "@shared/schema/document";
+import type { DocumentOcrPipelineResult } from "@shared/schema/document";
+
+export type OcrJobStatus =
+  | { status: "idle" }
+  | { status: "processing" }
+  | { status: "complete"; extractedValues: ExtractedAmount[]; pipeline: DocumentOcrPipelineResult }
+  | { status: "failed"; message: string }
+  | { status: "aborted"; message: string };
+
+/**
+ * Subscribes to document-ocr-* WebSocket events for a specific job.
+ * Opens a connection only when jobId is non-null; closes on unmount or
+ * when the job reaches a terminal state.
+ */
+export function useOcrJobEvents(jobId: string | null): OcrJobStatus {
+  const [jobStatus, setJobStatus] = useState<OcrJobStatus>({ status: "idle" });
+
+  useEffect(() => {
+    if (!jobId) {
+      setJobStatus({ status: "idle" });
+      return;
+    }
+
+    setJobStatus({ status: "processing" });
+
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(`${protocol}://${window.location.host}/`);
+
+    ws.onmessage = (event) => {
+      let data: Record<string, unknown>;
+      try {
+        data = JSON.parse(event.data as string) as Record<string, unknown>;
+      } catch {
+        return;
+      }
+
+      if (data.jobId !== jobId) return;
+
+      if (data.type === "document-ocr-completed") {
+        setJobStatus({
+          status: "complete",
+          extractedValues: (data.extractedValues ?? []) as ExtractedAmount[],
+          pipeline: data.pipeline as DocumentOcrPipelineResult,
+        });
+        ws.close();
+      }
+
+      if (data.type === "document-ocr-failed") {
+        setJobStatus({
+          status: "failed",
+          message: typeof data.message === "string" ? data.message : "OCR processing failed",
+        });
+        ws.close();
+      }
+
+      if (data.type === "document-ocr-aborted") {
+        setJobStatus({
+          status: "aborted",
+          message: typeof data.message === "string" ? data.message : "OCR processing was aborted",
+        });
+        ws.close();
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [jobId]);
+
+  return jobStatus;
+}

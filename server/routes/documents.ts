@@ -1,6 +1,6 @@
 import { Router, Request } from "express";
 import multer from "multer";
-import { AuthService } from "server/auth";
+import { AuthService, AuthRequest, requireTenantWithUserAccountId } from "server/auth";
 import { DocumentService } from "@server/services/documents";
 import { startDocumentOcr } from "@server/services/process/document-ocr";
 
@@ -12,6 +12,14 @@ export async function registerRoutes(
   authService: AuthService
 ): Promise<Router> {
   const { requireUser } = authService.getAuthMiddlewares();
+
+  router.get("/", requireUser, async (req: AuthRequest, res) => {
+    const response = await requireTenantWithUserAccountId(
+      req.tenant,
+      async (tenant) => documentService.getForAccount(tenant.userAccountId)
+    );
+    res.json(response);
+  });
 
   router.post(
     "/",
