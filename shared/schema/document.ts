@@ -102,6 +102,7 @@ export type ExtractedAmount = z.infer<typeof extractedAmountSchema>;
 export const documentOcrResponseSchema = z.object({
   jobId: z.string().uuid(),
   documentId: z.string().uuid(),
+  ocrJobId: z.string().uuid(),
 });
 
 export type DocumentOcrResponse = z.infer<typeof documentOcrResponseSchema>;
@@ -137,3 +138,27 @@ export const documentOcrPipelineResultSchema = z.object({
 });
 
 export type DocumentOcrPipelineResult = z.infer<typeof documentOcrPipelineResultSchema>;
+
+export const ocrJobReviewRequestSchema = z.discriminatedUnion("outcome", [
+  z.object({ outcome: z.literal("rejected") }),
+  z.object({
+    outcome: z.literal("accepted"),
+    securityTransactionIds: z.array(z.string().uuid()),
+  }),
+]);
+
+export type OcrJobReviewRequest = z.infer<typeof ocrJobReviewRequestSchema>;
+
+export const assetOcrPendingReviewItemSchema = z.object({
+  ocrJobId: z.string().uuid(),
+  processId: z.string().uuid().nullable(),
+  documentId: z.string().uuid().nullable(),
+  fileName: z.string().nullable(),
+  completedAt: z.coerce.date().nullable(),
+  extractedValues: z.array(extractedAmountSchema).nullable(),
+  pipeline: documentOcrPipelineResultSchema.nullable(),
+});
+
+export type AssetOcrPendingReviewItem = z.infer<
+  typeof assetOcrPendingReviewItemSchema
+>;

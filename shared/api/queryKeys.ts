@@ -45,3 +45,6 @@ export const fireCustomProjection = ["projections", "fire", "custom"];
 
 
 export const documents = ["documents"];
+
+/** Pending statement OCR reviews for an asset (`user_assets.id` nominee). */
+export const assetOcrPendingReview = ["asset", "ocr-pending-review"] as const;
