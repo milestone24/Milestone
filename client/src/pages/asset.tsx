@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,8 +54,11 @@ import { useAssetDelete } from "@/hooks/use-asset-delete";
 import { AssetValueList } from "@/components/account/AssetValueList";
 import { AccountDetails } from "@/components/account/AccountDetails";
 import { useThemeColors } from "@/hooks/use-theme-colors";
-import { OcrDocumentUpload, OcrCompleteResult } from "@/components/ocr/OcrDocumentUpload";
+import { OcrDocumentUpload } from "@/components/ocr/OcrDocumentUpload";
 import { OcrResultReview } from "@/components/ocr/OcrResultReview";
+import { AssetOcrPendingReviewBanner } from "@/components/ocr/AssetOcrPendingReviewBanner";
+import { useAssetOcrPendingReview } from "@/hooks/use-asset-ocr-pending-review";
+import type { AssetOcrPendingReviewItem } from "@shared/schema/document";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 
 function AssetPage() {
@@ -65,8 +68,15 @@ function AssetPage() {
   const assetId: UserAsset["id"] | undefined = params?.id;
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [ocrResult, setOcrResult] = useState<OcrCompleteResult | null>(null);
+  const [activePendingOcr, setActivePendingOcr] = useState<AssetOcrPendingReviewItem | null>(
+    null
+  );
+  const { data: pendingOcrItems = [] } = useAssetOcrPendingReview(assetId);
   const { mutateAsync: deleteAsset } = useAssetDelete();
+
+  useEffect(() => {
+    setActivePendingOcr(null);
+  }, [assetId]);
 
   const { dateRange } = useDateRange();
 
@@ -396,14 +406,20 @@ function AssetPage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium">Import from statement</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  {ocrResult ? (
+                <CardContent className="space-y-4">
+                  <AssetOcrPendingReviewBanner
+                    items={pendingOcrItems}
+                    onOpenItem={setActivePendingOcr}
+                  />
+                  {activePendingOcr?.pipeline ? (
                     <OcrResultReview
-                      pipeline={ocrResult.pipeline}
-                      extractedValues={ocrResult.extractedValues}
+                      key={activePendingOcr.ocrJobId}
+                      ocrJobId={activePendingOcr.ocrJobId}
+                      pipeline={activePendingOcr.pipeline}
+                      extractedValues={activePendingOcr.extractedValues ?? []}
                       assets={[asset]}
-                      onConfirmed={() => setOcrResult(null)}
-                      onDismissed={() => setOcrResult(null)}
+                      onConfirmed={() => setActivePendingOcr(null)}
+                      onDismissed={() => setActivePendingOcr(null)}
                       onBalancesSaved={() => {}}
                     />
                   ) : (
@@ -411,7 +427,7 @@ function AssetPage() {
                       nominatedAssetId={assetId}
                       initialPlatformKey={asset.platformId ?? undefined}
                       showPlatformSelect={false}
-                      onOcrComplete={setOcrResult}
+                      awaitResultsInline={false}
                     />
                   )}
                 </CardContent>

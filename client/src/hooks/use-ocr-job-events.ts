@@ -1,16 +1,25 @@
 import { useEffect, useState } from "react";
 import type { ExtractedAmount } from "@shared/schema/document";
 import type { DocumentOcrPipelineResult } from "@shared/schema/document";
+import {
+  registerInlineOcrProcessJob,
+  unregisterInlineOcrProcessJob,
+} from "@/lib/ocr-inline-job-awaiting";
 
 export type OcrJobStatus =
   | { status: "idle" }
   | { status: "processing" }
-  | { status: "complete"; extractedValues: ExtractedAmount[]; pipeline: DocumentOcrPipelineResult }
+  | {
+      status: "complete";
+      ocrJobId: string;
+      extractedValues: ExtractedAmount[];
+      pipeline: DocumentOcrPipelineResult;
+    }
   | { status: "failed"; message: string }
   | { status: "aborted"; message: string };
 
 /**
- * Subscribes to document-ocr-* WebSocket events for a specific job.
+ * Subscribes to document-ocr-* WebSocket events for a specific process job.
  * Opens a connection only when jobId is non-null; closes on unmount or
  * when the job reaches a terminal state.
  */
@@ -24,6 +33,7 @@ export function useOcrJobEvents(jobId: string | null): OcrJobStatus {
     }
 
     setJobStatus({ status: "processing" });
+    registerInlineOcrProcessJob(jobId);
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${protocol}://${window.location.host}/`);
@@ -39,8 +49,11 @@ export function useOcrJobEvents(jobId: string | null): OcrJobStatus {
       if (data.jobId !== jobId) return;
 
       if (data.type === "document-ocr-completed") {
+        const ocrJobId =
+          typeof data.ocrJobId === "string" ? data.ocrJobId : "";
         setJobStatus({
           status: "complete",
+          ocrJobId,
           extractedValues: (data.extractedValues ?? []) as ExtractedAmount[],
           pipeline: data.pipeline as DocumentOcrPipelineResult,
         });
@@ -65,6 +78,7 @@ export function useOcrJobEvents(jobId: string | null): OcrJobStatus {
     };
 
     return () => {
+      unregisterInlineOcrProcessJob(jobId);
       ws.close();
     };
   }, [jobId]);

@@ -572,6 +572,7 @@ export default function Record() {
                   <div className="space-y-4">
                     {ocrResult ? (
                       <OcrResultReview
+                        ocrJobId={ocrResult.ocrJobId}
                         pipeline={ocrResult.pipeline}
                         extractedValues={ocrResult.extractedValues}
                         assets={assets}

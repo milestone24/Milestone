@@ -1,5 +1,12 @@
 import { queryClient } from "@/lib/queryClient";
-import { isNotificationMessage, isQueryMessage } from "@shared/schema/socket";
+import type { SocketMessage } from "@shared/schema/socket";
+import {
+  isDocumentOcrCompletedSocketMessage,
+  isNotificationMessage,
+  isQueryMessage,
+} from "@shared/schema/socket";
+import { assetOcrPendingReview } from "@shared/api/queryKeys";
+import { isInlineOcrProcessJob } from "@/lib/ocr-inline-job-awaiting";
 import { useEffect } from "react";
 import { toast } from "./use-toast";
 
@@ -21,12 +28,34 @@ export const useSocket = () => {
         return;
       }
 
-      const data = JSON.parse(event.data);
+      let data: SocketMessage;
+      try {
+        data = JSON.parse(event.data) as SocketMessage;
+      } catch {
+        return;
+      }
 
       if (isQueryMessage(data)) {
         for (const queryKey of data.queryKeys) {
           queryClient.invalidateQueries({ queryKey });
         }
+      }
+      if (isDocumentOcrCompletedSocketMessage(data)) {
+        const nominated = data.pipeline?.nominatedUserAssetId;
+        if (nominated) {
+          queryClient.invalidateQueries({
+            queryKey: [...assetOcrPendingReview, nominated],
+          });
+        }
+        if (!isInlineOcrProcessJob(data.jobId)) {
+          toast({
+            title: "Statement OCR completed",
+            description: nominated
+              ? "Results are ready on the portfolio account."
+              : "You can continue in the Record or Documents flow.",
+          });
+        }
+        return;
       }
       if (isNotificationMessage(data)) {
         toast({

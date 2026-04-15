@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -23,7 +22,13 @@ interface OcrDocumentUploadProps {
   initialPlatformKey?: string;
   /** Whether to show the platform selector. Defaults to true. Set to false when the platform is implied by context (e.g. asset page). */
   showPlatformSelect?: boolean;
-  onOcrComplete: (result: OcrCompleteResult) => void;
+  /**
+   * When true (default), opens a job-scoped WebSocket and calls `onOcrComplete` when OCR finishes
+   * (record page). When false, upload returns immediately and completion is surfaced via the main
+   * socket + pending-review UI (asset page).
+   */
+  awaitResultsInline?: boolean;
+  onOcrComplete?: (result: OcrCompleteResult) => void;
   onOcrError?: (message: string) => void;
 }
 
@@ -31,11 +36,13 @@ export function OcrDocumentUpload({
   nominatedAssetId,
   initialPlatformKey,
   showPlatformSelect = true,
+  awaitResultsInline = true,
   onOcrComplete,
   onOcrError,
 }: OcrDocumentUploadProps) {
   const [platformKey, setPlatformKey] = useState<string>(initialPlatformKey ?? "unknown");
   const [jobId, setJobId] = useState<string | null>(null);
+  const [uploadOcrJobId, setUploadOcrJobId] = useState<string | null>(null);
 
   const { data: platforms } = useBrokerPlatforms();
   const platformNames = platforms?.map((p: BrokerPlatform) => p.name) ?? [];
@@ -46,10 +53,13 @@ export function OcrDocumentUpload({
     nominatedAssetId,
   });
 
-  const jobStatus = useOcrJobEvents(jobId);
+  const jobStatus = useOcrJobEvents(awaitResultsInline ? jobId : null);
 
   const handleUploadResponse = (response: DocumentOcrResponse) => {
-    setJobId(response.jobId);
+    if (awaitResultsInline) {
+      setJobId(response.jobId);
+      setUploadOcrJobId(response.ocrJobId);
+    }
   };
 
   const handleUploadError = (error: Error) => {
@@ -57,15 +67,23 @@ export function OcrDocumentUpload({
   };
 
   useEffect(() => {
+    if (!awaitResultsInline || !onOcrComplete) {
+      return;
+    }
     if (jobStatus.status === "complete") {
-      onOcrComplete(jobStatus);
+      const ocrJobId =
+        jobStatus.ocrJobId || uploadOcrJobId || "";
+      onOcrComplete({
+        ...jobStatus,
+        ocrJobId,
+      });
     }
     if (jobStatus.status === "failed" || jobStatus.status === "aborted") {
       onOcrError?.(jobStatus.message);
     }
-  }, [jobStatus.status]);
+  }, [awaitResultsInline, jobStatus, onOcrComplete, onOcrError, uploadOcrJobId]);
 
-  const isProcessing = jobStatus.status === "processing";
+  const isProcessing = awaitResultsInline && jobStatus.status === "processing";
 
   return (
     <div className="space-y-4">
@@ -95,13 +113,6 @@ export function OcrDocumentUpload({
           </div>
         )}
       </DocumentUpload>
-
-      {isProcessing && (
-        <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Processing document…
-        </div>
-      )}
 
       {(jobStatus.status === "failed" || jobStatus.status === "aborted") && (
         <p className="text-sm text-destructive">{jobStatus.message}</p>

@@ -8,14 +8,39 @@ import { securityTransactionOcrRowToOrphanInsert } from "@shared/schema/transact
 import type { ExtractedAmount, DocumentOcrPipelineResult } from "@shared/schema/document";
 import type { OcrAssetCandidateResult } from "@shared/schema/transaction";
 import type { UserAsset } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { assetOcrPendingReview } from "@shared/api/queryKeys";
 
 interface OcrResultReviewProps {
   pipeline: DocumentOcrPipelineResult;
   extractedValues: ExtractedAmount[];
   assets: UserAsset[];
+  /** When set, review outcome is persisted and linked transactions are recorded on accept. */
+  ocrJobId?: string;
   onConfirmed: () => void;
   onDismissed: () => void;
   onBalancesSaved: (data: { assetId: string; value: number }[]) => void;
+}
+
+function invalidatePendingOcrQueries(
+  pipeline: DocumentOcrPipelineResult,
+  assetsList: UserAsset[]
+) {
+  const assetId = pipeline.nominatedUserAssetId ?? assetsList[0]?.id;
+  if (assetId) {
+    queryClient.invalidateQueries({
+      queryKey: [...assetOcrPendingReview, assetId],
+    });
+  }
+}
+
+async function postOcrJobReview(
+  jobId: string,
+  body:
+    | { outcome: "rejected" }
+    | { outcome: "accepted"; securityTransactionIds: string[] }
+): Promise<void> {
+  await apiRequest("POST", `/api/ocr-jobs/${jobId}/review`, body);
 }
 
 function deriveInitialCandidate(
@@ -38,11 +63,29 @@ export function OcrResultReview({
   pipeline,
   extractedValues,
   assets,
+  ocrJobId,
   onConfirmed,
   onDismissed,
   onBalancesSaved,
 }: OcrResultReviewProps) {
   const { assetCandidates, nominatedUserAssetId } = pipeline;
+
+  const hasNominatedInCandidates =
+    nominatedUserAssetId !== null &&
+    assetCandidates.some((c) => c.userAssetId === nominatedUserAssetId);
+
+  const [showAllAssetCandidates, setShowAllAssetCandidates] = useState(
+    () => !hasNominatedInCandidates
+  );
+
+  const visibleAssetCandidates = useMemo(() => {
+    if (showAllAssetCandidates || nominatedUserAssetId === null) {
+      return assetCandidates;
+    }
+    return assetCandidates.filter((c) => c.userAssetId === nominatedUserAssetId);
+  }, [assetCandidates, nominatedUserAssetId, showAllAssetCandidates]);
+
+  const otherCandidateCount = assetCandidates.length - visibleAssetCandidates.length;
 
   const initialSelected = useMemo(
     () => deriveInitialCandidate(assetCandidates, nominatedUserAssetId),
@@ -53,15 +96,35 @@ export function OcrResultReview({
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
-  // selectedCandidateId is the userAssetId — used as assetId for the transaction endpoint.
-  // The query part of useSecurityTransactions will not fire when the value is "".
   const { addSecurityTransaction } = useSecurityTransactions(selectedCandidateId ?? "");
 
-  const selectedCandidate = assetCandidates.find(
-    (c) => c.userAssetId === selectedCandidateId
-  ) ?? null;
+  const selectedCandidate =
+    assetCandidates.find((c) => c.userAssetId === selectedCandidateId) ?? null;
 
   const hasSuspectRows = selectedCandidate?.securities.some((s) => !s.verified) ?? false;
+
+  const finishDismissed = async () => {
+    try {
+      if (ocrJobId) {
+        await postOcrJobReview(ocrJobId, { outcome: "rejected" });
+      }
+      invalidatePendingOcrQueries(pipeline, assets);
+      onDismissed();
+    } catch (e) {
+      setConfirmError(e instanceof Error ? e.message : "Could not save review outcome");
+    }
+  };
+
+  const finalizeAccepted = async (securityTransactionIds: string[]) => {
+    if (ocrJobId) {
+      await postOcrJobReview(ocrJobId, {
+        outcome: "accepted",
+        securityTransactionIds,
+      });
+    }
+    invalidatePendingOcrQueries(pipeline, assets);
+    onConfirmed();
+  };
 
   const handleConfirm = async () => {
     if (!selectedCandidate) return;
@@ -71,7 +134,11 @@ export function OcrResultReview({
     );
 
     if (matchedRows.length === 0) {
-      onConfirmed();
+      try {
+        await finalizeAccepted([]);
+      } catch (e) {
+        setConfirmError(e instanceof Error ? e.message : "Could not save review outcome");
+      }
       return;
     }
 
@@ -79,13 +146,15 @@ export function OcrResultReview({
     setConfirmError(null);
 
     try {
+      const createdIds: string[] = [];
       for (const row of matchedRows) {
-        await addSecurityTransaction.mutateAsync({
+        const created = await addSecurityTransaction.mutateAsync({
           securityId: row.userAssetSecurityId!,
           data: securityTransactionOcrRowToOrphanInsert(row.ocrRow),
         });
+        createdIds.push(created.id);
       }
-      onConfirmed();
+      await finalizeAccepted(createdIds);
     } catch (err) {
       setConfirmError(err instanceof Error ? err.message : "Failed to save transactions");
     } finally {
@@ -120,7 +189,11 @@ export function OcrResultReview({
           onSave={onBalancesSaved}
         />
 
-        <Button variant="outline" onClick={onDismissed} className="w-full">
+        {confirmError && (
+          <p className="text-sm text-destructive">{confirmError}</p>
+        )}
+
+        <Button variant="outline" onClick={() => void finishDismissed()} className="w-full">
           <X className="h-4 w-4 mr-2" />
           Dismiss
         </Button>
@@ -132,12 +205,14 @@ export function OcrResultReview({
     <div className="space-y-4">
       <div className="space-y-2">
         <p className="text-sm font-medium">
-          {assetCandidates.length === 1
-            ? "Matched portfolio account"
-            : "Select the portfolio account this statement belongs to"}
+          {!showAllAssetCandidates && visibleAssetCandidates.length === 1
+            ? "Review matches for this portfolio account"
+            : assetCandidates.length === 1
+              ? "Matched portfolio account"
+              : "Select the portfolio account this statement belongs to"}
         </p>
 
-        {assetCandidates.map((candidate) => (
+        {visibleAssetCandidates.map((candidate) => (
           <OcrAssetCandidateCard
             key={candidate.userAssetId}
             candidate={candidate}
@@ -145,6 +220,16 @@ export function OcrResultReview({
             onSelect={() => setSelectedCandidateId(candidate.userAssetId)}
           />
         ))}
+
+        {otherCandidateCount > 0 && !showAllAssetCandidates ? (
+          <button
+            type="button"
+            onClick={() => setShowAllAssetCandidates(true)}
+            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            Show other portfolio accounts ({otherCandidateCount})
+          </button>
+        ) : null}
       </div>
 
       {hasSuspectRows && (
@@ -167,7 +252,7 @@ export function OcrResultReview({
       <div className="flex gap-2">
         <Button
           variant="outline"
-          onClick={onDismissed}
+          onClick={() => void finishDismissed()}
           className="flex-1"
           disabled={isConfirming}
         >
@@ -175,7 +260,7 @@ export function OcrResultReview({
           Dismiss
         </Button>
         <Button
-          onClick={handleConfirm}
+          onClick={() => void handleConfirm()}
           className="flex-1"
           disabled={!selectedCandidate || isConfirming}
         >
