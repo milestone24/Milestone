@@ -57,6 +57,9 @@ set_param_if_missing() {
 
 echo "Checking required parameters..."
 echo ""
+echo "Note: /milestone/documents-s3-bucket is created and updated by CDK (MilestoneRuntimeStack)."
+echo "      If it already exists, setup will skip it; do not overwrite with a conflicting value."
+echo ""
 
 # Core parameters
 set_param_if_missing "/milestone/db-url-staging-one" "PostgreSQL database connection URL"
@@ -72,6 +75,7 @@ set_param_if_missing "/milestone/github-username" "GitHub username for GHCR" "St
 set_param_if_missing "/milestone/trading_212_api_key" "Trading 212 API key"
 set_param_if_missing "/milestone/alpha_vantage_api_key" "Alpha Vantage API key"
 set_param_if_missing "/milestone/eodhd_api_key" "EODHD API key"
+set_param_if_missing "/milestone/anthropic_api_key" "Anthropic API key (Claude / OCR)"
 
 # Token expiry (non-secure)
 set_param_if_missing "/milestone/access_token_expiry" "Access token expiry duration (e.g., 15m)" "String"
