@@ -6,6 +6,7 @@ import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as events from "aws-cdk-lib/aws-events";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
+import { DOCUMENTS_S3_BUCKET_PARAMETER_NAME } from "./ssm-documents-bucket.ts";
 
 export interface MilestoneAppConstructProps {
   /**
@@ -91,6 +92,22 @@ export class MilestoneAppConstruct extends Construct {
       })
     );
 
+    instanceRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["s3:ListBucket"],
+        resources: ["arn:aws:s3:::*"],
+      })
+    );
+
+    instanceRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+        resources: ["arn:aws:s3:::*/*"],
+      })
+    );
+
     // Create instance profile
     const instanceProfile = new iam.InstanceProfile(this, "InstanceProfile", {
       role: instanceRole,
@@ -149,6 +166,9 @@ services:
       - TRADING_212_API_KEY=\${TRADING_212_API_KEY}
       - ALPHA_VANTAGE_API_KEY=\${ALPHA_VANTAGE_API_KEY}
       - EODHD_API_KEY=\${EODHD_API_KEY}
+      - ANTHROPIC_API_KEY=\${ANTHROPIC_API_KEY}
+      - AWS_BUCKET_DOCUMENTS=\${AWS_BUCKET_DOCUMENTS}
+      - AWS_REGION=\${AWS_REGION}
     networks:
       - milestone-network
 
@@ -213,6 +233,11 @@ EOF`
 
     const appEnvParameters = [
       {
+        envVar: "AWS_BUCKET_DOCUMENTS",
+        parameterName: DOCUMENTS_S3_BUCKET_PARAMETER_NAME,
+        secure: false,
+      },
+      {
         envVar: "DATABASE_URL",
         parameterName: "/milestone/db-url-staging-one",
         secure: true,
@@ -245,6 +270,11 @@ EOF`
       {
         envVar: "EODHD_API_KEY",
         parameterName: "/milestone/eodhd_api_key",
+        secure: true,
+      },
+      {
+        envVar: "ANTHROPIC_API_KEY",
+        parameterName: "/milestone/anthropic_api_key",
         secure: true,
       },
       {
@@ -345,6 +375,13 @@ ${envFetchBody}  write_default "ACCESS_TOKEN_EXPIRY" "15m"
     set_env_value "COOKIE_DOMAIN" "$cf_domain"
   else
     LOG "WARN unable to resolve CloudFront domain; COOKIE_DOMAIN unchanged"
+  fi
+  IMDS_TOKEN=$(curl -sS -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" 2>/dev/null || true)
+  if [[ -n "$IMDS_TOKEN" ]]; then
+    AWS_REGION_VALUE=$(curl -sS -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" "http://169.254.169.254/latest/meta-data/placement/region" 2>/dev/null || true)
+    if [[ -n "$AWS_REGION_VALUE" ]]; then
+      set_env_value "AWS_REGION" "$AWS_REGION_VALUE"
+    fi
   fi
 }
 
