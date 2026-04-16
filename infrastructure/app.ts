@@ -6,10 +6,18 @@ import { MilestoneStack } from "./milestone-stack.ts";
 
 const app = new cdk.App();
 
-const stackEnv = {
-  account: process.env.CDK_DEFAULT_ACCOUNT,
-  region: process.env.CDK_DEFAULT_REGION || "us-east-1",
-};
+function resolveStackEnvironment(): cdk.Environment {
+  const account = process.env.CDK_DEFAULT_ACCOUNT;
+  const region = process.env.CDK_DEFAULT_REGION;
+  if (!account || !region) {
+    throw new Error(
+      "CDK stacks need CDK_DEFAULT_ACCOUNT and CDK_DEFAULT_REGION. The CDK CLI sets these when you run with an AWS profile (e.g. cdk synth --profile firemedia.gary). No region is hardcoded in app.ts.",
+    );
+  }
+  return { account, region };
+}
+
+const stackEnv = resolveStackEnvironment();
 
 new MilestoneRuntimeStack(app, "MilestoneRuntimeStack", {
   env: stackEnv,
