@@ -7,6 +7,7 @@ import * as events from "aws-cdk-lib/aws-events";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 import { DOCUMENTS_S3_BUCKET_PARAMETER_NAME } from "./ssm-documents-bucket.ts";
+import { EMAIL_INBOUND_NOTIFY_QUEUE_NAME } from "./ssm-email-inbound.ts";
 
 export interface MilestoneAppConstructProps {
   /**
@@ -105,6 +106,22 @@ export class MilestoneAppConstruct extends Construct {
         effect: iam.Effect.ALLOW,
         actions: ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
         resources: ["arn:aws:s3:::*/*"],
+      })
+    );
+
+    instanceRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:GetQueueUrl",
+          "sqs:ChangeMessageVisibility",
+        ],
+        resources: [
+          `arn:aws:sqs:${stack.region}:${stack.account}:${EMAIL_INBOUND_NOTIFY_QUEUE_NAME}`,
+        ],
       })
     );
 
