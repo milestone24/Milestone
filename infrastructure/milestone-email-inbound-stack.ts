@@ -24,9 +24,10 @@ import {
 } from "./ssm-email-inbound.ts";
 
 /**
- * Stable S3 bucket name for raw inbound mail (RFC822). Must be globally unique
- * per AWS account. Assigned to the raw-mail bucket in
- * {@link MilestoneEmailInboundStack}.
+ * Stable S3 bucket name for raw inbound mail (RFC822). Globally unique per AWS
+ * account. The bucket uses {@link cdk.RemovalPolicy.DESTROY} and
+ * `autoDeleteObjects` so deleting the stack does not leave a retained bucket
+ * that blocks a later deploy with the same name.
  */
 export const MILESTONE_EMAIL_INBOUND_BUCKET_NAME = "milestone.email-inbound";
 
@@ -52,15 +53,24 @@ function cdkIdSuffixFromMailSubdomain(mailSubdomain: string): string {
   return mailSubdomain.replace(/[^A-Za-z0-9]/g, "");
 }
 
+/**
+ * The first shipped stack used unsuffixed construct IDs for the production
+ * domain only. Reusing those IDs for `doc-inbound` lets stack updates adopt the
+ * existing `AWS::SES::EmailIdentity` (and related topic/queue/DKIM/MX) instead of
+ * failing with "already exists".
+ */
+function isLegacyProdRail(mailSubdomain: string): boolean {
+  return mailSubdomain === "doc-inbound";
+}
+
 /** Publishes SES Easy DKIM CNAME tokens into the given hosted zone. */
 function addDkimCnameRecord(
   scope: Construct,
-  constructIdPrefix: string,
+  constructId: string,
   hostedZoneId: string,
-  index: number,
   record: { name: string; value: string },
 ): void {
-  new route53.CfnRecordSet(scope, `${constructIdPrefix}InboundDkim${index}`, {
+  new route53.CfnRecordSet(scope, constructId, {
     hostedZoneId,
     name: record.name,
     type: "CNAME",
@@ -73,8 +83,10 @@ function addDkimCnameRecord(
  * Document inbound email: SES receive → S3 (raw RFC822) + SNS when stored,
  * then **SNS → SQS** per environment rail. Three FQDNs under the zone (prod,
  * staging, dev) share one bucket and one receipt rule set; each rail has its
- * own SNS topic, SQS queue, and S3 object prefix. No CDK dependencies on other
- * Milestone stacks.
+ * own SNS topic, SQS queue, and S3 object prefix. The raw-mail bucket is
+ * destroyed when the stack is deleted (`RemovalPolicy.DESTROY`,
+ * `autoDeleteObjects`) so a fixed bucket name does not block redeploys. No CDK
+ * dependencies on other Milestone stacks.
  */
 export class MilestoneEmailInboundStack extends cdk.Stack {
   public readonly rawMailBucket: s3.Bucket;
@@ -96,7 +108,8 @@ export class MilestoneEmailInboundStack extends cdk.Stack {
       bucketName: MILESTONE_EMAIL_INBOUND_BUCKET_NAME,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
     });
 
     const ruleSet = new ses.ReceiptRuleSet(this, "InboundReceiptRuleSet", {
@@ -107,16 +120,41 @@ export class MilestoneEmailInboundStack extends cdk.Stack {
 
     for (const rail of EMAIL_INBOUND_RAIL_DEFINITIONS) {
       const idSuffix = cdkIdSuffixFromMailSubdomain(rail.mailSubdomain);
+      const legacy = isLegacyProdRail(rail.mailSubdomain);
       const mailFqdn = `${rail.mailSubdomain}.${props.hostedZoneName}`;
       const objectKeyPrefix = `raw/${rail.mailSubdomain}/`;
 
-      const notificationTopic = new sns.Topic(
-        this,
-        `InboundMailTopic${idSuffix}`,
-        {
-          displayName: `Milestone inbound mail (${rail.mailSubdomain})`,
-        },
-      );
+      const topicConstructId = legacy ? "InboundMailTopic" : `InboundMailTopic${idSuffix}`;
+      const queueConstructId = legacy
+        ? "InboundMailNotifyQueue"
+        : `InboundMailNotifyQueue${idSuffix}`;
+      const identityConstructId = legacy
+        ? "InboundMailIdentity"
+        : `InboundMailIdentity${idSuffix}`;
+      const mxConstructId = legacy ? "SesInboundMx" : `SesInboundMx${idSuffix}`;
+      const ruleConstructId = legacy
+        ? "StoreRawAndNotify"
+        : `StoreRawAndNotify${idSuffix}`;
+      const snsParamConstructId = legacy
+        ? "EmailInboundSnsTopicArnParam"
+        : `EmailInboundSnsTopicArnParam${idSuffix}`;
+      const sqsParamConstructId = legacy
+        ? "EmailInboundSqsQueueUrlParam"
+        : `EmailInboundSqsQueueUrlParam${idSuffix}`;
+      const mailFqdnParamConstructId = legacy
+        ? "EmailInboundMailFqdnParam"
+        : `EmailInboundMailFqdnParam${idSuffix}`;
+      const outputFqdnId = legacy ? "InboundMailFqdn" : `InboundMailFqdn${idSuffix}`;
+      const outputTopicId = legacy
+        ? "InboundNotificationTopicArn"
+        : `InboundNotificationTopicArn${idSuffix}`;
+      const outputQueueId = legacy
+        ? "InboundNotificationQueueUrl"
+        : `InboundNotificationQueueUrl${idSuffix}`;
+
+      const notificationTopic = new sns.Topic(this, topicConstructId, {
+        displayName: `Milestone inbound mail (${rail.mailSubdomain})`,
+      });
 
       notificationTopic.addToResourcePolicy(
         new iam.PolicyStatement({
@@ -128,45 +166,34 @@ export class MilestoneEmailInboundStack extends cdk.Stack {
         }),
       );
 
-      const notificationQueue = new sqs.Queue(
-        this,
-        `InboundMailNotifyQueue${idSuffix}`,
-        {
-          queueName: rail.queueName,
-          encryption: sqs.QueueEncryption.SQS_MANAGED,
-          visibilityTimeout: cdk.Duration.minutes(5),
-          receiveMessageWaitTime: cdk.Duration.seconds(20),
-          retentionPeriod: cdk.Duration.days(14),
-        },
-      );
+      const notificationQueue = new sqs.Queue(this, queueConstructId, {
+        queueName: rail.queueName,
+        encryption: sqs.QueueEncryption.SQS_MANAGED,
+        visibilityTimeout: cdk.Duration.minutes(5),
+        receiveMessageWaitTime: cdk.Duration.seconds(20),
+        retentionPeriod: cdk.Duration.days(14),
+      });
 
       notificationTopic.addSubscription(
         new subs.SqsSubscription(notificationQueue),
       );
 
-      const emailIdentity = new ses.EmailIdentity(
-        this,
-        `InboundMailIdentity${idSuffix}`,
-        {
-          identity: ses.Identity.domain(mailFqdn),
-        },
-      );
+      const emailIdentity = new ses.EmailIdentity(this, identityConstructId, {
+        identity: ses.Identity.domain(mailFqdn),
+      });
 
       for (let i = 0; i < emailIdentity.dkimRecords.length; i += 1) {
         const record = emailIdentity.dkimRecords[i];
         if (!record) {
           continue;
         }
-        addDkimCnameRecord(
-          this,
-          `${idSuffix}`,
-          hostedZone.hostedZoneId,
-          i,
-          record,
-        );
+        const dkimConstructId = legacy
+          ? `InboundDkim${i}`
+          : `${idSuffix}InboundDkim${i}`;
+        addDkimCnameRecord(this, dkimConstructId, hostedZone.hostedZoneId, record);
       }
 
-      new route53.MxRecord(this, `SesInboundMx${idSuffix}`, {
+      new route53.MxRecord(this, mxConstructId, {
         zone: hostedZone,
         recordName: rail.mailSubdomain,
         values: [
@@ -177,7 +204,7 @@ export class MilestoneEmailInboundStack extends cdk.Stack {
         ],
       });
 
-      ruleSet.addRule(`StoreRawAndNotify${idSuffix}`, {
+      ruleSet.addRule(ruleConstructId, {
         recipients: [mailFqdn],
         actions: [
           new sesActions.S3({
@@ -188,32 +215,32 @@ export class MilestoneEmailInboundStack extends cdk.Stack {
         ],
       });
 
-      new ssm.StringParameter(this, `EmailInboundSnsTopicArnParam${idSuffix}`, {
+      new ssm.StringParameter(this, snsParamConstructId, {
         parameterName: emailInboundSnsTopicArnParameterName(rail.mailSubdomain),
         stringValue: notificationTopic.topicArn,
       });
 
-      new ssm.StringParameter(this, `EmailInboundSqsQueueUrlParam${idSuffix}`, {
+      new ssm.StringParameter(this, sqsParamConstructId, {
         parameterName: emailInboundSqsQueueUrlParameterName(rail.mailSubdomain),
         stringValue: notificationQueue.queueUrl,
       });
 
-      new ssm.StringParameter(this, `EmailInboundMailFqdnParam${idSuffix}`, {
+      new ssm.StringParameter(this, mailFqdnParamConstructId, {
         parameterName: emailInboundMailFqdnParameterName(rail.mailSubdomain),
         stringValue: mailFqdn,
       });
 
-      new cdk.CfnOutput(this, `InboundMailFqdn${idSuffix}`, {
+      new cdk.CfnOutput(this, outputFqdnId, {
         value: mailFqdn,
         description: `Inbound host for rail ${rail.mailSubdomain} (MX + SES)`,
       });
 
-      new cdk.CfnOutput(this, `InboundNotificationTopicArn${idSuffix}`, {
+      new cdk.CfnOutput(this, outputTopicId, {
         value: notificationTopic.topicArn,
         description: `SNS topic for ${rail.mailSubdomain} after S3 store`,
       });
 
-      new cdk.CfnOutput(this, `InboundNotificationQueueUrl${idSuffix}`, {
+      new cdk.CfnOutput(this, outputQueueId, {
         value: notificationQueue.queueUrl,
         description: `SQS queue URL for ${rail.mailSubdomain} (SNS subscription)`,
       });
@@ -274,7 +301,7 @@ export class MilestoneEmailInboundStack extends cdk.Stack {
     new cdk.CfnOutput(this, "RawInboundMailBucketName", {
       value: this.rawMailBucket.bucketName,
       description:
-        "S3 bucket for raw inbound messages (RFC822; same name as MILESTONE_EMAIL_INBOUND_BUCKET_NAME)",
+        "S3 bucket for raw inbound RFC822 (fixed name; destroyed with stack so the name can be reused)",
     });
   }
 }
