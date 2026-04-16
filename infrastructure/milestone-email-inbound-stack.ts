@@ -15,6 +15,7 @@ import {
 } from "aws-cdk-lib/custom-resources";
 import type { Construct } from "constructs";
 import {
+  EMAIL_INBOUND_LOCAL_PART_PREFIX_PARAMETER_NAME,
   EMAIL_INBOUND_MAIL_FQDN_PARAMETER_NAME,
   EMAIL_INBOUND_NOTIFY_QUEUE_NAME,
   EMAIL_INBOUND_S3_BUCKET_PARAMETER_NAME,
@@ -209,6 +210,13 @@ export class MilestoneEmailInboundStack extends cdk.Stack {
     new ssm.StringParameter(this, "EmailInboundMailFqdnParam", {
       parameterName: EMAIL_INBOUND_MAIL_FQDN_PARAMETER_NAME,
       stringValue: mailFqdn,
+    });
+
+    new ssm.StringParameter(this, "EmailInboundLocalPartPrefixParam", {
+      parameterName: EMAIL_INBOUND_LOCAL_PART_PREFIX_PARAMETER_NAME,
+      stringValue: "ingest",
+      description:
+        "Local-part prefix for routing addresses (ingest+{shortCode}@mail-fqdn); change only with worker/parser updates",
     });
 
     new cdk.CfnOutput(this, "InboundMailFqdn", {

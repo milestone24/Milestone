@@ -7,7 +7,11 @@ import * as events from "aws-cdk-lib/aws-events";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 import { DOCUMENTS_S3_BUCKET_PARAMETER_NAME } from "./ssm-documents-bucket.ts";
-import { EMAIL_INBOUND_NOTIFY_QUEUE_NAME } from "./ssm-email-inbound.ts";
+import {
+  EMAIL_INBOUND_LOCAL_PART_PREFIX_PARAMETER_NAME,
+  EMAIL_INBOUND_MAIL_FQDN_PARAMETER_NAME,
+  EMAIL_INBOUND_NOTIFY_QUEUE_NAME,
+} from "./ssm-email-inbound.ts";
 
 export interface MilestoneAppConstructProps {
   /**
@@ -186,6 +190,8 @@ services:
       - ANTHROPIC_API_KEY=\${ANTHROPIC_API_KEY}
       - AWS_BUCKET_DOCUMENTS=\${AWS_BUCKET_DOCUMENTS}
       - AWS_REGION=\${AWS_REGION}
+      - EMAIL_INBOUND_MAIL_FQDN=\${EMAIL_INBOUND_MAIL_FQDN}
+      - EMAIL_INGEST_LOCAL_PART_PREFIX=\${EMAIL_INGEST_LOCAL_PART_PREFIX}
     networks:
       - milestone-network
 
@@ -304,6 +310,16 @@ EOF`
         parameterName: "/milestone/refresh_token_expiry",
         secure: false,
       },
+      {
+        envVar: "EMAIL_INBOUND_MAIL_FQDN",
+        parameterName: EMAIL_INBOUND_MAIL_FQDN_PARAMETER_NAME,
+        secure: false,
+      },
+      {
+        envVar: "EMAIL_INGEST_LOCAL_PART_PREFIX",
+        parameterName: EMAIL_INBOUND_LOCAL_PART_PREFIX_PARAMETER_NAME,
+        secure: false,
+      },
     ];
 
     const envFetchCommands = appEnvParameters
@@ -384,6 +400,7 @@ refresh_env_file() {
   chmod 600 "$ENV_FILE"
 ${envFetchBody}  write_default "ACCESS_TOKEN_EXPIRY" "15m"
   write_default "REFRESH_TOKEN_EXPIRY" "30d"
+  write_default "EMAIL_INGEST_LOCAL_PART_PREFIX" "ingest"
   write_default "APP_IMAGE" "$DEFAULT_IMAGE"
   # TEMPORARY: Force cookie domain to CloudFront distribution while custom domain/SSL is pending.
   local cf_domain

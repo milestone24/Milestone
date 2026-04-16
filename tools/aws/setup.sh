@@ -59,6 +59,8 @@ echo "Checking required parameters..."
 echo ""
 echo "Note: /milestone/documents-s3-bucket is created and updated by CDK (MilestoneRuntimeStack)."
 echo "      If it already exists, setup will skip it; do not overwrite with a conflicting value."
+echo "Note: /milestone/email-inbound/* (mail FQDN, S3 bucket, SNS, SQS, local-part-prefix) are created"
+echo "      by CDK (MilestoneEmailInboundStack). EC2 deploy loads mail FQDN + local-part prefix into .env."
 echo ""
 
 # Core parameters
