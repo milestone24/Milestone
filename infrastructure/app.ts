@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import "source-map-support/register.js";
 import * as cdk from "aws-cdk-lib";
+import { MilestoneEmailInboundStack } from "./milestone-email-inbound-stack.ts";
 import { MilestoneRuntimeStack } from "./milestone-runtime-stack.ts";
 import { MilestoneStack } from "./milestone-stack.ts";
 
@@ -30,4 +31,23 @@ new MilestoneStack(app, "MilestoneStack", {
   description: "Milestone investment tracking application infrastructure",
   // You can pass the imageName here when deploying:
   imageName: "milestone-staging:latest",
+});
+
+// Isolated stack: SES receive → S3 (`milestone.email-inbound`) + SNS. No deps on
+// other Milestone stacks. CDK context: `emailInboundHostedZoneId`,
+// `emailInboundHostedZoneName`, `emailInboundMailSubdomain` (default
+// `doc-inbound` → doc-inbound.<zone>).
+new MilestoneEmailInboundStack(app, "MilestoneEmailInboundStack", {
+  env: stackEnv,
+  description:
+    "Milestone inbound email: SES receive, Route53 MX/DKIM, raw S3, SNS (no app stack dependencies)",
+  hostedZoneId:
+    (app.node.tryGetContext("emailInboundHostedZoneId") as string | undefined) ??
+    "Z011372133ABJ2GF8XQIJ",
+  hostedZoneName:
+    (app.node.tryGetContext("emailInboundHostedZoneName") as string | undefined) ??
+    "milestone.gaari.me",
+  mailSubdomain:
+    (app.node.tryGetContext("emailInboundMailSubdomain") as string | undefined) ??
+    "doc-inbound",
 });
