@@ -80,7 +80,7 @@ The infrastructure consists of:
 
 The deploy script loads values from SSM into `/opt/milestone/.env`, including **`AWS_BUCKET_DOCUMENTS`** (bucket name), **`ANTHROPIC_API_KEY`** (from `/milestone/anthropic_api_key`), and the other keys listed in `appEnvParameters` in [`milestone-app-construct.ts`](milestone-app-construct.ts). **`AWS_REGION`** is set from EC2 instance metadata during deploy when available.
 
-Document email ingest (SES rail) uses **`EMAIL_INBOUND_MAIL_FQDN`** and **`EMAIL_INGEST_LOCAL_PART_PREFIX`**, loaded from SSM **`/milestone/email-inbound/mail-fqdn`** and **`/milestone/email-inbound/local-part-prefix`** when those parameters exist (created by [`MilestoneEmailInboundStack`](milestone-email-inbound-stack.ts)). If the prefix parameter is missing, deploy still writes a default **`ingest`** for `EMAIL_INGEST_LOCAL_PART_PREFIX`. The Docker Compose template passes both variables into the app container.
+Document email ingest (SES) uses **`EMAIL_INBOUND_MAIL_FQDN`**, **`EMAIL_INGEST_LOCAL_PART_PREFIX`**, **`EMAIL_INBOUND_SQS_QUEUE_URL`**, and **`EMAIL_INBOUND_SNS_TOPIC_ARN`**. The inbound CDK stack provisions three rails (prod / staging / dev): `doc-inbound`, `doc-inbound-staging`, and `doc-inbound-dev` under the hosted zone, each with its own SNS topic and SQS queue. Per-rail values are stored under **`/milestone/email-inbound/rails/<mailSubdomain>/…`** (for example `…/rails/doc-inbound/mail-fqdn`). Shared **`/milestone/email-inbound/s3-bucket-name`** and **`/milestone/email-inbound/local-part-prefix`** apply to all rails. [`MilestoneStack`](milestone-stack.ts) passes CDK context **`emailInboundMailSubdomain`** through to [`milestone-app-construct.ts`](milestone-app-construct.ts) so each EC2 instance pulls the matching rail’s FQDN, queue URL, and topic ARN (default **`doc-inbound`** for production). If the prefix parameter is missing, deploy still writes a default **`ingest`** for `EMAIL_INGEST_LOCAL_PART_PREFIX`. Leave the queue URL unset locally to disable the ingest worker.
 
 ## User Data Script
 
@@ -91,7 +91,7 @@ The EC2 instance user data script:
 4. Creates the application directory (`/opt/milestone`)
 5. Creates `docker-compose.yml`
 6. Writes `/opt/milestone/bin/deploy.sh`, which:
-   - Pulls configuration and secrets from SSM Parameter Store into `/opt/milestone/.env` (including **`AWS_BUCKET_DOCUMENTS`** from `/milestone/documents-s3-bucket` when that parameter exists, and inbound mail **`EMAIL_INBOUND_MAIL_FQDN`** / **`EMAIL_INGEST_LOCAL_PART_PREFIX`** from `/milestone/email-inbound/*` when deployed)
+   - Pulls configuration and secrets from SSM Parameter Store into `/opt/milestone/.env` (including **`AWS_BUCKET_DOCUMENTS`** from `/milestone/documents-s3-bucket` when that parameter exists, and inbound mail env vars from `/milestone/email-inbound/rails/<rail>/…` plus shared `/milestone/email-inbound/local-part-prefix` when deployed)
    - Logs in to GitHub Container Registry (GHCR)
    - Updates the `APP_IMAGE` entry inside `.env`
    - Temporarily forces `COOKIE_DOMAIN` to the CloudFront distribution domain until custom certificates/domains are configured
