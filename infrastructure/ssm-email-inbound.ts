@@ -60,6 +60,14 @@ export const EMAIL_INBOUND_S3_BUCKET_PARAMETER_NAME =
 export const EMAIL_INBOUND_LOCAL_PART_PREFIX_PARAMETER_NAME =
   "/milestone/email-inbound/local-part-prefix";
 
+/** `ReceiveMessage` long poll wait (0–20 seconds); maps to `EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS`. */
+export const EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS_PARAMETER_NAME =
+  "/milestone/email-inbound/sqs-wait-time-seconds";
+
+/** Per-receive visibility timeout (0–43200 seconds); maps to `EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS`. */
+export const EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS_PARAMETER_NAME =
+  "/milestone/email-inbound/sqs-visibility-timeout-seconds";
+
 export function assertEmailInboundMailSubdomain(
   value: string,
 ): asserts value is EmailInboundMailSubdomain {

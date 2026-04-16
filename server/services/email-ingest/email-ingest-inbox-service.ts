@@ -19,7 +19,8 @@ import type {
  * **EC2:** `/opt/milestone/.env` is refreshed by `deploy.sh` from SSM (`appEnvParameters` in
  * `infrastructure/milestone-app-construct.ts`). Mail inbound strings are published by
  * `MilestoneEmailInboundStack` under `/milestone/email-inbound/rails/<mailSubdomain>/…` plus shared
- * `/milestone/email-inbound/local-part-prefix` (see `infrastructure/ssm-email-inbound.ts`). The EC2
+ * `/milestone/email-inbound/local-part-prefix`, `sqs-wait-time-seconds`, and
+ * `sqs-visibility-timeout-seconds` (see `infrastructure/ssm-email-inbound.ts`). The EC2
  * stack chooses the rail via CDK context `emailInboundMailSubdomain` (default `doc-inbound`).
  *
  * - `EMAIL_INBOUND_MAIL_FQDN` — SSM `…/rails/<rail>/mail-fqdn` (ingest address host for that instance).

@@ -10,6 +10,8 @@ import { DOCUMENTS_S3_BUCKET_PARAMETER_NAME } from "./ssm-documents-bucket.ts";
 import {
   EMAIL_INBOUND_LOCAL_PART_PREFIX_PARAMETER_NAME,
   EMAIL_INBOUND_RAIL_DEFINITIONS,
+  EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS_PARAMETER_NAME,
+  EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS_PARAMETER_NAME,
   emailInboundMailFqdnParameterName,
   emailInboundSnsTopicArnParameterName,
   emailInboundSqsQueueUrlParameterName,
@@ -207,6 +209,8 @@ services:
       - EMAIL_INGEST_LOCAL_PART_PREFIX=\${EMAIL_INGEST_LOCAL_PART_PREFIX}
       - EMAIL_INBOUND_SQS_QUEUE_URL=\${EMAIL_INBOUND_SQS_QUEUE_URL}
       - EMAIL_INBOUND_SNS_TOPIC_ARN=\${EMAIL_INBOUND_SNS_TOPIC_ARN}
+      - EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS=\${EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS}
+      - EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS=\${EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS}
     networks:
       - milestone-network
 
@@ -347,6 +351,16 @@ EOF`
           emailInboundSnsTopicArnParameterName(emailInboundMailSubdomain),
         secure: false,
       },
+      {
+        envVar: "EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS",
+        parameterName: EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS_PARAMETER_NAME,
+        secure: false,
+      },
+      {
+        envVar: "EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS",
+        parameterName: EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS_PARAMETER_NAME,
+        secure: false,
+      },
     ];
 
     const envFetchCommands = appEnvParameters
@@ -428,6 +442,8 @@ refresh_env_file() {
 ${envFetchBody}  write_default "ACCESS_TOKEN_EXPIRY" "15m"
   write_default "REFRESH_TOKEN_EXPIRY" "30d"
   write_default "EMAIL_INGEST_LOCAL_PART_PREFIX" "ingest"
+  write_default "EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS" "20"
+  write_default "EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS" "300"
   write_default "APP_IMAGE" "$DEFAULT_IMAGE"
   # TEMPORARY: Force cookie domain to CloudFront distribution while custom domain/SSL is pending.
   local cf_domain

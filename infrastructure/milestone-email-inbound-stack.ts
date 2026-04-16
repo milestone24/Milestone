@@ -18,6 +18,8 @@ import {
   EMAIL_INBOUND_LOCAL_PART_PREFIX_PARAMETER_NAME,
   EMAIL_INBOUND_RAIL_DEFINITIONS,
   EMAIL_INBOUND_S3_BUCKET_PARAMETER_NAME,
+  EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS_PARAMETER_NAME,
+  EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS_PARAMETER_NAME,
   emailInboundMailFqdnParameterName,
   emailInboundSnsTopicArnParameterName,
   emailInboundSqsQueueUrlParameterName,
@@ -296,6 +298,20 @@ export class MilestoneEmailInboundStack extends cdk.Stack {
       stringValue: "ingest",
       description:
         "Local-part prefix for routing addresses (ingest+{shortCode}@mail-fqdn); change only with worker/parser updates",
+    });
+
+    new ssm.StringParameter(this, "EmailInboundSqsWaitTimeSecondsParam", {
+      parameterName: EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS_PARAMETER_NAME,
+      stringValue: "20",
+      description:
+        "SQS ReceiveMessage WaitTimeSeconds (0–20) for inbound notify worker; EC2 → EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS",
+    });
+
+    new ssm.StringParameter(this, "EmailInboundSqsVisibilityTimeoutSecondsParam", {
+      parameterName: EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS_PARAMETER_NAME,
+      stringValue: "300",
+      description:
+        "SQS ReceiveMessage VisibilityTimeout seconds (0–43200) for inbound worker; raise if OCR exceeds this; EC2 → EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS",
     });
 
     new cdk.CfnOutput(this, "RawInboundMailBucketName", {
