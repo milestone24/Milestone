@@ -367,6 +367,7 @@ export function EmailIngestInboxesSettings() {
     inbox: EmailIngestInboxResponse;
   } | null>(null);
   const [dangerError, setDangerError] = useState<string | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!highlightInboxId) return;
@@ -405,6 +406,7 @@ export function EmailIngestInboxesSettings() {
       setSuccessInbox(created);
       setHighlightInboxId(created.id);
       createForm.reset({ platformKey: "", allowedSendersText: "" });
+      setCreateDialogOpen(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Request failed";
       createForm.setError("root", { message: parseApiRequestError(message) });
@@ -481,57 +483,23 @@ export function EmailIngestInboxesSettings() {
           </Alert>
         ) : null}
 
-        <div>
-          <h3 className="text-sm font-medium mb-3">Create inbox</h3>
-          <Form {...createForm}>
-            <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
-              <FormField
-                control={createForm.control}
-                name="platformKey"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Platform key (optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. trading212" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name="allowedSendersText"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Initial allowed senders (optional)</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        rows={4}
-                        placeholder={"statements@broker.com\n@broker.com"}
-                        className="font-mono text-sm"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {createForm.formState.errors.root?.message ? (
-                <p className="text-sm text-destructive" role="alert">
-                  {createForm.formState.errors.root.message}
-                </p>
-              ) : null}
-              <Button type="submit" disabled={createInbox.isPending}>
-                {createInbox.isPending ? "Creating…" : "Create inbox"}
-              </Button>
-            </form>
-          </Form>
-        </div>
-
         <Separator />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-sm font-medium">Your inboxes</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-medium">Your inboxes</h3>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                createForm.reset({ platformKey: "", allowedSendersText: "" });
+                createForm.clearErrors();
+                setCreateDialogOpen(true);
+              }}
+            >
+              Add Inbox
+            </Button>
+          </div>
           <div className="flex items-center gap-2">
             <Switch
               id="email-ingest-include-revoked"
@@ -563,7 +531,10 @@ export function EmailIngestInboxesSettings() {
         ) : null}
 
         {!isLoading && !isError && sortedInboxes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No inboxes yet. Create one above.</p>
+          <p className="text-sm text-muted-foreground">
+            No inboxes yet. Use <span className="font-medium text-foreground">Add Inbox</span> to
+            create one.
+          </p>
         ) : null}
 
         {!isLoading && !isError ? (
@@ -661,6 +632,79 @@ export function EmailIngestInboxesSettings() {
           </div>
         ) : null}
       </CardContent>
+
+      <Dialog
+        open={createDialogOpen}
+        onOpenChange={(open) => {
+          setCreateDialogOpen(open);
+          if (!open) {
+            createForm.reset({ platformKey: "", allowedSendersText: "" });
+            createForm.clearErrors();
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Inbox</DialogTitle>
+            <DialogDescription>
+              Optional platform label and initial allow list. You can change the allow list after
+              creation.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...createForm}>
+            <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
+              <FormField
+                control={createForm.control}
+                name="platformKey"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Platform key (optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. trading212" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createForm.control}
+                name="allowedSendersText"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Initial allowed senders (optional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        rows={4}
+                        placeholder={"statements@broker.com\n@broker.com"}
+                        className="font-mono text-sm"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {createForm.formState.errors.root?.message ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {createForm.formState.errors.root.message}
+                </p>
+              ) : null}
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCreateDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createInbox.isPending}>
+                  {createInbox.isPending ? "Creating…" : "Create inbox"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       {allowListInbox ? (
         <EmailIngestAllowedSendersDialog
