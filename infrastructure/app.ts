@@ -31,12 +31,15 @@ new MilestoneStack(app, "MilestoneStack", {
   description: "Milestone investment tracking application infrastructure",
   // You can pass the imageName here when deploying:
   imageName: "milestone-staging:latest",
+  emailInboundMailSubdomain: app.node.tryGetContext(
+    "emailInboundMailSubdomain",
+  ) as string | undefined,
 });
 
-// Isolated stack: SES receive → S3 (`milestone.email-inbound`) + SNS. No deps on
-// other Milestone stacks. CDK context: `emailInboundHostedZoneId`,
-// `emailInboundHostedZoneName`, `emailInboundMailSubdomain` (default
-// `doc-inbound` → doc-inbound.<zone>).
+// Isolated stack: SES receive → S3 (`milestone.email-inbound`) + SNS per rail.
+// No deps on other Milestone stacks. CDK context: `emailInboundHostedZoneId`,
+// `emailInboundHostedZoneName`. Three FQDNs are always provisioned:
+// doc-inbound, doc-inbound-staging, doc-inbound-dev under the zone.
 new MilestoneEmailInboundStack(app, "MilestoneEmailInboundStack", {
   env: stackEnv,
   description:
@@ -47,7 +50,4 @@ new MilestoneEmailInboundStack(app, "MilestoneEmailInboundStack", {
   hostedZoneName:
     (app.node.tryGetContext("emailInboundHostedZoneName") as string | undefined) ??
     "milestone.gaari.me",
-  mailSubdomain:
-    (app.node.tryGetContext("emailInboundMailSubdomain") as string | undefined) ??
-    "doc-inbound",
 });

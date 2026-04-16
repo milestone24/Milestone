@@ -8,6 +8,12 @@ export interface MilestoneStackProps extends cdk.StackProps {
    * @default - Must be provided
    */
   imageName?: string;
+  /**
+   * Which inbound-mail rail this instance consumes from SSM (`doc-inbound` |
+   * `doc-inbound-staging` | `doc-inbound-dev`). Set via CDK context
+   * `emailInboundMailSubdomain` in `app.ts` when synthesizing a non-prod stack.
+   */
+  emailInboundMailSubdomain?: string;
 }
 
 export class MilestoneStack extends cdk.Stack {
@@ -16,6 +22,7 @@ export class MilestoneStack extends cdk.Stack {
 
     new MilestoneAppConstruct(this, "MilestoneApp", {
       imageName: props?.imageName,
+      emailInboundMailSubdomain: props?.emailInboundMailSubdomain,
     });
   }
 }

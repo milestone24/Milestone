@@ -9,8 +9,11 @@ import { Construct } from "constructs";
 import { DOCUMENTS_S3_BUCKET_PARAMETER_NAME } from "./ssm-documents-bucket.ts";
 import {
   EMAIL_INBOUND_LOCAL_PART_PREFIX_PARAMETER_NAME,
-  EMAIL_INBOUND_MAIL_FQDN_PARAMETER_NAME,
-  EMAIL_INBOUND_NOTIFY_QUEUE_NAME,
+  EMAIL_INBOUND_RAIL_DEFINITIONS,
+  emailInboundMailFqdnParameterName,
+  emailInboundSnsTopicArnParameterName,
+  emailInboundSqsQueueUrlParameterName,
+  resolveEmailInboundMailSubdomain,
 } from "./ssm-email-inbound.ts";
 
 export interface MilestoneAppConstructProps {
@@ -19,6 +22,11 @@ export interface MilestoneAppConstructProps {
    * @default - Will use placeholder that needs to be updated
    */
   imageName?: string;
+  /**
+   * Inbound SES rail (`doc-inbound` | `doc-inbound-staging` | `doc-inbound-dev`).
+   * Defaults to production rail. Must match {@link MilestoneEmailInboundStack}.
+   */
+  emailInboundMailSubdomain?: string;
 }
 
 export class MilestoneAppConstruct extends Construct {
@@ -32,6 +40,10 @@ export class MilestoneAppConstruct extends Construct {
     props?: MilestoneAppConstructProps
   ) {
     super(scope, id);
+
+    const emailInboundMailSubdomain = resolveEmailInboundMailSubdomain(
+      props?.emailInboundMailSubdomain,
+    );
 
     // Create VPC with public subnets only (no NAT Gateway needed)
     const vpc = new ec2.Vpc(this, "Vpc", {
@@ -123,9 +135,10 @@ export class MilestoneAppConstruct extends Construct {
           "sqs:GetQueueUrl",
           "sqs:ChangeMessageVisibility",
         ],
-        resources: [
-          `arn:aws:sqs:${stack.region}:${stack.account}:${EMAIL_INBOUND_NOTIFY_QUEUE_NAME}`,
-        ],
+        resources: EMAIL_INBOUND_RAIL_DEFINITIONS.map(
+          (rail) =>
+            `arn:aws:sqs:${stack.region}:${stack.account}:${rail.queueName}`,
+        ),
       })
     );
 
@@ -192,6 +205,8 @@ services:
       - AWS_REGION=\${AWS_REGION}
       - EMAIL_INBOUND_MAIL_FQDN=\${EMAIL_INBOUND_MAIL_FQDN}
       - EMAIL_INGEST_LOCAL_PART_PREFIX=\${EMAIL_INGEST_LOCAL_PART_PREFIX}
+      - EMAIL_INBOUND_SQS_QUEUE_URL=\${EMAIL_INBOUND_SQS_QUEUE_URL}
+      - EMAIL_INBOUND_SNS_TOPIC_ARN=\${EMAIL_INBOUND_SNS_TOPIC_ARN}
     networks:
       - milestone-network
 
@@ -312,12 +327,24 @@ EOF`
       },
       {
         envVar: "EMAIL_INBOUND_MAIL_FQDN",
-        parameterName: EMAIL_INBOUND_MAIL_FQDN_PARAMETER_NAME,
+        parameterName: emailInboundMailFqdnParameterName(emailInboundMailSubdomain),
         secure: false,
       },
       {
         envVar: "EMAIL_INGEST_LOCAL_PART_PREFIX",
         parameterName: EMAIL_INBOUND_LOCAL_PART_PREFIX_PARAMETER_NAME,
+        secure: false,
+      },
+      {
+        envVar: "EMAIL_INBOUND_SQS_QUEUE_URL",
+        parameterName:
+          emailInboundSqsQueueUrlParameterName(emailInboundMailSubdomain),
+        secure: false,
+      },
+      {
+        envVar: "EMAIL_INBOUND_SNS_TOPIC_ARN",
+        parameterName:
+          emailInboundSnsTopicArnParameterName(emailInboundMailSubdomain),
         secure: false,
       },
     ];
