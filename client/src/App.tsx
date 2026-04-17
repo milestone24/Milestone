@@ -29,6 +29,8 @@ const Settings = lazy(() => import("@/pages/settings"));
 const ApiConnections = lazy(() => import("@/pages/api-connections"));
 const Record = lazy(() => import("@/pages/record"));
 const Documents = lazy(() => import("@/pages/documents"));
+const OcrJobs = lazy(() => import("@/pages/ocr-jobs"));
+const OcrJobDetail = lazy(() => import("@/pages/ocr-job-detail"));
 
 function RouteWithLayout({
   component: Component,
@@ -92,6 +94,20 @@ function Router() {
             {() => (
               <ProtectedRoute>
                 <RouteWithLayout component={Documents} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/ocr-jobs/:id">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={OcrJobDetail} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/ocr-jobs">
+            {() => (
+              <ProtectedRoute>
+                <RouteWithLayout component={OcrJobs} />
               </ProtectedRoute>
             )}
           </Route>
