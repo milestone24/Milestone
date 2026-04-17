@@ -46,6 +46,12 @@ export const fireCustomProjection = ["projections", "fire", "custom"];
 
 export const documents = ["documents"];
 
+export const ocrJobsList = ["ocr-jobs"] as const;
+
+export function ocrJobDetailKey(ocrJobId: string) {
+  return [...ocrJobsList, ocrJobId] as const;
+}
+
 /** Document inbound email inboxes (SES rail); list/detail for settings UI. */
 export const emailIngestInboxes = ["email-ingest-inboxes"] as const;
 

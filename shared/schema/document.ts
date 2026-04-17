@@ -107,6 +107,14 @@ export const documentOcrResponseSchema = z.object({
 
 export type DocumentOcrResponse = z.infer<typeof documentOcrResponseSchema>;
 
+export const ocrJobReviewStateSchema = z.enum([
+  "pending_review",
+  "accepted",
+  "rejected",
+]);
+
+export type OcrJobReviewState = z.infer<typeof ocrJobReviewStateSchema>;
+
 export const documentOcrJobSummarySchema = z.object({
   id: z.string().uuid(),
   status: z.enum(["pending", "running", "completed", "failed", "aborted"]),
@@ -114,15 +122,45 @@ export const documentOcrJobSummarySchema = z.object({
   startedAt: z.coerce.date(),
   completedAt: z.coerce.date().nullable(),
   error: z.string().nullable(),
+  /** Present when job completed; older rows may omit the key. */
+  reviewState: ocrJobReviewStateSchema.nullable().optional(),
 });
 
 export type DocumentOcrJobSummary = z.infer<typeof documentOcrJobSummarySchema>;
 
 export const documentWithOcrSchema = documentSelectSchema.extend({
-  ocrJob: documentOcrJobSummarySchema.nullable(),
+  /** All OCR runs linked to this document (newest first). */
+  ocrJobs: z.array(documentOcrJobSummarySchema),
 });
 
 export type DocumentWithOcr = z.infer<typeof documentWithOcrSchema>;
+
+export const linkedProcessSummarySchema = z.object({
+  id: z.string().uuid(),
+  key: z.string(),
+  status: z.enum(["pending", "running", "completed", "failed", "aborted"]),
+  startedAt: z.coerce.date(),
+  completedAt: z.coerce.date().nullable(),
+  error: z.string().nullable(),
+});
+
+export type LinkedProcessSummary = z.infer<typeof linkedProcessSummarySchema>;
+
+export const ocrJobListItemSchema = z.object({
+  id: z.string().uuid(),
+  documentId: z.string().uuid().nullable(),
+  documentFileName: z.string().nullable(),
+  processId: z.string().uuid().nullable(),
+  platformKey: z.string(),
+  status: z.enum(["pending", "running", "completed", "failed", "aborted"]),
+  startedAt: z.coerce.date(),
+  completedAt: z.coerce.date().nullable(),
+  error: z.string().nullable(),
+  reviewState: ocrJobReviewStateSchema.nullable(),
+  process: linkedProcessSummarySchema.nullable(),
+});
+
+export type OcrJobListItem = z.infer<typeof ocrJobListItemSchema>;
 
 /** Result of multi-phase transaction OCR (brand → securities verifiers) for WebSocket / queue payloads. */
 export const documentOcrPipelineResultSchema = z.object({
@@ -138,6 +176,13 @@ export const documentOcrPipelineResultSchema = z.object({
 });
 
 export type DocumentOcrPipelineResult = z.infer<typeof documentOcrPipelineResultSchema>;
+
+export const ocrJobDetailSchema = ocrJobListItemSchema.extend({
+  extractedValues: z.array(extractedAmountSchema).nullable(),
+  pipeline: documentOcrPipelineResultSchema.nullable(),
+});
+
+export type OcrJobDetail = z.infer<typeof ocrJobDetailSchema>;
 
 export const ocrJobReviewRequestSchema = z.discriminatedUnion("outcome", [
   z.object({ outcome: z.literal("rejected") }),
