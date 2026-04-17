@@ -26,6 +26,8 @@ const SUPPORTED_IMAGE_TYPES = [
 const SUPPORTED_MIME_TYPES = [
   ...SUPPORTED_IMAGE_TYPES,
   "application/pdf",
+  "text/html",
+  "text/plain",
 ] as const;
 
 export type SupportedMimeType = (typeof SUPPORTED_MIME_TYPES)[number];
@@ -116,7 +118,7 @@ export class OcrService {
 
   /**
    * Extracts financial account values from a document buffer.
-   * Supports images (jpeg, png, gif, webp) and PDFs.
+   * Supports images (jpeg, png, gif, webp), PDFs, and plain text / HTML (e.g. email body ingest).
    * The caller is responsible for ensuring the mimeType is supported
    * before calling this method — use isSupportedMimeType() to check.
    *

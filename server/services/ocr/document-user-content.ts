@@ -14,9 +14,13 @@ const SUPPORTED_IMAGE_TYPES = [
 ] as const;
 
 export type SupportedImageMimeType = (typeof SUPPORTED_IMAGE_TYPES)[number];
+
+export type SupportedEmailBodyMimeType = "text/html" | "text/plain";
+
 export type SupportedOcrDocumentMimeType =
   | SupportedImageMimeType
-  | "application/pdf";
+  | "application/pdf"
+  | SupportedEmailBodyMimeType;
 
 export type OcrDocumentLlmPath = "text" | "vision";
 
@@ -71,6 +75,43 @@ function buildTranscriptPdfBase(
   };
 }
 
+/** Cap email/HTML body size before sending to the multi-phase OCR LLM chain. */
+const EMAIL_BODY_LLM_MAX_CHARS = 250_000;
+
+function isSupportedEmailBodyMimeType(
+  mimeType: SupportedOcrDocumentMimeType,
+): mimeType is SupportedEmailBodyMimeType {
+  return mimeType === "text/html" || mimeType === "text/plain";
+}
+
+function buildEmailBodyTextBase(
+  buffer: Buffer,
+  mimeType: SupportedEmailBodyMimeType,
+): PreparedOcrDocumentUserContent {
+  const decoded = buffer.toString("utf8");
+  const truncated =
+    decoded.length > EMAIL_BODY_LLM_MAX_CHARS
+      ? `${decoded.slice(0, EMAIL_BODY_LLM_MAX_CHARS)}\n\n[truncated for OCR; original length=${String(decoded.length)}]`
+      : decoded;
+  const label =
+    mimeType === "text/html"
+      ? "Below is the HTML body of an inbound email (no suitable PDF attachment). Extract broker identification, holdings, and balances using only this content."
+      : "Below is the plain text body of an inbound email (no suitable PDF attachment). Extract broker identification, holdings, and balances using only this content.";
+  log(
+    `OcrService: extractionPath=text mimeType=${mimeType} (email body) chars=${String(decoded.length)} truncated=${String(decoded.length > EMAIL_BODY_LLM_MAX_CHARS)}`,
+  );
+  return {
+    baseUserContent: [
+      { type: "text", text: label },
+      { type: "text", text: truncated },
+    ],
+    meta: {
+      path: "text",
+      charCount: decoded.length,
+    },
+  };
+}
+
 function buildVisionPdfBase(base64: string): PreparedOcrDocumentUserContent {
   log(
     "OcrService: extractionPath=vision (Anthropic PDF document — sparse native text)"
@@ -100,6 +141,10 @@ export async function prepareOcrDocumentUserContentBase(
   abortSignal?: AbortSignal
 ): Promise<PreparedOcrDocumentUserContent> {
   abortSignal?.throwIfAborted();
+
+  if (isSupportedEmailBodyMimeType(mimeType)) {
+    return buildEmailBodyTextBase(buffer, mimeType);
+  }
 
   const base64 = buffer.toString("base64");
 
