@@ -1,34 +1,24 @@
-import { and, asc, eq } from "drizzle-orm";
-import { db } from "@server/db";
-import { brokerPlatformSecuritiesOcrContextInstructions } from "@server/db/schema";
+import { getBrokerPlatformSecuritiesOcrContextInstructions } from "./ocr-configuration-service";
 
 const MAX_INSTRUCTIONS = 20;
 const MAX_TOTAL_CHARS = 12_000;
 
 /**
- * Active DB hints for phase 4a, ordered by `sort_order` then `id`.
- * Bound to resolved `broker_platforms.id` (post brand verification).
+ * OCR pipeline: load and format broker-platform securities hints for phase 4a.
+ * Uses {@link getBrokerPlatformSecuritiesOcrContextInstructions} then applies prompt limits.
  */
+
 export async function loadBrokerPlatformSecuritiesOcrContextInstructions(
   brokerPlatformId: string
 ): Promise<string[]> {
-  const rows = await db
-    .select({ text: brokerPlatformSecuritiesOcrContextInstructions.instructionText })
-    .from(brokerPlatformSecuritiesOcrContextInstructions)
-    .where(
-      and(
-        eq(brokerPlatformSecuritiesOcrContextInstructions.brokerPlatformId, brokerPlatformId),
-        eq(brokerPlatformSecuritiesOcrContextInstructions.isActive, true),
-      ),
-    )
-    .orderBy(
-      asc(brokerPlatformSecuritiesOcrContextInstructions.sortOrder),
-      asc(brokerPlatformSecuritiesOcrContextInstructions.id),
-    )
-    .limit(MAX_INSTRUCTIONS);
+  const rows = await getBrokerPlatformSecuritiesOcrContextInstructions({
+    brokerPlatformId,
+    activeOnly: true,
+    limit: MAX_INSTRUCTIONS,
+  });
 
   const trimmed = rows
-    .map((r) => r.text.trim())
+    .map((r) => r.instructionText.trim())
     .filter((t) => t.length > 0);
 
   let total = 0;
