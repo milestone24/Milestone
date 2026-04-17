@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { z } from "zod";
 import { ANTHROPIC_MESSAGES_MODEL } from "@server/constants/anthropic-messages-model";
 import {
   createDefaultAnthropicLlmGateway,
@@ -83,6 +84,12 @@ Rules:
 export type FullDocumentOcrResult = {
   pipeline: DocumentOcrPipelineResult;
   extractedValues: ExtractedAmount[];
+  /**
+   * When non-null, phase 4a (securities JSON) failed after platform verification;
+   * {@link pipeline.securityHoldings} and {@link pipeline.assetCandidates} are
+   * best-effort (typically empty); balances still ran when this path is used.
+   */
+  securitiesExtractionError: string | null;
 };
 
 /** Optional stderr-style trace for CLI / debugging (timings, raw model text, verifier inputs). */
@@ -105,6 +112,8 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
 /**
  * Runs Phase 3a–3c (brand), Phase 4a–4b (securities extract + Zod), Phase 4c (asset-candidate tree),
  * then balance extraction via {@link extractBalances}.
+ * Phase 4a parse/LLM errors are caught: the run continues with empty holdings, completes 4c and balances,
+ * and returns {@link FullDocumentOcrResult.securitiesExtractionError} for a single end-of-job persist.
  * PDF native text vs vision is decided once; all LLM phases reuse the same document blocks.
  */
 export async function runFullDocumentOcrPipeline(params: {
@@ -245,36 +254,46 @@ export async function runFullDocumentOcrPipeline(params: {
     userContentBlockCount: securitiesUserContent.length,
   });
 
-  const t4a0 = Date.now();
-  const securitiesResponse = await createNonStreamingMessageWithAbort(
-    llm,
-    {
-      model: ANTHROPIC_MESSAGES_MODEL,
-      max_tokens: 4096,
-      system: PHASE_4A_SYSTEM + JSON_ARRAY_ONLY_SUFFIX,
-      messages: [{ role: "user", content: securitiesUserContent }],
-    },
-    signal
-  );
+  let securitiesExtractionError: string | null = null;
+  let securityHoldings: z.infer<typeof securityTransactionOcrExtractionListSchema>;
 
-  const securitiesText = collectTextFromMessageContent(securitiesResponse.content);
-  v?.("4a_llm_response", {
-    elapsedMs: Date.now() - t4a0,
-    charCount: securitiesText.length,
-    rawText: truncateForVerbose(securitiesText),
-  });
+  try {
+    const t4a0 = Date.now();
+    const securitiesResponse = await createNonStreamingMessageWithAbort(
+      llm,
+      {
+        model: ANTHROPIC_MESSAGES_MODEL,
+        max_tokens: 4096,
+        system: PHASE_4A_SYSTEM + JSON_ARRAY_ONLY_SUFFIX,
+        messages: [{ role: "user", content: securitiesUserContent }],
+      },
+      signal
+    );
 
-  if (!securitiesText.trim()) {
-    throw new Error("OCR phase 4a: empty model response for securities extraction");
+    const securitiesText = collectTextFromMessageContent(securitiesResponse.content);
+    v?.("4a_llm_response", {
+      elapsedMs: Date.now() - t4a0,
+      charCount: securitiesText.length,
+      rawText: truncateForVerbose(securitiesText),
+    });
+
+    if (!securitiesText.trim()) {
+      throw new Error("OCR phase 4a: empty model response for securities extraction");
+    }
+
+    securityHoldings = parseJsonArrayWithSchema(
+      securitiesText,
+      securityTransactionOcrExtractionListSchema,
+      "Phase 4a securities extraction"
+    );
+
+    v?.("4a_parsed", { rowCount: securityHoldings.length });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    securitiesExtractionError = message;
+    securityHoldings = [];
+    v?.("4a_securities_extraction_failed", { message });
   }
-
-  const securityHoldings = parseJsonArrayWithSchema(
-    securitiesText,
-    securityTransactionOcrExtractionListSchema,
-    "Phase 4a securities extraction"
-  );
-
-  v?.("4a_parsed", { rowCount: securityHoldings.length });
 
   throwIfAborted(signal);
 
@@ -312,5 +331,5 @@ export async function runFullDocumentOcrPipeline(params: {
     note: "includes balance LLM + parse (see balances_llm_* steps above)",
   });
 
-  return { pipeline, extractedValues };
+  return { pipeline, extractedValues, securitiesExtractionError };
 }
