@@ -21,8 +21,11 @@ export async function apiRequest<T extends unknown>(
   });
 
   await throwIfResNotOk(res);
+  if (res.status === 204) {
+    return undefined as T;
+  }
   try {
-    return res.json() as Promise<T>;
+    return (await res.json()) as T;
   } catch (e) {
     console.error(e);
     throw e;

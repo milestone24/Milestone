@@ -6,6 +6,17 @@ import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as events from "aws-cdk-lib/aws-events";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
+import { DOCUMENTS_S3_BUCKET_PARAMETER_NAME } from "./ssm-documents-bucket.ts";
+import {
+  EMAIL_INBOUND_LOCAL_PART_PREFIX_PARAMETER_NAME,
+  EMAIL_INBOUND_RAIL_DEFINITIONS,
+  EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS_PARAMETER_NAME,
+  EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS_PARAMETER_NAME,
+  emailInboundMailFqdnParameterName,
+  emailInboundSnsTopicArnParameterName,
+  emailInboundSqsQueueUrlParameterName,
+  resolveEmailInboundMailSubdomain,
+} from "./ssm-email-inbound.ts";
 
 export interface MilestoneAppConstructProps {
   /**
@@ -13,6 +24,11 @@ export interface MilestoneAppConstructProps {
    * @default - Will use placeholder that needs to be updated
    */
   imageName?: string;
+  /**
+   * Inbound SES rail (`doc-inbound` | `doc-inbound-staging` | `doc-inbound-dev`).
+   * Defaults to production rail. Must match {@link MilestoneEmailInboundStack}.
+   */
+  emailInboundMailSubdomain?: string;
 }
 
 export class MilestoneAppConstruct extends Construct {
@@ -26,6 +42,10 @@ export class MilestoneAppConstruct extends Construct {
     props?: MilestoneAppConstructProps
   ) {
     super(scope, id);
+
+    const emailInboundMailSubdomain = resolveEmailInboundMailSubdomain(
+      props?.emailInboundMailSubdomain,
+    );
 
     // Create VPC with public subnets only (no NAT Gateway needed)
     const vpc = new ec2.Vpc(this, "Vpc", {
@@ -91,6 +111,39 @@ export class MilestoneAppConstruct extends Construct {
       })
     );
 
+    instanceRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["s3:ListBucket"],
+        resources: ["arn:aws:s3:::*"],
+      })
+    );
+
+    instanceRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+        resources: ["arn:aws:s3:::*/*"],
+      })
+    );
+
+    instanceRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:GetQueueUrl",
+          "sqs:ChangeMessageVisibility",
+        ],
+        resources: EMAIL_INBOUND_RAIL_DEFINITIONS.map(
+          (rail) =>
+            `arn:aws:sqs:${stack.region}:${stack.account}:${rail.queueName}`,
+        ),
+      })
+    );
+
     // Create instance profile
     const instanceProfile = new iam.InstanceProfile(this, "InstanceProfile", {
       role: instanceRole,
@@ -149,6 +202,15 @@ services:
       - TRADING_212_API_KEY=\${TRADING_212_API_KEY}
       - ALPHA_VANTAGE_API_KEY=\${ALPHA_VANTAGE_API_KEY}
       - EODHD_API_KEY=\${EODHD_API_KEY}
+      - ANTHROPIC_API_KEY=\${ANTHROPIC_API_KEY}
+      - AWS_BUCKET_DOCUMENTS=\${AWS_BUCKET_DOCUMENTS}
+      - AWS_REGION=\${AWS_REGION}
+      - EMAIL_INBOUND_MAIL_FQDN=\${EMAIL_INBOUND_MAIL_FQDN}
+      - EMAIL_INGEST_LOCAL_PART_PREFIX=\${EMAIL_INGEST_LOCAL_PART_PREFIX}
+      - EMAIL_INBOUND_SQS_QUEUE_URL=\${EMAIL_INBOUND_SQS_QUEUE_URL}
+      - EMAIL_INBOUND_SNS_TOPIC_ARN=\${EMAIL_INBOUND_SNS_TOPIC_ARN}
+      - EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS=\${EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS}
+      - EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS=\${EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS}
     networks:
       - milestone-network
 
@@ -213,6 +275,11 @@ EOF`
 
     const appEnvParameters = [
       {
+        envVar: "AWS_BUCKET_DOCUMENTS",
+        parameterName: DOCUMENTS_S3_BUCKET_PARAMETER_NAME,
+        secure: false,
+      },
+      {
         envVar: "DATABASE_URL",
         parameterName: "/milestone/db-url-staging-one",
         secure: true,
@@ -248,6 +315,11 @@ EOF`
         secure: true,
       },
       {
+        envVar: "ANTHROPIC_API_KEY",
+        parameterName: "/milestone/anthropic_api_key",
+        secure: true,
+      },
+      {
         envVar: "ACCESS_TOKEN_EXPIRY",
         parameterName: "/milestone/access_token_expiry",
         secure: false,
@@ -255,6 +327,38 @@ EOF`
       {
         envVar: "REFRESH_TOKEN_EXPIRY",
         parameterName: "/milestone/refresh_token_expiry",
+        secure: false,
+      },
+      {
+        envVar: "EMAIL_INBOUND_MAIL_FQDN",
+        parameterName: emailInboundMailFqdnParameterName(emailInboundMailSubdomain),
+        secure: false,
+      },
+      {
+        envVar: "EMAIL_INGEST_LOCAL_PART_PREFIX",
+        parameterName: EMAIL_INBOUND_LOCAL_PART_PREFIX_PARAMETER_NAME,
+        secure: false,
+      },
+      {
+        envVar: "EMAIL_INBOUND_SQS_QUEUE_URL",
+        parameterName:
+          emailInboundSqsQueueUrlParameterName(emailInboundMailSubdomain),
+        secure: false,
+      },
+      {
+        envVar: "EMAIL_INBOUND_SNS_TOPIC_ARN",
+        parameterName:
+          emailInboundSnsTopicArnParameterName(emailInboundMailSubdomain),
+        secure: false,
+      },
+      {
+        envVar: "EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS",
+        parameterName: EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS_PARAMETER_NAME,
+        secure: false,
+      },
+      {
+        envVar: "EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS",
+        parameterName: EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS_PARAMETER_NAME,
         secure: false,
       },
     ];
@@ -337,6 +441,9 @@ refresh_env_file() {
   chmod 600 "$ENV_FILE"
 ${envFetchBody}  write_default "ACCESS_TOKEN_EXPIRY" "15m"
   write_default "REFRESH_TOKEN_EXPIRY" "30d"
+  write_default "EMAIL_INGEST_LOCAL_PART_PREFIX" "ingest"
+  write_default "EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS" "20"
+  write_default "EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS" "300"
   write_default "APP_IMAGE" "$DEFAULT_IMAGE"
   # TEMPORARY: Force cookie domain to CloudFront distribution while custom domain/SSL is pending.
   local cf_domain
@@ -345,6 +452,13 @@ ${envFetchBody}  write_default "ACCESS_TOKEN_EXPIRY" "15m"
     set_env_value "COOKIE_DOMAIN" "$cf_domain"
   else
     LOG "WARN unable to resolve CloudFront domain; COOKIE_DOMAIN unchanged"
+  fi
+  IMDS_TOKEN=$(curl -sS -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" 2>/dev/null || true)
+  if [[ -n "$IMDS_TOKEN" ]]; then
+    AWS_REGION_VALUE=$(curl -sS -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" "http://169.254.169.254/latest/meta-data/placement/region" 2>/dev/null || true)
+    if [[ -n "$AWS_REGION_VALUE" ]]; then
+      set_env_value "AWS_REGION" "$AWS_REGION_VALUE"
+    fi
   fi
 }
 

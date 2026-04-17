@@ -99,6 +99,47 @@ export async function shouldContinue(
   return true;
 }
 
+/**
+ * Resolves with `task` when it settles first. If `signal` aborts first, rejects
+ * with a `DOMException` named `AbortError` so callers can align with shutdown /
+ * external abort paths without leaving the losing promise as an unhandled rejection.
+ */
+export function racePromiseWithAbortSignal<T>(
+  task: Promise<T>,
+  signal: AbortSignal
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (fn: () => void) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      fn();
+    };
+
+    task.then(
+      (value) => finish(() => resolve(value)),
+      (error) => finish(() => reject(error))
+    );
+
+    const onAbort = () => {
+      const reason =
+        typeof signal.reason === "string" && signal.reason.length > 0
+          ? signal.reason
+          : "Aborted";
+      finish(() => reject(new DOMException(reason, "AbortError")));
+    };
+
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 const POLL_INTERVAL_MS = 1_000;
 const MAX_TRIES = Math.floor(DEFAULT_SHUTDOWN_TIMEOUT_MS / POLL_INTERVAL_MS);
 

@@ -1,4 +1,12 @@
 import { z } from "zod";
+import {
+  statementPlatformBrandDbMatchSchema,
+  statementPlatformBrandIdentificationSchema,
+} from "./platform-brand-ocr";
+import {
+  ocrAssetCandidateResultListSchema,
+  securityTransactionOcrExtractionListSchema,
+} from "./transaction";
 import type {
   DocumentInsert as DBDocumentInsert,
   DocumentSelect as DBDocumentSelect,
@@ -80,4 +88,77 @@ securityTransactionDocumentInsertSchema._output satisfies DBSecurityTransactionD
 
 export type SecurityTransactionDocumentInsert = z.infer<
   typeof securityTransactionDocumentInsertSchema
+>;
+
+export const extractedAmountSchema = z.object({
+  platformName: z.string(),
+  amount: z.number(),
+  confidence: z.number().min(0).max(1),
+  accountType: z.string().optional(),
+});
+
+export type ExtractedAmount = z.infer<typeof extractedAmountSchema>;
+
+export const documentOcrResponseSchema = z.object({
+  jobId: z.string().uuid(),
+  documentId: z.string().uuid(),
+  ocrJobId: z.string().uuid(),
+});
+
+export type DocumentOcrResponse = z.infer<typeof documentOcrResponseSchema>;
+
+export const documentOcrJobSummarySchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(["pending", "running", "completed", "failed", "aborted"]),
+  platformKey: z.string(),
+  startedAt: z.coerce.date(),
+  completedAt: z.coerce.date().nullable(),
+  error: z.string().nullable(),
+});
+
+export type DocumentOcrJobSummary = z.infer<typeof documentOcrJobSummarySchema>;
+
+export const documentWithOcrSchema = documentSelectSchema.extend({
+  ocrJob: documentOcrJobSummarySchema.nullable(),
+});
+
+export type DocumentWithOcr = z.infer<typeof documentWithOcrSchema>;
+
+/** Result of multi-phase transaction OCR (brand → securities verifiers) for WebSocket / queue payloads. */
+export const documentOcrPipelineResultSchema = z.object({
+  brandIdentification: statementPlatformBrandIdentificationSchema,
+  brandDbMatch: statementPlatformBrandDbMatchSchema,
+  securityHoldings: securityTransactionOcrExtractionListSchema,
+  /** Asset-first resolution tree; always an array (empty when no portfolio rows match the account). */
+  assetCandidates: ocrAssetCandidateResultListSchema.default([]),
+  /** Upload context: `user_assets.id` when OCR was started from an asset-scoped route; otherwise null. */
+  nominatedUserAssetId: z.string().uuid().nullable().default(null),
+  llmPath: z.enum(["text", "vision"]),
+  nativePdfCharCount: z.number().int().nonnegative().optional(),
+});
+
+export type DocumentOcrPipelineResult = z.infer<typeof documentOcrPipelineResultSchema>;
+
+export const ocrJobReviewRequestSchema = z.discriminatedUnion("outcome", [
+  z.object({ outcome: z.literal("rejected") }),
+  z.object({
+    outcome: z.literal("accepted"),
+    securityTransactionIds: z.array(z.string().uuid()),
+  }),
+]);
+
+export type OcrJobReviewRequest = z.infer<typeof ocrJobReviewRequestSchema>;
+
+export const assetOcrPendingReviewItemSchema = z.object({
+  ocrJobId: z.string().uuid(),
+  processId: z.string().uuid().nullable(),
+  documentId: z.string().uuid().nullable(),
+  fileName: z.string().nullable(),
+  completedAt: z.coerce.date().nullable(),
+  extractedValues: z.array(extractedAmountSchema).nullable(),
+  pipeline: documentOcrPipelineResultSchema.nullable(),
+});
+
+export type AssetOcrPendingReviewItem = z.infer<
+  typeof assetOcrPendingReviewItemSchema
 >;

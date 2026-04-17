@@ -108,9 +108,59 @@ type NotificationMessage = {
   message: string;
 };
 
+type DocumentOcrMessageBase = {
+  jobId: string;
+  ocrJobId: string;
+  accountId: string;
+  documentId: string;
+};
+
+type DocumentOcrAbortMessage = {
+  type: "document-ocr-abort";
+  jobId: string;
+};
+
+type DocumentOcrStartedMessage = DocumentOcrMessageBase & {
+  type: "document-ocr-started";
+};
+
+type DocumentOcrCompletedMessage = DocumentOcrMessageBase & {
+  type: "document-ocr-completed";
+  extractedValues: import("@shared/schema/document").ExtractedAmount[];
+  pipeline?: import("@shared/schema/document").DocumentOcrPipelineResult;
+};
+
+type DocumentOcrFailedMessage = {
+  type: "document-ocr-failed";
+  accountId: string;
+  documentId: string;
+  ocrJobId: string;
+  jobId?: string;
+  message?: string;
+};
+
+type DocumentOcrAbortedMessage = DocumentOcrMessageBase & {
+  type: "document-ocr-aborted";
+  message?: string;
+};
+
+export type DocumentOcrMessage =
+  | DocumentOcrAbortMessage
+  | DocumentOcrStartedMessage
+  | DocumentOcrCompletedMessage
+  | DocumentOcrFailedMessage
+  | DocumentOcrAbortedMessage;
+
+export const isDocumentOcrMessage = (
+  message: Message
+): message is DocumentOcrMessage => {
+  return message.type.startsWith("document-ocr-");
+};
+
 export type Message =
   | AssetValuesUpdateMessage
   | SecuritiesDailyHistoryCacheUpdateMessage
+  | DocumentOcrMessage
   | NotificationMessage;
 
 type MessageCallback = (message: Message) => Promise<void>;

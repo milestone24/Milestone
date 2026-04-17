@@ -43,3 +43,15 @@ export const milestonesProjection = ["projections", "milestones"];
 export const fireProjection = ["projections", "fire"];
 export const fireCustomProjection = ["projections", "fire", "custom"];
 
+
+export const documents = ["documents"];
+
+/** Document inbound email inboxes (SES rail); list/detail for settings UI. */
+export const emailIngestInboxes = ["email-ingest-inboxes"] as const;
+
+export function emailIngestInboxDetailKey(inboxId: string) {
+  return [...emailIngestInboxes, inboxId] as const;
+}
+
+/** Pending statement OCR reviews for an asset (`user_assets.id` nominee). */
+export const assetOcrPendingReview = ["asset", "ocr-pending-review"] as const;

@@ -29,6 +29,27 @@
       "when": 1775034107429,
       "tag": "0003_documents-tranactions-reference",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776135841645,
+      "tag": "0004_ocr-records",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776758985940,
+      "tag": "0005_ocr_review_state_and_junction",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776758427460,
+      "tag": "0006_email_ingest_inboxes",
+      "breakpoints": true
     }
   ]
 }

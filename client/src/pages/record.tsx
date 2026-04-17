@@ -60,7 +60,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
-import { ScreenshotUpload } from "@/components/record/ScreenshotUpload";
+import { OcrDocumentUpload, OcrCompleteResult } from "@/components/ocr/OcrDocumentUpload";
+import { OcrResultReview } from "@/components/ocr/OcrResultReview";
 import { useAssets } from "@/hooks/use-assets";
 type AccountFormData = {
   [key: string]: number | undefined;
@@ -113,6 +114,8 @@ export default function Record() {
   const [activeTab, setActiveTab] = useState<"values" | "contributions">(
     "values"
   );
+
+  const [ocrResult, setOcrResult] = useState<OcrCompleteResult | null>(null);
 
   // Helper to get logo for provider
   const getProviderLogo = (providerName: string) => {
@@ -526,23 +529,6 @@ export default function Record() {
                 />
                 <span>{formatDateForDisplay(date)}</span>
               </Button>
-              {activeTab === "values" && (
-                <ScreenshotUpload
-                  assets={assets}
-                  onExtractedValues={(extractedValues) => {
-                    // Create a new object to hold the values
-                    const newValues = { ...accountValues };
-
-                    // Update values with the extracted ones
-                    extractedValues.forEach(({ assetId, value }) => {
-                      newValues[assetId] = value;
-                    });
-
-                    // Set the new values
-                    setAccountValues(newValues);
-                  }}
-                />
-              )}
             </div>
           </div>
         </CardHeader>
@@ -584,6 +570,25 @@ export default function Record() {
                 {/* Account Values Tab */}
                 <TabsContent value="values">
                   <div className="space-y-4">
+                    {ocrResult ? (
+                      <OcrResultReview
+                        ocrJobId={ocrResult.ocrJobId}
+                        pipeline={ocrResult.pipeline}
+                        extractedValues={ocrResult.extractedValues}
+                        assets={assets}
+                        onConfirmed={() => setOcrResult(null)}
+                        onDismissed={() => setOcrResult(null)}
+                        onBalancesSaved={(extractedValues) => {
+                          const newValues = { ...accountValues };
+                          extractedValues.forEach(({ assetId, value }) => {
+                            newValues[assetId] = value;
+                          });
+                          setAccountValues(newValues);
+                        }}
+                      />
+                    ) : (
+                      <OcrDocumentUpload onOcrComplete={setOcrResult} />
+                    )}
                     {[...assets]
                       .sort(
                         (a, b) =>

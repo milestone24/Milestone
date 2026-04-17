@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import multer from "multer";
 import {
   AuthRequest,
   AuthService,
@@ -20,8 +21,17 @@ import {
 import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
 import { db } from "@server/db";
 import { DatabaseAssetService } from "@server/services/assets/database";
+import {
+  NominatedUserAssetInvalidError,
+  startDocumentOcr,
+} from "@server/services/process/document-ocr";
+import { runWithContext } from "@server/context/request-context";
+import { and, eq } from "drizzle-orm";
+import { userAssets } from "@server/db/schema";
+import { listPendingOcrReviewsForAsset } from "@server/services/ocr/ocr-job-review-service";
 
 const assetService = new DatabaseAssetService(db);
+const documentExtractUpload = multer({ storage: multer.memoryStorage() });
 
 export async function registerRoutes(
   router: Router,
@@ -79,6 +89,77 @@ export async function registerRoutes(
       });
     }
   });
+
+  router.post(
+    regExpPath(
+      `/${uuidRouteParam("assetId")}/documents/(?<platformKey>[^/]+)/extract`
+    ),
+    requireUser,
+    documentExtractUpload.single("file"),
+    async (req: AuthRequest, res: Response) => {
+      if (!req.file) {
+        return res.status(400).json({ error: "A file is required" });
+      }
+      const { assetId, platformKey } = req.params;
+      if (!assetId || !platformKey) {
+        return res.status(400).json({ error: "Asset ID and platform key are required" });
+      }
+      const platformNames: string[] = req.body.platformNames
+        ? JSON.parse(req.body.platformNames as string)
+        : [];
+      try {
+        const result = await runWithContext(
+          { userAccountId: req.tenant!.userAccountId! },
+          () => startDocumentOcr(req.file!, platformKey, platformNames, {
+            nominatedUserAssetId: assetId,
+          })
+        );
+        return res.status(202).json(result);
+      } catch (err) {
+        if (err instanceof NominatedUserAssetInvalidError) {
+          return res.status(400).json({ error: err.message });
+        }
+        throw err;
+      }
+    }
+  );
+
+  router.get(
+    regExpPath(`/${uuidRouteParam("assetId")}/ocr-pending-review`),
+    requireUser,
+    async (req: AuthRequest, res: Response) => {
+      const assetId = req.params.assetId;
+      if (!assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+
+      const rows = await requireTenantWithUserAccountId(
+        req.tenant,
+        async (tenant) => {
+          const owned = await db.query.userAssets.findFirst({
+            where: and(
+              eq(userAssets.id, assetId),
+              eq(userAssets.userAccountId, tenant.userAccountId)
+            ),
+            columns: { id: true },
+          });
+          if (!owned) {
+            return null;
+          }
+          return listPendingOcrReviewsForAsset({
+            userAccountId: tenant.userAccountId,
+            assetId,
+          });
+        }
+      );
+
+      if (rows === null) {
+        return res.status(404).json({ error: "Asset not found" });
+      }
+
+      res.json(rows);
+    }
+  );
 
   router.get(
     regExpPath(`/${uuidRouteParam("assetId")}`),

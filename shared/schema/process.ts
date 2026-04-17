@@ -42,6 +42,17 @@ export type UpdateSecuritiesDailyHistoryCacheProcess = Omit<
   };
 };
 
+export type DocumentOcrProcess = Omit<DBProcessSelect, "key" | "payload"> & {
+  key: "document-ocr";
+  payload: {
+    documentId: string;
+    platformKey: string;
+    accountId: string;
+    /** Present when started via `POST /api/assets/:assetId/documents/:platformKey/extract`. */
+    nominatedUserAssetId?: string;
+  };
+};
+
 export type OtherProcess = Omit<DBProcessSelect, "key" | "payload"> & {
   key: string;
   payload: Record<string, unknown>;

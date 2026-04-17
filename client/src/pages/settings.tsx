@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { EmailIngestInboxesSettings } from "@/components/email-ingest";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -223,6 +224,9 @@ export default function Settings() {
       <div className="settings-page max-w-4xl mx-auto px-4 pb-20 pt-6">
         <h1 className="text-2xl font-semibold mb-6">Settings</h1>
         <MobileSettings />
+        <div className="mt-6">
+          <EmailIngestInboxesSettings />
+        </div>
       </div>
     );
   }
@@ -432,6 +436,8 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        <EmailIngestInboxesSettings />
 
         {/* API Integrations Card */}
         <Card>

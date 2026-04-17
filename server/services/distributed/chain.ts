@@ -1,5 +1,5 @@
 import { factory as queueFactory } from "./queue";
-import { Message } from "./queue";
+import { Message, isDocumentOcrMessage } from "./queue";
 
 import { AssetValuesService } from "../process/asset-values";
 import { db } from "@server/db";
@@ -43,6 +43,31 @@ export const initUpdateChain = async () => {
         await assetValuesService.checkGroupCompleteAndTriggerAssetValues(
           message.groupId
         );
+      }
+    }
+    if (isDocumentOcrMessage(message)) {
+      if (message.type === "document-ocr-started") {
+        sendNotification(message.accountId, {
+          type: "notification",
+          message: "Statement OCR started.",
+        });
+      }
+      if (message.type === "document-ocr-completed") {
+        sendNotification(message.accountId, {
+          type: "document-ocr-completed",
+          jobId: message.jobId,
+          ocrJobId: message.ocrJobId,
+          accountId: message.accountId,
+          documentId: message.documentId,
+          extractedValues: message.extractedValues,
+          pipeline: message.pipeline,
+        });
+      }
+      if (message.type === "document-ocr-failed") {
+        sendNotification(message.accountId, {
+          type: "notification",
+          message: `Document OCR failed${message.message ? `: ${message.message}` : ""}`,
+        });
       }
     }
     if (message.type === "securities-daily-history-cache-update-exited") {
