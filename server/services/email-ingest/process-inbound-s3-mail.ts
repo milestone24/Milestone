@@ -11,8 +11,14 @@ import {
   emailIngestInboxes,
   type EmailIngestAllowedSenders,
 } from "@server/db/schema";
+import { error as logError, info } from "@server/log";
 import { startDocumentOcr } from "@server/services/process/document-ocr";
 import { pickShortCodeFromRecipients } from "./inbound-mail-routing";
+
+type IngestPayload =
+  | { kind: "pdf"; buffer: Buffer; originalname: string }
+  | { kind: "html"; buffer: Buffer }
+  | { kind: "plain"; buffer: Buffer };
 
 const PDF_MIME = "application/pdf";
 
@@ -92,6 +98,69 @@ function resolveFromAddress(mail: ParsedMail): string | null {
   return from ? from.trim().toLowerCase() : null;
 }
 
+function formatAttachmentForLog(att: Attachment, index: number): string {
+  const mime = (att.contentType || "").toLowerCase().split(";")[0]?.trim() ?? "";
+  const name = att.filename ?? "";
+  const contentDesc =
+    att.content == null
+      ? "null"
+      : Buffer.isBuffer(att.content)
+        ? `buffer(len=${att.content.length})`
+        : typeof att.content;
+  return `[${index}] type=${mime} filename=${JSON.stringify(name)} content=${contentDesc}`;
+}
+
+function summarizeAttachmentsForLog(attachments: Attachment[]): string {
+  if (attachments.length === 0) {
+    return "attachments=0";
+  }
+  const max = 10;
+  const slice = attachments.slice(0, max);
+  const formatted = slice.map((att, i) => formatAttachmentForLog(att, i));
+  const extra =
+    attachments.length > max ? ` (+${attachments.length - max} more)` : "";
+  return `attachments=${attachments.length} ${formatted.join(" ")}${extra}`;
+}
+
+function mailBodyDiagnostics(parsed: ParsedMail): string {
+  const htmlLen =
+    typeof parsed.html === "string" ? parsed.html.trim().length : 0;
+  const textAsHtmlLen =
+    typeof parsed.textAsHtml === "string"
+      ? parsed.textAsHtml.trim().length
+      : 0;
+  const textLen =
+    typeof parsed.text === "string" ? parsed.text.trim().length : 0;
+  return `htmlChars=${String(htmlLen)} textAsHtmlChars=${String(textAsHtmlLen)} textChars=${String(textLen)}`;
+}
+
+function resolveIngestPayload(
+  attachmentList: Attachment[],
+  parsed: ParsedMail,
+): IngestPayload | null {
+  const pdf = pickFirstPdfAttachment(attachmentList);
+  if (pdf?.content && Buffer.isBuffer(pdf.content)) {
+    const originalname =
+      pdf.filename && pdf.filename.trim().length > 0
+        ? pdf.filename.trim()
+        : "statement.pdf";
+    return { kind: "pdf", buffer: pdf.content, originalname };
+  }
+  if (typeof parsed.html === "string" && parsed.html.trim().length > 0) {
+    return { kind: "html", buffer: Buffer.from(parsed.html, "utf8") };
+  }
+  if (
+    typeof parsed.textAsHtml === "string" &&
+    parsed.textAsHtml.trim().length > 0
+  ) {
+    return { kind: "html", buffer: Buffer.from(parsed.textAsHtml, "utf8") };
+  }
+  if (typeof parsed.text === "string" && parsed.text.trim().length > 0) {
+    return { kind: "plain", buffer: Buffer.from(parsed.text, "utf8") };
+  }
+  return null;
+}
+
 function pickFirstPdfAttachment(
   attachments: Attachment[],
 ): Attachment | null {
@@ -103,6 +172,28 @@ function pickFirstPdfAttachment(
     }
   }
   return null;
+}
+
+function ingestPayloadToMulterFile(ingest: IngestPayload): Express.Multer.File {
+  if (ingest.kind === "pdf") {
+    return toMulterFile({
+      buffer: ingest.buffer,
+      originalname: ingest.originalname,
+      mimetype: PDF_MIME,
+    });
+  }
+  if (ingest.kind === "html") {
+    return toMulterFile({
+      buffer: ingest.buffer,
+      originalname: "email-body.html",
+      mimetype: "text/html",
+    });
+  }
+  return toMulterFile({
+    buffer: ingest.buffer,
+    originalname: "email-body.txt",
+    mimetype: "text/plain",
+  });
 }
 
 function toMulterFile(params: {
@@ -174,6 +265,10 @@ export async function processInboundS3MailObject(params: {
   const contentSha256 = createHash("sha256").update(raw).digest("hex");
 
   const parsed = await simpleParser(raw);
+  info(
+    `[email-ingest] parsed MIME bucket=${bucketName} key=${objectKey} bytes=${raw.length} sha256=${contentSha256}`,
+  );
+
   const fromAddress = resolveFromAddress(parsed);
   if (!fromAddress) {
     await recordFailedIngestWithoutClaim({
@@ -195,6 +290,7 @@ export async function processInboundS3MailObject(params: {
       contentSha256,
       rfc5322MessageId: readMessageId(parsed),
       error: "No matching ingest recipient address",
+      decisionContext: `from=${fromAddress} recipients=${recipients.join(",")}`,
     });
     return;
   }
@@ -213,6 +309,7 @@ export async function processInboundS3MailObject(params: {
       contentSha256,
       rfc5322MessageId: readMessageId(parsed),
       error: "Inbox not found or revoked",
+      decisionContext: `shortCode=${shortCode} from=${fromAddress}`,
     });
     return;
   }
@@ -226,21 +323,43 @@ export async function processInboundS3MailObject(params: {
       rfc5322MessageId: readMessageId(parsed),
       emailIngestInboxId: inbox.id,
       error: "Sender not on allow list",
+      decisionContext: `from=${fromAddress} shortCode=${shortCode} allowListSize=${allowedSenders.length}`,
     });
     return;
   }
 
-  const pdf = pickFirstPdfAttachment(parsed.attachments || []);
-  if (!pdf?.content || !Buffer.isBuffer(pdf.content)) {
+  const attachmentList = parsed.attachments || [];
+  const ingest = resolveIngestPayload(attachmentList, parsed);
+  if (ingest === null) {
+    const summary = summarizeAttachmentsForLog(attachmentList);
+    const bodies = mailBodyDiagnostics(parsed);
+    info(
+      `[email-ingest] ingest source: none (${summary}; ${bodies}) bucket=${bucketName} key=${objectKey} inboxId=${inbox.id}`,
+    );
     await recordFailedIngestWithoutClaim({
       bucketName,
       objectKey,
       contentSha256,
       rfc5322MessageId: readMessageId(parsed),
       emailIngestInboxId: inbox.id,
-      error: "No PDF attachment found",
+      error: "No PDF attachment or email body content",
+      decisionContext: `${summary} ${bodies}`,
     });
     return;
+  }
+
+  if (ingest.kind === "pdf") {
+    info(
+      `[email-ingest] ingest source: PDF attachment filename=${JSON.stringify(ingest.originalname)} bytes=${ingest.buffer.length} bucket=${bucketName} key=${objectKey} inboxId=${inbox.id}`,
+    );
+  } else if (ingest.kind === "html") {
+    info(
+      `[email-ingest] ingest source: email HTML body bytes=${ingest.buffer.length} bucket=${bucketName} key=${objectKey} inboxId=${inbox.id}`,
+    );
+  } else {
+    info(
+      `[email-ingest] ingest source: email plain text body bytes=${ingest.buffer.length} bucket=${bucketName} key=${objectKey} inboxId=${inbox.id}`,
+    );
   }
 
   const inserted = await db
@@ -267,24 +386,25 @@ export async function processInboundS3MailObject(params: {
       ),
     });
     if (existing?.status === "completed") {
+      info(
+        `[email-ingest] skip duplicate object (already completed) bucket=${bucketName} key=${objectKey} eventId=${existing.id}`,
+      );
       return;
     }
+    info(
+      `[email-ingest] skip duplicate object (no new processing row) bucket=${bucketName} key=${objectKey} existingStatus=${existing?.status ?? "none"}`,
+    );
     return;
   }
 
   const eventId = row.id;
+  info(
+    `[email-ingest] claimed ingest event eventId=${eventId} status=processing inboxId=${inbox.id} bucket=${bucketName} key=${objectKey}`,
+  );
 
   try {
     const platformKey = inbox.platformKey?.trim() || "unknown";
-    const originalName =
-      pdf.filename && pdf.filename.trim().length > 0
-        ? pdf.filename.trim()
-        : "statement.pdf";
-    const file = toMulterFile({
-      buffer: pdf.content,
-      originalname: originalName,
-      mimetype: PDF_MIME,
-    });
+    const file = ingestPayloadToMulterFile(ingest);
 
     const result = await runWithContext(
       { userAccountId: inbox.userAccountId },
@@ -297,12 +417,18 @@ export async function processInboundS3MailObject(params: {
       processId: result.jobId,
       error: null,
     });
+    info(
+      `[email-ingest] ingest completed eventId=${eventId} documentId=${result.documentId} processId=${result.jobId} bucket=${bucketName} key=${objectKey}`,
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await updateEvent(eventId, {
       status: "failed",
       error: message,
     });
+    logError(
+      `[email-ingest] ingest failed after document accepted eventId=${eventId} bucket=${bucketName} key=${objectKey} err=${message}`,
+    );
   }
 }
 
@@ -313,7 +439,15 @@ async function recordFailedIngestWithoutClaim(params: {
   rfc5322MessageId: string | null;
   emailIngestInboxId?: string | null;
   error: string;
+  decisionContext?: string;
 }): Promise<void> {
+  const ctx =
+    params.decisionContext !== undefined && params.decisionContext.length > 0
+      ? ` context=${params.decisionContext}`
+      : "";
+  info(
+    `[email-ingest] ingest declined: ${params.error}${ctx} bucket=${params.bucketName} key=${params.objectKey} rfc5322MessageId=${params.rfc5322MessageId ?? "none"}`,
+  );
   await db
     .insert(emailIngestEvents)
     .values({

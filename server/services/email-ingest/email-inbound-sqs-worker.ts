@@ -91,6 +91,7 @@ async function deleteMessage(
 async function handleOneRawBody(
   body: string,
   expectedTopicArn: string | undefined,
+  sqsMessageId: string | undefined,
 ): Promise<void> {
   if (expectedTopicArn) {
     const topicArn = readSnsTopicArnFromSqsBody(body);
@@ -108,6 +109,12 @@ async function handleOneRawBody(
     logLine("skipping message: not a parseable SES→S3 receipt");
     return;
   }
+
+  logLine("dispatching mail ingest (SQS → S3 object)", {
+    sqsMessageId: sqsMessageId ?? null,
+    bucketName: location.bucketName,
+    objectKey: location.objectKey,
+  });
 
   await processInboundS3MailObject({
     bucketName: location.bucketName,
@@ -159,6 +166,9 @@ export function startEmailInboundSqsWorker(): void {
         );
 
         const messages = response.Messages ?? [];
+        if (messages.length > 0) {
+          logLine("received SQS messages", { count: messages.length });
+        }
         for (const msg of messages) {
           const body = msg.Body;
           const receiptHandle = msg.ReceiptHandle;
@@ -166,7 +176,7 @@ export function startEmailInboundSqsWorker(): void {
             continue;
           }
           try {
-            await handleOneRawBody(body, expectedTopicArn);
+            await handleOneRawBody(body, expectedTopicArn, msg.MessageId);
             await deleteMessage(client, queueUrl, receiptHandle);
           } catch (err) {
             logLine("message processing error (message will retry)", {
