@@ -28,6 +28,8 @@ interface OcrDocumentUploadProps {
    * socket + pending-review UI (asset page).
    */
   awaitResultsInline?: boolean;
+  /** When `awaitResultsInline` is false, called after the server accepts the upload (202) so the parent can close a dialog, etc. */
+  onUploadStarted?: () => void;
   onOcrComplete?: (result: OcrCompleteResult) => void;
   onOcrError?: (message: string) => void;
 }
@@ -37,6 +39,7 @@ export function OcrDocumentUpload({
   initialPlatformKey,
   showPlatformSelect = true,
   awaitResultsInline = true,
+  onUploadStarted,
   onOcrComplete,
   onOcrError,
 }: OcrDocumentUploadProps) {
@@ -59,6 +62,8 @@ export function OcrDocumentUpload({
     if (awaitResultsInline) {
       setJobId(response.jobId);
       setUploadOcrJobId(response.ocrJobId);
+    } else {
+      onUploadStarted?.();
     }
   };
 

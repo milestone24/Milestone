@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, MoreHorizontal, RefreshCcw } from "lucide-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -54,12 +54,6 @@ import { useAssetDelete } from "@/hooks/use-asset-delete";
 import { AssetValueList } from "@/components/account/AssetValueList";
 import { AccountDetails } from "@/components/account/AccountDetails";
 import { useThemeColors } from "@/hooks/use-theme-colors";
-import { OcrDocumentUpload } from "@/components/ocr/OcrDocumentUpload";
-import { OcrResultReview } from "@/components/ocr/OcrResultReview";
-import { AssetOcrPendingReviewBanner } from "@/components/ocr/AssetOcrPendingReviewBanner";
-import { useAssetOcrPendingReview } from "@/hooks/use-asset-ocr-pending-review";
-import type { AssetOcrPendingReviewItem } from "@shared/schema/document";
-import { CardHeader, CardTitle } from "@/components/ui/card";
 
 function AssetPage() {
   const params = useParams();
@@ -68,15 +62,7 @@ function AssetPage() {
   const assetId: UserAsset["id"] | undefined = params?.id;
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [activePendingOcr, setActivePendingOcr] = useState<AssetOcrPendingReviewItem | null>(
-    null
-  );
-  const { data: pendingOcrItems = [] } = useAssetOcrPendingReview(assetId);
   const { mutateAsync: deleteAsset } = useAssetDelete();
-
-  useEffect(() => {
-    setActivePendingOcr(null);
-  }, [assetId]);
 
   const { dateRange } = useDateRange();
 
@@ -402,36 +388,6 @@ function AssetPage() {
                 className="my-4"
                 //onItemClick={handleSecurityClick}
               />
-              <Card className="my-4">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Import from statement</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <AssetOcrPendingReviewBanner
-                    items={pendingOcrItems}
-                    onOpenItem={setActivePendingOcr}
-                  />
-                  {activePendingOcr?.pipeline ? (
-                    <OcrResultReview
-                      key={activePendingOcr.ocrJobId}
-                      ocrJobId={activePendingOcr.ocrJobId}
-                      pipeline={activePendingOcr.pipeline}
-                      extractedValues={activePendingOcr.extractedValues ?? []}
-                      assets={[asset]}
-                      onConfirmed={() => setActivePendingOcr(null)}
-                      onDismissed={() => setActivePendingOcr(null)}
-                      onBalancesSaved={() => {}}
-                    />
-                  ) : (
-                    <OcrDocumentUpload
-                      nominatedAssetId={assetId}
-                      initialPlatformKey={asset.platformId ?? undefined}
-                      showPlatformSelect={false}
-                      awaitResultsInline={false}
-                    />
-                  )}
-                </CardContent>
-              </Card>
             </div>
           )}
           <Tabs
@@ -465,7 +421,11 @@ function AssetPage() {
             <TabsContent value="contributions">
               {assetId ? (
                 isSecuritiesAsset ? (
-                  <SecuritiesTransactionsPanel assetId={assetId} />
+                  <SecuritiesTransactionsPanel
+                    asset={asset}
+                    assetId={assetId}
+                    statementPlatformKey={asset.platformId ?? undefined}
+                  />
                 ) : (
                   <TransactionsPanel assetId={assetId} />
                 )
