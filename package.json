@@ -12,6 +12,7 @@
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "test:ocr": "tsx dev/test-ocr.ts",
+    "accounts:add-user-asset": "tsx tools/accounts/add-user-asset.ts",
     "email-inbound:tap-watch": "tsx tools/aws/email-inbound-queue-util.ts exec",
     "email-inbound:tap-watch:no-delete": "tsx tools/aws/email-inbound-queue-util.ts exec --no-delete",
     "email-inbound:queue-stats": "tsx tools/aws/email-inbound-queue-util.ts exec --stats-only",
