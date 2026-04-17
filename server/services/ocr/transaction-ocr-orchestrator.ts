@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { z } from "zod";
 import { ANTHROPIC_MESSAGES_MODEL } from "@server/constants/anthropic-messages-model";
 import {
   createDefaultAnthropicLlmGateway,
@@ -12,10 +13,15 @@ import { securityTransactionOcrExtractionListSchema } from "@shared/schema/trans
 import {
   appendPhaseInstruction,
   prepareOcrDocumentUserContentBase,
+  type OcrDocumentLlmPath,
   type PreparedOcrDocumentUserContent,
   type SupportedOcrDocumentMimeType,
 } from "./document-user-content";
 import { parseJsonArrayWithSchema, parseJsonObjectWithSchema } from "./model-json";
+import {
+  formatSecuritiesOcrContextInstructionsForSystemPrompt,
+  loadBrokerPlatformSecuritiesOcrContextInstructions,
+} from "./broker-platform-securities-ocr-context-loader";
 import {
   assertBrandVerificationPassed,
   buildOcrAssetCandidateResults,
@@ -80,9 +86,51 @@ Rules:
 - If there are no security holdings in the document, return [].
 - Do not invent symbols or ISINs: omit optional fields when not readable.`;
 
+/**
+ * Tells the securities-phase model how the document is represented (native text vs visual),
+ * before any issuer-specific DB instructions are appended.
+ */
+function buildSecuritiesPhase4aInputModalityGuidance(params: {
+  llmPath: OcrDocumentLlmPath;
+  mimeType: SupportedOcrDocumentMimeType;
+}): string {
+  if (params.llmPath === "vision") {
+    if (params.mimeType === "application/pdf") {
+      return `
+
+Input modality (securities phase): The same user message includes this statement as a **PDF document** (visual layout; treat pages and table structure as in a normal PDF viewer). Tables and column alignment are generally trustworthy; still follow issuer-specific hints below when present.`;
+    }
+    return `
+
+Input modality (securities phase): The same user message includes **image(s)** of the statement. Use visual layout (columns, headers, alignment) when reading tables; follow issuer-specific hints below when present.`;
+  }
+
+  if (params.mimeType === "application/pdf") {
+    return `
+
+Input modality (securities phase): The same user message includes **native PDF text extraction** only (no rendered page image). The transcript is usually one flattened stream: page breaks and table grid lines are often lost; columns in wide broker tables may be reordered or run together. Expect **PDF extraction anomalies**—anchor on distinctive **headings**, **row keys** (e.g. timestamps, ISINs, tickers) and repeated line patterns rather than assuming clean columns. Extract only rows you can map confidently to the schema; do not invent holdings. Issuer-specific hints below may name sections or columns—use them with this limitation in mind.`;
+  }
+
+  if (params.mimeType === "text/html") {
+    return `
+
+Input modality (securities phase): The same user message includes **HTML** (e.g. an email body). Markup can help but tables may still be imperfect; follow issuer-specific hints below when present.`;
+  }
+
+  return `
+
+Input modality (securities phase): The same user message includes **plain text** (e.g. an email body). Table structure may be limited; follow issuer-specific hints below when present.`;
+}
+
 export type FullDocumentOcrResult = {
   pipeline: DocumentOcrPipelineResult;
   extractedValues: ExtractedAmount[];
+  /**
+   * When non-null, phase 4a (securities JSON) failed after platform verification;
+   * {@link pipeline.securityHoldings} and {@link pipeline.assetCandidates} are
+   * best-effort (typically empty); balances still ran when this path is used.
+   */
+  securitiesExtractionError: string | null;
 };
 
 /** Optional stderr-style trace for CLI / debugging (timings, raw model text, verifier inputs). */
@@ -105,6 +153,8 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
 /**
  * Runs Phase 3a–3c (brand), Phase 4a–4b (securities extract + Zod), Phase 4c (asset-candidate tree),
  * then balance extraction via {@link extractBalances}.
+ * Phase 4a parse/LLM errors are caught: the run continues with empty holdings, completes 4c and balances,
+ * and returns {@link FullDocumentOcrResult.securitiesExtractionError} for a single end-of-job persist.
  * PDF native text vs vision is decided once; all LLM phases reuse the same document blocks.
  */
 export async function runFullDocumentOcrPipeline(params: {
@@ -232,6 +282,37 @@ export async function runFullDocumentOcrPipeline(params: {
 
   throwIfAborted(signal);
 
+  const resolvedBrokerPlatformId = brandDbMatch.matchedBrokerPlatformId!;
+  const modalityGuidance = buildSecuritiesPhase4aInputModalityGuidance({
+    llmPath: prepared.meta.path,
+    mimeType: params.mimeType,
+  });
+
+  let platformAppendix = "";
+  try {
+    const dbInstructions =
+      await loadBrokerPlatformSecuritiesOcrContextInstructions(
+        resolvedBrokerPlatformId
+      );
+    v?.("4a_db_context_instructions", {
+      brokerPlatformId: resolvedBrokerPlatformId,
+      instructionCount: dbInstructions.length,
+    });
+    platformAppendix =
+      formatSecuritiesOcrContextInstructionsForSystemPrompt(dbInstructions);
+  } catch (loadErr) {
+    v?.("4a_db_context_instructions_error", {
+      brokerPlatformId: resolvedBrokerPlatformId,
+      message: loadErr instanceof Error ? loadErr.message : String(loadErr),
+    });
+  }
+
+  const securitiesPhase4aSystem =
+    PHASE_4A_SYSTEM +
+    modalityGuidance +
+    platformAppendix +
+    JSON_ARRAY_ONLY_SUFFIX;
+
   const securitiesInstruction = `Task: inspect the same document content and produce the JSON array described in the system message.`;
 
   const securitiesUserContent = appendPhaseInstruction(
@@ -243,38 +324,51 @@ export async function runFullDocumentOcrPipeline(params: {
     phase: "securities_extraction",
     maxTokens: 4096,
     userContentBlockCount: securitiesUserContent.length,
+    inputModality: prepared.meta.path,
+    documentMimeType: params.mimeType,
+    hasDbContextInstructions: platformAppendix.length > 0,
   });
 
-  const t4a0 = Date.now();
-  const securitiesResponse = await createNonStreamingMessageWithAbort(
-    llm,
-    {
-      model: ANTHROPIC_MESSAGES_MODEL,
-      max_tokens: 4096,
-      system: PHASE_4A_SYSTEM + JSON_ARRAY_ONLY_SUFFIX,
-      messages: [{ role: "user", content: securitiesUserContent }],
-    },
-    signal
-  );
+  let securitiesExtractionError: string | null = null;
+  let securityHoldings: z.infer<typeof securityTransactionOcrExtractionListSchema>;
 
-  const securitiesText = collectTextFromMessageContent(securitiesResponse.content);
-  v?.("4a_llm_response", {
-    elapsedMs: Date.now() - t4a0,
-    charCount: securitiesText.length,
-    rawText: truncateForVerbose(securitiesText),
-  });
+  try {
+    const t4a0 = Date.now();
+    const securitiesResponse = await createNonStreamingMessageWithAbort(
+      llm,
+      {
+        model: ANTHROPIC_MESSAGES_MODEL,
+        max_tokens: 4096,
+        system: securitiesPhase4aSystem,
+        messages: [{ role: "user", content: securitiesUserContent }],
+      },
+      signal
+    );
 
-  if (!securitiesText.trim()) {
-    throw new Error("OCR phase 4a: empty model response for securities extraction");
+    const securitiesText = collectTextFromMessageContent(securitiesResponse.content);
+    v?.("4a_llm_response", {
+      elapsedMs: Date.now() - t4a0,
+      charCount: securitiesText.length,
+      rawText: truncateForVerbose(securitiesText),
+    });
+
+    if (!securitiesText.trim()) {
+      throw new Error("OCR phase 4a: empty model response for securities extraction");
+    }
+
+    securityHoldings = parseJsonArrayWithSchema(
+      securitiesText,
+      securityTransactionOcrExtractionListSchema,
+      "Phase 4a securities extraction"
+    );
+
+    v?.("4a_parsed", { rowCount: securityHoldings.length });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    securitiesExtractionError = message;
+    securityHoldings = [];
+    v?.("4a_securities_extraction_failed", { message });
   }
-
-  const securityHoldings = parseJsonArrayWithSchema(
-    securitiesText,
-    securityTransactionOcrExtractionListSchema,
-    "Phase 4a securities extraction"
-  );
-
-  v?.("4a_parsed", { rowCount: securityHoldings.length });
 
   throwIfAborted(signal);
 
@@ -312,5 +406,5 @@ export async function runFullDocumentOcrPipeline(params: {
     note: "includes balance LLM + parse (see balances_llm_* steps above)",
   });
 
-  return { pipeline, extractedValues };
+  return { pipeline, extractedValues, securitiesExtractionError };
 }

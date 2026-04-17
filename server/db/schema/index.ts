@@ -1,4 +1,5 @@
 export * from "./portfolio-assets";
+export * from "./broker-platform-securities-ocr-context";
 export * from "./securities";
 export * from "./portfolio-milestone";
 export * from "./portfolio-fire";

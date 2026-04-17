@@ -2,6 +2,31 @@ import { useRef, useState } from "react";
 import { Upload, Loader2, AlertCircle, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UseMutationResult } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
+
+function fileMatchesAccept(file: File, accept: string): boolean {
+  const tokens = accept
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (tokens.length === 0) {
+    return true;
+  }
+  for (const token of tokens) {
+    if (token === "*/*") {
+      return true;
+    }
+    if (token.endsWith("/*")) {
+      const major = token.slice(0, -2);
+      if (file.type.startsWith(`${major}/`)) {
+        return true;
+      }
+    } else if (token === file.type) {
+      return true;
+    }
+  }
+  return false;
+}
 
 interface DocumentUploadProps<TResponse> {
   /** Mime types accepted by the file input (e.g. "image/*,application/pdf"). */
@@ -29,9 +54,11 @@ export function DocumentUpload<TResponse>({
   children,
 }: DocumentUploadProps<TResponse>) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragDepthRef = useRef(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -63,16 +90,73 @@ export function DocumentUpload<TResponse>({
     });
   };
 
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current += 1;
+    setIsDraggingFile(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current -= 1;
+    if (dragDepthRef.current <= 0) {
+      dragDepthRef.current = 0;
+      setIsDraggingFile(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current = 0;
+    setIsDraggingFile(false);
+
+    const file = e.dataTransfer.files?.[0] ?? null;
+    if (!file) {
+      return;
+    }
+    if (!fileMatchesAccept(file, accept)) {
+      setUploadState("error");
+      setErrorMessage("That file type is not accepted for this upload.");
+      return;
+    }
+    setSelectedFile(file);
+    setUploadState("idle");
+    setErrorMessage(null);
+  };
+
   return (
     <div className="space-y-4">
       <label
         htmlFor="document-upload-file-input"
-        className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center gap-3 cursor-pointer hover:border-primary/50 transition-colors"
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        className={cn(
+          "border-2 border-dashed rounded-lg p-6 flex flex-col items-center gap-3 cursor-pointer hover:border-primary/50 transition-colors",
+          isDraggingFile && "border-primary bg-primary/5"
+        )}
       >
         <FileText className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground text-center">
-          {selectedFile ? selectedFile.name : label}
-        </p>
+        <div className="text-sm text-muted-foreground text-center space-y-1">
+          {selectedFile ? (
+            <p>{selectedFile.name}</p>
+          ) : (
+            <>
+              <p>{label}</p>
+              <p className="text-xs">Or drop a file here.</p>
+            </>
+          )}
+        </div>
         <input
           id="document-upload-file-input"
           ref={fileInputRef}

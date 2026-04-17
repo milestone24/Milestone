@@ -174,10 +174,39 @@ export const handler = async (event: Event): Promise<void> => {
         }),
     });
 
-    const { pipeline, extractedValues } = await racePromiseWithAbortSignal(
-      pipelinePromise,
-      abortController.signal
-    );
+    const { pipeline, extractedValues, securitiesExtractionError } =
+      await racePromiseWithAbortSignal(pipelinePromise, abortController.signal);
+
+    if (securitiesExtractionError) {
+      await updateProcessStatus(jobId, "failed", securitiesExtractionError);
+      const failOk = await tryFailOcrJobRecord({
+        ocrJobId,
+        error: securitiesExtractionError,
+        pipeline,
+        extractedValues,
+      });
+      if (!failOk) {
+        console.error(
+          "[document-ocr] Failed to persist partial ocr_jobs failure jobId=%s ocrJobId=%s",
+          jobId,
+          ocrJobId
+        );
+      }
+      await queueService.publish({
+        ...messageBase,
+        type: "document-ocr-failed",
+        message: securitiesExtractionError,
+        pipeline,
+        extractedValues,
+      });
+      console.log(
+        "[document-ocr] Securities phase failed (partial pipeline persisted) jobId=%s ocrJobId=%s error=%s",
+        jobId,
+        ocrJobId,
+        securitiesExtractionError
+      );
+      return;
+    }
 
     const completedOk = await tryCompleteOcrJobRecord({
       ocrJobId,

@@ -20,6 +20,9 @@ type CompleteParams = {
 type FailParams = {
   ocrJobId: string;
   error: string;
+  /** When set (e.g. securities phase failed after brand verification), stored with the failure row. */
+  pipeline?: DocumentOcrPipelineResult;
+  extractedValues?: ExtractedAmount[];
 };
 
 type AbortParams = {
@@ -81,6 +84,10 @@ export async function tryFailOcrJobRecord(params: FailParams): Promise<boolean> 
         error: params.error,
         completedAt: new Date(),
         reviewState: null,
+        ...(params.pipeline !== undefined ? { pipeline: params.pipeline } : {}),
+        ...(params.extractedValues !== undefined
+          ? { extractedValues: params.extractedValues }
+          : {}),
       })
       .where(eq(ocrJobs.id, params.ocrJobId));
     return true;

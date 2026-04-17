@@ -137,6 +137,9 @@ type DocumentOcrFailedMessage = {
   ocrJobId: string;
   jobId?: string;
   message?: string;
+  /** Present when the job failed after platform verification but partial pipeline/balances were produced. */
+  extractedValues?: import("@shared/schema/document").ExtractedAmount[];
+  pipeline?: import("@shared/schema/document").DocumentOcrPipelineResult;
 };
 
 type DocumentOcrAbortedMessage = DocumentOcrMessageBase & {

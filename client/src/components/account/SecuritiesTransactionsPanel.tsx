@@ -1,11 +1,12 @@
 import { BsPiggyBank } from "react-icons/bs";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   SecurityTransactionOrphanInsert,
   SecurityTransactionSelect,
   SecurityTransactionUpsert,
   RecurringContributionOrphanInsert,
   RecurringContributionBulkInsert,
+  UserAsset,
 } from "@shared/schema";
 import { useSecurityTransactions } from "@/hooks/use-security-transactions";
 import { useRecurringContributions } from "@/hooks/use-recurring-contributions";
@@ -18,17 +19,42 @@ import { RecurringContributionsList } from "./RecurringContributionsList";
 import { Skeleton } from "../ui/skeleton";
 import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
 import { AssetSecurityTransactionItem } from "./AssetSecurityTransactionItem";
-import { Coins, Banknote } from "lucide-react";
+import { Banknote, Coins, Upload } from "lucide-react";
 import { Button } from "../ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
+import { OcrDocumentUpload } from "@/components/ocr/OcrDocumentUpload";
+import { OcrResultReview } from "@/components/ocr/OcrResultReview";
+import { AssetOcrPendingReviewBanner } from "@/components/ocr/AssetOcrPendingReviewBanner";
+import { useAssetOcrPendingReview } from "@/hooks/use-asset-ocr-pending-review";
+import type { AssetOcrPendingReviewItem } from "@shared/schema/document";
 
 type SecuritiesTransactionsPanelProps = {
+  asset: UserAsset;
   assetId: string;
+  /** Broker platform UUID for OCR extract; implied platform when hidden selector. */
+  statementPlatformKey?: string;
 };
 
 export const SecuritiesTransactionsPanel = ({
+  asset,
   assetId,
+  statementPlatformKey,
 }: SecuritiesTransactionsPanelProps) => {
   const { securities, isSecuritiesLoading } = useAssetSecurities();
+
+  const [activePendingOcr, setActivePendingOcr] =
+    useState<AssetOcrPendingReviewItem | null>(null);
+  const { data: pendingOcrItems = [] } = useAssetOcrPendingReview(assetId);
+
+  useEffect(() => {
+    setActivePendingOcr(null);
+  }, [assetId]);
 
   const {
     transactions,
@@ -47,11 +73,13 @@ export const SecuritiesTransactionsPanel = ({
 
   const [dialogueOpen, setDialogueOpen] = useState(false);
   const [recurringDialogOpen, setRecurringDialogOpen] = useState(false);
+  const [ocrUploadDialogOpen, setOcrUploadDialogOpen] = useState(false);
+  const [ocrUploadKey, setOcrUploadKey] = useState(0);
 
   // Handlers for single transactions
   const handleCreateTransaction = async (
     securityId: string,
-    data: SecurityTransactionOrphanInsert
+    data: SecurityTransactionOrphanInsert,
   ): Promise<SecurityTransactionSelect> => {
     if (!assetId) throw new Error("Asset ID is required");
     try {
@@ -70,7 +98,7 @@ export const SecuritiesTransactionsPanel = ({
   const handleEditTransaction = async (
     transactionId: string,
     securityId: string,
-    data: SecurityTransactionOrphanInsert
+    data: SecurityTransactionOrphanInsert,
   ): Promise<SecurityTransactionSelect> => {
     try {
       const response = await updateSecurityTransaction.mutateAsync({
@@ -87,7 +115,7 @@ export const SecuritiesTransactionsPanel = ({
   };
 
   const handleTransactionSubmit = async (
-    data: SecurityTransactionUpsert
+    data: SecurityTransactionUpsert,
   ): Promise<SecurityTransactionSelect> => {
     const { assetSecurityId, id, ...rest } = data;
 
@@ -103,7 +131,7 @@ export const SecuritiesTransactionsPanel = ({
 
   // Handlers for creating recurring contributions
   const handleCreateRecurringSingle = async (
-    data: RecurringContributionOrphanInsert
+    data: RecurringContributionOrphanInsert,
   ) => {
     const result = await createRecurringContribution.mutateAsync(data);
     setRecurringDialogOpen(false);
@@ -111,7 +139,7 @@ export const SecuritiesTransactionsPanel = ({
   };
 
   const handleCreateRecurringDistributed = async (
-    data: RecurringContributionBulkInsert
+    data: RecurringContributionBulkInsert,
   ) => {
     const result = await createRecurringContributionGroup.mutateAsync(data);
     setRecurringDialogOpen(false);
@@ -130,7 +158,7 @@ export const SecuritiesTransactionsPanel = ({
             return !min ? nextDate : nextDate < min ? nextDate : min;
           }, undefined)
         : undefined,
-    [transactions]
+    [transactions],
   );
 
   const lastTransactionDate = useMemo(
@@ -145,7 +173,7 @@ export const SecuritiesTransactionsPanel = ({
             return !max ? nextDate : nextDate > max ? nextDate : max;
           }, undefined)
         : undefined,
-    [transactions]
+    [transactions],
   );
 
   const isLoading = isTransactionsLoading || isSecuritiesLoading;
@@ -156,6 +184,28 @@ export const SecuritiesTransactionsPanel = ({
         <Skeleton className="h-10 w-full" />
       ) : (
         <div>
+          {pendingOcrItems.length > 0 || activePendingOcr ? (
+            <div className="mb-6 space-y-4">
+              <AssetOcrPendingReviewBanner
+                items={pendingOcrItems}
+                onOpenItem={setActivePendingOcr}
+              />
+              {activePendingOcr?.pipeline ? (
+                <OcrResultReview
+                  key={activePendingOcr.ocrJobId}
+                  ocrJobId={activePendingOcr.ocrJobId}
+                  pipeline={activePendingOcr.pipeline}
+                  extractedValues={activePendingOcr.extractedValues ?? []}
+                  assets={[asset]}
+                  showBalanceEditor={false}
+                  onConfirmed={() => setActivePendingOcr(null)}
+                  onDismissed={() => setActivePendingOcr(null)}
+                  onBalancesSaved={() => {}}
+                />
+              ) : null}
+            </div>
+          ) : null}
+
           {/* Contribution Summary Section */}
           {transactions && transactions.length > 0 && (
             <div className="mb-6 p-4 bg-muted rounded-lg">
@@ -171,7 +221,9 @@ export const SecuritiesTransactionsPanel = ({
                   <p className="text-xl font-semibold">{transactions.length}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">First Transaction</p>
+                  <p className="text-sm text-muted-foreground">
+                    First Transaction
+                  </p>
                   <p className="text-base font-medium">
                     {firstTransactionDate
                       ? firstTransactionDate.toLocaleDateString("en-GB", {
@@ -183,7 +235,9 @@ export const SecuritiesTransactionsPanel = ({
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Latest Transaction</p>
+                  <p className="text-sm text-muted-foreground">
+                    Latest Transaction
+                  </p>
                   <p className="text-base font-medium">
                     {lastTransactionDate
                       ? lastTransactionDate.toLocaleDateString("en-GB", {
@@ -198,25 +252,32 @@ export const SecuritiesTransactionsPanel = ({
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-            <h2 className="text-lg font-medium">Contributions</h2>
-            <div className="flex items-center gap-2 self-end sm:self-auto">
-              <RecurringContributionSecurityTriggerButton
-                onClick={() => setRecurringDialogOpen(true)}
-              />
-              <SecurityTransactionUpsertDialogue
-                isOpen={dialogueOpen}
-                onOpenChange={setDialogueOpen}
-                onSubmit={handleTransactionSubmit}
-                securities={securities}
-                data={undefined}
-                display="block"
-              />
-              <Button variant="outline" disabled={true}>
-                <Banknote className="h-4 w-4" />
-                Log Withdrawal
-              </Button>
-            </div>
+          <div className="flex flex-wrap items-center justify-end gap-2 mb-4">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setOcrUploadDialogOpen(true)}
+            >
+              <Upload className="h-4 w-4" />
+              Add from upload
+            </Button>
+            <RecurringContributionSecurityTriggerButton
+              onClick={() => setRecurringDialogOpen(true)}
+            />
+            <SecurityTransactionUpsertDialogue
+              isOpen={dialogueOpen}
+              onOpenChange={setDialogueOpen}
+              onSubmit={handleTransactionSubmit}
+              securities={securities}
+              data={undefined}
+              display="block"
+            />
+            <Button variant="outline" disabled={true}>
+              <Banknote className="h-4 w-4" />
+              Log Withdrawal
+            </Button>
           </div>
 
           {/* Recurring Contributions List - each item handles its own edit/delete */}
@@ -259,6 +320,29 @@ export const SecuritiesTransactionsPanel = ({
         securities={securities}
         data={null}
       />
+
+      <Dialog open={ocrUploadDialogOpen} onOpenChange={setOcrUploadDialogOpen}>
+        <DialogContent className="max-w-md max-h-[min(90vh,640px)] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Import from statement</DialogTitle>
+            <DialogDescription>
+              Upload a PDF or image. When processing finishes, ready reviews appear at the top of
+              this tab — open one to confirm or reject extracted contributions.
+            </DialogDescription>
+          </DialogHeader>
+          <OcrDocumentUpload
+            key={ocrUploadKey}
+            nominatedAssetId={assetId}
+            initialPlatformKey={statementPlatformKey}
+            showPlatformSelect={false}
+            awaitResultsInline={false}
+            onUploadStarted={() => {
+              setOcrUploadDialogOpen(false);
+              setOcrUploadKey((k) => k + 1);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

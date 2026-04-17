@@ -533,21 +533,22 @@ async function main(): Promise<void> {
 
   const signal = optionalAbortSignal(parsed.abortAfterMs);
 
-  const { pipeline, extractedValues } = await runFullDocumentOcrPipeline({
-    buffer,
-    mimeType,
-    platformKey: parsed.platformKey,
-    platformNames: parsed.platformNames,
-    accountId,
-    nominatedUserAssetId,
-    abortSignal: signal,
-    verboseLog,
-    extractBalances: (prepared, opts) =>
-      ocr.extractFromPrepared(prepared, parsed.platformKey, parsed.platformNames, {
-        verboseLog,
-        abortSignal: opts?.abortSignal,
-      }),
-  });
+  const { pipeline, extractedValues, securitiesExtractionError } =
+    await runFullDocumentOcrPipeline({
+      buffer,
+      mimeType,
+      platformKey: parsed.platformKey,
+      platformNames: parsed.platformNames,
+      accountId,
+      nominatedUserAssetId,
+      abortSignal: signal,
+      verboseLog,
+      extractBalances: (prepared, opts) =>
+        ocr.extractFromPrepared(prepared, parsed.platformKey, parsed.platformNames, {
+          verboseLog,
+          abortSignal: opts?.abortSignal,
+        }),
+    });
 
   const ms = Date.now() - start;
 
@@ -558,6 +559,7 @@ async function main(): Promise<void> {
         pipeline,
         balanceExtractCount: extractedValues.length,
         extractedValues,
+        securitiesExtractionError,
       },
       null,
       2
