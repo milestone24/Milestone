@@ -23,6 +23,7 @@ import {
   emailInboundMailFqdnParameterName,
   emailInboundSnsTopicArnParameterName,
   emailInboundSqsQueueUrlParameterName,
+  emailInboundTapSqsQueueUrlParameterName,
 } from "./ssm-email-inbound.ts";
 
 /**
@@ -38,6 +39,12 @@ export interface MilestoneEmailInboundStackProps extends cdk.StackProps {
   readonly hostedZoneId: string;
   /** Route 53 zone apex (e.g. `milestone.gaari.me`). */
   readonly hostedZoneName: string;
+  /**
+   * When true, each rail gets a second SQS queue subscribed to the same SNS
+   * topic (duplicate delivery). Use for local tap tools; URL is published to
+   * SSM under `…/rails/<subdomain>/sqs-tap-queue-url`. The worker queue is unchanged.
+   */
+  readonly enableSnsTapQueues?: boolean;
 }
 
 export interface MilestoneEmailInboundRailResources {
@@ -45,6 +52,8 @@ export interface MilestoneEmailInboundRailResources {
   readonly mailFqdn: string;
   readonly notificationTopic: sns.Topic;
   readonly notificationQueue: sqs.Queue;
+  /** Present when {@link MilestoneEmailInboundStackProps.enableSnsTapQueues} is true. */
+  readonly tapNotificationQueue?: sqs.Queue;
 }
 
 function dkimCnameTarget(value: string): string {
@@ -96,6 +105,8 @@ export class MilestoneEmailInboundStack extends cdk.Stack {
 
   constructor(scope: Construct, id: string, props: MilestoneEmailInboundStackProps) {
     super(scope, id, props);
+
+    const enableSnsTapQueues = props.enableSnsTapQueues === true;
 
     const hostedZone = route53.HostedZone.fromHostedZoneAttributes(
       this,
@@ -153,6 +164,15 @@ export class MilestoneEmailInboundStack extends cdk.Stack {
       const outputQueueId = legacy
         ? "InboundNotificationQueueUrl"
         : `InboundNotificationQueueUrl${idSuffix}`;
+      const tapQueueConstructId = legacy
+        ? "InboundMailTapQueue"
+        : `InboundMailTapQueue${idSuffix}`;
+      const tapSqsParamConstructId = legacy
+        ? "EmailInboundTapSqsQueueUrlParam"
+        : `EmailInboundTapSqsQueueUrlParam${idSuffix}`;
+      const outputTapQueueId = legacy
+        ? "InboundTapNotificationQueueUrl"
+        : `InboundTapNotificationQueueUrl${idSuffix}`;
 
       const notificationTopic = new sns.Topic(this, topicConstructId, {
         displayName: `Milestone inbound mail (${rail.mailSubdomain})`,
@@ -179,6 +199,31 @@ export class MilestoneEmailInboundStack extends cdk.Stack {
       notificationTopic.addSubscription(
         new subs.SqsSubscription(notificationQueue),
       );
+
+      let tapNotificationQueue: sqs.Queue | undefined;
+      if (enableSnsTapQueues) {
+        const tapQueueName = `${rail.queueName}-tap`;
+        tapNotificationQueue = new sqs.Queue(this, tapQueueConstructId, {
+          queueName: tapQueueName,
+          encryption: sqs.QueueEncryption.SQS_MANAGED,
+          visibilityTimeout: cdk.Duration.minutes(5),
+          receiveMessageWaitTime: cdk.Duration.seconds(20),
+          retentionPeriod: cdk.Duration.days(14),
+        });
+        notificationTopic.addSubscription(
+          new subs.SqsSubscription(tapNotificationQueue),
+        );
+
+        new ssm.StringParameter(this, tapSqsParamConstructId, {
+          parameterName: emailInboundTapSqsQueueUrlParameterName(rail.mailSubdomain),
+          stringValue: tapNotificationQueue.queueUrl,
+        });
+
+        new cdk.CfnOutput(this, outputTapQueueId, {
+          value: tapNotificationQueue.queueUrl,
+          description: `Tap SQS queue URL for ${rail.mailSubdomain} (SNS duplicate; not the worker queue)`,
+        });
+      }
 
       const emailIdentity = new ses.EmailIdentity(this, identityConstructId, {
         identity: ses.Identity.domain(mailFqdn),
@@ -252,6 +297,7 @@ export class MilestoneEmailInboundStack extends cdk.Stack {
         mailFqdn,
         notificationTopic,
         notificationQueue,
+        tapNotificationQueue,
       });
     }
 

@@ -50,6 +50,16 @@ export function emailInboundSqsQueueUrlParameterName(
   return `${emailInboundRailSsmPrefix(mailSubdomain)}/sqs-queue-url`;
 }
 
+/**
+ * Optional second queue per rail: same SNS topic as the worker queue, for
+ * side-channel inspection without competing for messages with the app.
+ */
+export function emailInboundTapSqsQueueUrlParameterName(
+  mailSubdomain: string,
+): string {
+  return `${emailInboundRailSsmPrefix(mailSubdomain)}/sqs-tap-queue-url`;
+}
+
 export const EMAIL_INBOUND_S3_BUCKET_PARAMETER_NAME =
   "/milestone/email-inbound/s3-bucket-name";
 

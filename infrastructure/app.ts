@@ -7,6 +7,10 @@ import { MilestoneStack } from "./milestone-stack.ts";
 
 const app = new cdk.App();
 
+function contextFlagTrue(value: unknown): boolean {
+  return value === true || value === "true" || value === 1 || value === "1";
+}
+
 function resolveStackEnvironment(): cdk.Environment {
   const account = process.env.CDK_DEFAULT_ACCOUNT;
   const region = process.env.CDK_DEFAULT_REGION;
@@ -40,6 +44,8 @@ new MilestoneStack(app, "MilestoneStack", {
 // No deps on other Milestone stacks. CDK context: `emailInboundHostedZoneId`,
 // `emailInboundHostedZoneName`. Three FQDNs are always provisioned:
 // doc-inbound, doc-inbound-staging, doc-inbound-dev under the zone.
+// Optional: `emailInboundSnsTapQueues` (true) adds a second SQS queue per rail
+// (same SNS topic) for side-channel inspection; see `tools/aws/email-inbound-queue-util.ts exec`.
 new MilestoneEmailInboundStack(app, "MilestoneEmailInboundStack", {
   env: stackEnv,
   description:
@@ -50,4 +56,7 @@ new MilestoneEmailInboundStack(app, "MilestoneEmailInboundStack", {
   hostedZoneName:
     (app.node.tryGetContext("emailInboundHostedZoneName") as string | undefined) ??
     "milestone.gaari.me",
+  enableSnsTapQueues: contextFlagTrue(
+    app.node.tryGetContext("emailInboundSnsTapQueues"),
+  ),
 });
