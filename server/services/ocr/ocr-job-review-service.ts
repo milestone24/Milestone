@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@server/db";
 import {
   documents,
@@ -21,10 +21,22 @@ export type PendingOcrReviewRow = {
   pipeline: DocumentOcrPipelineResult | null;
 };
 
+/** Jobs pending review for this asset: nominee id matches, or pipeline assetCandidates has this asset with matchedCount > 0. */
 export async function listPendingOcrReviewsForAsset(params: {
   userAccountId: string;
   assetId: string;
 }): Promise<PendingOcrReviewRow[]> {
+  const nominatedMatchesAsset = sql`(${ocrJobs.pipeline})->>'nominatedUserAssetId' = ${params.assetId}`;
+
+  const assetCandidateHasMatch = sql`EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(
+      COALESCE((${ocrJobs.pipeline})->'assetCandidates', '[]'::jsonb)
+    ) AS ac
+    WHERE ac->>'userAssetId' = ${params.assetId}
+    AND COALESCE((ac->>'matchedCount')::int, 0) > 0
+  )`;
+
   const rows = await db
     .select({
       ocrJobId: ocrJobs.id,
@@ -42,7 +54,7 @@ export async function listPendingOcrReviewsForAsset(params: {
         eq(ocrJobs.status, "completed"),
         eq(ocrJobs.reviewState, "pending_review"),
         eq(documents.userAccountId, params.userAccountId),
-        sql`(${ocrJobs.pipeline})->>'nominatedUserAssetId' = ${params.assetId}`
+        or(nominatedMatchesAsset, assetCandidateHasMatch)
       )
     )
     .orderBy(desc(ocrJobs.completedAt));
