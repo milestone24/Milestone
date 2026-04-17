@@ -13,6 +13,7 @@ import { securityTransactionOcrExtractionListSchema } from "@shared/schema/trans
 import {
   appendPhaseInstruction,
   prepareOcrDocumentUserContentBase,
+  type OcrDocumentLlmPath,
   type PreparedOcrDocumentUserContent,
   type SupportedOcrDocumentMimeType,
 } from "./document-user-content";
@@ -84,6 +85,42 @@ Rules:
 - Use decimal **strings** for all numeric amounts (value, currencyValue, fees) so precision is preserved.
 - If there are no security holdings in the document, return [].
 - Do not invent symbols or ISINs: omit optional fields when not readable.`;
+
+/**
+ * Tells the securities-phase model how the document is represented (native text vs visual),
+ * before any issuer-specific DB instructions are appended.
+ */
+function buildSecuritiesPhase4aInputModalityGuidance(params: {
+  llmPath: OcrDocumentLlmPath;
+  mimeType: SupportedOcrDocumentMimeType;
+}): string {
+  if (params.llmPath === "vision") {
+    if (params.mimeType === "application/pdf") {
+      return `
+
+Input modality (securities phase): The same user message includes this statement as a **PDF document** (visual layout; treat pages and table structure as in a normal PDF viewer). Tables and column alignment are generally trustworthy; still follow issuer-specific hints below when present.`;
+    }
+    return `
+
+Input modality (securities phase): The same user message includes **image(s)** of the statement. Use visual layout (columns, headers, alignment) when reading tables; follow issuer-specific hints below when present.`;
+  }
+
+  if (params.mimeType === "application/pdf") {
+    return `
+
+Input modality (securities phase): The same user message includes **native PDF text extraction** only (no rendered page image). The transcript is usually one flattened stream: page breaks and table grid lines are often lost; columns in wide broker tables may be reordered or run together. Expect **PDF extraction anomalies**—anchor on distinctive **headings**, **row keys** (e.g. timestamps, ISINs, tickers) and repeated line patterns rather than assuming clean columns. Extract only rows you can map confidently to the schema; do not invent holdings. Issuer-specific hints below may name sections or columns—use them with this limitation in mind.`;
+  }
+
+  if (params.mimeType === "text/html") {
+    return `
+
+Input modality (securities phase): The same user message includes **HTML** (e.g. an email body). Markup can help but tables may still be imperfect; follow issuer-specific hints below when present.`;
+  }
+
+  return `
+
+Input modality (securities phase): The same user message includes **plain text** (e.g. an email body). Table structure may be limited; follow issuer-specific hints below when present.`;
+}
 
 export type FullDocumentOcrResult = {
   pipeline: DocumentOcrPipelineResult;
@@ -246,8 +283,12 @@ export async function runFullDocumentOcrPipeline(params: {
   throwIfAborted(signal);
 
   const resolvedBrokerPlatformId = brandDbMatch.matchedBrokerPlatformId!;
-  let securitiesPhase4aSystem =
-    PHASE_4A_SYSTEM + JSON_ARRAY_ONLY_SUFFIX;
+  const modalityGuidance = buildSecuritiesPhase4aInputModalityGuidance({
+    llmPath: prepared.meta.path,
+    mimeType: params.mimeType,
+  });
+
+  let platformAppendix = "";
   try {
     const dbInstructions =
       await loadBrokerPlatformSecuritiesOcrContextInstructions(
@@ -257,16 +298,20 @@ export async function runFullDocumentOcrPipeline(params: {
       brokerPlatformId: resolvedBrokerPlatformId,
       instructionCount: dbInstructions.length,
     });
-    securitiesPhase4aSystem =
-      PHASE_4A_SYSTEM +
-      formatSecuritiesOcrContextInstructionsForSystemPrompt(dbInstructions) +
-      JSON_ARRAY_ONLY_SUFFIX;
+    platformAppendix =
+      formatSecuritiesOcrContextInstructionsForSystemPrompt(dbInstructions);
   } catch (loadErr) {
     v?.("4a_db_context_instructions_error", {
       brokerPlatformId: resolvedBrokerPlatformId,
       message: loadErr instanceof Error ? loadErr.message : String(loadErr),
     });
   }
+
+  const securitiesPhase4aSystem =
+    PHASE_4A_SYSTEM +
+    modalityGuidance +
+    platformAppendix +
+    JSON_ARRAY_ONLY_SUFFIX;
 
   const securitiesInstruction = `Task: inspect the same document content and produce the JSON array described in the system message.`;
 
@@ -279,8 +324,9 @@ export async function runFullDocumentOcrPipeline(params: {
     phase: "securities_extraction",
     maxTokens: 4096,
     userContentBlockCount: securitiesUserContent.length,
-    hasDbContextInstructions:
-      securitiesPhase4aSystem.length > PHASE_4A_SYSTEM.length + JSON_ARRAY_ONLY_SUFFIX.length,
+    inputModality: prepared.meta.path,
+    documentMimeType: params.mimeType,
+    hasDbContextInstructions: platformAppendix.length > 0,
   });
 
   let securitiesExtractionError: string | null = null;
