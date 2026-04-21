@@ -240,3 +240,15 @@ SIPP
 
 Vanguard FTSE Developed World UCITS ETF USD Accumulation - VHVG
 Vanguard FTSE Emerging Markets UCITS ETF USD Accumulation GBP - VFEG
+
+
+```bash
+
+npx tsx tools/ocr/insert-broker-platform-securities-ocr-instruction.ts \
+  --broker-platform-id f60ee75b-43f5-4449-a671-fba3dcbe07e2 \
+  --instruction "$(cat <<'EOF'
+Trading 212 statements: locate the section whose title matches "Invest account – executed trades" (banner above a wide table). Ignore generic portfolio summaries that are not this per-line table. Each data row under that title is one extractable line (treat as a holdings-style row even when the source is executed trades). Column mapping: use "QUANTITY" as value (full decimal precision as a string). Use the rightmost "VALUE" column on the row (amount in "TRANSACTION CURRENCY", e.g. GBP) as currencyValue—not the earlier "VALUE" column, which is in instrument currency. Use the calendar date from "EXECUTION TIME" (YYYY-MM-DD) as valueDate. The "INSTRUMENT" column is the ticker/symbol (e.g. MSFT, ASML): use it for symbol and repeat it for name unless a separate long company name is clearly printed on the same row. Copy "ISIN" into isin when present. Skip header rows, blank rows, and cells that are only "-". Prefer anchoring on this heading plus column labels (EXECUTION TIME, INSTRUMENT, ISIN, QUANTITY, TRANSACTION CURRENCY, VALUE) if the table text is jumbled in extraction order.
+EOF
+)"
+
+```
