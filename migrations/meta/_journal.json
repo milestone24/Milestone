@@ -50,6 +50,13 @@
       "when": 1776758427460,
       "tag": "0006_email_ingest_inboxes",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776759309494,
+      "tag": "0007_broker_platform_securities_ocr_context_instructions",
+      "breakpoints": true
     }
   ]
 }

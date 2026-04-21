@@ -18,6 +18,10 @@ import {
 } from "./document-user-content";
 import { parseJsonArrayWithSchema, parseJsonObjectWithSchema } from "./model-json";
 import {
+  formatSecuritiesOcrContextInstructionsForSystemPrompt,
+  loadBrokerPlatformSecuritiesOcrContextInstructions,
+} from "./broker-platform-securities-ocr-context-loader";
+import {
   assertBrandVerificationPassed,
   buildOcrAssetCandidateResults,
   parseConfiguredBrokerPlatformId,
@@ -241,6 +245,29 @@ export async function runFullDocumentOcrPipeline(params: {
 
   throwIfAborted(signal);
 
+  const resolvedBrokerPlatformId = brandDbMatch.matchedBrokerPlatformId!;
+  let securitiesPhase4aSystem =
+    PHASE_4A_SYSTEM + JSON_ARRAY_ONLY_SUFFIX;
+  try {
+    const dbInstructions =
+      await loadBrokerPlatformSecuritiesOcrContextInstructions(
+        resolvedBrokerPlatformId
+      );
+    v?.("4a_db_context_instructions", {
+      brokerPlatformId: resolvedBrokerPlatformId,
+      instructionCount: dbInstructions.length,
+    });
+    securitiesPhase4aSystem =
+      PHASE_4A_SYSTEM +
+      formatSecuritiesOcrContextInstructionsForSystemPrompt(dbInstructions) +
+      JSON_ARRAY_ONLY_SUFFIX;
+  } catch (loadErr) {
+    v?.("4a_db_context_instructions_error", {
+      brokerPlatformId: resolvedBrokerPlatformId,
+      message: loadErr instanceof Error ? loadErr.message : String(loadErr),
+    });
+  }
+
   const securitiesInstruction = `Task: inspect the same document content and produce the JSON array described in the system message.`;
 
   const securitiesUserContent = appendPhaseInstruction(
@@ -252,6 +279,8 @@ export async function runFullDocumentOcrPipeline(params: {
     phase: "securities_extraction",
     maxTokens: 4096,
     userContentBlockCount: securitiesUserContent.length,
+    hasDbContextInstructions:
+      securitiesPhase4aSystem.length > PHASE_4A_SYSTEM.length + JSON_ARRAY_ONLY_SUFFIX.length,
   });
 
   let securitiesExtractionError: string | null = null;
@@ -264,7 +293,7 @@ export async function runFullDocumentOcrPipeline(params: {
       {
         model: ANTHROPIC_MESSAGES_MODEL,
         max_tokens: 4096,
-        system: PHASE_4A_SYSTEM + JSON_ARRAY_ONLY_SUFFIX,
+        system: securitiesPhase4aSystem,
         messages: [{ role: "user", content: securitiesUserContent }],
       },
       signal
