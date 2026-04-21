@@ -43,6 +43,13 @@
       "when": 1776758985940,
       "tag": "0005_ocr_review_state_and_junction",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776758427460,
+      "tag": "0006_email_ingest_inboxes",
+      "breakpoints": true
     }
   ]
 }
