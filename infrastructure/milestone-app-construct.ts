@@ -46,6 +46,15 @@ export class MilestoneAppConstruct extends Construct {
     const emailInboundMailSubdomain = resolveEmailInboundMailSubdomain(
       props?.emailInboundMailSubdomain,
     );
+    const emailInboundSsmMailFqdn = emailInboundMailFqdnParameterName(
+      emailInboundMailSubdomain,
+    );
+    const emailInboundSsmSqsUrl = emailInboundSqsQueueUrlParameterName(
+      emailInboundMailSubdomain,
+    );
+    const emailInboundSsmSnsArn = emailInboundSnsTopicArnParameterName(
+      emailInboundMailSubdomain,
+    );
 
     // Create VPC with public subnets only (no NAT Gateway needed)
     const vpc = new ec2.Vpc(this, "Vpc", {
@@ -331,7 +340,7 @@ EOF`
       },
       {
         envVar: "EMAIL_INBOUND_MAIL_FQDN",
-        parameterName: emailInboundMailFqdnParameterName(emailInboundMailSubdomain),
+        parameterName: emailInboundSsmMailFqdn,
         secure: false,
       },
       {
@@ -341,14 +350,12 @@ EOF`
       },
       {
         envVar: "EMAIL_INBOUND_SQS_QUEUE_URL",
-        parameterName:
-          emailInboundSqsQueueUrlParameterName(emailInboundMailSubdomain),
+        parameterName: emailInboundSsmSqsUrl,
         secure: false,
       },
       {
         envVar: "EMAIL_INBOUND_SNS_TOPIC_ARN",
-        parameterName:
-          emailInboundSnsTopicArnParameterName(emailInboundMailSubdomain),
+        parameterName: emailInboundSsmSnsArn,
         secure: false,
       },
       {
