@@ -269,28 +269,33 @@ function Portfolio() {
         <div className="w-full flex flex-col">
           <span>Total Value</span>
           {portfolioValue ? (
-            <>
-              <div className="flex flex-row gap-2">
-                <span className="text-2xl font-bold">
-                  £{Number(portfolioValue.value).toLocaleString()}
-                </span>
-                <span className="text-2xl font-bold">
-                  <PosNegNumber
-                    value={Number(portfolioValue.returnValue) / 100}
-                    displayInPercentage={true}
-                  />
-                </span>
-              </div>
-            </>
+            <span className="text-2xl font-bold">
+              £{Number(portfolioValue.value).toLocaleString()}
+            </span>
           ) : (
             <p className="font-bold text-lg">Loading portfolio total...</p>
           )}
-          {portfolioOverview ?
-              ( <PosNegNumber
-                value={Number(portfolioOverview.currentChange)}
-                displayInPercentage={false}
-              />
-            ) : null}
+          {portfolioOverview || portfolioValue ? (
+            <div className="flex flex-row flex-wrap items-baseline gap-x-2 gap-y-1">
+              {portfolioOverview ? (
+                <PosNegNumber
+                  value={Number(portfolioOverview.currentChange)}
+                  displayInPercentage={false}
+                />
+              ) : null}
+              {portfolioValue ? (
+                <span className="inline-flex items-baseline">
+                  <span className="text-sm text-muted-foreground">(</span>
+                  <PosNegNumber
+                    value={Number(portfolioValue.returnValue) / 100}
+                    displayInPercentage={true}
+                    className="text-sm"
+                  />
+                  <span className="text-sm text-muted-foreground">)</span>
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <div className="flex justify-end">
           <Button
