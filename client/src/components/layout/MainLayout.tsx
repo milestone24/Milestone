@@ -9,8 +9,7 @@ type MainLayoutProps = {
 export default function MainLayout({ children }: MainLayoutProps) {
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      {/* Header component removed from here to prevent duplicate headers */}
-
+      <Header />
       <main className="main-content px-4 py-4">{children}</main>
 
       <BottomNav />
