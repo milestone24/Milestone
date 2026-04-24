@@ -39,10 +39,18 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useAssets } from "@/hooks/use-assets";
 import {
   useCreateEmailIngestInbox,
   useEmailIngestInboxes,
@@ -66,32 +74,48 @@ function linesToAllowedSenders(text: string): string[] {
     .filter((line) => line.length > 0);
 }
 
-const createInboxFormSchema = z.object({
-  platformKey: z.string().max(128, "Platform key must be at most 128 characters"),
-  allowedSendersText: z.string(),
-}).superRefine((data, ctx) => {
-  const entries = linesToAllowedSenders(data.allowedSendersText);
-  if (entries.length > 200) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "At most 200 allowed senders",
-      path: ["allowedSendersText"],
-    });
-    return;
-  }
-  for (const entry of entries) {
-    const parsed = emailIngestAllowedSenderSchema.safeParse(entry);
-    if (!parsed.success) {
-      const msg = parsed.error.issues[0]?.message ?? "Invalid allowed sender";
+const createInboxFormSchema = z
+  .object({
+    platformKey: z.string().max(128, "Platform key must be at most 128 characters"),
+    allowedSendersText: z.string(),
+    /** Empty string = no nominee; otherwise must be a valid UUID. */
+    nominatedUserAssetId: z.string(),
+  })
+  .superRefine((data, ctx) => {
+    const nominee = data.nominatedUserAssetId.trim();
+    if (nominee.length > 0) {
+      const parsedUuid = z.string().uuid().safeParse(nominee);
+      if (!parsedUuid.success) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Invalid portfolio account",
+          path: ["nominatedUserAssetId"],
+        });
+        return;
+      }
+    }
+    const entries = linesToAllowedSenders(data.allowedSendersText);
+    if (entries.length > 200) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: msg,
+        message: "At most 200 allowed senders",
         path: ["allowedSendersText"],
       });
       return;
     }
-  }
-});
+    for (const entry of entries) {
+      const parsed = emailIngestAllowedSenderSchema.safeParse(entry);
+      if (!parsed.success) {
+        const msg = parsed.error.issues[0]?.message ?? "Invalid allowed sender";
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: msg,
+          path: ["allowedSendersText"],
+        });
+        return;
+      }
+    }
+  });
 
 type CreateInboxFormValues = z.infer<typeof createInboxFormSchema>;
 
@@ -350,6 +374,7 @@ function EmailIngestDangerDialog({
 
 export function EmailIngestInboxesSettings() {
   const [includeRevoked, setIncludeRevoked] = useState(false);
+  const { data: portfolioAssets = [] } = useAssets();
   const { data: inboxes, isLoading, isError, refetch, isFetching } = useEmailIngestInboxes({
     includeRevoked,
   });
@@ -380,6 +405,7 @@ export function EmailIngestInboxesSettings() {
     defaultValues: {
       platformKey: "",
       allowedSendersText: "",
+      nominatedUserAssetId: "",
     },
   });
 
@@ -396,16 +422,22 @@ export function EmailIngestInboxesSettings() {
     createForm.clearErrors("root");
     const trimmedKey = values.platformKey.trim();
     const entries = linesToAllowedSenders(values.allowedSendersText);
+    const nominee = values.nominatedUserAssetId.trim();
     const body = emailIngestInboxCreateRequestSchema.parse({
       platformKey: trimmedKey.length > 0 ? trimmedKey : undefined,
       allowedSenders: entries.length > 0 ? entries : undefined,
+      nominatedUserAssetId: nominee.length > 0 ? nominee : undefined,
     });
     try {
       const created = await createInbox.mutateAsync(body);
       setSuccessKind("created");
       setSuccessInbox(created);
       setHighlightInboxId(created.id);
-      createForm.reset({ platformKey: "", allowedSendersText: "" });
+      createForm.reset({
+        platformKey: "",
+        allowedSendersText: "",
+        nominatedUserAssetId: "",
+      });
       setCreateDialogOpen(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Request failed";
@@ -492,7 +524,11 @@ export function EmailIngestInboxesSettings() {
               type="button"
               size="sm"
               onClick={() => {
-                createForm.reset({ platformKey: "", allowedSendersText: "" });
+                createForm.reset({
+                  platformKey: "",
+                  allowedSendersText: "",
+                  nominatedUserAssetId: "",
+                });
                 createForm.clearErrors();
                 setCreateDialogOpen(true);
               }}
@@ -575,6 +611,17 @@ export function EmailIngestInboxesSettings() {
                     ) : (
                       <p className="text-sm text-muted-foreground">No platform key</p>
                     )}
+                    {inbox.nominatedUserAssetId ? (
+                      <p className="text-sm">
+                        OCR nominee:{" "}
+                        <span className="font-medium">
+                          {portfolioAssets.find((a) => a.id === inbox.nominatedUserAssetId)
+                            ?.name ?? inbox.nominatedUserAssetId}
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No OCR nominee</p>
+                    )}
                     {inbox.replacedByInboxId ? (
                       <p className="text-xs text-muted-foreground">
                         Superseded by inbox{" "}
@@ -638,7 +685,11 @@ export function EmailIngestInboxesSettings() {
         onOpenChange={(open) => {
           setCreateDialogOpen(open);
           if (!open) {
-            createForm.reset({ platformKey: "", allowedSendersText: "" });
+            createForm.reset({
+              platformKey: "",
+              allowedSendersText: "",
+              nominatedUserAssetId: "",
+            });
             createForm.clearErrors();
           }
         }}
@@ -647,8 +698,8 @@ export function EmailIngestInboxesSettings() {
           <DialogHeader>
             <DialogTitle>Add Inbox</DialogTitle>
             <DialogDescription>
-              Optional platform label and initial allow list. You can change the allow list after
-              creation.
+              Optional platform label, portfolio account nominee for OCR, and initial allow list. You
+              can change the allow list after creation.
             </DialogDescription>
           </DialogHeader>
           <Form {...createForm}>
@@ -662,6 +713,47 @@ export function EmailIngestInboxesSettings() {
                     <FormControl>
                       <Input placeholder="e.g. trading212" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createForm.control}
+                name="nominatedUserAssetId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Portfolio account for OCR (optional)</FormLabel>
+                    <Select
+                      value={
+                        field.value && field.value.trim().length > 0
+                          ? field.value
+                          : "none"
+                      }
+                      onValueChange={(v) => {
+                        field.onChange(v === "none" ? "" : v);
+                      }}
+                      disabled={portfolioAssets.length === 0}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              portfolioAssets.length === 0
+                                ? "Add a portfolio account first"
+                                : "None"
+                            }
+                          />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {portfolioAssets.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
