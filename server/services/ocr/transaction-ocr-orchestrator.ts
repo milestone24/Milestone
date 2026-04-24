@@ -373,12 +373,14 @@ export async function runFullDocumentOcrPipeline(params: {
   throwIfAborted(signal);
 
   const t4c0 = Date.now();
-  const assetCandidates = await buildOcrAssetCandidateResults({
-    accountId: params.accountId,
-    rows: securityHoldings,
-    verboseLog: v,
-    abortSignal: signal,
-  });
+  const { candidates: assetCandidates, hasPortfolioAccountOnMatchedPlatform } =
+    await buildOcrAssetCandidateResults({
+      accountId: params.accountId,
+      rows: securityHoldings,
+      brandDbMatch,
+      verboseLog: v,
+      abortSignal: signal,
+    });
   throwIfAborted(signal);
   v?.("4c_asset_candidates_done", {
     elapsedMs: Date.now() - t4c0,
@@ -391,6 +393,7 @@ export async function runFullDocumentOcrPipeline(params: {
     brandDbMatch,
     securityHoldings,
     assetCandidates,
+    hasPortfolioAccountOnMatchedPlatform,
     nominatedUserAssetId: params.nominatedUserAssetId ?? null,
     llmPath: prepared.meta.path,
     nativePdfCharCount: prepared.meta.charCount,

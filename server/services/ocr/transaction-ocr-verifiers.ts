@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { db } from "@server/db";
 import {
   brokerPlatforms,
@@ -299,6 +299,7 @@ type AssetHoldingRow = {
 type AssetWithHoldings = {
   userAssetId: string;
   assetName: string;
+  platformId: string | null;
   holdings: AssetHoldingRow[];
 };
 
@@ -306,6 +307,7 @@ function groupHoldingsByAsset(
   flat: Array<{
     userAssetId: string;
     assetName: string;
+    platformId: string | null;
     userAssetSecurityId: string;
     symbol: string;
     isin: string | null;
@@ -319,6 +321,7 @@ function groupHoldingsByAsset(
       entry = {
         userAssetId: r.userAssetId,
         assetName: r.assetName,
+        platformId: r.platformId,
         holdings: [],
       };
       byAsset.set(r.userAssetId, entry);
@@ -353,6 +356,9 @@ function pickFirstMatchingUserAssetSecurityId(
 function buildOcrAssetCandidateForAsset(params: {
   userAssetId: string;
   assetName: string;
+  userAssetPlatformId: string | null;
+  /** Broker platform the pipeline attributed to the document (`brandDbMatch.matchedBrokerPlatformId`), if any. */
+  statementMatchedPlatformId: string | null;
   ocrRows: SecurityTransactionOcrExtractionRow[];
   holdings: AssetHoldingRow[];
 }): OcrAssetCandidateResult {
@@ -371,13 +377,37 @@ function buildOcrAssetCandidateForAsset(params: {
     };
   });
   const matchedCount = securities.filter((s) => s.matched).length;
+  const alignsWithMatchedStatementPlatform =
+    params.statementMatchedPlatformId !== null &&
+    params.userAssetPlatformId !== null &&
+    params.userAssetPlatformId === params.statementMatchedPlatformId;
   return ocrAssetCandidateResultSchema.parse({
     userAssetId: params.userAssetId,
     assetName: params.assetName,
+    userAssetPlatformId: params.userAssetPlatformId,
+    alignsWithMatchedStatementPlatform,
     matchedCount,
     totalCount,
     securities,
   });
+}
+
+async function countUserAssetsOnBrokerPlatform(params: {
+  accountId: string;
+  brokerPlatformId: string;
+  abortSignal?: AbortSignal;
+}): Promise<number> {
+  const [row] = await db
+    .select({ c: count() })
+    .from(userAssets)
+    .where(
+      and(
+        eq(userAssets.userAccountId, params.accountId),
+        eq(userAssets.platformId, params.brokerPlatformId)
+      )
+    );
+  params.abortSignal?.throwIfAborted();
+  return Number(row?.c ?? 0);
 }
 
 /**
@@ -388,19 +418,35 @@ function buildOcrAssetCandidateForAsset(params: {
 export async function buildOcrAssetCandidateResults(params: {
   accountId: string;
   rows: SecurityTransactionOcrExtractionRow[];
+  brandDbMatch: StatementPlatformBrandDbMatch;
   verboseLog?: OcrPipelineVerboseLog;
   /** When set, checked after the holdings query so shutdown can preempt tree build. */
   abortSignal?: AbortSignal;
-}): Promise<OcrAssetCandidateResult[]> {
-  const { accountId, rows, verboseLog: v, abortSignal } = params;
+}): Promise<{
+  candidates: OcrAssetCandidateResult[];
+  hasPortfolioAccountOnMatchedPlatform: boolean;
+}> {
+  const { accountId, rows, brandDbMatch, verboseLog: v, abortSignal } = params;
+  const statementMatchedPlatformId = brandDbMatch.matchedBrokerPlatformId;
+
+  const hasPortfolioAccountOnMatchedPlatform =
+    statementMatchedPlatformId != null
+      ? (await countUserAssetsOnBrokerPlatform({
+          accountId,
+          brokerPlatformId: statementMatchedPlatformId,
+          abortSignal,
+        })) > 0
+      : false;
+
   if (rows.length === 0) {
-    return [];
+    return { candidates: [], hasPortfolioAccountOnMatchedPlatform };
   }
 
   const flat = await db
     .select({
       userAssetId: userAssets.id,
       assetName: userAssets.name,
+      platformId: userAssets.platformId,
       userAssetSecurityId: userAssetSecurities.id,
       symbol: securities.symbol,
       isin: securities.isin,
@@ -426,6 +472,8 @@ export async function buildOcrAssetCandidateResults(params: {
       buildOcrAssetCandidateForAsset({
         userAssetId: asset.userAssetId,
         assetName: asset.assetName,
+        userAssetPlatformId: asset.platformId,
+        statementMatchedPlatformId,
         ocrRows: rows,
         holdings: asset.holdings,
       })
@@ -441,7 +489,7 @@ export async function buildOcrAssetCandidateResults(params: {
       .map((c) => c.userAssetId),
   });
 
-  return candidates;
+  return { candidates, hasPortfolioAccountOnMatchedPlatform };
 }
 
 export function assertBrandVerificationPassed(
