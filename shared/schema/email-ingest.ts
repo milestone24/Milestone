@@ -37,6 +37,8 @@ export const emailIngestAllowedSendersSchema = z
 export const emailIngestInboxCreateRequestSchema = z.object({
   platformKey: z.string().trim().min(1).max(128).nullable().optional(),
   allowedSenders: emailIngestAllowedSendersSchema.optional(),
+  /** Portfolio account (`user_assets.id`) for OCR nominee; omit or null for none. */
+  nominatedUserAssetId: z.string().uuid().nullable().optional(),
 });
 
 export type EmailIngestInboxCreateRequest = z.infer<
@@ -57,6 +59,7 @@ export const emailIngestInboxResponseSchema = z.object({
   id: z.string().uuid(),
   shortCode: z.string(),
   platformKey: z.string().nullable(),
+  nominatedUserAssetId: z.string().uuid().nullable(),
   allowedSenders: z.array(z.string()),
   status: emailIngestInboxStatusSchema,
   revokedAt: z.coerce.date().nullable(),

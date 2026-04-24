@@ -408,7 +408,10 @@ export async function processInboundS3MailObject(params: {
 
     const result = await runWithContext(
       { userAccountId: inbox.userAccountId },
-      async () => startDocumentOcr(file, platformKey, []),
+      async () =>
+        startDocumentOcr(file, platformKey, [], {
+          nominatedUserAssetId: inbox.nominatedUserAssetId ?? undefined,
+        }),
     );
 
     await updateEvent(eventId, {
