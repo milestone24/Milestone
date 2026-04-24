@@ -12,7 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations, sql, InferSelectModel } from "drizzle-orm";
 import { userAccounts } from "./user-account";
-import { documents } from "./portfolio-assets";
+import { documents, userAssets } from "./portfolio-assets";
 import { processes } from "./processes";
 import { InferInsertModelBasic, timestampColumns } from "./utils";
 
@@ -54,6 +54,10 @@ export const emailIngestInboxes = pgTable(
       .references(() => userAccounts.id, { onDelete: "cascade" }),
     shortCode: text("short_code").notNull(),
     platformKey: text("platform_key"),
+    nominatedUserAssetId: uuid("nominated_user_asset_id").references(
+      () => userAssets.id,
+      { onDelete: "set null" },
+    ),
     allowedSenders: jsonb("allowed_senders")
       .$type<EmailIngestAllowedSenders>()
       .notNull()
@@ -128,6 +132,10 @@ export const emailIngestInboxesRelations = relations(
     userAccount: one(userAccounts, {
       fields: [emailIngestInboxes.userAccountId],
       references: [userAccounts.id],
+    }),
+    nominatedUserAsset: one(userAssets, {
+      fields: [emailIngestInboxes.nominatedUserAssetId],
+      references: [userAssets.id],
     }),
     ingestEvents: many(emailIngestEvents),
   }),
