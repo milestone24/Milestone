@@ -202,18 +202,12 @@
   .main-content {
     position: fixed;
     top: 65px; /* Height of the header - adjust as needed */
-    bottom: 56px; /* Height of bottom nav */
+    /* BottomNav is fixed with bottom-4 (~1rem) + pill (~4.5rem) + labels; extra for safe clearance */
+    bottom: calc(6.75rem + env(safe-area-inset-bottom, 0px));
     left: 0;
     right: 0;
     overflow-y: scroll;
-    padding-bottom: 16px;
-  }
-  
-  /* Adjust for desktop/non-mobile where bottom nav isn't present */
-  @media (min-width: 768px) {
-    .main-content {
-      bottom: 0;
-    }
+    padding-bottom: 1rem;
   }
   
   /* Notification badge animations */
