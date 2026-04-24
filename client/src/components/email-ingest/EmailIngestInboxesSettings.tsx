@@ -709,9 +709,12 @@ export function EmailIngestInboxesSettings() {
                 name="platformKey"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Platform key (optional)</FormLabel>
+                    <FormLabel>Broker platform (optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. trading212" {...field} />
+                      <Input
+                        placeholder="Broker platform UUID (same as account-wide OCR upload)"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
