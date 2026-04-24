@@ -64,7 +64,7 @@ export function FireNowStatus({
         : "text-negative";
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-2 gap-4">
       <Card className="rounded-3xl border-border/40 bg-card/95 shadow-sm">
         <CardContent className="px-6 py-5">
           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
