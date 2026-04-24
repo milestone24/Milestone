@@ -32,6 +32,9 @@ function parseIncludeRevoked(query: unknown): boolean {
 function handleServiceError(res: Response, err: unknown) {
   const status = (err as { status?: number }).status;
   const message = err instanceof Error ? err.message : "Unexpected error";
+  if (status === 400) {
+    return res.status(400).json({ error: message });
+  }
   if (status === 404) {
     return res.status(404).json({ error: message });
   }

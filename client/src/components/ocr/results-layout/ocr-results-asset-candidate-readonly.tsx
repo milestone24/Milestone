@@ -15,18 +15,35 @@ export function OcrResultsAssetCandidateReadonly({
   candidate,
   emphasized = false,
 }: OcrResultsAssetCandidateReadonlyProps) {
-  const { assetName, matchedCount, totalCount, securities } = candidate;
+  const {
+    assetName,
+    matchedCount,
+    totalCount,
+    securities,
+    alignsWithMatchedStatementPlatform = false,
+  } = candidate;
   const isFullMatch = matchedCount === totalCount;
 
   return (
     <div
       className={cn(
         "w-full rounded-lg border p-4 space-y-3 text-left",
-        emphasized ? "border-primary bg-primary/5" : "border-border bg-card"
+        emphasized
+          ? "border-primary bg-primary/5"
+          : alignsWithMatchedStatementPlatform
+            ? "border-sky-500/50 bg-sky-500/5"
+            : "border-border bg-card"
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-medium text-sm truncate">{assetName}</span>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 space-y-1">
+          <div className="font-medium text-sm truncate">{assetName}</div>
+          {alignsWithMatchedStatementPlatform ? (
+            <p className="text-xs text-sky-700 dark:text-sky-400 font-medium">
+              Same broker platform as statement
+            </p>
+          ) : null}
+        </div>
         <span
           className={cn(
             "text-xs px-2 py-0.5 rounded shrink-0",

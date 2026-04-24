@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
-import { Check, X } from "lucide-react";
+import { AlertCircle, Check, Info, X } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
 import { OcrAssetCandidateCard } from "./OcrAssetCandidateCard";
 import { OcrBalanceReview } from "./OcrBalanceReview";
 import {
@@ -120,7 +122,21 @@ export function OcrResultReview({
   onDismissed,
   onBalancesSaved,
 }: OcrResultReviewProps) {
-  const { assetCandidates } = pipeline;
+  const { data: platforms = [] } = useBrokerPlatforms();
+  const platformName = (id: string | null | undefined) =>
+    id ? platforms.find((p) => p.id === id)?.name ?? id : "—";
+
+  const { assetCandidates, brandDbMatch, hasPortfolioAccountOnMatchedPlatform } = pipeline;
+  const matchedPlatformId = brandDbMatch.matchedBrokerPlatformId;
+  const hasPortFlag = hasPortfolioAccountOnMatchedPlatform;
+  const showNoPortfolioWarning =
+    Boolean(matchedPlatformId) && hasPortFlag === false;
+  const showSelectionMatchesStatement =
+    brandDbMatch.matchesConfiguredPlatform === true &&
+    brandDbMatch.configuredBrokerPlatformId != null;
+  const showSelectionMismatch =
+    brandDbMatch.matchesConfiguredPlatform === false &&
+    brandDbMatch.configuredBrokerPlatformId != null;
 
   const primaryAssetId = useMemo(
     () => primaryAssetIdForCandidateScope(pipeline, assets),
@@ -261,6 +277,57 @@ export function OcrResultReview({
 
   return (
     <div className="space-y-4">
+      {showSelectionMatchesStatement ? (
+        <Alert className="border-emerald-500/40 bg-emerald-500/5">
+          <Info className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
+          <AlertTitle>Platform selection matches statement</AlertTitle>
+          <AlertDescription>
+            The statement was matched to{" "}
+            <span className="font-medium">{platformName(matchedPlatformId)}</span>, the same
+            broker platform you chose for this import.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {showSelectionMismatch ? (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Platform selection differs from statement</AlertTitle>
+          <AlertDescription>
+            You chose{" "}
+            <span className="font-medium">
+              {platformName(brandDbMatch.configuredBrokerPlatformId)}
+            </span>{" "}
+            for this import, but the statement was matched to{" "}
+            <span className="font-medium">{platformName(matchedPlatformId)}</span>. Pick the
+            portfolio account that best fits this document.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {showNoPortfolioWarning ? (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>No portfolio account on this broker</AlertTitle>
+          <AlertDescription>
+            The statement points to{" "}
+            <span className="font-medium">{platformName(matchedPlatformId)}</span>, but you have
+            no portfolio account in Milestone linked to that broker platform yet.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {matchedPlatformId && assetCandidates.some((c) => c.alignsWithMatchedStatementPlatform) ? (
+        <Alert className="border-sky-500/40 bg-sky-500/5">
+          <Info className="h-4 w-4 text-sky-600" />
+          <AlertTitle>Accounts on the same broker as the statement</AlertTitle>
+          <AlertDescription>
+            Some accounts below are on the same broker platform as the matched statement. Holdings
+            match scores are shown separately.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <div className="space-y-2">
         <OcrResultsSubjectHeading>
           {!showAllAssetCandidates && visibleAssetCandidates.length === 1

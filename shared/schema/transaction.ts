@@ -370,6 +370,13 @@ export const ocrAssetCandidateResultSchema = z
   .object({
     userAssetId: z.string().uuid(),
     assetName: z.string(),
+    /** `user_assets.platform_id` for this account; null if unset. */
+    userAssetPlatformId: z.string().uuid().nullable().default(null),
+    /**
+     * True when brand verification found a platform and this account is assigned to
+     * the same `broker_platforms` row as the matched statement.
+     */
+    alignsWithMatchedStatementPlatform: z.boolean().default(false),
     matchedCount: z.number().int().nonnegative(),
     totalCount: z.number().int().nonnegative(),
     securities: z.array(ocrAssetCandidateSecuritySchema),

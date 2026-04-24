@@ -1,4 +1,8 @@
 import { Link } from "wouter";
+import { AlertCircle, Info } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAssets } from "@/hooks/use-assets";
+import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
 import type { DocumentOcrPipelineResult, ExtractedAmount } from "@shared/schema/document";
 import { OcrResultsSection } from "./ocr-results-section";
 import { OcrResultsMetaRow } from "./ocr-results-meta-row";
@@ -20,8 +24,28 @@ export function OcrPipelineReadonlyPanels({
   extractedValues,
   showRawJson = true,
 }: OcrPipelineReadonlyPanelsProps) {
-  const { brandIdentification, brandDbMatch, securityHoldings, assetCandidates, nominatedUserAssetId } =
-    pipeline;
+  const { data: platforms = [] } = useBrokerPlatforms();
+  const { data: portfolioAssets = [] } = useAssets();
+  const platformName = (id: string | null | undefined) =>
+    id ? platforms.find((p) => p.id === id)?.name ?? id : "—";
+
+  const {
+    brandIdentification,
+    brandDbMatch,
+    securityHoldings,
+    assetCandidates,
+    nominatedUserAssetId,
+    hasPortfolioAccountOnMatchedPlatform,
+  } = pipeline;
+
+  const nomineeName = nominatedUserAssetId
+    ? portfolioAssets.find((a) => a.id === nominatedUserAssetId)?.name
+    : undefined;
+
+  const matchedPlatformId = brandDbMatch.matchedBrokerPlatformId;
+  const hasPortFlag = hasPortfolioAccountOnMatchedPlatform;
+  const showNoPortfolioOnBrokerWarning =
+    Boolean(matchedPlatformId) && hasPortFlag === false;
 
   const holdingsRows = securityHoldings.map((row, i) => ({
     key: `${i}-${row.symbol ?? row.name ?? "row"}`,
@@ -42,13 +66,23 @@ export function OcrPipelineReadonlyPanels({
           </OcrResultsMetaRow>
         ) : null}
         {nominatedUserAssetId ? (
-          <OcrResultsMetaRow label="Nominated asset">
-            <Link
-              href={`/asset/${nominatedUserAssetId}`}
-              className="text-primary underline-offset-2 hover:underline font-mono text-xs break-all"
-            >
-              {nominatedUserAssetId}
-            </Link>
+          <OcrResultsMetaRow label="Preferred portfolio account (import)">
+            <div className="flex flex-col gap-0.5 items-end text-right min-w-0">
+              {nomineeName ? (
+                <Link
+                  href={`/asset/${nominatedUserAssetId}`}
+                  className="text-primary font-medium text-sm underline-offset-2 hover:underline truncate max-w-full"
+                >
+                  {nomineeName}
+                </Link>
+              ) : null}
+              <Link
+                href={`/asset/${nominatedUserAssetId}`}
+                className="text-muted-foreground underline-offset-2 hover:underline font-mono text-xs break-all"
+              >
+                {nominatedUserAssetId}
+              </Link>
+            </div>
           </OcrResultsMetaRow>
         ) : null}
       </OcrResultsSection>
@@ -70,21 +104,55 @@ export function OcrPipelineReadonlyPanels({
       </OcrResultsSection>
 
       <OcrResultsSection title="Database match">
+        {brandDbMatch.configuredBrokerPlatformId ? (
+          <OcrResultsMetaRow label="Platform you selected for this import">
+            <span className="text-sm text-right">
+              {platformName(brandDbMatch.configuredBrokerPlatformId)}
+            </span>
+          </OcrResultsMetaRow>
+        ) : null}
+        {brandDbMatch.matchesConfiguredPlatform !== undefined ? (
+          <OcrResultsMetaRow label="Statement platform matches your selection">
+            <span>{brandDbMatch.matchesConfiguredPlatform ? "Yes" : "No"}</span>
+          </OcrResultsMetaRow>
+        ) : null}
         <OcrResultsMetaRow label="OK">
           <span>{brandDbMatch.ok ? "Yes" : "No"}</span>
         </OcrResultsMetaRow>
         <OcrResultsMetaRow label="Match kind">
           <span className="font-mono text-xs">{brandDbMatch.matchKind}</span>
         </OcrResultsMetaRow>
-        {brandDbMatch.matchedBrokerPlatformId ? (
+        {matchedPlatformId ? (
+          <OcrResultsMetaRow label="Statement matched to broker">
+            <span className="text-sm text-right">{platformName(matchedPlatformId)}</span>
+          </OcrResultsMetaRow>
+        ) : null}
+        {matchedPlatformId ? (
           <OcrResultsMetaRow label="Matched platform id">
-            <span className="font-mono text-xs break-all">{brandDbMatch.matchedBrokerPlatformId}</span>
+            <span className="font-mono text-xs break-all">{matchedPlatformId}</span>
+          </OcrResultsMetaRow>
+        ) : null}
+        {matchedPlatformId && typeof hasPortFlag === "boolean" ? (
+          <OcrResultsMetaRow label="Portfolio account on this broker (in Milestone)">
+            <span>{hasPortFlag ? "Yes" : "No"}</span>
           </OcrResultsMetaRow>
         ) : null}
         {brandDbMatch.rejectReason ? (
           <OcrResultsMetaRow label="Reject reason">
             <span className="text-destructive text-xs">{brandDbMatch.rejectReason}</span>
           </OcrResultsMetaRow>
+        ) : null}
+        {showNoPortfolioOnBrokerWarning ? (
+          <Alert variant="destructive" className="mt-2">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>No portfolio account on this broker</AlertTitle>
+            <AlertDescription>
+              The statement was matched to{" "}
+              <span className="font-medium">{platformName(matchedPlatformId)}</span>, but you do
+              not have a portfolio account linked to that broker. Add an account with this broker
+              platform to reconcile against it.
+            </AlertDescription>
+          </Alert>
         ) : null}
       </OcrResultsSection>
 
@@ -112,6 +180,17 @@ export function OcrPipelineReadonlyPanels({
             ))}
           </div>
         )}
+        {matchedPlatformId && assetCandidates.some((c) => c.alignsWithMatchedStatementPlatform) ? (
+          <Alert className="border-sky-500/40 bg-sky-500/5">
+            <Info className="h-4 w-4 text-sky-600" />
+            <AlertTitle className="text-sky-900 dark:text-sky-100">
+              Platform alignment
+            </AlertTitle>
+            <AlertDescription className="text-sky-900/90 dark:text-sky-100/90">
+              Highlighted accounts use the same broker platform as the matched statement.
+            </AlertDescription>
+          </Alert>
+        ) : null}
       </OcrResultsSection>
 
       <OcrResultsSection title="Extracted balances">

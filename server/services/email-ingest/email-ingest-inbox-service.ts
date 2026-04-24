@@ -4,6 +4,7 @@ import { getUserAccountId } from "@server/auth";
 import { db } from "@server/db";
 import {
   emailIngestInboxes,
+  userAssets,
   type EmailIngestAllowedSenders,
   type EmailIngestInboxSelect,
 } from "@server/db/schema";
@@ -70,6 +71,7 @@ function mapRow(row: EmailIngestInboxSelect): EmailIngestInboxResponse {
     id: row.id,
     shortCode: row.shortCode,
     platformKey: row.platformKey ?? null,
+    nominatedUserAssetId: row.nominatedUserAssetId ?? null,
     allowedSenders: toAllowedSenders(row.allowedSenders),
     status: row.status,
     revokedAt: row.revokedAt ?? null,
@@ -84,9 +86,35 @@ function generateShortCode(): string {
   return randomBytes(SHORT_CODE_BYTE_LENGTH).toString("hex");
 }
 
+async function assertNominatedUserAssetBelongsToAccount(params: {
+  userAccountId: string;
+  nominatedUserAssetId: string | null | undefined;
+}): Promise<void> {
+  const id = params.nominatedUserAssetId;
+  if (id === undefined || id === null) {
+    return;
+  }
+  const row = await db.query.userAssets.findFirst({
+    where: and(
+      eq(userAssets.id, id),
+      eq(userAssets.userAccountId, params.userAccountId),
+    ),
+    columns: { id: true },
+  });
+  if (!row) {
+    throw Object.assign(
+      new Error(
+        "Nominated portfolio account not found or does not belong to this account",
+      ),
+      { status: 400 },
+    );
+  }
+}
+
 async function insertInboxWithUniqueShortCode(values: {
   shortCode: string;
   platformKey: string | null;
+  nominatedUserAssetId: string | null;
   allowedSenders: EmailIngestAllowedSenders;
 }): Promise<EmailIngestInboxSelect> {
   const userAccountId = getUserAccountId();
@@ -101,6 +129,7 @@ async function insertInboxWithUniqueShortCode(values: {
           userAccountId,
           shortCode,
           platformKey: values.platformKey,
+          nominatedUserAssetId: values.nominatedUserAssetId,
           allowedSenders: values.allowedSenders,
           status: "active",
         })
@@ -164,10 +193,22 @@ export async function createEmailIngestInbox(
     body.platformKey === undefined || body.platformKey === null
       ? null
       : body.platformKey;
+  const nominatedUserAssetId =
+    body.nominatedUserAssetId === undefined ||
+    body.nominatedUserAssetId === null
+      ? null
+      : body.nominatedUserAssetId;
+
+  const userAccountId = getUserAccountId();
+  await assertNominatedUserAssetBelongsToAccount({
+    userAccountId,
+    nominatedUserAssetId,
+  });
 
   const row = await insertInboxWithUniqueShortCode({
     shortCode: generateShortCode(),
     platformKey,
+    nominatedUserAssetId,
     allowedSenders,
   });
   return mapRow(row);
@@ -262,6 +303,7 @@ export async function regenerateEmailIngestInbox(
 
     const allowedSenders = toAllowedSenders(existing.allowedSenders);
     const platformKey = existing.platformKey ?? null;
+    const nominatedUserAssetId = existing.nominatedUserAssetId ?? null;
 
     let newRow: EmailIngestInboxSelect | undefined;
     let lastError: unknown;
@@ -274,6 +316,7 @@ export async function regenerateEmailIngestInbox(
             userAccountId,
             shortCode,
             platformKey,
+            nominatedUserAssetId,
             allowedSenders,
             status: "active",
           })

@@ -14,3 +14,4 @@ alwaysApply: true
 - Always consider git commit best practices when making changes. Commits should be small and to the point with no uneccessary changes
 - Always avoid complicated loops and within a loop delegate to a function to handle one item
 - When the agent feels like it has completed a task it should always run `npm run check` to ensure types are still passing.
+- NEVER write, or push migration files for DB schema changes, this should always be done using drizzle-kit by the user.

@@ -710,3 +710,15 @@ export const portfolioValueSchema = z.object({
 });
 
 portfolioValueSchema._output satisfies PortfolioValue;
+
+/** `GET /api/assets/platforms-in-use` — distinct broker platforms referenced by the user's assets. */
+export const brokerPlatformInUseItemSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+});
+
+export const brokerPlatformsInUseResponseSchema = z.array(
+  brokerPlatformInUseItemSchema
+);
+
+export type BrokerPlatformInUseItem = z.infer<typeof brokerPlatformInUseItemSchema>;

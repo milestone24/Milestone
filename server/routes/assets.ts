@@ -17,6 +17,7 @@ import {
   userAssetSecurityOrphanCreateSchema,
   userAssetSecurityOrphanLinkInsertSchema,
   assetUpdateSchema,
+  brokerPlatformsInUseResponseSchema,
 } from "@shared/schema";
 import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
 import { db } from "@server/db";
@@ -89,6 +90,23 @@ export async function registerRoutes(
       });
     }
   });
+
+  router.get(
+    regExpPath("/platforms-in-use"),
+    requireUser,
+    async (req: Request, res) => {
+      const rows = await requireTenantWithUserAccountId(
+        req.tenant,
+        async (tenant) =>
+          assetService.getBrokerPlatformsInUseForUserAccount(tenant.userAccountId)
+      );
+      const parsed = brokerPlatformsInUseResponseSchema.safeParse(rows);
+      if (!parsed.success) {
+        return res.status(500).json({ error: "Invalid platforms in use response" });
+      }
+      res.json(parsed.data);
+    }
+  );
 
   router.post(
     regExpPath(

@@ -32,17 +32,27 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useAssets } from "@/hooks/use-assets";
+import { useAssetsPlatformsInUse } from "@/hooks/use-assets-platforms-in-use";
+import { useBrokerPlatforms } from "@/hooks/use-broker-platforms";
 import {
   useCreateEmailIngestInbox,
   useEmailIngestInboxes,
@@ -66,32 +76,53 @@ function linesToAllowedSenders(text: string): string[] {
     .filter((line) => line.length > 0);
 }
 
-const createInboxFormSchema = z.object({
-  platformKey: z.string().max(128, "Platform key must be at most 128 characters"),
-  allowedSendersText: z.string(),
-}).superRefine((data, ctx) => {
-  const entries = linesToAllowedSenders(data.allowedSendersText);
-  if (entries.length > 200) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "At most 200 allowed senders",
-      path: ["allowedSendersText"],
-    });
-    return;
-  }
-  for (const entry of entries) {
-    const parsed = emailIngestAllowedSenderSchema.safeParse(entry);
-    if (!parsed.success) {
-      const msg = parsed.error.issues[0]?.message ?? "Invalid allowed sender";
+const createInboxFormSchema = z
+  .object({
+    platformKey: z
+      .string()
+      .refine(
+        (s) => s.length === 0 || z.string().uuid().safeParse(s).success,
+        { message: "Invalid platform" }
+      ),
+    allowedSendersText: z.string(),
+    /** Empty string = no nominee; otherwise must be a valid UUID. */
+    nominatedUserAssetId: z.string(),
+  })
+  .superRefine((data, ctx) => {
+    const nominee = data.nominatedUserAssetId.trim();
+    if (nominee.length > 0) {
+      const parsedUuid = z.string().uuid().safeParse(nominee);
+      if (!parsedUuid.success) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Invalid portfolio account",
+          path: ["nominatedUserAssetId"],
+        });
+        return;
+      }
+    }
+    const entries = linesToAllowedSenders(data.allowedSendersText);
+    if (entries.length > 200) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: msg,
+        message: "At most 200 allowed senders",
         path: ["allowedSendersText"],
       });
       return;
     }
-  }
-});
+    for (const entry of entries) {
+      const parsed = emailIngestAllowedSenderSchema.safeParse(entry);
+      if (!parsed.success) {
+        const msg = parsed.error.issues[0]?.message ?? "Invalid allowed sender";
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: msg,
+          path: ["allowedSendersText"],
+        });
+        return;
+      }
+    }
+  });
 
 type CreateInboxFormValues = z.infer<typeof createInboxFormSchema>;
 
@@ -350,6 +381,17 @@ function EmailIngestDangerDialog({
 
 export function EmailIngestInboxesSettings() {
   const [includeRevoked, setIncludeRevoked] = useState(false);
+  const { data: portfolioAssets = [] } = useAssets();
+  const { data: platformsInUse = [], isLoading: platformsInUseLoading } =
+    useAssetsPlatformsInUse();
+  const { data: brokerPlatforms = [] } = useBrokerPlatforms();
+  const platformNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of platformsInUse) {
+      m.set(p.id, p.name);
+    }
+    return m;
+  }, [platformsInUse]);
   const { data: inboxes, isLoading, isError, refetch, isFetching } = useEmailIngestInboxes({
     includeRevoked,
   });
@@ -380,8 +422,11 @@ export function EmailIngestInboxesSettings() {
     defaultValues: {
       platformKey: "",
       allowedSendersText: "",
+      nominatedUserAssetId: "",
     },
   });
+  const createDialogNominee = createForm.watch("nominatedUserAssetId");
+  const hasCreateDialogNominee = createDialogNominee.trim().length > 0;
 
   const sortedInboxes = useMemo(() => {
     if (!inboxes) return [];
@@ -396,16 +441,22 @@ export function EmailIngestInboxesSettings() {
     createForm.clearErrors("root");
     const trimmedKey = values.platformKey.trim();
     const entries = linesToAllowedSenders(values.allowedSendersText);
+    const nominee = values.nominatedUserAssetId.trim();
     const body = emailIngestInboxCreateRequestSchema.parse({
       platformKey: trimmedKey.length > 0 ? trimmedKey : undefined,
       allowedSenders: entries.length > 0 ? entries : undefined,
+      nominatedUserAssetId: nominee.length > 0 ? nominee : undefined,
     });
     try {
       const created = await createInbox.mutateAsync(body);
       setSuccessKind("created");
       setSuccessInbox(created);
       setHighlightInboxId(created.id);
-      createForm.reset({ platformKey: "", allowedSendersText: "" });
+      createForm.reset({
+        platformKey: "",
+        allowedSendersText: "",
+        nominatedUserAssetId: "",
+      });
       setCreateDialogOpen(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Request failed";
@@ -492,7 +543,11 @@ export function EmailIngestInboxesSettings() {
               type="button"
               size="sm"
               onClick={() => {
-                createForm.reset({ platformKey: "", allowedSendersText: "" });
+                createForm.reset({
+                  platformKey: "",
+                  allowedSendersText: "",
+                  nominatedUserAssetId: "",
+                });
                 createForm.clearErrors();
                 setCreateDialogOpen(true);
               }}
@@ -570,10 +625,26 @@ export function EmailIngestInboxesSettings() {
                     {inbox.platformKey ? (
                       <p className="text-sm">
                         Platform:{" "}
-                        <span className="font-medium">{inbox.platformKey}</span>
+                        <span className="font-medium">
+                          {platformNameById.get(inbox.platformKey) ??
+                            brokerPlatforms.find((p) => p.id === inbox.platformKey)
+                              ?.name ??
+                            inbox.platformKey}
+                        </span>
                       </p>
                     ) : (
-                      <p className="text-sm text-muted-foreground">No platform key</p>
+                      <p className="text-sm text-muted-foreground">No platform preference</p>
+                    )}
+                    {inbox.nominatedUserAssetId ? (
+                      <p className="text-sm">
+                        OCR nominee:{" "}
+                        <span className="font-medium">
+                          {portfolioAssets.find((a) => a.id === inbox.nominatedUserAssetId)
+                            ?.name ?? inbox.nominatedUserAssetId}
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No OCR nominee</p>
                     )}
                     {inbox.replacedByInboxId ? (
                       <p className="text-xs text-muted-foreground">
@@ -638,7 +709,11 @@ export function EmailIngestInboxesSettings() {
         onOpenChange={(open) => {
           setCreateDialogOpen(open);
           if (!open) {
-            createForm.reset({ platformKey: "", allowedSendersText: "" });
+            createForm.reset({
+              platformKey: "",
+              allowedSendersText: "",
+              nominatedUserAssetId: "",
+            });
             createForm.clearErrors();
           }
         }}
@@ -647,24 +722,132 @@ export function EmailIngestInboxesSettings() {
           <DialogHeader>
             <DialogTitle>Add Inbox</DialogTitle>
             <DialogDescription>
-              Optional platform label and initial allow list. You can change the allow list after
-              creation.
+              Start with the optional portfolio account for OCR: when selected, the platform
+              preference is inferred. Otherwise choose a platform you already use, or leave no
+              preference. You can set an initial allow list and change it after creation.
             </DialogDescription>
           </DialogHeader>
           <Form {...createForm}>
             <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
               <FormField
                 control={createForm.control}
-                name="platformKey"
+                name="nominatedUserAssetId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Platform key (optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. trading212" {...field} />
-                    </FormControl>
+                    <FormLabel>Portfolio account for OCR (optional)</FormLabel>
+                    <Select
+                      value={
+                        field.value && field.value.trim().length > 0
+                          ? field.value
+                          : "none"
+                      }
+                      onValueChange={(v) => {
+                        const id = v === "none" ? "" : v;
+                        field.onChange(id);
+                        if (id) {
+                          const a = portfolioAssets.find((x) => x.id === id);
+                          createForm.setValue("platformKey", a?.platformId ?? "", {
+                            shouldValidate: true,
+                            shouldDirty: true,
+                          });
+                        } else {
+                          createForm.setValue("platformKey", "", {
+                            shouldValidate: true,
+                            shouldDirty: true,
+                          });
+                        }
+                      }}
+                      disabled={portfolioAssets.length === 0}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              portfolioAssets.length === 0
+                                ? "Add a portfolio account first"
+                                : "None"
+                            }
+                          />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {portfolioAssets.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
+              />
+              <FormField
+                control={createForm.control}
+                name="platformKey"
+                render={({ field }) => {
+                  const platformListDisabled =
+                    platformsInUseLoading ||
+                    platformsInUse.length === 0 ||
+                    hasCreateDialogNominee;
+                  const selectValue =
+                    field.value && field.value.length > 0 ? field.value : "none";
+                  const id = (field.value ?? "").trim();
+                  const platformSelectOptions =
+                    !id || platformsInUse.some((p) => p.id === id)
+                      ? platformsInUse
+                      : [
+                          ...platformsInUse,
+                          {
+                            id,
+                            name:
+                              brokerPlatforms.find((b) => b.id === id)?.name ?? id,
+                          },
+                        ];
+                  return (
+                    <FormItem>
+                      <FormLabel>Platform preference (optional)</FormLabel>
+                      <Select
+                        value={selectValue}
+                        onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
+                        disabled={platformListDisabled}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={
+                                platformsInUseLoading
+                                  ? "Loading platforms…"
+                                  : "No platform preference"
+                              }
+                            />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">No platform preference</SelectItem>
+                          {platformSelectOptions.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {hasCreateDialogNominee ? (
+                        <FormDescription>
+                          Set from the selected portfolio account (same broker platform as the
+                          account in your portfolio).
+                        </FormDescription>
+                      ) : platformsInUse.length === 0 && !platformsInUseLoading ? (
+                        <FormDescription>
+                          You have no broker platform on your portfolio accounts yet—platform
+                          preference is unavailable.
+                        </FormDescription>
+                      ) : null}
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
               <FormField
                 control={createForm.control}

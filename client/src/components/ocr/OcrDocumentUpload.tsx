@@ -18,9 +18,9 @@ export type OcrCompleteResult = Extract<OcrJobStatus, { status: "complete" }>;
 interface OcrDocumentUploadProps {
   /** When set, uses the asset-scoped extract endpoint. */
   nominatedAssetId?: string;
-  /** Pre-select a platform in the selector (e.g. from the asset's platformId). */
+  /** Pre-select a platform preference in the selector (e.g. from the asset's `platformId`). */
   initialPlatformKey?: string;
-  /** Whether to show the platform selector. Defaults to true. Set to false when the platform is implied by context (e.g. asset page). */
+  /** Whether to show the platform preference selector. Defaults to true. Set to false when the preference is implied by context (e.g. asset page). */
   showPlatformSelect?: boolean;
   /**
    * When true (default), opens a job-scoped WebSocket and calls `onOcrComplete` when OCR finishes
@@ -101,13 +101,13 @@ export function OcrDocumentUpload({
       >
         {showPlatformSelect && (
           <div className="space-y-2">
-            <label className="text-sm font-medium">Platform</label>
+            <label className="text-sm font-medium">Platform preference (optional)</label>
             <Select value={platformKey} onValueChange={setPlatformKey} disabled={isProcessing}>
               <SelectTrigger>
-                <SelectValue placeholder="Select platform or leave unknown" />
+                <SelectValue placeholder="No platform preference or choose a broker platform" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="unknown">Unknown — identify automatically</SelectItem>
+                <SelectItem value="unknown">No platform preference (identify automatically)</SelectItem>
                 {platforms?.map((p: BrokerPlatform) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}

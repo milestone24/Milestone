@@ -1,5 +1,6 @@
 import {
   assetValues,
+  brokerPlatforms,
   userAssets,
   recurringContributions,
   securities,
@@ -67,6 +68,7 @@ import {
   UserAssetWithValueChange,
   PortfolioValue,
   UserAssetUpdate,
+  BrokerPlatformInUseItem,
 } from "@shared/schema";
 import {
   QueryParams,
@@ -501,6 +503,21 @@ export class DatabaseAssetService {
     );
 
     return resolveAssetsWithChange(assets, dateRange);
+  }
+
+  async getBrokerPlatformsInUseForUserAccount(
+    userAccountId: UserAccount["id"]
+  ): Promise<BrokerPlatformInUseItem[]> {
+    return this.db
+      .select({
+        id: brokerPlatforms.id,
+        name: brokerPlatforms.name,
+      })
+      .from(brokerPlatforms)
+      .innerJoin(userAssets, eq(userAssets.platformId, brokerPlatforms.id))
+      .where(eq(userAssets.userAccountId, userAccountId))
+      .groupBy(brokerPlatforms.id, brokerPlatforms.name)
+      .orderBy(asc(brokerPlatforms.name));
   }
 
   /**
