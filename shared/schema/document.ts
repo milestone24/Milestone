@@ -169,7 +169,15 @@ export const documentOcrPipelineResultSchema = z.object({
   securityHoldings: securityTransactionOcrExtractionListSchema,
   /** Asset-first resolution tree; always an array (empty when no portfolio rows match the account). */
   assetCandidates: ocrAssetCandidateResultListSchema.default([]),
-  /** Upload context: `user_assets.id` when OCR was started from an asset-scoped route; otherwise null. */
+  /**
+   * When brand verification found a platform, true if this account has at least one
+   * `user_assets` row with that `platform_id` (broader than 4c candidates, which need holdings).
+   */
+  hasPortfolioAccountOnMatchedPlatform: z.boolean().default(false),
+  /**
+   * Upload / ingest context: `user_assets.id` for asset-scoped extract, email ingest nominee, etc.
+   * Does not assert the statement belongs to that account; see `assetCandidates` for scoring.
+   */
   nominatedUserAssetId: z.string().uuid().nullable().default(null),
   llmPath: z.enum(["text", "vision"]),
   nativePdfCharCount: z.number().int().nonnegative().optional(),
