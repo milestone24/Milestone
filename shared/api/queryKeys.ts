@@ -15,6 +15,8 @@ export const portfolioGraphTransactions = [
 export const portfolioOverview = ["portfolio", "overview"];
 export const portfolioValue = ["portfolio", "value"];
 export const portfolioAssets = ["portfolio", "assets"];
+/** Distinct broker platform ids/names in use for the signed-in user (`GET /api/assets/platforms-in-use`). */
+export const assetsBrokerPlatformsInUse = ["assets", "platforms-in-use"] as const;
 export const assetGraphValues = ["asset", "history", "values", "graph"];
 export const assetGraphTransactions = [
   "asset",
