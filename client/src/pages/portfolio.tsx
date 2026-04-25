@@ -288,14 +288,46 @@ function Portfolio() {
                 />
               ) : null}
               {portfolioValue ? (
-                <span className="inline-flex items-baseline">
-                  <span className="text-sm text-muted-foreground">(</span>
-                  <PosNegNumber
-                    value={Number(portfolioValue.returnValue) / 100}
-                    displayInPercentage={true}
-                    className="text-sm"
-                  />
-                  <span className="text-sm text-muted-foreground">)</span>
+                <span className="inline-flex items-baseline gap-x-1.5 text-sm">
+                  <span className="text-muted-foreground">(</span>
+                  {isFetchingRangeReturns && !rangeReturns ? (
+                    <Skeleton className="h-4 w-20 inline-block align-baseline" />
+                  ) : (
+                    <>
+                      {/* We only show time-weighted return (TWR) for the selected range. Modified Dietz is still
+                          returned on `GET /api/assets/portfolio-value/returns` as `modifiedDietz` if you need it
+                          (e.g. A/B in UI or exports). To show both again, e.g. TWR · Dietz in brackets:
+                            <>
+                              <PosNegNumber
+                                value={Number(rangeReturns.timeWeightedReturn)}
+                                displayInPercentage
+                                className="text-sm"
+                              />
+                              <span className="text-muted-foreground">·</span>
+                              <PosNegNumber
+                                value={Number(rangeReturns.modifiedDietz)}
+                                displayInPercentage
+                                className="text-sm"
+                              />
+                            </>
+                      */}
+                      <span
+                        className="inline-flex items-baseline"
+                        title="Time-weighted return for the selected date range (linked EOD segments, external cash from asset transactions). See docs/portfolio-time-weighted-return.md."
+                      >
+                        {rangeReturns?.timeWeightedReturn == null ? (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        ) : (
+                          <PosNegNumber
+                            value={Number(rangeReturns.timeWeightedReturn)}
+                            displayInPercentage
+                            className="text-sm"
+                          />
+                        )}
+                      </span>
+                    </>
+                  )}
+                  <span className="text-muted-foreground">)</span>
                 </span>
               ) : null}
             </div>
@@ -315,25 +347,6 @@ function Portfolio() {
           </Button>
         </div>
       </div>
-
-      {isFetchingRangeReturns && !rangeReturns ? (
-        <Skeleton className="h-3 w-72 max-w-full mt-1" />
-      ) : rangeReturns ? (
-        <p
-          className="text-xs text-muted-foreground mt-1"
-          title="Returns over the date range using merged portfolio values and `asset_transaction` as external cash flows. Modified Dietz (GIPS-style). TWR links segment returns between EOD value points. See docs/portfolio-time-weighted-return.md."
-        >
-          <span className="text-foreground/80">Range: </span>
-          Modified Dietz{" "}
-          {rangeReturns.modifiedDietz == null
-            ? "—"
-            : `${(Number(rangeReturns.modifiedDietz) * 100).toFixed(2)}%`}{" "}
-          · TWR (linked){" "}
-          {rangeReturns.timeWeightedReturn == null
-            ? "—"
-            : `${(Number(rangeReturns.timeWeightedReturn) * 100).toFixed(2)}%`}
-        </p>
-      ) : null}
 
       {/* Date Range Control */}
       <div className="my-4">
