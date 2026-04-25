@@ -19,11 +19,34 @@ const lateralLatestValueSql = sql`LATERAL (
                   LIMIT 1
                 ) AS latest_value`;
 
+/**
+ * For `value_method = calculated`, total MV = latest priced securities from `asset_values` plus
+ * cumulative `asset_transactions.currency_value` on or before that snapshot. If there is no
+ * snapshot, cash is the sum of all `asset_transactions` (matches “no `latest`” in the lateral).
+ * Manual assets: `asset_values` total only.
+ */
+const calculatedAssetCurrentValueSql = sql<DecimalValueString>`cast(
+  CASE
+    WHEN ${userAssets.valueMethod} = 'calculated' THEN
+      COALESCE(latest_value.value, 0) + COALESCE((
+        SELECT sum(${assetTransactions.currencyValue})
+        FROM ${assetTransactions}
+        WHERE ${assetTransactions.assetId} = ${userAssets.id}
+          AND (
+            latest_value.value_date IS NULL
+            OR ${assetTransactions.valueDate} <= latest_value.value_date
+          )
+      ), 0)
+    ELSE
+      COALESCE(latest_value.value, 0)
+  END
+  AS decimal(18, 2))`;
+
 export const calculatedAssetsQueryBuilder = (db: Database) =>
   db
     .select({
       ...getTableColumns(userAssets),
-      currentValue: sql<DecimalValueString>`cast(COALESCE(latest_value.value, 0) as decimal(18, 2))`,
+      currentValue: calculatedAssetCurrentValueSql,
       lastValueDate: sql<Date | null>`latest_value.value_date`,
     })
     .from(userAssets)
@@ -34,7 +57,7 @@ export const calculatedAssetsWithContributionsQueryBuilder = (db: Database) =>
     .select({
       asset: {
         ...getTableColumns(userAssets),
-        currentValue: sql<DecimalValueString>`cast(COALESCE(latest_value.value, 0) as decimal(18, 2))`,
+        currentValue: calculatedAssetCurrentValueSql,
         lastValueDate: sql<Date | null>`latest_value.value_date`,
         platformName: brokerPlatforms.name,
       },

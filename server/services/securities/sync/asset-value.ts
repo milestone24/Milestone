@@ -217,6 +217,50 @@ const calculateAssetValue = async (
   };
 };
 
+const buildCashOnlyCalculatedValue = (
+  valueDate: Date,
+  cash: Decimal
+): AssetValueResult => {
+  const calculatedAt = new Date().toISOString();
+  return {
+    value: createDecimalValueString(cash.toString()),
+    entryMethod: "calculated",
+    valueDate,
+    metadata: {
+      calculatedAt,
+      securitiesProcessed: 0,
+      securitiesTotal: 0,
+      dataStatus: "complete",
+      sourcesUsed: [],
+      securities: [],
+    },
+  };
+};
+
+const addCashToCalculatedValueIfNeeded = async (
+  assetValueResult: AssetValueResult | null,
+  isCalculated: boolean,
+  valueDate: Date,
+  getCash: () => Promise<Decimal>
+): Promise<AssetValueResult | null> => {
+  if (!isCalculated) {
+    return assetValueResult;
+  }
+  const cash = await getCash();
+  if (assetValueResult?.metadata.dataStatus === "complete") {
+    return {
+      ...assetValueResult,
+      value: createDecimalValueString(
+        new Decimal(assetValueResult.value).add(cash).toString()
+      ),
+    };
+  }
+  if (!assetValueResult && cash.gt(0)) {
+    return buildCashOnlyCalculatedValue(valueDate, cash);
+  }
+  return assetValueResult;
+};
+
 // /**
 //  * Calculate and create asset value records for a date range
 //  * @param assetId - The broker provider asset ID
@@ -315,6 +359,8 @@ const __updateAssetValues = async (
   eventEmitter.emit("started", emitData);
 
   const assetSecurities = await assetPersistence.getAssetSecurities();
+  const { valueMethod } = await assetPersistence.getAssetById();
+  const isCalculated = valueMethod === "calculated";
 
   const earliestSecurityStartDate = assetSecurities.reduce((min, security) => {
     return security.startDate < min ? security.startDate : min;
@@ -367,7 +413,7 @@ const __updateAssetValues = async (
         };
       });
 
-    const assetValueResult = await calculateAssetValueForDateFromCache(
+    let assetValueResult = await calculateAssetValueForDateFromCache(
       assetSecuritiesWithShareHolding,
       currentDate
     );
@@ -377,6 +423,13 @@ const __updateAssetValues = async (
       eventEmitter.emit("exited", emitData);
       break;
     }
+
+    assetValueResult = await addCashToCalculatedValueIfNeeded(
+      assetValueResult,
+      isCalculated,
+      currentDate,
+      () => assetPersistence.getAssetCashBalanceAsOfDate(currentDate)
+    );
 
     if (assetValueResult) {
       if (assetValueResult.metadata.dataStatus === "complete") {
@@ -470,6 +523,8 @@ export const __updateAssetValuesChunked = async (
   eventEmitter.emit("started", emitData);
 
   const assetSecurities = await sessionPersistence.getAssetSecurities();
+  const { valueMethod } = await sessionPersistence.getAssetById();
+  const isCalculated = valueMethod === "calculated";
   const earliestSecurityStartDate = assetSecurities.reduce(
     (min, s) => (s.startDate < min ? s.startDate : min),
     new Date()
@@ -565,10 +620,16 @@ export const __updateAssetValuesChunked = async (
             return { ...s, shareHolding: h?.shareHolding ?? 0 };
           }
         );
-        const result = await calculateAssetValueForDateFromPreloadedHistory(
+        let result = await calculateAssetValueForDateFromPreloadedHistory(
           withHolding,
           day,
           historyBySecurityByDate
+        );
+        result = await addCashToCalculatedValueIfNeeded(
+          result,
+          isCalculated,
+          day,
+          () => sessionPersistence.getAssetCashBalanceAsOfDate(day)
         );
         if (result?.metadata.dataStatus === "complete") {
           chunkValues.push(result);

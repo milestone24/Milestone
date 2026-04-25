@@ -161,10 +161,51 @@ const recurringContributionsQueryBuilder = new ResourceQueryBuilder({
   maxLimit: 50,
 });
 
+/**
+ * Inclusive end of the UTC calendar day for `d` (e.g. cash booked on that day in UTC).
+ */
+export function endOfUtcDayForAssetValue(d: Date): Date {
+  return new Date(
+    Date.UTC(
+      d.getUTCFullYear(),
+      d.getUTCMonth(),
+      d.getUTCDate(),
+      23,
+      59,
+      59,
+      999
+    )
+  );
+}
+
 export class DatabaseAssetService {
   private assetValuesService: AssetValuesService;
   constructor(private db: Database) {
     this.assetValuesService = new AssetValuesService(db);
+  }
+
+  /**
+   * Sum of `asset_transactions.currency_value` for the asset, optionally through `onOrBeforeInclusive`.
+   * Pass `null` for no end bound (all rows). `fromDb` supports running inside a transaction.
+   */
+  async getAssetCashBalanceOnOrBefore(
+    assetId: string,
+    onOrBeforeInclusive: Date | null,
+    fromDb: Database = this.db
+  ): Promise<Decimal> {
+    const wh = onOrBeforeInclusive
+      ? and(
+          eq(assetTransactions.assetId, assetId),
+          lte(assetTransactions.valueDate, onOrBeforeInclusive)
+        )
+      : eq(assetTransactions.assetId, assetId);
+    const [row] = await fromDb
+      .select({
+        total: sql<string>`coalesce(sum(${assetTransactions.currencyValue}), 0)`,
+      })
+      .from(assetTransactions)
+      .where(wh);
+    return new Decimal(row?.total ?? "0");
   }
 
   async getUserAssets(
@@ -555,9 +596,22 @@ export class DatabaseAssetService {
         //   {}
         // );
 
+        let currentValue: DecimalValueString =
+          latestValue?.value ?? createDecimalValueString("0");
+        if (userAsset.valueMethod === "calculated") {
+          const cash = await this.getAssetCashBalanceOnOrBefore(
+            id,
+            latestValue?.valueDate ?? null,
+            tx
+          );
+          currentValue = createDecimalValueString(
+            new Decimal(latestValue?.value ?? "0").add(cash).toString()
+          );
+        }
+
         return {
           ...userAsset,
-          currentValue: latestValue?.value ?? createDecimalValueString("0"),
+          currentValue,
           lastValueDate: latestValue?.valueDate ?? null,
           platform: userAsset.platform ?? undefined,
           securities: [],
@@ -2429,7 +2483,8 @@ export type AssetValueStagingInsert = UserAssetValueOrphanInsert & {
 };
 
 export type AssetPersistence = {
-  getAssetById: () => Promise<{ id: string }>;
+  getAssetById: () => Promise<Pick<ResolvedUserAsset, "id" | "valueMethod">>;
+  getAssetCashBalanceAsOfDate: (asOf: Date) => Promise<Decimal>;
   getLastAssetValue: () => Promise<AssetValue | null>;
   getAssetSecurities: () => Promise<AssetSecurity[]>;
   getAssetSecurityShareHoldingsForDate: (
@@ -2459,8 +2514,18 @@ export const assetPersistenceFactory = (
   assetId: string
 ): AssetPersistence => {
   return {
-    getAssetById: async (): Promise<{ id: string }> => {
-      return service.getUserAsset(assetId);
+    getAssetById: async (): Promise<
+      Pick<ResolvedUserAsset, "id" | "valueMethod">
+    > => {
+      const a = await service.getUserAsset(assetId);
+      return { id: a.id, valueMethod: a.valueMethod };
+    },
+
+    getAssetCashBalanceAsOfDate: async (asOf: Date): Promise<Decimal> => {
+      return service.getAssetCashBalanceOnOrBefore(
+        assetId,
+        endOfUtcDayForAssetValue(asOf)
+      );
     },
 
     getLastAssetValue: async (): Promise<AssetValue | null> => {
