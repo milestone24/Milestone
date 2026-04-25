@@ -1,4 +1,5 @@
 import {
+  assetTransactions,
   assetValues,
   DecimalValueString,
   recurringContributions,
@@ -100,3 +101,37 @@ export const securityTransactionsAccumulatedCTEBuilder = (
           asc(userAssetSecurities.id)
         )
     );
+
+/**
+ * Windowed sums of `currency_value` per user asset (`assetId`), with `beforeRange` / `afterRange`
+ * for the same date-boundary pattern as security transactions in the combined portfolio history.
+ */
+export const assetTransactionsAccumulatedCte = (
+  db: Database,
+  startDate: Date | null | undefined,
+  endDate: Date | null | undefined
+) => {
+  return db.$with("assetTransactionsAccumulated").as(
+    db
+      .select({
+        ...getTableColumns(assetTransactions),
+        recordType: sql<
+          Extract<ValueAbstractType, "transaction">
+        >`'transaction'`.as("recordType"),
+        transactionType: sql<TransactionType>`'asset'`.as("transactionType"),
+        accumulativeAssetCurrencyValue: sql<DecimalValueString>`cast(sum(${assetTransactions.currencyValue}) over (partition by ${assetTransactions.assetId} order by ${assetTransactions.valueDate} rows unbounded preceding) as decimal(18, 2))`.as(
+          "accumulativeAssetCurrencyValue"
+        ),
+        accumulativeAssetCurrencyValueRow: sql<number>`ROW_NUMBER() OVER (PARTITION BY ${assetTransactions.assetId} ORDER BY ${assetTransactions.valueDate}, ${assetTransactions.id})`.as(
+          "accumulativeAssetCurrencyValueRow"
+        ),
+        beforeRange: sql<boolean>`${assetTransactions.valueDate} < ${startDate}`.as(
+          "inRange"
+        ),
+        afterRange: sql<boolean>`${assetTransactions.valueDate} > ${endDate}`.as(
+          "afterRange"
+        ),
+      })
+      .from(assetTransactions)
+  );
+};

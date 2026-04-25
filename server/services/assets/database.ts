@@ -87,7 +87,11 @@ import { AssetSecurity } from "../securities/types";
 import { mapDbSecurityToSelect } from "@server/utils/securities";
 import { getNextExecutionDate } from "@shared/utils/scheduling";
 import { randomUUID } from "node:crypto";
-import { calculatedAssetsQueryBuilder, securityTransactionsAccumulatedCTEBuilder } from "./query";
+import {
+  assetTransactionsAccumulatedCte,
+  calculatedAssetsQueryBuilder,
+  securityTransactionsAccumulatedCTEBuilder,
+} from "./query";
 import Decimal from "decimal.js";
 import { getUserAccountId } from "@server/auth";
 import { AssetValuesService } from "../process/asset-values";
@@ -1489,7 +1493,110 @@ export class DatabaseAssetService {
             asc(securityTransactions.valueDate)
           );
 
-    transactions.push(...allSecurityTransactionsData);
+    const assetTransactionsAccumulated = assetTransactionsAccumulatedCte(
+      this.db,
+      startDate,
+      endDate
+    );
+
+    const assetTransactionHistoryMainQuery = this.db
+      .with(assetTransactionsAccumulated)
+      .select()
+      .from(assetTransactionsAccumulated)
+      .where(
+        and(
+          eq(assetTransactionsAccumulated.assetId, assetId),
+          startDate != null && endDate != null
+            ? between(
+                assetTransactionsAccumulated.valueDate,
+                startDate,
+                endDate
+              )
+            : startDate != null
+            ? gte(assetTransactionsAccumulated.valueDate, startDate)
+            : endDate != null
+            ? lte(assetTransactionsAccumulated.valueDate, endDate)
+            : undefined
+        )
+      );
+
+    const assetTransactionHistoryBeforeQuery = this.db
+      .with(assetTransactionsAccumulated)
+      .select()
+      .from(assetTransactionsAccumulated)
+      .where(
+        startDate
+          ? and(
+              eq(assetTransactionsAccumulated.assetId, assetId),
+              lt(assetTransactionsAccumulated.valueDate, startDate)
+            )
+          : and(eq(assetTransactionsAccumulated.assetId, assetId))
+      )
+      .orderBy(
+        desc(assetTransactionsAccumulated.valueDate),
+        desc(assetTransactionsAccumulated.accumulativeAssetCurrencyValueRow)
+      )
+      .limit(1);
+
+    const assetTransactionHistoryAfterQuery = this.db
+      .with(assetTransactionsAccumulated)
+      .select()
+      .from(assetTransactionsAccumulated)
+      .where(
+        endDate
+          ? and(
+              eq(assetTransactionsAccumulated.assetId, assetId),
+              gt(assetTransactionsAccumulated.valueDate, endDate)
+            )
+          : and(eq(assetTransactionsAccumulated.assetId, assetId))
+      )
+      .orderBy(
+        asc(assetTransactionsAccumulated.valueDate),
+        asc(assetTransactionsAccumulated.accumulativeAssetCurrencyValueRow)
+      )
+      .limit(1);
+
+    const allAssetTransactionsData =
+      startDate && endDate
+        ? await unionAll(
+            assetTransactionHistoryMainQuery,
+            assetTransactionHistoryBeforeQuery,
+            assetTransactionHistoryAfterQuery
+          ).orderBy(asc(assetTransactions.valueDate))
+        : startDate
+        ? await unionAll(
+            assetTransactionHistoryMainQuery,
+            assetTransactionHistoryBeforeQuery
+          ).orderBy(asc(assetTransactions.valueDate))
+        : endDate
+        ? await unionAll(
+            assetTransactionHistoryMainQuery,
+            assetTransactionHistoryAfterQuery
+          ).orderBy(asc(assetTransactions.valueDate))
+        : await assetTransactionHistoryMainQuery.orderBy(
+            asc(assetTransactions.valueDate)
+          );
+
+    const combined = [
+      ...allSecurityTransactionsData,
+      ...allAssetTransactionsData,
+    ].sort((a, b) => {
+      const ad =
+        a.valueDate instanceof Date
+          ? a.valueDate
+          : new Date(String(a.valueDate));
+      const bd =
+        b.valueDate instanceof Date
+          ? b.valueDate
+          : new Date(String(b.valueDate));
+      const t = ad.getTime() - bd.getTime();
+      if (t !== 0) {
+        return t;
+      }
+      return a.id.localeCompare(b.id);
+    });
+
+    transactions.push(...(combined as BrandedAbstractTransactionValue[]));
 
     return transactions;
   }
