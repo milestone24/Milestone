@@ -60,10 +60,11 @@ export type TransactionAbstract = ValueAbstract & {
   currency: string;
 };
 
-/*
-AssetTransaction
-*/
-
+/**
+ * A row in `asset_transactions`: **account-level** cash movement (not a security line).
+ * `currencyValue` is the signed amount in `currency` (inflow positive, outflow negative).
+ * Maps to the abstract transaction stream with `transactionType: "asset"`.
+ */
 export type AssetTransaction = Omit<
   DBAssetTransactionSelect,
   "value" | "currencyValue"

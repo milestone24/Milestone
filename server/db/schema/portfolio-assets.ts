@@ -269,7 +269,11 @@ relations(userAssets, ({ many }) => ({
 }));
 
 /**
- * This should only ever be used for manual transactions, not for calculated transactions.
+ * **Account-level money in / out** (cash movements) for a `user_assets` row, e.g. deposits and
+ * withdrawals. Not security-line activity — that lives in `security_transactions`.
+ *
+ * **Sign convention (product):** `currencyValue` is **positive** for money **into** the account and
+ * **negative** for money **out**, in the row’s `currency` (default GBP).
  */
 export const assetTransactions = pgTable(
   "asset_transactions",
@@ -281,6 +285,7 @@ export const assetTransactions = pgTable(
       .notNull()
       .references(() => userAssets.id, { onDelete: "cascade" }),
     value: brandedDecimal("value").notNull(),
+    /** Net cash movement in the row’s `currency` (inflow positive, outflow negative). */
     currencyValue: brandedDecimal("currency_value")
       .notNull()
       .default("0" as DecimalValueString),

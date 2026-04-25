@@ -96,6 +96,12 @@ We also merge transaction streams for charting:
 - `resolveDayTransactionHistoryForAssetsForDateRange`  
 - Transactions carry **`valueDate`**, **`currencyValue`**, **`accumulativeAssetCurrencyValue`**, **`transactionType`** (`asset` | `security` | `synthetic`), etc. (`shared/schema/transaction.ts`).
 
+### `asset_transactions` (account-level cash)
+
+The **`asset_transactions`** table (per **`user_asset`**) is for **net money in and out of the account** in account currency: e.g. deposits, withdrawals, and other **external** movements at the account boundary. Per-instrument **buys and sells** are recorded under **`security_transactions`**.
+
+- **Sign convention:** **`currencyValue`** is **positive** for inflows and **negative** for outflows (see `currency` on the row, usually GBP). These rows are the natural candidate for the **external cash-flow schedule** when pairing with portfolio market value for TWR/MWR, once total MV is defined to **include** cash in line with this model.
+
 ### All-time “return” in `getPortfolioValueForUser`
 
 Uses total current value vs **sum of latest accumulative transaction values** per asset—**not** the same as TWR or **`currentChangePercentage`**.
