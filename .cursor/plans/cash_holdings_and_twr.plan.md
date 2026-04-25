@@ -26,7 +26,7 @@ todos:
     status: completed
   - id: step-06-twr-api
     content: "Step 6 (post-core): Compose TWR/MWR from merged data + expose API / client (scope as sub-milestone)"
-    status: pending
+    status: completed
   - id: direct-invest-ux
     content: "Optional: bundled direct-invest API (two legs, one request); leg_group_id in later iteration"
     status: pending
@@ -52,9 +52,9 @@ isProject: false
 | **3** Merge asset + security in [`getCombinedAssetTransactionsWithBoundariesForAsset`](server/services/assets/database.ts) (sort by `valueDate`, `id`) | **Done** | `8ad96fe` (same as step 2) |
 | **4** | Total MV includes cash (`asset_values` / `calculatedAssetsQueryBuilder` / value pipeline) | **Done** | `1725031` — *feat(assets): include cash in calculated MV and asset value history* |
 | **5** | TWR/MWR flow rules in [docs](docs/portfolio-time-weighted-return.md) | **Done** | *docs: portfolio TWR/MWR flow rules with asset and security legs* |
-| **6** TWR/MWR API + client (sub-milestone) | **Pending** | — |
+| **6** | TWR/MWR API + client (`GET /api/assets/portfolio-value/returns`, portfolio page line) | **Done** | *feat(portfolio): expose range Modified Dietz and linked TWR* |
 
-**Next focus:** **Step 6** (TWR/MWR API + client), when in scope.
+**Next focus:** optional — direct-invest bundle, CTE dedupe, or return metric UX.
 
 ## Implementation steps and suggested commits
 

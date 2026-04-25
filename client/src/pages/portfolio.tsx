@@ -48,6 +48,7 @@ import { PosNegNumber } from "@/components/common/PosNegNumber";
 import { cn } from "@/lib/utils";
 import { useAssets } from "@/hooks/use-assets";
 import { usePortfolioValue } from "@/hooks/use-portfolio-value";
+import { usePortfolioRangeReturns } from "@/hooks/use-portfolio-range-returns";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 
 function Portfolio() {
@@ -88,6 +89,9 @@ function Portfolio() {
     isLoading: isLoadingPortfolioValue,
     isError: isErrorPortfolioValue,
   } = usePortfolioValue() ;
+
+  const { data: rangeReturns, isFetching: isFetchingRangeReturns } =
+    usePortfolioRangeReturns(startDate, endDate);
 
   const { toast } = useToast();
 
@@ -311,6 +315,25 @@ function Portfolio() {
           </Button>
         </div>
       </div>
+
+      {isFetchingRangeReturns && !rangeReturns ? (
+        <Skeleton className="h-3 w-72 max-w-full mt-1" />
+      ) : rangeReturns ? (
+        <p
+          className="text-xs text-muted-foreground mt-1"
+          title="Returns over the date range using merged portfolio values and `asset_transaction` as external cash flows. Modified Dietz (GIPS-style). TWR links segment returns between EOD value points. See docs/portfolio-time-weighted-return.md."
+        >
+          <span className="text-foreground/80">Range: </span>
+          Modified Dietz{" "}
+          {rangeReturns.modifiedDietz == null
+            ? "—"
+            : `${(Number(rangeReturns.modifiedDietz) * 100).toFixed(2)}%`}{" "}
+          · TWR (linked){" "}
+          {rangeReturns.timeWeightedReturn == null
+            ? "—"
+            : `${(Number(rangeReturns.timeWeightedReturn) * 100).toFixed(2)}%`}
+        </p>
+      ) : null}
 
       {/* Date Range Control */}
       <div className="my-4">

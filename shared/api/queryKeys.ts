@@ -14,6 +14,8 @@ export const portfolioGraphTransactions = [
 ];
 export const portfolioOverview = ["portfolio", "overview"];
 export const portfolioValue = ["portfolio", "value"];
+/** `GET /api/assets/portfolio-value/returns` — range returns (Modified Dietz + linked TWR). */
+export const portfolioRangeReturns = ["portfolio", "value", "returns", "range"];
 export const portfolioAssets = ["portfolio", "assets"];
 /** Distinct broker platform ids/names in use for the signed-in user (`GET /api/assets/platforms-in-use`). */
 export const assetsBrokerPlatformsInUse = ["assets", "platforms-in-use"] as const;

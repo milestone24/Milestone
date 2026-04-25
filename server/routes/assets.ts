@@ -767,6 +767,25 @@ export async function registerRoutes(
     }
   );
 
+  router.get(
+    "/portfolio-value/returns",
+    requireUser,
+    async (req: AuthRequest, res) => {
+      const response = await requireTenantWithUserAccountId(
+        req.tenant,
+        async (tenant) => {
+          const query = parseQueryParamsExpress(req.query);
+          return assetService.getPortfolioRangeReturnsForUser(
+            tenant.userAccountId,
+            query
+          );
+        }
+      );
+
+      res.json(response);
+    }
+  );
+
   // Recurring Contributions Routes
   router.get(
     regExpPath(`/${uuidRouteParam("assetId")}/recurring-contributions`),

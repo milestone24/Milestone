@@ -186,6 +186,7 @@ If we later track **more** internal legs (e.g. every cash ↔ fund move with ful
 ## 9. Related code references (for implementers)
 
 - Portfolio value endpoint: `server/routes/assets.ts` → `getPortfolioValueForUser` / `getPortfolioOverviewForUser`
+- Range returns (Modified Dietz + linked TWR): `GET /api/assets/portfolio-value/returns` → `getPortfolioRangeReturnsForUser` in `server/services/assets/database.ts` (uses `computePortfolioRangeReturns` in `shared/utils/portfolio-returns-range.ts`)
 - Overview aggregation: `getPortfolioOverviewForAssets` in `shared/utils/assets.ts`
 - Range change per asset: `calculateAssetsChange`, `resolveAssetWithChangeForDateRange`, `defineAssetValuesForDateRange` in `shared/utils/assets.ts`
 - Daily portfolio history: `resolveDayValueHistoryForAssetsForDateRange`

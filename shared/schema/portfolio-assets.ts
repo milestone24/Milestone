@@ -711,6 +711,40 @@ export const portfolioValueSchema = z.object({
 
 portfolioValueSchema._output satisfies PortfolioValue;
 
+/** `GET /api/assets/portfolio-value/returns?filter[start][eq]=…&filter[end][eq]=…` — range performance vs external `asset_transaction` cash flows. */
+export type PortfolioRangeReturns = {
+  periodStart: string;
+  periodEnd: string;
+  beginningValue: DecimalValueString | null;
+  endingValue: DecimalValueString | null;
+  /** Modified Dietz (GIPS-style) over `periodStart`–`periodEnd`; `null` if indeterminate. */
+  modifiedDietz: DecimalValueString | null;
+  /**
+   * Time-weighted return from geometrically linked segment returns (each segment: EOD to EOD with external
+   * `asset_transaction` amounts between). `null` if indeterminate (e.g. fewer than two value points or zero denominator).
+   */
+  timeWeightedReturn: DecimalValueString | null;
+};
+
+export const portfolioRangeReturnsSchema = z.object({
+  periodStart: z.string(),
+  periodEnd: z.string(),
+  beginningValue: decimalValueSchema
+    .refine(isDecimalValueString, { message: "Invalid decimal" })
+    .nullable(),
+  endingValue: decimalValueSchema
+    .refine(isDecimalValueString, { message: "Invalid decimal" })
+    .nullable(),
+  modifiedDietz: decimalValueSchema
+    .refine(isDecimalValueString, { message: "Invalid decimal" })
+    .nullable(),
+  timeWeightedReturn: decimalValueSchema
+    .refine(isDecimalValueString, { message: "Invalid decimal" })
+    .nullable(),
+});
+
+portfolioRangeReturnsSchema._output satisfies PortfolioRangeReturns;
+
 /** `GET /api/assets/platforms-in-use` — distinct broker platforms referenced by the user's assets. */
 export const brokerPlatformInUseItemSchema = z.object({
   id: z.string().uuid(),

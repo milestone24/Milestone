@@ -69,7 +69,13 @@ import {
   PortfolioValue,
   UserAssetUpdate,
   BrokerPlatformInUseItem,
+  PortfolioRangeReturns,
 } from "@shared/schema";
+import {
+  computePortfolioRangeReturns,
+  mapDecimalToNullableDecimalString,
+} from "@shared/utils/portfolio-returns-range";
+import type { PortfolioReturnsMwrCashFlow } from "@shared/utils/portfolio-returns-mwr";
 import {
   QueryParams,
   ResourceQueryBuilder,
@@ -1810,6 +1816,118 @@ export class DatabaseAssetService {
       );
 
     return transactionHistory;
+  }
+
+  /**
+   * `asset_transaction.currency_value` for all user assets, for Modified Dietz / TWR cash-flow inputs
+   * (external bank ↔ account, per product docs). Timestamps preserved for GIPS day-weighting.
+   */
+  async getUserAccountAssetTransactionCurrencyFlows(
+    userAccountId: UserAccount["id"],
+    range: { start: Date; end: Date }
+  ): Promise<PortfolioReturnsMwrCashFlow[]> {
+    const wh = [
+      eq(userAssets.userAccountId, userAccountId),
+      gte(assetTransactions.valueDate, range.start),
+      lte(assetTransactions.valueDate, range.end),
+    ];
+    const rows = await this.db
+      .select({
+        valueDate: assetTransactions.valueDate,
+        currencyValue: assetTransactions.currencyValue,
+      })
+      .from(assetTransactions)
+      .innerJoin(userAssets, eq(userAssets.id, assetTransactions.assetId))
+      .where(and(...wh));
+    return rows.map((r) => ({
+      asOf: r.valueDate,
+      amount: new Decimal(r.currencyValue),
+    }));
+  }
+
+  @Cached({
+    namespace: "portfolio",
+    keyGenerator: (userAccountId, query) =>
+      buildCacheKey(
+        "portfolio",
+        userAccountId,
+        "range-returns",
+        queryParamsToKeyRoundedDates(query)
+      ),
+    ttl: 0,
+  })
+  async getPortfolioRangeReturnsForUser(
+    userAccountId: UserAccount["id"],
+    query?: QueryParams
+  ): Promise<PortfolioRangeReturns> {
+    const dr = queryParamsFilterToDateRange(query?.filter);
+    const valueHistory = await this.getPortfolioValueHistoryForUser(
+      userAccountId,
+      query
+    );
+
+    if (valueHistory.length === 0) {
+      const start = resolveDate(dr.start) ?? new Date(0);
+      const end = resolveDate(dr.end) ?? new Date();
+      return {
+        periodStart: start.toISOString(),
+        periodEnd: end.toISOString(),
+        beginningValue: null,
+        endingValue: null,
+        modifiedDietz: null,
+        timeWeightedReturn: null,
+      };
+    }
+
+    const first = valueHistory[0]!;
+    const last = valueHistory[valueHistory.length - 1]!;
+    const periodStart: Date = resolveDate(dr.start) ?? first.valueDate;
+    const periodEnd: Date = resolveDate(dr.end) ?? last.valueDate;
+    if (periodEnd.getTime() < periodStart.getTime()) {
+      return {
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString(),
+        beginningValue: null,
+        endingValue: null,
+        modifiedDietz: null,
+        timeWeightedReturn: null,
+      };
+    }
+
+    const cashFlows = await this.getUserAccountAssetTransactionCurrencyFlows(
+      userAccountId,
+      { start: periodStart, end: periodEnd }
+    );
+    const valuePoints = valueHistory.map((p) => ({
+      valueDate: p.valueDate,
+      value: p.value,
+    }));
+    const result = computePortfolioRangeReturns({
+      valuePoints,
+      cashFlows,
+      periodStart,
+      periodEnd,
+    });
+    if (!result) {
+      return {
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString(),
+        beginningValue: null,
+        endingValue: null,
+        modifiedDietz: null,
+        timeWeightedReturn: null,
+      };
+    }
+    return {
+      periodStart: periodStart.toISOString(),
+      periodEnd: periodEnd.toISOString(),
+      beginningValue: result.beginningValue,
+      endingValue: result.endingValue,
+      modifiedDietz: mapDecimalToNullableDecimalString(result.modifiedDietz),
+      timeWeightedReturn: mapDecimalToNullableDecimalString(
+        result.timeWeightedReturn
+      ),
+    };
   }
 
   async getBrokerPlatforms(): Promise<BrokerPlatform[]> {
