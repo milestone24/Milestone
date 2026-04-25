@@ -56,3 +56,53 @@ describe("timeWeightedReturnFromSubPeriods", () => {
     expect(r?.toFixed(8)).toBe(want.toFixed(8));
   });
 });
+
+/*
+ * Educational / temporary: documents how "external flows" sit between TWR sub-periods.
+ * Remove or trim once this is captured in product docs.
+ *
+ * Flow (for TWR): a net external movement of cash into or out of the measured portfolio
+ * (e.g. bank deposit, withdrawal). Not: a trade that only swaps stock for cash already inside.
+ *
+ * Sub-period: an interval where the only effect on return is market movement — no flow inside.
+ * When an external flow happens, it splits the timeline: the previous sub-period ends at the MV
+ * immediately before the flow; the next starts at the MV immediately after the flow
+ * (convention for same-day timing is a product choice).
+ *
+ *  t0                    t1 (flow)                 t2 (end)
+ *  |-- sub-period 1 ----|--|-- sub-period 2 -----|
+ *  V0              V1-  F  V1+                 V2
+ *                    ^
+ *            external +10,000 GBP
+ *
+ * - Sub-period 1: startValue = V0 (100,000), endValue = V1- (110,000).
+ * - Flow +10,000 -> V1+ = 120,000.
+ * - Sub-period 2: startValue = V1+ (120,000), endValue = V2 (128,000).
+ *
+ * The TWR helpers do not build the split from raw data; callers supply subPeriods aligned
+ * to flows. This test only shows the numbers once that split exists.
+ */
+describe("TWR: example of timeline split at one external flow (educational)", () => {
+  it("geometrically links two sub-period returns around one contribution", () => {
+    const v0 = new Decimal(100_000);
+    const v1BeforeFlow = new Decimal(110_000);
+    const contribution = new Decimal(10_000);
+    const v1AfterFlow = v1BeforeFlow.add(contribution);
+    const v2 = new Decimal(128_000);
+
+    const r = timeWeightedReturnFromSubPeriods({
+      subPeriods: [
+        { startValue: v0, endValue: v1BeforeFlow },
+        { startValue: v1AfterFlow, endValue: v2 },
+      ],
+    });
+
+    const r1 = v1BeforeFlow.div(v0).sub(1);
+    const r2 = v2.div(v1AfterFlow).sub(1);
+    const want = new Decimal(1).add(r1).mul(new Decimal(1).add(r2)).sub(1);
+
+    expect(r?.equals(want)).toBe(true);
+    expect(r1.equals(new Decimal("0.1"))).toBe(true);
+    expect(v1AfterFlow.equals(new Decimal(120_000))).toBe(true);
+  });
+});
