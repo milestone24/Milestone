@@ -23,7 +23,7 @@ todos:
     status: completed
   - id: step-05-docs-twr
     content: "Step 5: Extend portfolio return docs with external flow rules (asset vs security tx)"
-    status: pending
+    status: completed
   - id: step-06-twr-api
     content: "Step 6 (post-core): Compose TWR/MWR from merged data + expose API / client (scope as sub-milestone)"
     status: pending
@@ -50,11 +50,11 @@ isProject: false
 | **1** Docs + schema semantics for `asset_transactions` | **Done** | `caf826e` — *docs: define asset transactions as account cash movements* |
 | **2** Asset CTE + accumulators in [`query.ts`](server/services/assets/query.ts) (`assetTransactionsAccumulatedCte`) | **Done** | `8ad96fe` (with step 3) — *feat(assets): add asset transaction accumulators and merge with security history* |
 | **3** Merge asset + security in [`getCombinedAssetTransactionsWithBoundariesForAsset`](server/services/assets/database.ts) (sort by `valueDate`, `id`) | **Done** | `8ad96fe` (same as step 2) |
-| **4** | Total MV includes cash (`asset_values` / `calculatedAssetsQueryBuilder` / value pipeline) | **Done** | (pending commit) — `query.ts`, `getUserAsset`, asset-value sync, `AssetPersistence` |
-| **5** TWR/MWR flow rules in [docs](docs/portfolio-time-weighted-return.md) | **Pending** | — |
+| **4** | Total MV includes cash (`asset_values` / `calculatedAssetsQueryBuilder` / value pipeline) | **Done** | `1725031` — *feat(assets): include cash in calculated MV and asset value history* |
+| **5** | TWR/MWR flow rules in [docs](docs/portfolio-time-weighted-return.md) | **Done** | *docs: portfolio TWR/MWR flow rules with asset and security legs* |
 | **6** TWR/MWR API + client (sub-milestone) | **Pending** | — |
 
-**Next focus:** **Step 5** (TWR flow rules in docs).
+**Next focus:** **Step 6** (TWR/MWR API + client), when in scope.
 
 ## Implementation steps and suggested commits
 
@@ -85,7 +85,7 @@ Complete in order. Each row is a **discrete deliverable**; the **Example commit*
 - **[`user_assets`](server/db/schema/portfolio-assets.ts)** – one broker account (ISA, SIPP, GIA, etc.).
 - **[`user_asset_securities`](server/db/schema/portfolio-assets.ts)** – holdings lines linked to [`securities`](server/db/schema/securities.ts).
 - **[`security_transactions`](server/db/schema/portfolio-assets.ts)** – rows that update **share count** (`value`) and **currency leg** (`currencyValue`); windowed cumulative sums in [`server/services/assets/query.ts`](server/services/assets/query.ts) / [`getCombinedAssetTransactionsWithBoundariesForAsset`](server/services/assets/database.ts) set `transactionType: 'security'` and feed **portfolio transaction history** ([`getPortfolioTransactionHistoryForUser`](server/services/assets/database.ts) → [`resolveDayTransactionHistoryForAssetsForDateRange`](shared/utils/assets.ts)).
-- **[`asset_values`](server/db/schema/portfolio-assets.ts)** – total account MV; for **calculated** assets, [`calculateAssetValue`](server/services/securities/sync/asset-value.ts) sums **only** priced securities (no cash component).
+- **[`asset_values`](server/db/schema/portfolio-assets.ts)** – total account MV; for **calculated** assets, sync adds **cumulative** `asset_transactions` to the priced-securities result before insert; [`calculatedAssetsQueryBuilder`](server/services/assets/query.ts) / [`getUserAsset`](server/services/assets/database.ts) use the same idea for `currentValue`.
 - **[`asset_transactions`](server/db/schema/portfolio-assets.ts)** – account-level cash in/out. **Implemented:** merged with security rows in [`getCombinedAssetTransactionsWithBoundariesForAsset`](server/services/assets/database.ts) via [`assetTransactionsAccumulatedCte`](server/services/assets/query.ts) (windowed `currency_value`, `transactionType: 'asset'`). [`getUserAssetTransactions`](server/services/assets/database.ts) still returns raw asset-level rows for list UIs.
 - **Portfolio charts / overview** use [`mergeSortedAssetHistories`](shared/utils/assets.ts) + [`streamAssetValuesForDateRange`](shared/utils/assets.ts) for **values**; same merge pattern for **transactions** on `BrandedAbstractTransactionValue`.
 
@@ -115,7 +115,7 @@ flowchart LR
 | Approach | Idea | Pros | Cons |
 |--------|------|------|------|
 | **A. Synthetic security** | Insert a well-known `securities` row (e.g. `CASH_GBP` / `MNY_MARKET`); `user_asset_securities` + `security_transactions` for balance changes | Reuses **all** security pipelines (positions, tx history CTE, share rolling sum) | Semantics muddled (cash isn’t a “security”); price must stay 1; odd `currencyValue` / share interpretation |
-| **B. First-class cash leg** (chosen) | **Holdings:** optional `user_asset_cash` (or derive balance from events). **Transactions:** reuse **[`asset_transactions`](server/db/schema/portfolio-assets.ts)** as **money in / out** (see §1b) | Reuses existing CRUD, Zod, and `transactionType: 'asset'` in [`shared/schema/transaction.ts`](shared/schema/transaction.ts); no second cash table for MVP | **Done:** combined transaction history; **pending:** cash in **total MV** (Step 4) |
+| **B. First-class cash leg** (chosen) | **Holdings:** optional `user_asset_cash` (or derive balance from events). **Transactions:** reuse **[`asset_transactions`](server/db/schema/portfolio-assets.ts)** as **money in / out** (see §1b) | Reuses existing CRUD, Zod, and `transactionType: 'asset'` in [`shared/schema/transaction.ts`](shared/schema/transaction.ts); no second cash table for MVP | **Done:** combined history + cash in **total MV** (steps 2–4); TWR *flow* rules in [docs](docs/portfolio-time-weighted-return.md) (step 5) |
 | **C. MV-only** | Store cash only in `asset_values.metadata` or a parallel snapshot table | Smaller schema change | Harder to reconcile **transactions** vs **holdings**; TWR flow boundaries get fuzzy |
 
 **Decided (product):** use **B — first-class cash leg** (holdings + clear cash flows). **Persistence for cash *movements*:** strongly consider **reusing `asset_transactions`** (see **§1b**) instead of a new `cash_transactions` table unless a hard blocker appears.
@@ -141,18 +141,16 @@ flowchart LR
 
 ## 2) Managing cash transactions vs security transactions
 
-**Current state (after `8ad96fe`):**
+**Current state (after steps 1–5):**
 
 - **Security:** in combined history (`transactionType: 'security'`). **`getPortfolioValueForUser` “return”** still uses **security** cumulative values only (unchanged; product may revisit).
-- **Asset (cash) rows:** included in the same **combined** stream (`transactionType: 'asset'`) and sorted with security rows. Raw list APIs unchanged where they only query `asset_transactions`.
+- **Asset (cash) rows:** included in the same **combined** stream (`transactionType: 'asset'`) and sorted with security rows. **Total MV** and **`asset_values`** for **calculated** include cash (`1725031`).
 
-**Direction (remaining / polish):**
+**Optional polish (not MVP):**
 
-1. **Abstract transaction stream** — **done** in [`getCombinedAssetTransactionsWithBoundariesForAsset`](server/services/assets/database.ts) (security + asset, merge + sort). Optional later: new enum `cash` vs reusing `asset` (current: **`asset`**).
-2. **Define `TransactionType` semantics** in one place ([`shared/schema/transaction.ts`](shared/schema/transaction.ts)):
-   - Option: add **`"cash"`** to `TransactionType` if you introduce dedicated cash tx rows, **or** reuse **`"asset"`** for “account-level / cash / external” and document that security = instrument legs only.
-3. **Accumulators for charts:** **security and asset (cash) rows** both use windowed SQL in the combined path; shape follows `BrandedAbstractTransactionValue` (§4 for TWR flow classification).
-4. **Recurring contributions** – [`recurring_contributions`](server/db/schema/portfolio-assets.ts) already has `type: 'asset' | 'security'`; extending behavior for “to cash” vs “to fund” is a natural product fit once cash exists.
+1. New enum `cash` vs reusing `asset` for `TransactionType` if naming clarity is needed.
+2. **Recurring contributions** – [`recurring_contributions`](server/db/schema/portfolio-assets.ts) already has `type: 'asset' | 'security'`; “to cash” vs “to fund” behaviour when that feature ships.
+3. TWR *composition* in the API (step 6) using §6 in [docs/portfolio-time-weighted-return.md](docs/portfolio-time-weighted-return.md).
 
 ---
 
@@ -163,7 +161,7 @@ flowchart LR
 | **Daily portfolio series** | [`resolveDayValueHistoryForAssetsForDateRange`](shared/utils/assets.ts), [`streamAssetValuesForDateRange`](shared/utils/assets.ts), [`mergeSortedAssetHistories`](shared/utils/assets.ts) – unchanged contract if **input** `asset_values` (or per-asset series) already include cash in total. |
 | **Transaction merge** | Same merge + `getCombinedDayValuesForValues` for **transaction** time points – extend **inputs**, not the core merge algorithm. |
 | **TWR / MWR math** | [`shared/utils/portfolio-returns-twr.ts`](shared/utils/portfolio-returns-twr.ts), [`shared/utils/portfolio-returns-mwr.ts`](shared/utils/portfolio-returns-mwr.ts) – **pure**; no DB. |
-| **Valuation recompute** | [`AssetValuesService` / `__updateAssetValues` flow](server/services/securities/sync/asset-value.ts) – add **cash** into `calculateAssetValue` or a **post-pass** that adds `cashBalance(date)` to the total before `insertAssetValues`. |
+| **Valuation recompute** | [`__updateAssetValues` / `__updateAssetValuesChunked`](server/services/securities/sync/asset-value.ts) – **post-pass** cash onto calculated totals before `insertAssetValues` / staging (step 4). |
 | **Zod + branded decimals** | Existing patterns in [`server/db/schema/utils`](server/db/schema/utils.ts) and transaction schemas. |
 
 ---
@@ -210,4 +208,4 @@ flowchart LR
 3. **TWR flow tagging** (external vs internal) on rows or at composition time.
 4. **Refactor / reuse security transaction CTE** (see “Out of scope” above).
 
-**Status:** steps **1–3** **shipped** on `development` (see **Progress**). **No** `asset_transactions` legacy migration. **Next:** **Step 4** (cash in total MV / `currentValue`), then **Step 5** (TWR flow rules in docs).
+**Status:** steps **1–5** are implemented on `development` (see **Progress**; step 4 = `1725031`). **No** `asset_transactions` legacy migration. **Next (optional sub-milestone):** **Step 6** (TWR/MWR API + client) using the flow rules in [docs/portfolio-time-weighted-return.md](docs/portfolio-time-weighted-return.md) §6.

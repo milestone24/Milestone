@@ -102,9 +102,18 @@ The **`asset_transactions`** table (per **`user_asset`**) is for **net money in 
 
 - **Sign convention:** **`currencyValue`** is **positive** for inflows and **negative** for outflows (see `currency` on the row, usually GBP). These rows are the natural candidate for the **external cash-flow schedule** when pairing with portfolio market value for TWR/MWR, once total MV is defined to **include** cash in line with this model.
 
+### Merged history and `transactionType`
+
+For portfolio **transaction** time series, **`getCombinedAssetTransactionsWithBoundariesForAsset`** (see `server/services/assets/database.ts`) merges **`security_transactions`** and **`asset_transactions`**, ordered by `valueDate` (with a stable secondary key). Each row is tagged with **`transactionType`**: `security` | `asset` (see `shared/schema/transaction.ts`).
+
+### Total market value and cash (calculated accounts)
+
+For **`value_method = calculated`**, the stored and read **total** account value (latest **`currentValue`**, `asset_values` rows produced by the asset-value sync) is **securities (priced)** **plus** cumulative **`asset_transactions`** up to the relevant date. TWR and MWR **numerators and boundaries** (BMV, EMV, V⁻, V⁺) should use that **same** total, not a securities-only series.
+
 ### All-time “return” in `getPortfolioValueForUser`
 
-Uses total current value vs **sum of latest accumulative transaction values** per asset—**not** the same as TWR or **`currentChangePercentage`**.
+- **`value`** uses **`calculatedAssetsQueryBuilder`**, so the total includes cash for **calculated** assets as above.
+- **`returnValue`** still compares that total to **security** cumulative values only (see `getPortfolioValueForUser` in `server/services/assets/database.ts`); that ratio is **not** TWR and is unchanged by the cash work until product changes it.
 
 ---
 
@@ -130,32 +139,51 @@ If **every** transaction were misclassified as external, TWR would **mis-adjust*
 
 ---
 
-## 6. Our current product assumption: external-only transactions
+## 6. Table-level rules for TWR and MWR *flows* (MVP)
 
-**Current product intent:** we are **not** tracking internal legs (e.g. cash ↔ instrument trades inside an account). Recorded transactions represent **money from outside** entering the portfolio or leaving **to** outside.
+The functions **`timeWeightedReturnFromSubPeriods`** and related types in [`shared/utils/portfolio-returns-twr.ts`](../shared/utils/portfolio-returns-twr.ts) are **pure math**: they expect **sub-periods with no internal flows** and a separate list of **dated external** amounts (`PortfolioReturnsTwrExternalFlow`). Likewise [`shared/utils/portfolio-returns-mwr.ts`](../shared/utils/portfolio-returns-mwr.ts) (**Modified Dietz**, IRR) takes **external** cash flows and portfolio values in a **consistent** sign convention. The **application** must **classify** which DB rows (or which derived net amounts per day) go into that external schedule.
 
-**Implication for TWR:**
+**Default rules for the merged broker + cash model:**
 
-- The **classification problem is much smaller**: each transaction row is a strong candidate for an **external cash flow** for the scope we measure, with correct sign convention.
-- TWR is still **not** automatic: we must pair those flows with a **portfolio market value series** (e.g. merged **`asset_values`**) and handle **edge cases** (valuation changes without a transaction, multi-account scope, daily timing).
+| Table / `transactionType` | Role in the ledger | TWR / MWR *external flow* (typical) |
+|----------------------------|--------------------|----------------------------------------|
+| **`asset_transactions`** (`transactionType: 'asset'`) | Account-level **bank ↔ account** (and similar) cash movements. | **Yes** – treat as **net external** inflows/outflows in account currency, subject to the scope (e.g. one `user_asset` vs whole account vs consolidated portfolio). This is the **primary** source for a cash-flow schedule alongside total MV. |
+| **`security_transactions`** (`transactionType: 'security'`) | Trades: **share** count and the **currency** leg of the trade. | **Usually no** at **consolidated** portfolio level *when* the economic story is: external money arrived via an **`asset_transaction`**, then moved **internally** from cash to the instrument. Then only the **asset** leg is an external TWR flow; the **security** leg is **internal** (the pair with cash is already reflected in MV). |
+| **Single-leg security only** (e.g. a buy with **no** matching **`asset_transaction`**) | Still possible in data or during migration. | **Product call:** may be treated as **net external** for a period (similar to the older “every row is external” assumption) **or** imputed; misclassification breaks TWR. Prefer **two legs** (cash in + buy) when the product supports it. |
 
-If this assumption ever changes (e.g. full broker-style internal trade history), TWR would again require explicit rules for which rows are **external** vs **internal**.
+**Sign discipline:** keep **inflow positive / outflow negative** for external flows, aligned with **`asset_transactions.currencyValue`** and the MWR schema comments in `portfolio-returns-mwr.ts`.
+
+**Valuation series:** any TWR or MWR built from **`asset_values`** (merged per [`resolveDayValueHistoryForAssetsForDateRange`](../shared/utils/assets.ts)) should use totals that **include** cash for **calculated** accounts, in line with §4.
 
 ---
 
-## 7. Summary table
+## 7. Our current product assumption: external-only transactions
+
+**Evolving product intent:** the canonical **external** cash movements for broker-style accounts are increasingly modeled as **`asset_transactions`**, with **`security_transactions`** representing **trades** that may be **internal** to the account once cash and securities are both tracked (see **§6**). A **legacy** or **shortcut** mode may still use **only** `security_transaction` lines with **no** separate cash row; TWR then needs an explicit product rule (often treating those rows as **net external** for lack of a better split).
+
+**Implication for TWR:**
+
+- **Classification** is explicit: use **`asset_transactions`** as the main **external** flow list; **do not** double-count a bank deposit in both **`asset_transactions`** and **`security_transactions`** at consolidated level.
+- TWR is still **not** automatic: pair those flows with a **total** portfolio market value series (merged **`asset_values`**, including cash for calculated accounts) and handle **edge cases** (valuation changes without a transaction, multi-account scope, daily timing, single-leg security rows).
+
+If we later track **more** internal legs (e.g. every cash ↔ fund move with full reconciliation), the rules in **§6** still apply: only **net external** capital splits the TWR timeline.
+
+---
+
+## 8. Summary table
 
 | Topic | Note |
 |--------|------|
 | Range £ change | `portfolioOverview.currentChange` |
 | Range % (existing, not TWR) | `portfolioOverview.currentChangePercentage` uses **`normalisePercentage`** on aggregated start/end |
 | All-time % (cost-basis style) | `portfolioValue.returnValue` |
-| TWR | Needs external **flows** + **valuations** at boundaries; daily series is workable with clear conventions |
-| Our transactions | Treated as **external-only** today → good fit for the **flow** side of TWR if valuations are aligned |
+| TWR / MWR *math* | `shared/utils/portfolio-returns-twr.ts`, `shared/utils/portfolio-returns-mwr.ts` (pure; no DB) |
+| TWR / MWR *flows* | **§6** – **`asset_transactions`** primary external; **`security`** usually internal at consolidated level when a cash leg exists |
+| TWR *valuations* | Merged daily totals; **include** cash in MV for **calculated** accounts (§4) |
 
 ---
 
-## 8. Related code references (for implementers)
+## 9. Related code references (for implementers)
 
 - Portfolio value endpoint: `server/routes/assets.ts` → `getPortfolioValueForUser` / `getPortfolioOverviewForUser`
 - Overview aggregation: `getPortfolioOverviewForAssets` in `shared/utils/assets.ts`
@@ -165,4 +193,4 @@ If this assumption ever changes (e.g. full broker-style internal trade history),
 
 ---
 
-*Last updated from product and engineering discussion; extend this doc when return definitions or transaction modeling change.*
+*Last updated: cash in total MV (calculated) + merged `asset`/`security` history; TWR flow rules in §6.*
