@@ -1575,22 +1575,22 @@ export class DatabaseAssetService {
             securityTransactionHistoryMainQuery,
             securityTransactionHistoryBeforeQuery,
             securityTransactionHistoryAfterQuery
-          ).orderBy(asc(securityTransactions.valueDate))
+          ).orderBy(asc(transactionsAccumulated.valueDate))
         : startDate
         ? await unionAll(
             securityTransactionHistoryMainQuery,
             securityTransactionHistoryBeforeQuery
-          ).orderBy(asc(securityTransactions.valueDate))
+          ).orderBy(asc(transactionsAccumulated.valueDate))
         : endDate
         ? await unionAll(
             securityTransactionHistoryMainQuery,
             securityTransactionHistoryAfterQuery
-          ).orderBy(asc(securityTransactions.valueDate))
+          ).orderBy(asc(transactionsAccumulated.valueDate))
         : await securityTransactionHistoryMainQuery.orderBy(
-            asc(securityTransactions.valueDate)
+            asc(transactionsAccumulated.valueDate)
           )
       : await securityTransactionHistoryMainQuery.orderBy(
-          asc(securityTransactions.valueDate)
+          asc(transactionsAccumulated.valueDate)
         );
 
     const assetTransactionsAccumulated = assetTransactionsAccumulatedCte(
@@ -1662,22 +1662,22 @@ export class DatabaseAssetService {
             assetTransactionHistoryMainQuery,
             assetTransactionHistoryBeforeQuery,
             assetTransactionHistoryAfterQuery
-          ).orderBy(asc(assetTransactions.valueDate))
+          ).orderBy(asc(assetTransactionsAccumulated.valueDate))
         : startDate
         ? await unionAll(
             assetTransactionHistoryMainQuery,
             assetTransactionHistoryBeforeQuery
-          ).orderBy(asc(assetTransactions.valueDate))
+          ).orderBy(asc(assetTransactionsAccumulated.valueDate))
         : endDate
         ? await unionAll(
             assetTransactionHistoryMainQuery,
             assetTransactionHistoryAfterQuery
-          ).orderBy(asc(assetTransactions.valueDate))
+          ).orderBy(asc(assetTransactionsAccumulated.valueDate))
         : await assetTransactionHistoryMainQuery.orderBy(
-            asc(assetTransactions.valueDate)
+            asc(assetTransactionsAccumulated.valueDate)
           )
       : await assetTransactionHistoryMainQuery.orderBy(
-          asc(assetTransactions.valueDate)
+          asc(assetTransactionsAccumulated.valueDate)
         );
 
     const combined = [
