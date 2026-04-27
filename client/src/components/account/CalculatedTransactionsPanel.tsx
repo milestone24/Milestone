@@ -101,7 +101,12 @@ export const CalculatedTransactionsPanel = ({
 }: CalculatedTransactionsPanelProps) => {
   const { securities, isSecuritiesLoading } = useAssetSecurities();
   const { flatTransactions } = useCalculatedAssetTransactions(assetId);
-  const { data: rows = [], isLoading: isFlatLoading } = flatTransactions;
+  const {
+    data: rows = [],
+    isLoading: isFlatLoading,
+    isError: isFlatError,
+    error: flatError,
+  } = flatTransactions;
 
   const addAssetContribution = useAssetContributionCreate(assetId);
   const updateAssetContribution = useAssetContributionUpdate(assetId);
@@ -200,6 +205,11 @@ export const CalculatedTransactionsPanel = ({
     <>
       {isLoading ? (
         <Skeleton className="h-10 w-full" />
+      ) : isFlatError ? (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 text-sm text-destructive">
+          Could not load transactions.
+          {flatError instanceof Error ? ` ${flatError.message}` : null}
+        </div>
       ) : (
         <div>
           <AssetOcrPendingReviewSection assetId={assetId} asset={asset} />
