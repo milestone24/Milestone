@@ -1,4 +1,5 @@
 import {
+  assetFlatTransactions,
   assetGraphTransactions,
   assetGraphValues,
   assetSecuritiesTransactions,
@@ -55,6 +56,7 @@ export const useSecurityTransactions = (assetId: string) => {
     queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
     queryClient.invalidateQueries({ queryKey: [...assetGraphValues, assetId] });
     queryClient.invalidateQueries({ queryKey: [...assetGraphTransactions, assetId] });
+    queryClient.invalidateQueries({ queryKey: [...assetFlatTransactions, assetId] });
   };
 
   async function cancelAndSnapshot(): Promise<RollbackContext> {

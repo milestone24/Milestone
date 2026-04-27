@@ -1,3 +1,4 @@
+import { assetFlatTransactions } from "@shared/api/queryKeys";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
@@ -22,6 +23,9 @@ export const useAssetContributionDelete = (assetId: string) => {
       });
       queryClient.invalidateQueries({
         queryKey: ["asset", assetId, "contributions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...assetFlatTransactions, assetId],
       });
       toast({
         title: "Contribution deleted",
