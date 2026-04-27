@@ -1,6 +1,7 @@
 import { z, ZodType } from "zod";
 import {
   decimalValueSchema,
+  decimalValueNonZeroSchema,
   decimalValueSchemaRequiredGreaterThanZero,
   recurringContributionProcessTypes,
   recurringContributionTypes,
@@ -202,8 +203,8 @@ SecurityTransaction
 export type SecurityTransaction = DBSecurityTransactionSelect;
 
 export const securityTransactionOrphanInsertSchema = z.object({
-  value: decimalValueSchemaRequiredGreaterThanZero,
-  currencyValue: decimalValueSchemaRequiredGreaterThanZero,
+  value: decimalValueNonZeroSchema,
+  currencyValue: decimalValueNonZeroSchema,
   fees: decimalValueSchema.optional(),
   currency: z.string().optional(),
   valueDate: z.coerce.date(),

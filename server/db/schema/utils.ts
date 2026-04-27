@@ -62,6 +62,20 @@ export const decimalValueSchemaRequiredGreaterThanZero =
     }
   );
 
+/**
+ * Branded decimal string that is valid and **not zero** (positive or negative).
+ * Keep the string guard aligned with `isDecimalValueString` in `shared/schema/utils.ts`.
+ */
+export const decimalValueNonZeroSchema = decimalValueSchema.refine(
+  (value) =>
+    value !== "" &&
+    value != null &&
+    /^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(value) &&
+    !Number.isNaN(parseFloat(value)) &&
+    Number(value) !== 0,
+  { message: "Amount must be a non-zero decimal" }
+);
+
 //Create a custom type for Drizzle
 //NOT USED ANYMORE, used as simple approach using the $type<DecimalValueString> approach
 // export const brandedDecimal = customType<{
