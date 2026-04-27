@@ -1,5 +1,5 @@
 import { BsPiggyBank } from "react-icons/bs";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   SecurityTransactionOrphanInsert,
   SecurityTransactionSelect,
@@ -29,10 +29,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { OcrDocumentUpload } from "@/components/ocr/OcrDocumentUpload";
-import { OcrResultReview } from "@/components/ocr/OcrResultReview";
-import { AssetOcrPendingReviewBanner } from "@/components/ocr/AssetOcrPendingReviewBanner";
-import { useAssetOcrPendingReview } from "@/hooks/use-asset-ocr-pending-review";
-import type { AssetOcrPendingReviewItem } from "@shared/schema/document";
+import { AssetOcrPendingReviewSection } from "@/components/ocr/AssetOcrPendingReviewSection";
 
 type SecuritiesTransactionsPanelProps = {
   asset: UserAsset;
@@ -47,14 +44,6 @@ export const SecuritiesTransactionsPanel = ({
   statementPlatformKey,
 }: SecuritiesTransactionsPanelProps) => {
   const { securities, isSecuritiesLoading } = useAssetSecurities();
-
-  const [activePendingOcr, setActivePendingOcr] =
-    useState<AssetOcrPendingReviewItem | null>(null);
-  const { data: pendingOcrItems = [] } = useAssetOcrPendingReview(assetId);
-
-  useEffect(() => {
-    setActivePendingOcr(null);
-  }, [assetId]);
 
   const {
     transactions,
@@ -184,27 +173,7 @@ export const SecuritiesTransactionsPanel = ({
         <Skeleton className="h-10 w-full" />
       ) : (
         <div>
-          {pendingOcrItems.length > 0 || activePendingOcr ? (
-            <div className="mb-6 space-y-4">
-              <AssetOcrPendingReviewBanner
-                items={pendingOcrItems}
-                onOpenItem={setActivePendingOcr}
-              />
-              {activePendingOcr?.pipeline ? (
-                <OcrResultReview
-                  key={activePendingOcr.ocrJobId}
-                  ocrJobId={activePendingOcr.ocrJobId}
-                  pipeline={activePendingOcr.pipeline}
-                  extractedValues={activePendingOcr.extractedValues ?? []}
-                  assets={[asset]}
-                  showBalanceEditor={false}
-                  onConfirmed={() => setActivePendingOcr(null)}
-                  onDismissed={() => setActivePendingOcr(null)}
-                  onBalancesSaved={() => {}}
-                />
-              ) : null}
-            </div>
-          ) : null}
+          <AssetOcrPendingReviewSection assetId={assetId} asset={asset} />
 
           {/* Contribution Summary Section */}
           {transactions && transactions.length > 0 && (
