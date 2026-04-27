@@ -1392,9 +1392,46 @@ export class DatabaseAssetService {
     );
   }
 
+  /**
+   * Merged security + asset transaction rows for UI lists: **only** rows in the requested date window
+   * (or all rows when unfiltered). Does **not** prepend/append boundary rows outside the window —
+   * those exist for chart / portfolio aggregation in
+   * {@link getCombinedAssetTransactionsWithBoundariesForAsset}.
+   */
+  @Cached({
+    namespace: "assets",
+    keyGenerator: (id, query) =>
+      buildCacheKey(
+        "assets",
+        getUserAccountId(),
+        id,
+        "flat-transaction-events",
+        queryParamsToKeyRoundedDates(query)
+      ),
+    ttl: 0,
+  })
+  async getFlatCombinedAssetTransactionsForAsset(
+    assetId: UserAsset["id"],
+    query?: QueryParams
+  ): Promise<BrandedAbstractTransactionValue[]> {
+    return this.getCombinedAssetTransactionRowsForAsset(
+      assetId,
+      query,
+      false
+    );
+  }
+
   async getCombinedAssetTransactionsWithBoundariesForAsset(
     assetId: UserAsset["id"],
     query?: QueryParams
+  ): Promise<BrandedAbstractTransactionValue[]> {
+    return this.getCombinedAssetTransactionRowsForAsset(assetId, query, true);
+  }
+
+  private async getCombinedAssetTransactionRowsForAsset(
+    assetId: UserAsset["id"],
+    query: QueryParams | undefined,
+    includeRangeBoundaryRows: boolean
   ): Promise<BrandedAbstractTransactionValue[]> {
     const { start, end } = queryParamsFilterToDateRange(query?.filter);
     const startDate = resolveDate(start);
@@ -1532,8 +1569,8 @@ export class DatabaseAssetService {
       )
       .limit(1);
 
-    const allSecurityTransactionsData =
-      startDate && endDate
+    const allSecurityTransactionsData = includeRangeBoundaryRows
+      ? startDate && endDate
         ? await unionAll(
             securityTransactionHistoryMainQuery,
             securityTransactionHistoryBeforeQuery,
@@ -1551,7 +1588,10 @@ export class DatabaseAssetService {
           ).orderBy(asc(securityTransactions.valueDate))
         : await securityTransactionHistoryMainQuery.orderBy(
             asc(securityTransactions.valueDate)
-          );
+          )
+      : await securityTransactionHistoryMainQuery.orderBy(
+          asc(securityTransactions.valueDate)
+        );
 
     const assetTransactionsAccumulated = assetTransactionsAccumulatedCte(
       this.db,
@@ -1616,8 +1656,8 @@ export class DatabaseAssetService {
       )
       .limit(1);
 
-    const allAssetTransactionsData =
-      startDate && endDate
+    const allAssetTransactionsData = includeRangeBoundaryRows
+      ? startDate && endDate
         ? await unionAll(
             assetTransactionHistoryMainQuery,
             assetTransactionHistoryBeforeQuery,
@@ -1635,7 +1675,10 @@ export class DatabaseAssetService {
           ).orderBy(asc(assetTransactions.valueDate))
         : await assetTransactionHistoryMainQuery.orderBy(
             asc(assetTransactions.valueDate)
-          );
+          )
+      : await assetTransactionHistoryMainQuery.orderBy(
+          asc(assetTransactions.valueDate)
+        );
 
     const combined = [
       ...allSecurityTransactionsData,
