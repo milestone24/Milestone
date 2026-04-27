@@ -88,6 +88,23 @@ export const transactionAbstractSchema = z.object({
 
 transactionAbstractSchema._output satisfies TransactionAbstract;
 
+/**
+ * One row from `GET /api/assets/:assetId/transactions` (merged security + asset lines,
+ * same accumulator fields as the combined stream; no synthetic/boundary-only rows).
+ */
+export const flatCombinedTransactionRowSchema = transactionAbstractSchema.extend({
+  assetSecurityId: z.string().optional(),
+  fees: decimalValueSchema.nullable().optional(),
+  source: z.enum(assetTransactionSources).optional(),
+  flags: assetTransactionFlagsSchema.nullable().optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+});
+
+export type FlatCombinedTransactionRow = z.infer<
+  typeof flatCombinedTransactionRowSchema
+>;
+
 export const assetTransactionSelectSchema = z.object({
   id: z.string(),
   assetId: z.string(),

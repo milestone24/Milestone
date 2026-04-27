@@ -18,6 +18,7 @@ import {
   userAssetSecurityOrphanLinkInsertSchema,
   assetUpdateSchema,
   brokerPlatformsInUseResponseSchema,
+  flatCombinedTransactionRowSchema,
 } from "@shared/schema";
 import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
 import { db } from "@server/db";
@@ -269,6 +270,34 @@ export async function registerRoutes(
         query
       );
       res.json(history);
+    }
+  );
+
+  router.get(
+    regExpPath(`/${uuidRouteParam("assetId")}/transactions`),
+    requireUser,
+    async (req: AuthRequest, res) => {
+      if (!req.params.assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+
+      const query = parseQueryParamsExpress(req.query);
+
+      const rows = await assetService.getFlatCombinedAssetTransactionsForAsset(
+        req.params.assetId,
+        query
+      );
+
+      const parsed = flatCombinedTransactionRowSchema.array().safeParse(rows);
+      if (!parsed.success) {
+        console.error(
+          "flat combined transactions response parse error",
+          parsed.error.flatten()
+        );
+        return res.status(500).json({ error: "Invalid transaction list payload" });
+      }
+
+      res.json(parsed.data);
     }
   );
 
