@@ -43,7 +43,7 @@ import {
   DateRangeOption,
   getDateRange,
 } from "@/components/ui/DateRangeControl";
-import { SecuritiesTransactionsPanel } from "@/components/account/SecuritiesTransactionsPanel";
+import { CalculatedTransactionsPanel } from "@/components/account/CalculatedTransactionsPanel";
 import { useAsset } from "@/hooks/use-asset";
 import { getDateUrlParams } from "@/lib/date";
 import { useAssetTransactions } from "@/hooks/use-asset-transactions";
@@ -71,8 +71,8 @@ function AssetPage() {
   }, [dateRange]);
 
   // Active tab state
-  const [activeTab, setActiveTab] = useState<"values" | "contributions">(
-    "contributions"
+  const [activeTab, setActiveTab] = useState<"values" | "transactions">(
+    "transactions"
   );
 
   const { asset, isAssetLoading, isAssetError, assetError } = useAsset(assetId);
@@ -394,12 +394,12 @@ function AssetPage() {
             value={activeTab}
             className="w-full mt-2 md:mt-4"
             onValueChange={(value) =>
-              setActiveTab(value as "values" | "contributions")
+              setActiveTab(value as "values" | "transactions")
             }
           >
             <TabsList className="mb-4 w-full">
-              <TabsTrigger value="contributions" className="flex-1">
-                Contributions
+              <TabsTrigger value="transactions" className="flex-1">
+                Transactions
               </TabsTrigger>
               <TabsTrigger value="values" className="flex-1">
                 Account Values
@@ -417,11 +417,11 @@ function AssetPage() {
               ) : null}
             </TabsContent>
 
-            {/* Contributions Tab Content */}
-            <TabsContent value="contributions">
+            {/* Transactions tab */}
+            <TabsContent value="transactions">
               {assetId ? (
                 isSecuritiesAsset ? (
-                  <SecuritiesTransactionsPanel
+                  <CalculatedTransactionsPanel
                     asset={asset}
                     assetId={assetId}
                     statementPlatformKey={asset.platformId ?? undefined}
