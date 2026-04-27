@@ -3,7 +3,6 @@ import {
   AssetContributionFormData,
   assetContributionOrphanInsertSchema,
 } from "@shared/schema/transaction";
-import { createDecimalValueString } from "@shared/schema";
 import {
   Form,
   FormControl,
@@ -16,6 +15,7 @@ import { Input } from "../ui/input";
 import { DateInput } from "../ui/date-input";
 import { Button } from "../ui/button";
 import { Loader2 } from "lucide-react";
+import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { withTransform } from "@/lib/utils/mappers";
 import Decimal from "decimal.js";
@@ -31,18 +31,26 @@ export const TransactionSingleForm = ({
   onCancel,
   data,
 }: TransactionSingleFormProps) => {
+  /** Only for edit mode — avoids RHF `values` resetting the form every parent render (unstable `new Date()`). */
+  const valuesFromProps = useMemo((): AssetContributionFormData | undefined => {
+    if (!data) return undefined;
+    return {
+      value: typeof data.value === "string" ? data.value : String(data.value),
+      valueDate: new Date(data.valueDate),
+    };
+  }, [data]);
+
   const form = useForm<AssetContributionFormData>({
     resolver: withTransform(
       zodResolver(assetContributionOrphanInsertSchema),
       (values) => ({
         ...values,
-        value: values.value
-          ? typeof values.value === "string"
-            ? createDecimalValueString(values.value)
+        value:
+          values.value === undefined || values.value === null
+            ? "0"
             : typeof values.value === "number"
-            ? createDecimalValueString(Decimal(values.value).toString())
-            : values.value
-          : createDecimalValueString("0"),
+              ? Decimal(values.value).toString()
+              : String(values.value),
         valueDate: values.valueDate
           ? typeof values.valueDate === "string"
             ? new Date(values.valueDate)
@@ -50,19 +58,14 @@ export const TransactionSingleForm = ({
           : new Date(),
       })
     ),
-    values: data
-      ? {
-          value: data.value,
-          valueDate: new Date(data.valueDate),
-        }
+    ...(valuesFromProps
+      ? { values: valuesFromProps }
       : {
-          value: createDecimalValueString("0"),
-          valueDate: new Date(),
-        },
-    defaultValues: {
-      value: createDecimalValueString("0"),
-      valueDate: new Date(),
-    },
+          defaultValues: {
+            value: "0",
+            valueDate: new Date(),
+          },
+        }),
   });
 
   const {
@@ -70,8 +73,6 @@ export const TransactionSingleForm = ({
     control,
     formState: { isSubmitting },
   } = form;
-
-  console.log("form", form.getValues());
 
   return (
     <Form {...form}>
@@ -104,11 +105,10 @@ export const TransactionSingleForm = ({
                 <FormControl>
                   <Input
                     type="number"
+                    step="any"
                     {...field}
-                    value={field.value ?? createDecimalValueString("0")}
-                    onChange={(e) => {
-                      field.onChange(createDecimalValueString(e.target.value));
-                    }}
+                    value={field.value ?? ""}
+                    onChange={(e) => field.onChange(e.target.value)}
                   />
                 </FormControl>
                 <FormMessage />
