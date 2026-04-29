@@ -624,6 +624,22 @@ export async function registerRoutes(
   //   }
   // );
 
+  // Current cash balance: sum of all asset_transactions.currency_value for the asset
+  router.get(
+    regExpPath(`/${uuidRouteParam("assetId")}/cash-balance`),
+    requireUser,
+    async (req: AuthRequest, res) => {
+      if (!req.params.assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+      const balance = await assetService.getAssetCashBalanceOnOrBefore(
+        req.params.assetId,
+        null
+      );
+      res.json({ balance: balance.toString() });
+    }
+  );
+
   // Broker asset contributions (debits)
   router.post(
     regExpPath(`/${uuidRouteParam("assetId")}/contributions`),

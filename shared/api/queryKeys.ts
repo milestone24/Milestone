@@ -28,6 +28,7 @@ export const assetGraphTransactions = [
 ];
 /** `GET /api/assets/:assetId/transactions` — flat merged security + asset rows (no boundary padding). */
 export const assetFlatTransactions = ["asset", "transactions", "flat"] as const;
+export const assetCashBalance = ["asset", "cash", "balance"] as const;
 export const assetSecurities = ["asset", "securities"];
 export const assetSecuritiesTransactions = [
   "asset",
