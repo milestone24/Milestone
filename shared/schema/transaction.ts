@@ -100,6 +100,7 @@ export const flatCombinedTransactionRowSchema = transactionAbstractSchema.extend
   flags: assetTransactionFlagsSchema.nullable().optional(),
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),
+  groupId: z.string().uuid().nullable().optional(),
 });
 
 export type FlatCombinedTransactionRow = z.infer<
@@ -117,6 +118,7 @@ export const assetTransactionSelectSchema = z.object({
   recordedAt: z.coerce.date(),
   source: z.enum(assetTransactionSources),
   flags: assetTransactionFlagsSchema.nullable(),
+  ledgerGroupId: z.string().uuid().nullable(),
   // TODO: replace createdAt/updatedAt with a shared timestamp fields schema when one is available
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
@@ -474,6 +476,7 @@ export const securityTransactionSelectSchema = z.object({
   recordedAt: z.coerce.date(),
   source: z.enum(assetTransactionSources),
   flags: assetTransactionFlagsSchema.nullable(),
+  ledgerGroupId: z.string().uuid().nullable(),
   // TODO: replace createdAt/updatedAt with a shared timestamp fields schema when one is available
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),

@@ -67,6 +67,7 @@ function flatRowToAssetTransaction(row: FlatCombinedTransactionRow): AssetTransa
     recordedAt: row.recordedAt,
     source: row.source ?? "manual",
     flags: row.flags ?? null,
+    ledgerGroupId: row.groupId ?? null,
     createdAt: row.createdAt ?? row.recordedAt,
     updatedAt: row.updatedAt ?? row.recordedAt,
   };
@@ -88,6 +89,7 @@ function flatRowToSecurityResolved(
     recordedAt: row.recordedAt,
     source: row.source ?? "manual",
     flags: row.flags ?? null,
+    ledgerGroupId: row.groupId ?? null,
     createdAt: row.createdAt ?? row.recordedAt,
     updatedAt: row.updatedAt ?? row.recordedAt,
     securityName: holding?.security.name ?? "Security",

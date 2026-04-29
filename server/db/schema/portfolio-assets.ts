@@ -299,9 +299,16 @@ export const assetTransactions = pgTable(
     recordedAt: timestamp("recorded_at").notNull(),
     source: assetTransactionSourceEnum("source").notNull().default("manual"),
     flags: jsonb("flags").$type<AssetTransactionFlags>(),
+    ledgerGroupId: uuid("ledger_group_id"),
     ...timestampColumns(),
   },
-  (table) => [index("asset_transactions_value_date_idx").on(table.valueDate)]
+  (table) => [
+    index("asset_transactions_value_date_idx").on(table.valueDate),
+    index("asset_transactions_asset_id_ledger_group_id_idx").on(
+      table.assetId,
+      table.ledgerGroupId
+    ),
+  ]
 );
 
 export type AssetTransactionSelect = InferSelectModel<typeof assetTransactions>;
@@ -413,6 +420,7 @@ export const securityTransactions = pgTable(
     recordedAt: timestamp("recorded_at").notNull(),
     source: assetTransactionSourceEnum("source").notNull().default("manual"),
     flags: jsonb("flags").$type<AssetTransactionFlags>(),
+    ledgerGroupId: uuid("ledger_group_id"),
     ...timestampColumns(),
   },
   (table) => [
@@ -421,6 +429,10 @@ export const securityTransactions = pgTable(
     ),
     index("security_transactions_value_date_idx").on(table.valueDate),
     index("security_transactions_recorded_at_idx").on(table.valueDate),
+    index("security_transactions_asset_security_id_ledger_group_id_idx").on(
+      table.assetSecurityId,
+      table.ledgerGroupId
+    ),
   ]
 );
 
