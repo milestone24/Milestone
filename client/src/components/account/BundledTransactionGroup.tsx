@@ -7,7 +7,6 @@ import type {
   UserAssetSecurityTransactionResolved,
 } from "@shared/schema";
 import { createDecimalValueString } from "@shared/schema";
-import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,9 +17,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Coins, Pencil, Trash2 } from "lucide-react";
-import { TransactionSourceBadges } from "./TransactionSourceBadges";
 import { AssetSecurityTransactionItem } from "./AssetSecurityTransactionItem";
+import { AssetCashTransactionItem } from "./AssetCashTransactionItem";
 import { TransactionsDialogue } from "./TransactionsDialogue";
 import { useAssetContributionUpdate } from "@/hooks/use-asset-contribution-update";
 import { useAssetContributionDelete } from "@/hooks/use-asset-contribution-delete";
@@ -118,48 +116,11 @@ export function BundledTransactionGroup({
         />
 
         {/* Cash leg */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 bg-muted">
-          <div className="flex flex-col gap-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-1">
-              <Coins className="h-4 w-4 text-txn" />
-              <span className="text-sm text-muted-foreground">Cash movement</span>
-              <span className="font-semibold">
-                £{Number(cashTransaction.currencyValue).toLocaleString()}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
-              <TransactionSourceBadges
-                source={cashTransaction.source}
-                flags={cashTransaction.flags}
-              />
-              <span>
-                {new Date(cashTransaction.valueDate).toLocaleDateString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 self-end sm:self-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setCashEdit({ data: cashTransaction })}
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => setCashDeleteOpen(true)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        <AssetCashTransactionItem
+          transaction={cashTransaction}
+          onEdit={() => setCashEdit({ data: cashTransaction })}
+          onDelete={() => setCashDeleteOpen(true)}
+        />
       </div>
 
       {/* Cash leg edit */}
