@@ -11,6 +11,24 @@ import { brokerPlatforms, userAssets } from "@server/db/schema";
 import { asc, eq, getTableColumns, sql } from "drizzle-orm";
 import { TransactionType, ValueAbstractType } from "@shared/schema";
 
+/** Omit `ledgerGroupId` from spread so SQL does not duplicate `ledger_group_id` with `groupId` alias. */
+const {
+  ledgerGroupId: securityTransactionLedgerGroupIdColumn,
+  ...securityTransactionColumnsExcludingLedgerGroupId
+} = getTableColumns(securityTransactions);
+
+const {
+  ledgerGroupId: assetTransactionLedgerGroupIdColumn,
+  ...assetTransactionColumnsExcludingLedgerGroupId
+} = getTableColumns(assetTransactions);
+
+export {
+  assetTransactionLedgerGroupIdColumn,
+  assetTransactionColumnsExcludingLedgerGroupId,
+  securityTransactionLedgerGroupIdColumn,
+  securityTransactionColumnsExcludingLedgerGroupId,
+};
+
 const lateralLatestValueSql = sql`LATERAL (
                   SELECT ${assetValues.value}, ${assetValues.valueDate}
                   FROM ${assetValues}
@@ -76,7 +94,7 @@ export const securityTransactionsAccumulatedCTEBuilder = (
 ) => db.$with("securityTransactionsAccumulated").as((qb) =>
       qb
         .select({
-          ...getTableColumns(securityTransactions),
+          ...securityTransactionColumnsExcludingLedgerGroupId,
           //We can not use this it must be the asset id
           //not the asset function parameter because we are obtaining
           //all the securities for in this CTE for the sums.
@@ -113,7 +131,7 @@ export const securityTransactionsAccumulatedCTEBuilder = (
             sql<number>`ROW_NUMBER() OVER (PARTITION BY ${userAssetSecurities.userAssetId} ORDER BY ${securityTransactions.valueDate})`.as(
               "accumulativeAssetCurrencyValueRow"
             ),
-          groupId: securityTransactions.ledgerGroupId,
+          groupId: securityTransactionLedgerGroupIdColumn,
         })
         .from(userAssetSecurities)
         .innerJoin(
@@ -138,7 +156,7 @@ export const assetTransactionsAccumulatedCte = (
   return db.$with("assetTransactionsAccumulated").as(
     db
       .select({
-        ...getTableColumns(assetTransactions),
+        ...assetTransactionColumnsExcludingLedgerGroupId,
         recordType: sql<
           Extract<ValueAbstractType, "transaction">
         >`'transaction'`.as("recordType"),
@@ -155,7 +173,7 @@ export const assetTransactionsAccumulatedCte = (
         afterRange: sql<boolean>`${assetTransactions.valueDate} > ${endDate}`.as(
           "afterRange"
         ),
-        groupId: assetTransactions.ledgerGroupId,
+        groupId: assetTransactionLedgerGroupIdColumn,
       })
       .from(assetTransactions)
   );

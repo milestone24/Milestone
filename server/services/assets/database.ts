@@ -98,6 +98,8 @@ import { randomUUID } from "node:crypto";
 import {
   assetTransactionsAccumulatedCte,
   calculatedAssetsQueryBuilder,
+  securityTransactionColumnsExcludingLedgerGroupId,
+  securityTransactionLedgerGroupIdColumn,
   securityTransactionsAccumulatedCTEBuilder,
 } from "./query";
 import Decimal from "decimal.js";
@@ -1546,7 +1548,7 @@ export class DatabaseAssetService {
     const transactionsAccumulated = this.db.$with("transactionsAccumulated").as(
       this.db
         .select({
-          ...getTableColumns(securityTransactions),
+          ...securityTransactionColumnsExcludingLedgerGroupId,
           //We can not use this it must be the asset id
           //not the asset function parameter because we are obtaining
           //all the securities for in this CTE for the sums.
@@ -1591,7 +1593,7 @@ export class DatabaseAssetService {
             sql<boolean>`${securityTransactions.valueDate} > ${endDate}`.as(
               "afterRange"
             ),
-          groupId: securityTransactions.ledgerGroupId,
+          groupId: securityTransactionLedgerGroupIdColumn,
         })
         .from(userAssetSecurities)
         .innerJoin(
