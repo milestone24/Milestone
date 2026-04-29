@@ -611,7 +611,7 @@ export class DatabaseAssetService {
         if (userAsset.valueMethod === "calculated") {
           const cash = await this.getAssetCashBalanceOnOrBefore(
             id,
-            latestValue?.valueDate ?? null,
+            null,
             tx
           );
           currentValue = createDecimalValueString(
