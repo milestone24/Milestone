@@ -1,5 +1,6 @@
 import { BsPiggyBank } from "react-icons/bs";
 import { useMemo, useState } from "react";
+import { BundledTransactionGroup } from "./BundledTransactionGroup";
 import type {
   AssetTransaction,
   FlatCombinedTransactionRow,
@@ -135,6 +136,58 @@ export const CalculatedTransactionsPanel = ({
     () => rows.filter((r) => r.transactionType === "asset" || r.transactionType === "security"),
     [rows]
   );
+
+  type StandaloneItem = { kind: "standalone"; row: FlatCombinedTransactionRow };
+  type BundleItem = {
+    kind: "bundle";
+    groupId: string;
+    securityRow: FlatCombinedTransactionRow;
+    cashRow: FlatCombinedTransactionRow;
+    sortDate: Date;
+  };
+  type RenderItem = StandaloneItem | BundleItem;
+
+  const renderItems = useMemo((): RenderItem[] => {
+    const bundledGroupIds = new Set<string>();
+    const bundleMap = new Map<string, Partial<{ security: FlatCombinedTransactionRow; cash: FlatCombinedTransactionRow }>>();
+
+    for (const row of visibleRows) {
+      if (!row.groupId) continue;
+      bundledGroupIds.add(row.groupId);
+      const entry = bundleMap.get(row.groupId) ?? {};
+      if (row.transactionType === "security") entry.security = row;
+      if (row.transactionType === "asset") entry.cash = row;
+      bundleMap.set(row.groupId, entry);
+    }
+
+    const items: RenderItem[] = [];
+
+    for (const row of visibleRows) {
+      if (row.groupId && bundledGroupIds.has(row.groupId)) {
+        const entry = bundleMap.get(row.groupId);
+        // Emit the bundle item once (on the security leg); skip the cash leg
+        if (row.transactionType === "security" && entry?.security && entry?.cash) {
+          const sortDate =
+            row.valueDate instanceof Date ? row.valueDate : new Date(String(row.valueDate));
+          items.push({
+            kind: "bundle",
+            groupId: row.groupId,
+            securityRow: entry.security,
+            cashRow: entry.cash,
+            sortDate,
+          });
+        }
+        // If bundle is incomplete (only one leg), fall through to standalone
+        if (!(entry?.security && entry?.cash)) {
+          items.push({ kind: "standalone", row });
+        }
+      } else {
+        items.push({ kind: "standalone", row });
+      }
+    }
+
+    return items;
+  }, [visibleRows]);
 
   const firstDate = useMemo(() => {
     if (!visibleRows.length) return undefined;
@@ -299,12 +352,27 @@ export const CalculatedTransactionsPanel = ({
               <Coins className="h-4 w-4" />
               Transaction history
             </h3>
-            {visibleRows.length === 0 && (
+            {renderItems.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 No transactions recorded for this account.
               </div>
             )}
-            {visibleRows.map((row) => {
+            {renderItems.map((item) => {
+              if (item.kind === "bundle") {
+                return (
+                  <BundledTransactionGroup
+                    key={item.groupId}
+                    groupId={item.groupId}
+                    securityRow={item.securityRow}
+                    cashRow={item.cashRow}
+                    securities={securities}
+                    assetId={assetId}
+                  />
+                );
+              }
+
+              const { row } = item;
+
               if (row.transactionType === "asset") {
                 const at = flatRowToAssetTransaction(row);
                 return (
