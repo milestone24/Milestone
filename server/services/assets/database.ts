@@ -784,10 +784,7 @@ export class DatabaseAssetService {
 
     const withHistory = {
       ...asset,
-      history: await this.getCombinedAssetTransactionsWithBoundariesForAsset(
-        asset.id,
-        query
-      ),
+      history: await this.getSecurityTransactionHistoryForAsset(asset.id, query),
     };
 
     const transactionHistory =
@@ -1517,6 +1514,82 @@ export class DatabaseAssetService {
     return this.getCombinedAssetTransactionRowsForAsset(assetId, query, true);
   }
 
+  async getSecurityTransactionHistoryForAsset(
+    assetId: UserAsset["id"],
+    query?: QueryParams
+  ): Promise<BrandedAbstractTransactionValue[]> {
+    return this.getSecurityTransactionRowsForAsset(assetId, query, true);
+  }
+
+  private async getSecurityTransactionRowsForAsset(
+    assetId: UserAsset["id"],
+    query: QueryParams | undefined,
+    includeRangeBoundaryRows: boolean
+  ): Promise<BrandedAbstractTransactionValue[]> {
+    const { start, end } = queryParamsFilterToDateRange(query?.filter);
+    const startDate = resolveDate(start);
+    const endDate = resolveDate(end);
+
+    if (startDate && endDate && startDate > endDate) {
+      throw new Error("Start date must be before end date");
+    }
+
+    const cte = securityTransactionsAccumulatedCTEBuilder(this.db);
+
+    const mainQuery = this.db
+      .with(cte)
+      .select()
+      .from(cte)
+      .where(
+        and(
+          eq(cte.assetId, assetId),
+          startDate != null && endDate != null
+            ? between(cte.valueDate, startDate, endDate)
+            : startDate != null
+            ? gte(cte.valueDate, startDate)
+            : endDate != null
+            ? lte(cte.valueDate, endDate)
+            : undefined
+        )
+      );
+
+    const beforeQuery = this.db
+      .with(cte)
+      .select()
+      .from(cte)
+      .where(
+        startDate
+          ? and(eq(cte.assetId, assetId), lt(cte.valueDate, startDate))
+          : eq(cte.assetId, assetId)
+      )
+      .orderBy(desc(cte.valueDate), desc(cte.accumulativeAssetCurrencyValueRow))
+      .limit(1);
+
+    const afterQuery = this.db
+      .with(cte)
+      .select()
+      .from(cte)
+      .where(
+        endDate
+          ? and(eq(cte.assetId, assetId), gt(cte.valueDate, endDate))
+          : eq(cte.assetId, assetId)
+      )
+      .orderBy(asc(cte.valueDate), asc(cte.accumulativeAssetCurrencyValueRow))
+      .limit(1);
+
+    const rows = includeRangeBoundaryRows
+      ? startDate && endDate
+        ? await unionAll(mainQuery, beforeQuery, afterQuery).orderBy(asc(cte.valueDate))
+        : startDate
+        ? await unionAll(mainQuery, beforeQuery).orderBy(asc(cte.valueDate))
+        : endDate
+        ? await unionAll(mainQuery, afterQuery).orderBy(asc(cte.valueDate))
+        : await mainQuery.orderBy(asc(cte.valueDate))
+      : await mainQuery.orderBy(asc(cte.valueDate));
+
+    return rows as unknown as BrandedAbstractTransactionValue[];
+  }
+
   private async getCombinedAssetTransactionRowsForAsset(
     assetId: UserAsset["id"],
     query: QueryParams | undefined,
@@ -1940,10 +2013,7 @@ export class DatabaseAssetService {
     const withHistory = await Promise.all(
       assets.map(async (asset) => ({
         ...asset,
-        history: await this.getCombinedAssetTransactionsWithBoundariesForAsset(
-          asset.id,
-          query
-        ),
+        history: await this.getSecurityTransactionHistoryForAsset(asset.id, query),
       }))
     );
 
