@@ -22,6 +22,7 @@ import { useCallback, useState } from "react";
 import { useSecurityTransactions } from "@/hooks/use-security-transactions";
 import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
 import { SecurityTransactionUpsertDialogue } from "./SecurityTransactionUpsertDialogue";
+import { useTransactionBundle } from "@/hooks/use-transaction-bundle";
 
 type AssetSecurityTransactionItemProps = {
   transaction: UserAssetSecurityTransactionResolved;
@@ -37,6 +38,7 @@ export const AssetSecurityTransactionItem = ({
   const { assetId } = useAssetSecurities();
   const { deleteSecurityTransaction } = useSecurityTransactions(assetId);
   const { updateSecurityTransaction } = useSecurityTransactions(assetId);
+  const { deleteBundle } = useTransactionBundle(assetId);
   const [error, setError] = useState<Error | null>(null);
 
   const [isDialogueOpen, setIsDialogueOpen] = useState(false);
@@ -153,26 +155,56 @@ export const AssetSecurityTransactionItem = ({
             <DialogHeader>
               <DialogTitle>Delete Transaction</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete this transaction? If you
-                continue please be aware it may take a few minutes to update the
-                history.
+                {transaction.ledgerGroupId
+                  ? "This trade is linked to a cash movement. Choose what to delete."
+                  : "Are you sure you want to delete this transaction? If you continue please be aware it may take a few minutes to update the history."}
               </DialogDescription>
             </DialogHeader>
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
               <DialogClose asChild>
                 <Button variant="outline">Cancel</Button>
               </DialogClose>
-              <Button
-                variant="destructive"
-                onClick={() =>
-                  handleDeleteTransaction({
-                    assetSecurityId: transaction.assetSecurityId,
-                    transactionId: transaction.id,
-                  })
-                }
-              >
-                Delete
-              </Button>
+              {transaction.ledgerGroupId ? (
+                <>
+                  <DialogClose asChild>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        handleDeleteTransaction({
+                          assetSecurityId: transaction.assetSecurityId,
+                          transactionId: transaction.id,
+                        })
+                      }
+                    >
+                      Delete trade only
+                    </Button>
+                  </DialogClose>
+                  <DialogClose asChild>
+                    <Button
+                      variant="destructive"
+                      onClick={() =>
+                        deleteBundle.mutate(transaction.ledgerGroupId!)
+                      }
+                    >
+                      Delete trade and cash
+                    </Button>
+                  </DialogClose>
+                </>
+              ) : (
+                <DialogClose asChild>
+                  <Button
+                    variant="destructive"
+                    onClick={() =>
+                      handleDeleteTransaction({
+                        assetSecurityId: transaction.assetSecurityId,
+                        transactionId: transaction.id,
+                      })
+                    }
+                  >
+                    Delete
+                  </Button>
+                </DialogClose>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
