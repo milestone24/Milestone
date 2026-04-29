@@ -13,6 +13,7 @@
     "check": "tsc",
     "test:ocr": "tsx dev/test-ocr.ts",
     "accounts:add-user-asset": "tsx tools/accounts/add-user-asset.ts",
+    "accounts:patch-security-cash-legs": "tsx tools/accounts/patch-security-cash-legs.ts",
     "ocr:insert-broker-platform-securities-instruction": "tsx tools/ocr/insert-broker-platform-securities-ocr-instruction.ts",
     "email-inbound:tap-watch": "tsx tools/aws/email-inbound-queue-util.ts exec",
     "email-inbound:tap-watch:no-delete": "tsx tools/aws/email-inbound-queue-util.ts exec --no-delete",
