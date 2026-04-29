@@ -1504,6 +1504,7 @@ export class DatabaseAssetService {
             sql<boolean>`${securityTransactions.valueDate} > ${endDate}`.as(
               "afterRange"
             ),
+          groupId: securityTransactions.ledgerGroupId,
         })
         .from(userAssetSecurities)
         .innerJoin(

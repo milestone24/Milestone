@@ -113,6 +113,7 @@ export const securityTransactionsAccumulatedCTEBuilder = (
             sql<number>`ROW_NUMBER() OVER (PARTITION BY ${userAssetSecurities.userAssetId} ORDER BY ${securityTransactions.valueDate})`.as(
               "accumulativeAssetCurrencyValueRow"
             ),
+          groupId: securityTransactions.ledgerGroupId,
         })
         .from(userAssetSecurities)
         .innerJoin(
@@ -154,6 +155,7 @@ export const assetTransactionsAccumulatedCte = (
         afterRange: sql<boolean>`${assetTransactions.valueDate} > ${endDate}`.as(
           "afterRange"
         ),
+        groupId: assetTransactions.ledgerGroupId,
       })
       .from(assetTransactions)
   );
