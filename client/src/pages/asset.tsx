@@ -54,6 +54,8 @@ import { useAssetDelete } from "@/hooks/use-asset-delete";
 import { AssetValueList } from "@/components/account/AssetValueList";
 import { AccountDetails } from "@/components/account/AccountDetails";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { useAssetCashBalance } from "@/hooks/use-asset-cash-balance";
+import { Coins } from "lucide-react";
 
 function AssetPage() {
   const params = useParams();
@@ -183,6 +185,8 @@ function AssetPage() {
       : [];
 
   const [assetColor = "", txnColor = ""] = useThemeColors(["--asset", "--txn"]);
+
+  const { cashBalance } = useAssetCashBalance(assetId);
 
   const chartData: ChartData = [
     {
@@ -374,6 +378,22 @@ function AssetPage() {
       <div className="flex flex-col gap-2">
         <AccountDetails asset={asset} editableFields={{ startDate: true }} />
       </div>
+
+      {isSecuritiesAsset && (
+        <div className="bg-card rounded-lg p-4 my-4 flex items-center gap-3">
+          <Coins className="h-5 w-5 text-muted-foreground shrink-0" />
+          <div className="flex flex-col">
+            <span className="text-sm text-muted-foreground">Cash balance</span>
+            {cashBalance.isLoading ? (
+              <Skeleton className="h-7 w-24 mt-1" />
+            ) : (
+              <span className="text-2xl font-bold">
+                £{Number(cashBalance.data?.balance ?? 0).toLocaleString()}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       <AssetSecuritiesProvider
         assetId={assetId}
