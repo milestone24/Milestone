@@ -712,3 +712,18 @@ export type AssetSecurityLike = {
     name: string;
   };
 };
+
+export const transactionBundleInsertSchema = z.object({
+  securityLeg: securityTransactionInsertSchema,
+  cashLeg: assetContributionOrphanInsertSchema.optional(),
+});
+
+export type TransactionBundleInsert = z.infer<typeof transactionBundleInsertSchema>;
+
+export const transactionBundleResponseSchema = z.object({
+  groupId: z.string().uuid(),
+  securityLeg: securityTransactionSelectSchema,
+  cashLeg: assetTransactionSelectSchema.optional(),
+});
+
+export type TransactionBundleResponse = z.infer<typeof transactionBundleResponseSchema>;

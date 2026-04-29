@@ -19,6 +19,8 @@ import {
   assetUpdateSchema,
   brokerPlatformsInUseResponseSchema,
   flatCombinedTransactionRowSchema,
+  transactionBundleInsertSchema,
+  transactionBundleResponseSchema,
 } from "@shared/schema";
 import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
 import { db } from "@server/db";
@@ -298,6 +300,62 @@ export async function registerRoutes(
       }
 
       res.json(parsed.data);
+    }
+  );
+
+  router.post(
+    regExpPath(`/${uuidRouteParam("assetId")}/transactions/bundle`),
+    requireUser,
+    async (req: AuthRequest, res) => {
+      if (!req.params.assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+
+      const parsed = transactionBundleInsertSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.message });
+      }
+
+      try {
+        const result = await assetService.createTransactionBundle(
+          req.params.assetId,
+          parsed.data
+        );
+
+        const responseParsed = transactionBundleResponseSchema.safeParse(result);
+        if (!responseParsed.success) {
+          console.error("bundle response parse error", responseParsed.error.flatten());
+          return res.status(500).json({ error: "Invalid bundle response payload" });
+        }
+
+        return res.status(201).json(responseParsed.data);
+      } catch (err) {
+        return res.status(400).json({
+          error: err instanceof Error ? err.message : "Failed to create transaction bundle",
+        });
+      }
+    }
+  );
+
+  router.delete(
+    regExpPath(
+      `/${uuidRouteParam("assetId")}/transactions/bundle/${uuidRouteParam("groupId")}`
+    ),
+    requireUser,
+    async (req: AuthRequest, res) => {
+      if (!req.params.assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+      if (!req.params.groupId) {
+        return res.status(400).json({ error: "Group ID is required" });
+      }
+
+      await assetService.deleteTransactionBundle(
+        req.params.assetId,
+        req.params.groupId
+      );
+
+      return res.json({ success: true });
     }
   );
 

@@ -70,6 +70,8 @@ import {
   UserAssetUpdate,
   BrokerPlatformInUseItem,
   PortfolioRangeReturns,
+  TransactionBundleInsert,
+  TransactionBundleResponse,
 } from "@shared/schema";
 import {
   computePortfolioRangeReturns,
@@ -1297,6 +1299,91 @@ export class DatabaseAssetService {
     );
 
     return securityTransaction;
+  }
+
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
+  async createTransactionBundle(
+    assetId: UserAsset["id"],
+    data: TransactionBundleInsert
+  ) {
+    const assetSecurity = await this.db.query.userAssetSecurities.findFirst({
+      where: and(
+        eq(userAssetSecurities.id, data.securityLeg.assetSecurityId),
+        eq(userAssetSecurities.userAssetId, assetId)
+      ),
+      columns: { id: true },
+    });
+
+    if (!assetSecurity) {
+      throw new Error("Security not found for this asset");
+    }
+
+    const ledgerGroupId = randomUUID();
+
+    return this.db.transaction(async (tx) => {
+      const [securityLeg] = await tx
+        .insert(securityTransactions)
+        .values({
+          ...data.securityLeg,
+          ledgerGroupId,
+          recordedAt: data.securityLeg.recordedAt ?? new Date(),
+          source: data.securityLeg.source ?? "manual",
+        })
+        .returning();
+
+      if (!securityLeg) {
+        throw new Error("Failed to insert security leg");
+      }
+
+      if (!data.cashLeg) {
+        return { groupId: ledgerGroupId, securityLeg };
+      }
+
+      const [cashLeg] = await tx
+        .insert(assetTransactions)
+        .values({
+          ...data.cashLeg,
+          assetId,
+          ledgerGroupId,
+          recordedAt: new Date(),
+          source: data.cashLeg.source ?? "manual",
+        })
+        .returning();
+
+      if (!cashLeg) {
+        throw new Error("Failed to insert cash leg");
+      }
+
+      return { groupId: ledgerGroupId, securityLeg, cashLeg };
+    });
+  }
+
+  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
+  async deleteTransactionBundle(
+    assetId: UserAsset["id"],
+    groupId: string
+  ): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      await tx.delete(securityTransactions).where(
+        and(
+          eq(securityTransactions.ledgerGroupId, groupId),
+          inArray(
+            securityTransactions.assetSecurityId,
+            tx
+              .select({ id: userAssetSecurities.id })
+              .from(userAssetSecurities)
+              .where(eq(userAssetSecurities.userAssetId, assetId))
+          )
+        )
+      );
+
+      await tx.delete(assetTransactions).where(
+        and(
+          eq(assetTransactions.ledgerGroupId, groupId),
+          eq(assetTransactions.assetId, assetId)
+        )
+      );
+    });
   }
 
   @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
