@@ -1770,6 +1770,9 @@ export class DatabaseAssetService {
           asc(assetTransactionsAccumulated.valueDate)
         );
 
+    const sortDirection =
+      query?.sort?.find((s) => s.field === "valueDate")?.direction ?? "asc";
+
     const combined = [
       ...allSecurityTransactionsData,
       ...allAssetTransactionsData,
@@ -1784,9 +1787,11 @@ export class DatabaseAssetService {
           : new Date(String(b.valueDate));
       const t = ad.getTime() - bd.getTime();
       if (t !== 0) {
-        return t;
+        return sortDirection === "desc" ? -t : t;
       }
-      return a.id.localeCompare(b.id);
+      return sortDirection === "desc"
+        ? b.id.localeCompare(a.id)
+        : a.id.localeCompare(b.id);
     });
 
     transactions.push(...(combined as BrandedAbstractTransactionValue[]));

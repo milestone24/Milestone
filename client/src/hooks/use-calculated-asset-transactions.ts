@@ -16,7 +16,7 @@ export const useCalculatedAssetTransactions = (assetId: string | undefined) => {
     queryFn: async (): Promise<FlatCombinedTransactionRow[]> => {
       const data = await apiRequest<unknown>(
         "GET",
-        `/api/assets/${assetId}/transactions`
+        `/api/assets/${assetId}/transactions?sort=valueDate,desc`
       );
       const parsed = flatCombinedTransactionRowSchema.array().safeParse(data);
       if (!parsed.success) {
