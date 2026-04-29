@@ -9,12 +9,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { TransactionSingleForm } from "./TransactionSingleForm";
 import { SecurityTransactionSingleForm } from "./SecurityTransactionSingleForm";
 import { useAssetContributionCreate } from "@/hooks/use-asset-contribution-create";
 import { useSecurityTransactions } from "@/hooks/use-security-transactions";
+import { useTransactionBundle } from "@/hooks/use-transaction-bundle";
 import type {
   AssetContributionFormData,
   SecurityTransactionInsert,
@@ -41,15 +43,18 @@ export function AddCalculatedTransactionDialog({
   const [phase, setPhase] = useState<"kind" | "form">("kind");
   const [txKind, setTxKind] = useState<TxKind | null>(null);
   const [direction, setDirection] = useState<Direction>("purchase");
+  const [linkCash, setLinkCash] = useState(true);
 
   const addAssetContribution = useAssetContributionCreate(assetId);
   const { addSecurityTransaction } = useSecurityTransactions(assetId);
+  const { createBundle } = useTransactionBundle(assetId);
 
   useEffect(() => {
     if (!open) {
       setPhase("kind");
       setTxKind(null);
       setDirection("purchase");
+      setLinkCash(true);
     }
   }, [open]);
 
@@ -70,27 +75,58 @@ export function AddCalculatedTransactionDialog({
   };
 
   const handleInvestmentSubmit = async (data: SecurityTransactionInsert) => {
-    const { assetSecurityId, valueDate, fees, currency, recordedAt, source, flags } =
-      data;
+    const { assetSecurityId, valueDate, fees, currency, recordedAt, source, flags } = data;
     let value = Decimal(String(data.value));
     let currencyValue = Decimal(String(data.currencyValue));
     if (direction === "withdrawal") {
       value = value.abs().neg();
       currencyValue = currencyValue.abs();
     }
-    await addSecurityTransaction.mutateAsync({
-      securityId: assetSecurityId,
-      data: {
-        value: createDecimalValueString(value.toString()),
-        currencyValue: createDecimalValueString(currencyValue.toString()),
-        valueDate,
-        fees: fees ?? undefined,
-        currency: currency ?? "GBP",
-        recordedAt: recordedAt ?? undefined,
-        source: source ?? undefined,
-        flags: flags ?? undefined,
-      },
-    });
+
+    const securityValue = createDecimalValueString(value.toString());
+    const securityCurrencyValue = createDecimalValueString(currencyValue.toString());
+
+    if (linkCash) {
+      // Buy → cash flows out (negative); Sell → cash flows in (positive)
+      const cashAmount =
+        direction === "purchase"
+          ? createDecimalValueString(currencyValue.abs().neg().toString())
+          : createDecimalValueString(currencyValue.abs().toString());
+
+      await createBundle.mutateAsync({
+        securityLeg: {
+          assetSecurityId,
+          value: securityValue,
+          currencyValue: securityCurrencyValue,
+          valueDate,
+          fees: fees ?? undefined,
+          currency: currency ?? "GBP",
+          recordedAt: recordedAt ?? undefined,
+          source: source ?? undefined,
+          flags: flags ?? undefined,
+        },
+        cashLeg: {
+          value: cashAmount,
+          valueDate,
+          currencyValue: cashAmount,
+          currency: currency ?? "GBP",
+        },
+      });
+    } else {
+      await addSecurityTransaction.mutateAsync({
+        securityId: assetSecurityId,
+        data: {
+          value: securityValue,
+          currencyValue: securityCurrencyValue,
+          valueDate,
+          fees: fees ?? undefined,
+          currency: currency ?? "GBP",
+          recordedAt: recordedAt ?? undefined,
+          source: source ?? undefined,
+          flags: flags ?? undefined,
+        },
+      });
+    }
     close();
   };
 
@@ -193,15 +229,27 @@ export function AddCalculatedTransactionDialog({
                 onCancel={close}
               />
             ) : (
-              <SecurityTransactionSingleForm
-                securities={securities}
-                onSubmit={handleInvestmentSubmit}
-                CancelButton={
-                  <Button type="button" variant="outline" onClick={close}>
-                    Cancel
-                  </Button>
-                }
-              />
+              <>
+                <div className="flex items-center gap-2 rounded-md border p-3">
+                  <Checkbox
+                    id="link-cash"
+                    checked={linkCash}
+                    onCheckedChange={(v) => setLinkCash(!!v)}
+                  />
+                  <Label htmlFor="link-cash" className="font-normal cursor-pointer">
+                    Also record portfolio cash impact
+                  </Label>
+                </div>
+                <SecurityTransactionSingleForm
+                  securities={securities}
+                  onSubmit={handleInvestmentSubmit}
+                  CancelButton={
+                    <Button type="button" variant="outline" onClick={close}>
+                      Cancel
+                    </Button>
+                  }
+                />
+              </>
             )}
           </div>
         )}
