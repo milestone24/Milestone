@@ -199,15 +199,13 @@ export function BundledTransactionGroup({
         {expanded && (
           <div className="border-t px-4 pb-4 pt-3 space-y-3">
             {/* Security leg */}
-            <div className="rounded-md border bg-background p-1">
-              <AssetSecurityTransactionItem
-                transaction={securityResolved}
-                securities={securities}
-              />
-            </div>
+            <AssetSecurityTransactionItem
+              transaction={securityResolved}
+              securities={securities}
+            />
 
             {/* Cash leg */}
-            <div className="rounded-md border bg-background p-3 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 bg-muted rounded-lg">
               <div className="flex flex-col gap-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-1">
                   <Coins className="h-4 w-4 text-txn" />
