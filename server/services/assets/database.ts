@@ -2528,7 +2528,7 @@ export class DatabaseAssetService {
         userAssetId: assetId,
         securityId: securityId,
         startDate: data.startDate,
-        priorGainLoss: data.priorGainLoss,
+        priorGainLoss: createDecimalValueString("0"),
       };
 
       const [insertedValueItem] = await tx
@@ -2550,6 +2550,8 @@ export class DatabaseAssetService {
 
       const value = { ...valueRaw, security: mapDbSecurityToSelect(valueRaw.security) };
 
+      const ledgerGroupId = (data.type === "new" && data.fundedFromCash) ? randomUUID() : undefined;
+
       const [transaction] = await tx
         .insert(securityTransactions)
         .values({
@@ -2560,12 +2562,29 @@ export class DatabaseAssetService {
           recordedAt: new Date(),
           valueDate: data.startDate,
           source: "manual",
+          ...(ledgerGroupId && { ledgerGroupId }),
         })
         .returning();
 
       if (!transaction) {
         tx.rollback();
         throw new Error("Failed to create security transaction");
+      }
+
+      if (ledgerGroupId) {
+        await tx.insert(assetTransactions).values({
+          assetId,
+          currencyValue: createDecimalValueString(
+            Decimal(data.initialHolding.currencyValue).neg().toString()
+          ),
+          value: createDecimalValueString(
+            Decimal(data.initialHolding.currencyValue).neg().toString()
+          ),
+          valueDate: data.startDate,
+          recordedAt: new Date(),
+          ledgerGroupId,
+          source: "manual",
+        });
       }
 
       return { asset, value, transaction };
