@@ -611,8 +611,8 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
   const currentValueFieldState = form.getFieldState("currentValue");
 
   const canNext = (
-      ((valueMethod === "calculated" && (securities?.length ?? 0) > 0) ||
-      (valueMethod === "manual" && currentValueFieldState.isDirty && !currentValueFieldState.invalid))
+    valueMethod === "calculated" ||
+    (valueMethod === "manual" && currentValueFieldState.isDirty && !currentValueFieldState.invalid)
   );
 
   const handleNext = async (next: () => void) => {
@@ -713,40 +713,66 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
             )}
           />
           {valueMethod === "calculated" ? (
-            <FormField
-              control={form.control}
-              name="securities"
-              render={({ field }) => (
-                <>
-                  <div>
-                    <FormLabel>Add Investments</FormLabel>
-                    <FormDescription>
-                      In order to calculate the value of your account, we need to
-                      know which investments are held in the account
-                    </FormDescription>
-                  </div>
-                  <div className="space-y-2 flex flex-col gap-2">
-                    {fields.map((field, index) => (
-                      <div
-                        key={field.id}
-                        className="flex flex-row gap-2 items-start"
-                      >
-                        <div className="flex-1">
-                          <SecurityCard security={field} />
+            <>
+              <FormField
+                control={form.control}
+                name="securities"
+                render={({ field }) => (
+                  <>
+                    <div>
+                      <FormLabel>Add Investments</FormLabel>
+                      <FormDescription>
+                        In order to calculate the value of your account, we need to
+                        know which investments are held in the account
+                      </FormDescription>
+                    </div>
+                    <div className="space-y-2 flex flex-col gap-2">
+                      {fields.map((field, index) => (
+                        <div
+                          key={field.id}
+                          className="flex flex-row gap-2 items-start"
+                        >
+                          <div className="flex-1">
+                            <SecurityCard security={field} />
+                          </div>
+                          <Button variant="outline" onClick={() => remove(index)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Button variant="outline" onClick={() => remove(index)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                    <Button onClick={() => setAddingSecurity(true)}>
-                      Add Investment
-                    </Button>
-                  </div>
-                  <FormMessage />
-                </>
-            )}
-          />
+                      ))}
+                      <Button onClick={() => setAddingSecurity(true)}>
+                        Add Investment
+                      </Button>
+                    </div>
+                    <FormMessage />
+                  </>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="initialCashHolding"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Initial Cash Balance</FormLabel>
+                    <FormDescription>
+                      Optionally set the uninvested cash held in this account
+                    </FormDescription>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="0.00"
+                        {...field}
+                        value={field.value ?? ""}
+                        onChange={(e) =>
+                          field.onChange(e.target.value === "" ? undefined : e.target.value)
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
           ) : null}
           {valueMethod === "manual" ? (
             <FormField
@@ -845,7 +871,7 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
       setValue(
         "contributions",
         {
-          type: valueMethod === "calculated" ? "security" : "asset",
+          type: (valueMethod === "calculated" && securitiesForGroup.length > 0) ? "security" : "asset",
           notificationEmail: false,
           notificationPush: false,
           isActive: true,
@@ -868,7 +894,7 @@ const AccountCreateThree: React.FC<AccountCreateFormProps> = (props) => {
   };
 
   const recurringProps: RecurringContributionFormProps =
-    valueMethod === "calculated"
+    valueMethod === "calculated" && securitiesForGroup.length > 0
       ? {
           type: "security",
           securities: securitiesForGroup,
