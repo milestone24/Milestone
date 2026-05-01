@@ -9,7 +9,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { TransactionSingleForm } from "./TransactionSingleForm";
@@ -43,7 +42,6 @@ export function AddCalculatedTransactionDialog({
   const [phase, setPhase] = useState<"kind" | "form">("kind");
   const [txKind, setTxKind] = useState<TxKind | null>(null);
   const [direction, setDirection] = useState<Direction>("purchase");
-  const [linkCash, setLinkCash] = useState(true);
 
   const addAssetContribution = useAssetContributionCreate(assetId);
   const { addSecurityTransaction } = useSecurityTransactions(assetId);
@@ -54,7 +52,6 @@ export function AddCalculatedTransactionDialog({
       setPhase("kind");
       setTxKind(null);
       setDirection("purchase");
-      setLinkCash(true);
     }
   }, [open]);
 
@@ -74,7 +71,7 @@ export function AddCalculatedTransactionDialog({
     close();
   };
 
-  const handleInvestmentSubmit = async (data: SecurityTransactionInsert) => {
+  const handleInvestmentSubmit = async (data: SecurityTransactionInsert, linkCash: boolean) => {
     const { assetSecurityId, valueDate, fees, currency, recordedAt, source, flags } = data;
     let value = Decimal(String(data.value));
     let currencyValue = Decimal(String(data.currencyValue));
@@ -230,16 +227,6 @@ export function AddCalculatedTransactionDialog({
               />
             ) : (
               <>
-                <div className="flex items-center gap-2 rounded-md border p-3">
-                  <Checkbox
-                    id="link-cash"
-                    checked={linkCash}
-                    onCheckedChange={(v) => setLinkCash(!!v)}
-                  />
-                  <Label htmlFor="link-cash" className="font-normal cursor-pointer">
-                    Also record portfolio cash impact
-                  </Label>
-                </div>
                 <SecurityTransactionSingleForm
                   securities={securities}
                   onSubmit={handleInvestmentSubmit}

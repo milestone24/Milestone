@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { UserAssetSecuritySelect } from "@shared/schema/portfolio-assets";
 import {
@@ -12,6 +13,8 @@ import {
 import { Input } from "../ui/input";
 import { DateInput } from "../ui/date-input";
 import { Button } from "../ui/button";
+import { Checkbox } from "../ui/checkbox";
+import { Label } from "../ui/label";
 import { Loader2 } from "lucide-react";
 import type {
   SecurityTransactionInsert,
@@ -29,7 +32,7 @@ import {
 } from "../ui/select";
 
 type SecurityTransactionSingleFormProps = {
-  onSubmit: (data: SecurityTransactionInsert) => Promise<void>;
+  onSubmit: (data: SecurityTransactionInsert, linkCash: boolean) => Promise<void>;
   data?: SecurityTransactionInsert;
   securities: UserAssetSecuritySelect[];
   CancelButton?: React.ReactNode;
@@ -41,6 +44,7 @@ export const SecurityTransactionSingleForm = ({
   securities,
   CancelButton,
 }: SecurityTransactionSingleFormProps) => {
+  const [linkCash, setLinkCash] = useState(true);
   const form = useForm<SecurityTransactionUpsert>({
     resolver: zodResolver(
       securityTransactionInsertSchema.omit({
@@ -88,7 +92,7 @@ export const SecurityTransactionSingleForm = ({
 
   return (
     <Form {...form}>
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-10">
+      <form onSubmit={handleSubmit((data) => onSubmit(data, linkCash))} className="flex flex-col gap-10">
         <div className="flex flex-col gap-4">
           <FormField
             control={form.control}
@@ -203,6 +207,16 @@ export const SecurityTransactionSingleForm = ({
               </FormItem>
             )}
           />
+          <div className="flex items-center gap-2 rounded-md border p-3">
+            <Checkbox
+              id="link-cash"
+              checked={linkCash}
+              onCheckedChange={(v) => setLinkCash(!!v)}
+            />
+            <Label htmlFor="link-cash" className="font-normal cursor-pointer">
+              Funded from cash balance
+            </Label>
+          </div>
         </div>
         <div className="flex justify-end gap-2">
           {CancelButton}
