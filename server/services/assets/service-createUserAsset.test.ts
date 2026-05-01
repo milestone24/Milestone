@@ -105,7 +105,6 @@ describe("DatabaseAssetService createUserAsset", () => {
               currencyValue: createDecimalValueString("100"),
             },
             startDate,
-            priorGainLoss: createDecimalValueString("0"),
           },
         ],
         contributions: {

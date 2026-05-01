@@ -27,6 +27,7 @@ import { DateInput } from "../ui/date-input";
 import { Button } from "../ui/button";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
+import { Checkbox } from "../ui/checkbox";
 
 /*
  * See https://react-select.com/components
@@ -70,12 +71,12 @@ export const AssetSecurityNewForm = ({
     resolver: zodResolver(userAssetSecurityOrphanNewCreateInsertSchema),
     defaultValues: {
       type: "new",
-      priorGainLoss: createDecimalValueString("0"),
       startDate: startDate ?? new Date(),
       initialHolding: {
         shareHolding: createDecimalValueString("0"),
         currencyValue: createDecimalValueString("0"),
       },
+      fundedFromCash: true,
     },
     mode: "all",
   });
@@ -179,13 +180,11 @@ export const AssetSecurityEditForm = ({
     values: {
       type: "link",
       securityId: data.security.id,
-      priorGainLoss: data.priorGainLoss ?? createDecimalValueString("0"),
       startDate: data.startDate,
     },
     defaultValues: {
       type: "link",
       securityId: data.security.id,
-      priorGainLoss: data.priorGainLoss ?? createDecimalValueString("0"),
       startDate: data.startDate,
     },
     mode: "all",
@@ -229,8 +228,7 @@ export const AssetSecurityEditForm = ({
           <AssetSecurityBaseFields {...baseFieldProps} />
           <p>
             <em className="text-sm text-muted-foreground">
-              *Note: When editing a security, you can only change the start date
-              and prior gain/loss.
+              *Note: When editing a security, you can only change the start date.
               <br />
               If you need to change the initial values you will need to change
               the transaction history.
@@ -260,7 +258,7 @@ export const AssetSecurityEditForm = ({
 
 type AssetSecurityNewFields = Pick<
   UserAssetSecurityOrphanNewCreateInsert,
-  "initialHolding"
+  "initialHolding" | "fundedFromCash"
 > & {
   security: SecurityInsert | undefined;
 };
@@ -411,6 +409,28 @@ const AssetSecurityNewFields = () => {
           </FormItem>
         )}
       />
+      <FormField
+        control={control}
+        name="fundedFromCash"
+        render={({ field }) => (
+          <FormItem>
+            <div className="flex items-center gap-2 rounded-md border p-3">
+              <FormControl>
+                <Checkbox
+                  checked={field.value ?? false}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+              <FormLabel className="font-normal cursor-pointer">
+                Funded from cash balance
+              </FormLabel>
+            </div>
+            <FormDescription>
+              Record this purchase as a cash outflow from the account balance
+            </FormDescription>
+          </FormItem>
+        )}
+      />
     </>
   );
 };
@@ -458,6 +478,7 @@ const AssetSecurityBaseFields = ({
           )}
         />
       )}
+      {/* TODO: re-enable prior gain/loss
       <FormField
         control={control}
         name="priorGainLoss"
@@ -486,6 +507,7 @@ const AssetSecurityBaseFields = ({
           </FormItem>
         )}
       />
+      */}
     </>
   );
 }; 

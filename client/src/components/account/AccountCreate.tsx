@@ -530,12 +530,12 @@ const AssetSecurityForm = ({
     resolver: zodResolver(userAssetSecurityOrphanNewCreateInsertSchema),
     defaultValues: {
       type: "new",
-      priorGainLoss: createDecimalValueString("0"),
       startDate: startDate ?? new Date(),
       initialHolding: {
         shareHolding: createDecimalValueString("0"),
         currencyValue: createDecimalValueString("0"),
       },
+      fundedFromCash: true,
     },
     mode: "all",
   });
