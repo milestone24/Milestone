@@ -8,20 +8,21 @@ import type {
 } from "@shared/schema";
 import { createDecimalValueString } from "@shared/schema";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AssetSecurityTransactionItem } from "./AssetSecurityTransactionItem";
 import { AssetCashTransactionItem } from "./AssetCashTransactionItem";
 import { TransactionsDialogue } from "./TransactionsDialogue";
+import { Button } from "@/components/ui/button";
 import { useAssetContributionUpdate } from "@/hooks/use-asset-contribution-update";
 import { useAssetContributionDelete } from "@/hooks/use-asset-contribution-delete";
+import { useTransactionBundle } from "@/hooks/use-transaction-bundle";
 
 type BundledTransactionGroupProps = {
   groupId: string;
@@ -73,6 +74,7 @@ function toCashTransaction(row: FlatCombinedTransactionRow): AssetTransaction {
 }
 
 export function BundledTransactionGroup({
+  groupId,
   securityRow,
   cashRow,
   securities,
@@ -85,6 +87,7 @@ export function BundledTransactionGroup({
 
   const updateCashLeg = useAssetContributionUpdate(assetId);
   const deleteCashLeg = useAssetContributionDelete(assetId);
+  const { deleteBundle } = useTransactionBundle(assetId);
 
   const securityResolved = toSecurityResolved(securityRow, securities);
   const cashTransaction = toCashTransaction(cashRow);
@@ -133,29 +136,38 @@ export function BundledTransactionGroup({
         data={cashEdit?.data ?? null}
       />
 
-      {/* Cash leg individual delete confirm */}
-      <AlertDialog open={cashDeleteOpen} onOpenChange={setCashDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete cash movement only?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This removes only the cash leg. The security trade will remain as a standalone
-              record.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                await deleteCashLeg.mutateAsync({ contributionId: cashTransaction.id });
-                setCashDeleteOpen(false);
-              }}
-            >
-              Delete cash movement
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Cash leg delete confirm */}
+      <Dialog open={cashDeleteOpen} onOpenChange={setCashDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete cash movement?</DialogTitle>
+            <DialogDescription>
+              This cash movement is linked to a trade. Choose what to delete.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <DialogClose asChild>
+              <Button
+                variant="outline"
+                onClick={() => deleteCashLeg.mutate({ contributionId: cashTransaction.id })}
+              >
+                Delete cash only
+              </Button>
+            </DialogClose>
+            <DialogClose asChild>
+              <Button
+                variant="destructive"
+                onClick={() => deleteBundle.mutate(groupId)}
+              >
+                Delete cash and trade
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
