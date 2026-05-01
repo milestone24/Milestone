@@ -165,7 +165,12 @@ export const userAssetOrphanInsertSchema = z.object({
     .optional(),
   securities: z.array(
     userAssetSecurityOrphanNewCreateInsertSchema.extend({ lid: z.string() })
-  ).nonempty({ message: "At least one security is required" }),
+  ),
+  initialCashHolding: decimalValueSchemaRequiredGreaterThanZero
+    .refine(isDecimalValueString, {
+      message: "Initial cash holding must be a valid decimal string",
+    })
+    .optional(),
   contributions: recurringContributionGroupInsertSchema.optional(),
 });
 
