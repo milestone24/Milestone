@@ -47,12 +47,6 @@ export type BrandedAssetValue = BrandedValue<
 
 export const userAssetSecurityBaseSchema = z.object({
   startDate: z.coerce.date(),
-  priorGainLoss: decimalValueSchema
-    .refine(isDecimalValueString, {
-      message: "Prior gain/loss must be a valid decimal string",
-    })
-    .transform((val) => (val === "" ? undefined : val))
-    .optional(),
 });
 
 export type UserAssetSecurityBase = z.infer<typeof userAssetSecurityBaseSchema>;
@@ -103,6 +97,7 @@ export type UserAssetSecurityOrphanNewInsert = z.infer<
 export const userAssetSecurityOrphanNewCreateInsertSchema =
   userAssetSecurityOrphanNewInsertSchema.extend({
     initialHolding: userAssetSecurityInitialHoldingSchema,
+    fundedFromCash: z.boolean().optional(),
   });
 
 export type UserAssetSecurityOrphanNewCreateInsert = z.infer<
@@ -134,6 +129,11 @@ export const userAssetSecurityLinkInsertSchema =
   userAssetSecurityBaseSchema.extend({
     userAssetId: z.string(),
     securityId: z.string(),
+    priorGainLoss: decimalValueSchema
+      .refine(isDecimalValueString, {
+        message: "Prior gain/loss must be a valid decimal string",
+      })
+      .optional(),
   });
 
 export type UserAssetSecurityLinkInsert = z.infer<
