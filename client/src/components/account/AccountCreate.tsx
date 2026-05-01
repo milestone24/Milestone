@@ -610,13 +610,12 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
 
   const currentValueFieldState = form.getFieldState("currentValue");
 
-  const canNext = (
-    valueMethod === "calculated" ||
-    (valueMethod === "manual" && currentValueFieldState.isDirty && !currentValueFieldState.invalid)
-  );
+  const canNext = valueMethod === "calculated";
+  // TODO: re-enable manual value method — (valueMethod === "manual" && currentValueFieldState.isDirty && !currentValueFieldState.invalid)
 
   const handleNext = async (next: () => void) => {
-    const triggerFields: (keyof UserAssetOrphanInsert)[] = valueMethod === "calculated" ? ["valueMethod", "securities"] : ["valueMethod", "currentValue"];
+    // TODO: re-enable manual value method — was: valueMethod === "calculated" ? ["valueMethod", "securities"] : ["valueMethod", "currentValue"]
+    const triggerFields: (keyof UserAssetOrphanInsert)[] = ["valueMethod", "securities"];
     const isValid = await form.trigger(triggerFields);
     if (isValid) {
       next();
@@ -659,6 +658,7 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
         </>
       ) : (
         <>
+          {/* TODO: re-enable manual value method
           <FormField
             control={form.control}
             name="valueMethod"
@@ -712,6 +712,7 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
               </FormItem>
             )}
           />
+          */}
           {valueMethod === "calculated" ? (
             <>
               <FormField
@@ -774,6 +775,7 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
               />
             </>
           ) : null}
+          {/* TODO: re-enable manual value method
           {valueMethod === "manual" ? (
             <FormField
               control={form.control}
@@ -793,6 +795,7 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
               )}
             />
           ) : null}
+          */}
           <ActionsBar {...actionsBarProps} isProcessing={isSubmitting}/>
         </>
       )}
