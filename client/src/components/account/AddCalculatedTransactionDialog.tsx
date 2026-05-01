@@ -211,15 +211,6 @@ export function AddCalculatedTransactionDialog({
               </RadioGroup>
             </div>
 
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full -mt-2"
-              onClick={() => setPhase("kind")}
-            >
-              Back
-            </Button>
-
             {txKind === "cash" ? (
               <TransactionSingleForm
                 onSubmit={handleCashSubmit}
