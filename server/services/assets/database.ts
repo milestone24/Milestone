@@ -862,6 +862,30 @@ export class DatabaseAssetService {
           tx.rollback();
           throw new Error("Failed to create user asset security");
         });
+
+        if (data.contributions && data.contributions.type === "asset") {
+          await tx.insert(recurringContributions).values({
+            assetId: insertedUserAsset.id,
+            process: data.contributions.process,
+            amount: data.contributions.amount,
+            startDate: data.startDate,
+            patternConfig: data.contributions.patternConfig,
+            type: "asset",
+            notificationEmail: data.contributions.notificationEmail,
+            notificationPush: data.contributions.notificationPush,
+          });
+        }
+
+        if (data.initialCashHolding) {
+          await tx.insert(assetTransactions).values({
+            assetId: insertedUserAsset.id,
+            value: data.initialCashHolding,
+            currencyValue: data.initialCashHolding,
+            valueDate: data.startDate,
+            recordedAt: new Date(),
+            source: "manual",
+          });
+        }
       }
 
       if (data.valueMethod === "manual") {
