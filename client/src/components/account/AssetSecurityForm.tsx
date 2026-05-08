@@ -72,18 +72,25 @@ export const AssetSecurityNewForm = ({
     defaultValues: {
       type: "new",
       startDate: startDate ?? new Date(),
-      initialHolding: {
-        shareHolding: createDecimalValueString("0"),
-        currencyValue: createDecimalValueString("0"),
-      },
+      initialHolding: undefined,
       fundedFromCash: true,
     },
     mode: "all",
   });
 
   const {
-    formState: { isValid, isSubmitting },
+    getValues,
+    formState: { isValid, isSubmitting, errors },
   } = form;
+
+  const val =
+    userAssetSecurityOrphanNewCreateInsertSchema.safeParse(getValues());
+
+  console.log("AssetSecurityNewForm getValues", getValues());
+  console.log("AssetSecurityNewForm val", val);
+
+  console.log("AssetSecurityNewForm errors", errors);
+  console.log("AssetSecurityNewForm isValid", isValid);
 
   const [error, setError] = useState<string | undefined>(undefined);
 
@@ -266,6 +273,8 @@ type AssetSecurityNewFields = Pick<
 const AssetSecurityNewFields = () => {
   const { control, watch, setValue } = useFormContext<AssetSecurityNewFields>();
 
+  const [addInitialTransaction, setAddInitialTransaction] = useState(false);
+
   const [searchInput, setSearchInput] = useState("");
 
   const debouncedSearch = useDebouncedCallback(
@@ -310,7 +319,7 @@ const AssetSecurityNewFields = () => {
                     control: ({ isFocused }) =>
                       cn(
                         "flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background",
-                        isFocused && "ring-1 ring-ring ring-offset-2"
+                        isFocused && "ring-1 ring-ring ring-offset-2",
                       ),
                     placeholder: () => "text-muted-foreground",
                     input: () => "text-foreground",
@@ -322,7 +331,7 @@ const AssetSecurityNewFields = () => {
                       cn(
                         "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
                         (isFocused || isSelected) &&
-                          "bg-accent text-accent-foreground"
+                          "bg-accent text-accent-foreground",
                       ),
                     noOptionsMessage: () =>
                       "py-2 text-sm text-center text-muted-foreground",
@@ -356,81 +365,95 @@ const AssetSecurityNewFields = () => {
           );
         }}
       />
-      <FormField
-        control={control}
-        name="initialHolding.shareHolding"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Shares Held</FormLabel>
-            <FormControl>
-              <Input
-                type="number"
-                placeholder="Shares Held"
-                {...field}
-                value={field.value ?? ""}
-                onChange={(e) => {
-                  field.onChange(
-                    e.target.value == ""
-                      ? ""
-                      : createDecimalValueString(e.target.value)
-                  );
-                }}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={control}
-        name="initialHolding.currencyValue"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Currency Value</FormLabel>
-            <FormDescription>
-              The currency paid for the security to date.
-            </FormDescription>
-            <FormControl>
-              <Input
-                type="number"
-                placeholder="Currency Value"
-                {...field}
-                value={field.value ?? ""}
-                onChange={(e) => {
-                  field.onChange(
-                    e.target.value == ""
-                      ? ""
-                      : createDecimalValueString(e.target.value)
-                  );
-                }}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={control}
-        name="fundedFromCash"
-        render={({ field }) => (
-          <FormItem>
-            <div className="flex items-center gap-2 rounded-md border p-3">
-              <FormControl>
-                <Checkbox
-                  checked={field.value ?? false}
-                  onCheckedChange={field.onChange}
-                />
-              </FormControl>
-              <FormLabel className="font-normal cursor-pointer">
-                Funded from cash balance
-              </FormLabel>
-            </div>
-            <FormDescription>
-              Record this purchase as a cash outflow from the account balance
-            </FormDescription>
-          </FormItem>
-        )}
-      />
+      <div className="flex flex-row gap-2">
+        <Checkbox
+          checked={addInitialTransaction}
+          onCheckedChange={(checked) =>
+            setAddInitialTransaction(checked === true)
+          }
+        />
+        <FormLabel>Add Initial Transaction</FormLabel>
+      </div>
+      {addInitialTransaction ? (
+        <>
+          <FormField
+            control={control}
+            name="initialHolding.shareHolding"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Shares Held</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="Shares Held"
+                    {...field}
+                    value={field.value ?? ""}
+                    onChange={(e) => {
+                      field.onChange(
+                        e.target.value == ""
+                          ? ""
+                          : createDecimalValueString(e.target.value),
+                      );
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={control}
+            name="initialHolding.currencyValue"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Currency Value</FormLabel>
+                <FormDescription>
+                  The currency paid for the security to date.
+                </FormDescription>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="Currency Value"
+                    {...field}
+                    value={field.value ?? ""}
+                    onChange={(e) => {
+                      field.onChange(
+                        e.target.value == ""
+                          ? ""
+                          : createDecimalValueString(e.target.value),
+                      );
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={control}
+            name="fundedFromCash"
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex items-center gap-2 rounded-md border p-3">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value ?? false}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormLabel className="font-normal cursor-pointer">
+                    Funded from cash balance
+                  </FormLabel>
+                </div>
+                <FormDescription>
+                  Record this purchase as a cash outflow from the account
+                  balance
+                </FormDescription>
+              </FormItem>
+            )}
+          />
+        </>
+      ) : null}
     </>
   );
 };

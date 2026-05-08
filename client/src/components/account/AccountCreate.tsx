@@ -531,18 +531,23 @@ const AssetSecurityForm = ({
     defaultValues: {
       type: "new",
       startDate: startDate ?? new Date(),
-      initialHolding: {
-        shareHolding: createDecimalValueString("0"),
-        currencyValue: createDecimalValueString("0"),
-      },
-      fundedFromCash: true,
     },
     mode: "all",
   });
 
   const {
-    formState: { isValid, isSubmitting },
+    getValues,
+    formState: { isValid, isSubmitting, errors },
   } = form;
+
+  const val =
+    userAssetSecurityOrphanNewCreateInsertSchema.safeParse(getValues());
+
+  console.log("Create Account AssetSecurityForm getValues", getValues());
+  console.log("Create Account AssetSecurityForm val", val);
+
+  console.log("Create Account AssetSecurityForm errors", errors);
+  console.log("Create Account AssetSecurityForm isValid", isValid);
 
   const handleAdd = async () => {
     const valid = await form.trigger();
@@ -810,7 +815,7 @@ type SecurityCardProps = {
       symbol: string;
       name: string;
     };
-    initialHolding: {
+    initialHolding?: {
       shareHolding: DecimalValueString;
       currencyValue: DecimalValueString;
     };
@@ -825,14 +830,18 @@ const SecurityCard = ({ security }: SecurityCardProps) => {
         <span className="text-sm">{security.security.symbol}</span>
         <span className="text-sm">{security.security.name}</span>
       </div>
-      <div className="flex flex-row gap-2 text-sm">
-        <span>Shares Held:</span>
-        <span>{security.initialHolding.shareHolding}</span>
-      </div>
-      <div className="flex flex-row gap-2 text-sm">
-        <span>Currency Value:</span>
-        <span>{security.initialHolding.currencyValue}</span>
-      </div>
+      {security.initialHolding ? (
+        <>
+          <div className="flex flex-row gap-2 text-sm">
+            <span>Shares Held:</span>
+            <span>{security.initialHolding.shareHolding}</span>
+          </div>
+          <div className="flex flex-row gap-2 text-sm">
+            <span>Currency Value:</span>
+            <span>{security.initialHolding.currencyValue}</span>
+          </div>
+        </>
+      ) : null}
       <div className="flex flex-row gap-2 text-sm">
         <span>Start Date:</span>
         <span>{security.startDate?.toLocaleDateString() || "N/A"}</span>
