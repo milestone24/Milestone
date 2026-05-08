@@ -222,10 +222,12 @@ export function OcrResultReview({
     try {
       const createdIds: string[] = [];
       for (const row of matchedRows) {
-        const created = await addSecurityTransaction.mutateAsync({
-          securityId: row.userAssetSecurityId!,
-          data: securityTransactionOcrRowToOrphanInsert(row.ocrRow),
-        });
+        const created = await addSecurityTransaction.mutateAsync(
+          securityTransactionOcrRowToInsert(
+            row.ocrRow,
+            row.userAssetSecurityId!,
+          ),
+        );
         createdIds.push(created.id);
       }
       await finalizeAccepted(createdIds);

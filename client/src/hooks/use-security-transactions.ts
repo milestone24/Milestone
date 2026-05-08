@@ -2,22 +2,25 @@ import {
   assetFlatTransactions,
   assetGraphTransactions,
   assetGraphValues,
+  assetSecurities,
   assetSecuritiesTransactions,
 } from "@shared/api/queryKeys";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type {
+  SecurityTransactionInsert,
   SecurityTransactionOrphanInsert,
   SecurityTransactionSelect,
+  UserAssetSecurityOrphanCreate,
   UserAssetSecurityTransactionResolved,
 } from "@shared/schema";
 import { userAssetSecurityTransactionResolvedSchema } from "@shared/schema/transaction";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "./use-toast";
 
-export type SecurityTransactionCreateRequest = {
-  securityId: string;
-  data: SecurityTransactionOrphanInsert;
-};
+// export type SecurityTransactionCreateRequest = {
+//   securityId: string;
+//   data: SecurityTransactionOrphanInsert;
+// };
 
 export type SecurityTransactionUpdateRequest = {
   securityId: string;
@@ -57,6 +60,7 @@ export const useSecurityTransactions = (assetId: string) => {
     queryClient.invalidateQueries({ queryKey: [...assetGraphValues, assetId] });
     queryClient.invalidateQueries({ queryKey: [...assetGraphTransactions, assetId] });
     queryClient.invalidateQueries({ queryKey: [...assetFlatTransactions, assetId] });
+    queryClient.invalidateQueries({ queryKey: [...assetSecurities, assetId] });
   };
 
   async function cancelAndSnapshot(): Promise<RollbackContext> {
@@ -75,14 +79,37 @@ export const useSecurityTransactions = (assetId: string) => {
   const addSecurityTransaction = useMutation<
     SecurityTransactionSelect,
     Error,
-    SecurityTransactionCreateRequest
+    SecurityTransactionInsert
   >({
-    mutationFn: ({ securityId, data }) => {
-      return apiRequest(
-        "POST",
-        `/api/assets/${assetId}/securities/${securityId}/transactions`,
-        data
-      );
+    mutationFn: (data: SecurityTransactionInsert) => {
+
+      if (data.mode === "existing") {
+        return apiRequest(
+          "POST",
+          `/api/assets/${assetId}/securities/${data.assetSecurityId}/transactions`,
+          data
+        );
+      } else if (data.mode === "new") {
+
+        const newSecurityData: UserAssetSecurityOrphanCreate = {
+          type: "new",
+          security: data.security,
+          startDate: data.valueDate,
+          initialHolding: {
+            shareHolding: data.value,
+            currencyValue: data.currencyValue,
+          },
+          fundedFromCash: data.fundedFromCash,
+        }
+
+        return apiRequest(
+          "POST",
+          `/api/assets/${assetId}/securities`,
+          newSecurityData
+        );
+      } else {
+        throw new Error("Invalid transaction mode");
+      }
     },
     onSuccess: () => {
       invalidateRelatedQueries();
