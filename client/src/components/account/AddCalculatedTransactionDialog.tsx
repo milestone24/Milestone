@@ -70,7 +70,19 @@ export function AddCalculatedTransactionDialog({
   };
 
   const handleInvestmentSubmit = async (payload: SecurityTransactionInsert) => {
-    await addSecurityTransaction.mutateAsync(payload);
+
+    const sign = direction === "withdrawal" ? -1 : 1;
+
+    const adjustedPayload: SecurityTransactionInsert = {
+      ...payload,
+      value: createDecimalValueString(
+        Decimal(String(payload.value)).mul(sign).toString(),
+      ),
+      currencyValue: createDecimalValueString(
+        Decimal(String(payload.currencyValue)).mul(sign).toString(),
+      ),
+    };
+    await addSecurityTransaction.mutateAsync(adjustedPayload);
     close();
     return;
   };
