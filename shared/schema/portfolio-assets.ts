@@ -84,7 +84,6 @@ export const userAssetSecurityOrphanNewInsertSchema =
   userAssetSecurityBaseSchema.extend({
     type: z.literal("new"),
     security: securityInsertSchema
-      .required()
       .refine((val) => val !== null && val !== undefined, {
         message: "Security is required",
       }),
@@ -94,20 +93,20 @@ export type UserAssetSecurityOrphanNewInsert = z.infer<
   typeof userAssetSecurityOrphanNewInsertSchema
 >;
 
+export const userAssetSecurityOrphanInitialSchema = z.object({
+  initialHolding: userAssetSecurityInitialHoldingSchema,
+  fundedFromCash: z.boolean(),
+})
+
 export const userAssetSecurityOrphanNewCreateInsertSchema =
-  userAssetSecurityOrphanNewInsertSchema.extend({
-    initialHolding: userAssetSecurityInitialHoldingSchema,
-    fundedFromCash: z.boolean().optional(),
-  });
+  userAssetSecurityOrphanNewInsertSchema.merge(userAssetSecurityOrphanInitialSchema.partial());
 
 export type UserAssetSecurityOrphanNewCreateInsert = z.infer<
   typeof userAssetSecurityOrphanNewCreateInsertSchema
 >;
 
 export const userAssetSecurityOrphanLinkCreateInsertSchema =
-  userAssetSecurityOrphanLinkInsertSchema.extend({
-    initialHolding: userAssetSecurityInitialHoldingSchema,
-  });
+  userAssetSecurityOrphanLinkInsertSchema.merge(userAssetSecurityOrphanInitialSchema.partial());
 
 export type UserAssetSecurityOrphanLinkCreateInsert = z.infer<
   typeof userAssetSecurityOrphanLinkCreateInsertSchema

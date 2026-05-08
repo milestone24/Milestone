@@ -23,6 +23,7 @@ import {
   isDecimalValueString,
 } from "./utils";
 import { BrandedValue, ValueAbstract, ValueAbstractType } from "./common";
+import { securitySearchResultSchema } from "./securities";
 
 export const patternSchema = z.object({
   type: z.enum(["cron", "rrule"]),
@@ -213,6 +214,7 @@ export const securityTransactionOrphanInsertSchema = z.object({
   recordedAt: z.coerce.date().optional(),
   source: z.enum(assetTransactionSources).optional(),
   flags: assetTransactionFlagsSchema.optional(),
+  fundedFromCash: z.boolean().optional(),
 });
 
 securityTransactionOrphanInsertSchema._output satisfies Omit<
@@ -226,17 +228,29 @@ export type SecurityTransactionOrphanInsert = z.infer<
 
 export type SecurityTransactionSelect = DBSecurityTransactionSelect;
 
-export const securityTransactionInsertSchema =
-  securityTransactionOrphanInsertSchema.extend({
-    assetSecurityId: z.string().refine((value) => value !== "", {
-      message: "Security is required",
-    }),
-  });
+export const existingSecurityTransactionInsertSchema = securityTransactionOrphanInsertSchema.extend({
+  mode: z.literal("existing"),
+  assetSecurityId: z.string().refine((value) => value !== "", {
+    message: "Security is required",
+  }),
+});
 
-securityTransactionInsertSchema._output satisfies Omit<
+existingSecurityTransactionInsertSchema._output satisfies Omit<
   DBSecurityTransactionInsert,
   "recordedAt"
 >;
+
+export const newSecurityTransactionInsertSchema = securityTransactionOrphanInsertSchema.extend({
+  mode: z.literal("new"),
+  security: securitySearchResultSchema.refine((value) => value !== null && value !== undefined, {
+    message: "Security is required",
+  }),
+});
+
+export const securityTransactionInsertSchema = z.discriminatedUnion("mode", [
+  existingSecurityTransactionInsertSchema,
+  newSecurityTransactionInsertSchema,
+])
 
 export type SecurityTransactionInsert = z.infer<
   typeof securityTransactionInsertSchema

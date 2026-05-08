@@ -4,8 +4,9 @@ import type {
   SecurityInsert as DBSecurityInsert,
   SecurityTransactionSelect as DBSecurityTransactionSelect,
   SecurityTransactionInsert as DBSecurityTransactionInsert,
+  AssetTransactionSelect,
 } from "@server/db/schema/index";
-import { IfConstructorEquals, UserAssetSecuritySelect } from ".";
+import { IfConstructorEquals, SecurityTransactionSelect, UserAssetSecuritySelect } from ".";
 import { BrandedValue } from "./common";
 import { NullableKeysToOptional } from "./utils";
 
@@ -79,4 +80,10 @@ securitySelectSchema._output satisfies DBSecuritySelectNullMapped;
 
 // export type SecurityInsert = IfConstructorEquals<ZodSecurityInsert, DBSecurityInsert, never>;
 // securityInsertSchema satisfies ZodType<SecurityInsert>;
+
+export type AssetSecurityInsertResult = {
+  security: UserAssetSecuritySelect;
+  securityTransaction?: SecurityTransactionSelect;
+  assetTransaction?: AssetTransactionSelect;
+}
 
