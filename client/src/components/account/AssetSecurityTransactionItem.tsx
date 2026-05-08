@@ -1,5 +1,4 @@
 import {
-  SecurityTransactionSelect,
   SecurityTransactionUpsert,
   UserAssetSecuritySelect,
   UserAssetSecurityTransactionResolved,
@@ -21,7 +20,7 @@ import { Button } from "../ui/button";
 import { useCallback, useState } from "react";
 import { useSecurityTransactions } from "@/hooks/use-security-transactions";
 import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
-import { SecurityTransactionUpsertDialogue } from "./SecurityTransactionUpsertDialogue";
+import { AssetSecurityTransactionEditDialogue } from "./AssetSecurityTransactionEditDialogue";
 import { useTransactionBundle } from "@/hooks/use-transaction-bundle";
 
 type AssetSecurityTransactionItemProps = {
@@ -51,11 +50,6 @@ export const AssetSecurityTransactionItem = ({
       assetSecurityId: string;
       transactionId: string;
     }) => {
-      console.log("handleDeleteTransaction", {
-        assetSecurityId,
-        transactionId,
-      });
-
       try {
         setIsInProcess(true);
         await deleteSecurityTransaction.mutateAsync({
@@ -64,11 +58,10 @@ export const AssetSecurityTransactionItem = ({
         });
         setIsInProcess(false);
       } catch (error) {
-        console.error("Error deleting transaction:", error);
         setError(error as Error);
       }
     },
-    [deleteSecurityTransaction, setIsInProcess]
+    [deleteSecurityTransaction, setIsInProcess],
   );
 
   const handleTransactionSubmit = useCallback(
@@ -78,10 +71,9 @@ export const AssetSecurityTransactionItem = ({
         transactionId: transaction.id,
         data,
       });
-      console.log("handleTransactionSubmit", data);
       return Promise.resolve(transaction);
     },
-    [transaction]
+    [transaction],
   );
 
   return (
@@ -89,7 +81,7 @@ export const AssetSecurityTransactionItem = ({
       key={transaction.id}
       className={cn(
         "flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 bg-muted rounded-lg transition-opacity",
-        isInProcess && "opacity-50 pointer-events-none"
+        isInProcess && "opacity-50 pointer-events-none",
       )}
     >
       {/* Content Section */}
@@ -103,7 +95,7 @@ export const AssetSecurityTransactionItem = ({
           <span
             className={cn(
               "font-semibold",
-              Number(transaction.value) > 0 ? "text-positive" : "text-negative"
+              Number(transaction.value) > 0 ? "text-positive" : "text-negative",
             )}
           >
             {Number(transaction.value) > 0 ? "+" : ""}
@@ -131,7 +123,7 @@ export const AssetSecurityTransactionItem = ({
 
       {/* Actions Section */}
       <div className="flex items-center gap-2 self-end sm:self-center">
-        <SecurityTransactionUpsertDialogue
+        <AssetSecurityTransactionEditDialogue
           isOpen={isDialogueOpen}
           onOpenChange={setIsDialogueOpen}
           onSubmit={handleTransactionSubmit}
@@ -139,6 +131,7 @@ export const AssetSecurityTransactionItem = ({
           securities={securities}
           display="inline"
         />
+        {/* Move this to own componenet */}
         <Dialog>
           <DialogTrigger asChild>
             <Button
@@ -209,7 +202,9 @@ export const AssetSecurityTransactionItem = ({
           </DialogContent>
         </Dialog>
       </div>
-      {error && <p className="text-destructive text-sm mt-2">{error.message}</p>}
+      {error && (
+        <p className="text-destructive text-sm mt-2">{error.message}</p>
+      )}
     </div>
   );
 };

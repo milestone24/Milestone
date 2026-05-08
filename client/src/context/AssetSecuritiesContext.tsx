@@ -1,4 +1,5 @@
 import {
+  assetFlatTransactions,
   assetGraphTransactions,
   assetGraphValues,
   assetSecurities,
@@ -104,6 +105,9 @@ export const useAssetSecurities = () => {
       });
       queryClient.invalidateQueries({
         queryKey: [...assetSecuritiesTransactions, assetId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...assetFlatTransactions, assetId],
       });
     },
   });

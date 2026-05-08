@@ -3,65 +3,44 @@ import {
   DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Pencil, Plus } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TransactionRecurringForm } from "./TransactionRecurringForm";
-import {
-  isAssetContribution,
-  isRecurringContribution,
-} from "@shared/schema/transaction";
-import { TransactionSingleForm } from "./TransactionSingleForm";
 import type {
-  SecurityTransactionInsert,
-  SecurityTransactionOrphanInsert,
   SecurityTransactionSelect,
   SecurityTransactionUpsert,
-  RecurringContribution,
-  AssetTransaction,
   UserAssetSecuritySelect,
-  RecurringContributionFormData,
-  AssetContributionFormData,
 } from "@shared/schema";
 import { useCallback } from "react";
-import { SecurityTransactionSingleForm } from "./SecurityTransactionSingleForm";
+import { AssetSecurityTransactionSingleForm } from "./AssetSecurityTransactionSingleForm";
 
-type SecurityTransactionUpsertDialogueProps<
-  S extends (
-    data: SecurityTransactionUpsert
-  ) => Promise<SecurityTransactionSelect> = (
-    data: SecurityTransactionUpsert
-  ) => Promise<SecurityTransactionSelect>,
-  D extends SecurityTransactionSelect | null = SecurityTransactionSelect | null
-> = {
+type AssetSecurityTransactionEditDialogueProps = {
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
-  onSubmit: S;
-  data?: D;
+  onSubmit: (
+    data: SecurityTransactionUpsert,
+    linkCash?: boolean,
+  ) => Promise<SecurityTransactionSelect>;
+  data: SecurityTransactionSelect;
   securities: UserAssetSecuritySelect[];
   display: "inline" | "block";
 };
 
-export const SecurityTransactionUpsertDialogue = ({
+export const AssetSecurityTransactionEditDialogue = ({
   isOpen,
   onOpenChange,
   onSubmit,
   data,
   securities,
   display = "block",
-}: SecurityTransactionUpsertDialogueProps) => {
+}: AssetSecurityTransactionEditDialogueProps) => {
   // Form for adding/editing contributions
 
   const handleTransactionSubmit = useCallback(
     async (data: SecurityTransactionUpsert): Promise<void> => {
-      console.log("SSS handleTransactionSubmit data", data);
-      //console.log("handleTransactionSubmit transactionId", transactionId);
-      //if (!onSubmit) return;
       await onSubmit(data);
       if (onOpenChange) {
         onOpenChange(false);
@@ -69,7 +48,7 @@ export const SecurityTransactionUpsertDialogue = ({
       console.log("SSS handleTransactionSubmit done");
       return Promise.resolve();
     },
-    []
+    [],
   );
 
   return (
@@ -82,25 +61,24 @@ export const SecurityTransactionUpsertDialogue = ({
         ) : (
           <Button variant="outline" size="sm" className="flex items-center">
             <Plus className="w-4 h-4 mr-2" />
-            Add Contribution
+            Add Transaction
           </Button>
         )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            {data ? "Edit Contribution" : "Add Contribution"}
-          </DialogTitle>
+          <DialogTitle>{"Edit Transactions"}</DialogTitle>
           <DialogDescription>
             Record a new transaction to this account.
           </DialogDescription>
         </DialogHeader>
-        <SecurityTransactionSingleForm
+        <AssetSecurityTransactionSingleForm
           onSubmit={handleTransactionSubmit}
           securities={securities}
           data={
             data
               ? {
+                  mode: "existing",
                   value: data.value,
                   currencyValue: data.currencyValue,
                   valueDate: data.valueDate,
