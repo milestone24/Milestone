@@ -11,6 +11,8 @@ import {
   securityDailyHistory,
   SchedulePattern,
   processes,
+  AssetTransactionSelect,
+  AssetTransactionInsert,
 } from "@server/db/schema";
 import { Database } from "../../db";
 import {
@@ -72,6 +74,10 @@ import {
   PortfolioRangeReturns,
   TransactionBundleInsert,
   TransactionBundleResponse,
+  securityTransactionInsertSchema,
+  SecurityTransactionSelect,
+  AssetSecurityInsertResult,
+  SecurityTransactionInsert,
 } from "@shared/schema";
 import {
   computePortfolioRangeReturns,
@@ -112,6 +118,7 @@ import {
   queryParamsToKeyRoundedDates,
   dataRangeQueryToKey,
 } from "@server/services/cache";
+import { createLedgerGroupId } from "@shared/utils/transaction";
 
 const securitiesService = securitiesFactory();
 
@@ -608,16 +615,16 @@ export class DatabaseAssetService {
 
         let currentValue: DecimalValueString =
           latestValue?.value ?? createDecimalValueString("0");
-        if (userAsset.valueMethod === "calculated") {
-          const cash = await this.getAssetCashBalanceOnOrBefore(
-            id,
-            null,
-            tx
-          );
-          currentValue = createDecimalValueString(
-            new Decimal(latestValue?.value ?? "0").add(cash).toString()
-          );
-        }
+        // if (userAsset.valueMethod === "calculated") {
+        //   // const cash = await this.getAssetCashBalanceOnOrBefore(
+        //   //   id,
+        //   //   null,
+        //   //   tx
+        //   // );
+        //   currentValue = createDecimalValueString(
+        //     new Decimal(latestValue?.value ?? "0").add(cash).toString()
+        //   );
+        // }
 
         return {
           ...userAsset,
@@ -834,7 +841,7 @@ export class DatabaseAssetService {
               if (securityDistribution) {
                 await tx.insert(recurringContributions).values({
                   assetId: insertedUserAsset.id,
-                  securityId: value.id,
+                  securityId: value.security.id,
                   groupId,
                   amount:
                     data.contributions.securityDistribution.length === 1
@@ -1288,21 +1295,8 @@ export class DatabaseAssetService {
   @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
   async createUserAssetSecurityTransaction(
     assetSecurityId: string,
-    data: SecurityTransactionOrphanInsert
+    data: SecurityTransactionInsert
   ): Promise<SecurityTransaction> {
-    const [securityTransaction] = await this.db
-      .insert(securityTransactions)
-      .values({
-        assetSecurityId,
-        ...data,
-        recordedAt: data.recordedAt ?? new Date(),
-        source: data.source ?? "manual",
-      })
-      .returning();
-
-    if (!securityTransaction) {
-      throw new Error("Failed to create security transaction");
-    }
 
     const assetSecurity = await this.db.query.userAssetSecurities.findFirst({
       where: eq(userAssetSecurities.id, assetSecurityId),
@@ -1315,70 +1309,63 @@ export class DatabaseAssetService {
       throw new Error("Asset security not found, can not update asset values");
     }
 
-    this.assetValuesService.updateAssetValuesForAssetOfAccount(
-      assetSecurity.userAsset.userAccountId,
-      assetSecurity.userAssetId,
-      data.valueDate
-    );
+    const txResult = await this.db.transaction(async (tx) => {
 
-    return securityTransaction;
-  }
+      if (data.mode === "new") {
+        throw new Error("Wrong service method called");
+      }
 
-  @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
-  async createTransactionBundle(
-    assetId: UserAsset["id"],
-    data: TransactionBundleInsert
-  ) {
-    const assetSecurity = await this.db.query.userAssetSecurities.findFirst({
-      where: and(
-        eq(userAssetSecurities.id, data.securityLeg.assetSecurityId),
-        eq(userAssetSecurities.userAssetId, assetId)
-      ),
-      columns: { id: true },
+      if (data.mode === "existing") {
+
+        const ledgerGroupId = data.fundedFromCash ? createLedgerGroupId() : undefined;
+
+        const [securityTransaction] = await tx
+          .insert(securityTransactions)
+          .values({
+            ...data,
+            assetSecurityId,
+            recordedAt: data.recordedAt ?? new Date(),
+            source: data.source ?? "manual",
+            ledgerGroupId,
+          })
+          .returning();
+
+        if (!securityTransaction) {
+          throw new Error("Failed to create security transaction");
+        }
+
+        if (ledgerGroupId) {
+
+          const cashTransactionInsert: AssetTransactionInsert = {
+            assetId: assetSecurity.userAssetId,
+            value: data.value,
+            currencyValue: createDecimalValueString(Decimal(data.currencyValue).negated().toString()),
+            valueDate: data.valueDate,
+            recordedAt: new Date(),
+            ledgerGroupId,
+            source: data.source ?? "manual",
+            flags: data.flags ?? null,
+          }
+
+          const [assetTransaction] = await tx
+            .insert(assetTransactions)
+            .values(cashTransactionInsert)
+            .returning();
+        }
+
+        this.assetValuesService.updateAssetValuesForAssetOfAccount(
+          assetSecurity.userAsset.userAccountId,
+          assetSecurity.userAssetId,
+          data.valueDate
+        );
+
+        return securityTransaction;
+      }
+
+      throw new Error("Invalid security transaction mode");
     });
 
-    if (!assetSecurity) {
-      throw new Error("Security not found for this asset");
-    }
-
-    const ledgerGroupId = randomUUID();
-
-    return this.db.transaction(async (tx) => {
-      const [securityLeg] = await tx
-        .insert(securityTransactions)
-        .values({
-          ...data.securityLeg,
-          ledgerGroupId,
-          recordedAt: data.securityLeg.recordedAt ?? new Date(),
-          source: data.securityLeg.source ?? "manual",
-        })
-        .returning();
-
-      if (!securityLeg) {
-        throw new Error("Failed to insert security leg");
-      }
-
-      if (!data.cashLeg) {
-        return { groupId: ledgerGroupId, securityLeg };
-      }
-
-      const [cashLeg] = await tx
-        .insert(assetTransactions)
-        .values({
-          ...data.cashLeg,
-          assetId,
-          ledgerGroupId,
-          recordedAt: new Date(),
-          source: data.cashLeg.source ?? "manual",
-        })
-        .returning();
-
-      if (!cashLeg) {
-        throw new Error("Failed to insert cash leg");
-      }
-
-      return { groupId: ledgerGroupId, securityLeg, cashLeg };
-    });
+    return txResult;
   }
 
   @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
@@ -2483,16 +2470,12 @@ export class DatabaseAssetService {
     assetId: UserAsset["id"],
     data: UserAssetSecurityOrphanCreate,
     tx?: Transaction
-  ): Promise<UserAssetSecuritySelect> {
+  ): Promise<AssetSecurityInsertResult> {
     // Make sure the asset exists
 
     const exec = async (
       tx: Transaction
-    ): Promise<{
-      asset: UserAsset;
-      value: UserAssetSecuritySelect;
-      transaction: SecurityTransaction;
-    }> => {
+    ): Promise<AssetSecurityInsertResult> => {
       /**
        * We must use the transactions here and not the internal getUserAsset method.
        * Maybe later the getUserAsset could also use the transactions.
@@ -2550,52 +2533,67 @@ export class DatabaseAssetService {
 
       const value = { ...valueRaw, security: mapDbSecurityToSelect(valueRaw.security) };
 
-      const ledgerGroupId = (data.type === "new" && data.fundedFromCash) ? randomUUID() : undefined;
 
-      const [transaction] = await tx
-        .insert(securityTransactions)
-        .values({
-          assetSecurityId: value.id,
-          value: data.initialHolding.shareHolding,
-          currency: value.security.currency ?? "GBP",
-          currencyValue: data.initialHolding.currencyValue,
-          recordedAt: new Date(),
-          valueDate: data.startDate,
-          source: "manual",
-          ...(ledgerGroupId && { ledgerGroupId }),
-        })
-        .returning();
+      if (!!data.initialHolding) {
 
-      if (!transaction) {
-        tx.rollback();
-        throw new Error("Failed to create security transaction");
+        const ledgerGroupId = (data.type === "new" && data.fundedFromCash) ? createLedgerGroupId() : undefined;
+
+        const [transaction] = await tx
+          .insert(securityTransactions)
+          .values({
+            assetSecurityId: value.id,
+            value: data.initialHolding.shareHolding,
+            currency: value.security.currency ?? "GBP",
+            currencyValue: data.initialHolding.currencyValue,
+            recordedAt: new Date(),
+            valueDate: data.startDate,
+            source: "manual",
+            ...(ledgerGroupId && { ledgerGroupId }),
+          })
+          .returning();
+
+        if (!transaction) {
+          tx.rollback();
+          throw new Error("Failed to create security transaction");
+        }
+
+        if (ledgerGroupId) {
+
+          const [assetTransaction] = await tx.insert(assetTransactions).values({
+            assetId,
+            currencyValue: createDecimalValueString(Decimal(data.initialHolding.currencyValue).negated().toString()),
+            value: createDecimalValueString(
+              Decimal(data.initialHolding.currencyValue).neg().toString()
+            ),
+            valueDate: data.startDate,
+            recordedAt: new Date(),
+            ledgerGroupId,
+            source: "manual",
+          })
+            .returning();
+
+          if (!assetTransaction) {
+            tx.rollback();
+            throw new Error("Failed to create asset transaction for security");
+          }
+
+          return { security: value, securityTransaction: transaction, assetTransaction: assetTransaction };
+
+        } else {
+
+          return { security: value, securityTransaction: transaction, assetTransaction: undefined };
+        }
+
       }
 
-      if (ledgerGroupId) {
-        await tx.insert(assetTransactions).values({
-          assetId,
-          currencyValue: createDecimalValueString(
-            Decimal(data.initialHolding.currencyValue).neg().toString()
-          ),
-          value: createDecimalValueString(
-            Decimal(data.initialHolding.currencyValue).neg().toString()
-          ),
-          valueDate: data.startDate,
-          recordedAt: new Date(),
-          ledgerGroupId,
-          source: "manual",
-        });
-      }
-
-      return { asset, value, transaction };
-      //});
+      return { security: value, securityTransaction: undefined, assetTransaction: undefined };
     };
 
-    const { value } = tx
+    const result = tx
       ? await exec(tx)
       : await this.db.transaction(async (tx) => exec(tx));
 
-    return value;
+    return result;
   }
 
   @InvalidatesCache({ namespaces: ["portfolio", "assets"], scope: "account" })
@@ -2618,7 +2616,7 @@ export class DatabaseAssetService {
       assetId,
       data.startDate
     );
-    return value;
+    return value.security;
   }
 
   async updateUserAssetSecurity(

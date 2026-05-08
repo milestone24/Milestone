@@ -21,6 +21,7 @@ import {
   flatCombinedTransactionRowSchema,
   transactionBundleInsertSchema,
   transactionBundleResponseSchema,
+  securityTransactionInsertSchema,
 } from "@shared/schema";
 import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
 import { db } from "@server/db";
@@ -303,40 +304,6 @@ export async function registerRoutes(
     }
   );
 
-  router.post(
-    regExpPath(`/${uuidRouteParam("assetId")}/transactions/bundle`),
-    requireUser,
-    async (req: AuthRequest, res) => {
-      if (!req.params.assetId) {
-        return res.status(400).json({ error: "Asset ID is required" });
-      }
-
-      const parsed = transactionBundleInsertSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({ error: parsed.error.message });
-      }
-
-      try {
-        const result = await assetService.createTransactionBundle(
-          req.params.assetId,
-          parsed.data
-        );
-
-        const responseParsed = transactionBundleResponseSchema.safeParse(result);
-        if (!responseParsed.success) {
-          console.error("bundle response parse error", responseParsed.error.flatten());
-          return res.status(500).json({ error: "Invalid bundle response payload" });
-        }
-
-        return res.status(201).json(responseParsed.data);
-      } catch (err) {
-        return res.status(400).json({
-          error: err instanceof Error ? err.message : "Failed to create transaction bundle",
-        });
-      }
-    }
-  );
-
   router.delete(
     regExpPath(
       `/${uuidRouteParam("assetId")}/transactions/bundle/${uuidRouteParam("groupId")}`
@@ -532,7 +499,7 @@ export async function registerRoutes(
       if (!req.params.securityId) {
         return res.status(400).json({ error: "Security ID is required" });
       }
-      const data = securityTransactionOrphanInsertSchema.parse(req.body);
+      const data = securityTransactionInsertSchema.parse(req.body);
       const transaction = await assetService.createUserAssetSecurityTransaction(
         req.params.securityId,
         data
