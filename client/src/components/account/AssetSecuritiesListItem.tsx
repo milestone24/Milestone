@@ -18,12 +18,15 @@ import {
   AlertDialogFooter,
 } from "../ui/alert-dialog";
 
-type SecurityCardProps = {
+type AssetSecuritiesListItemProps = {
   security: ResolvedAssetSecurity;
   onClick: (item: { id: string }) => void;
 };
 
-export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
+export const AssetSecuritiesListItem: FC<AssetSecuritiesListItemProps> = ({
+  security,
+  onClick,
+}) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   const { deleteSecurity, updateSecurity, assetStartDate } =
@@ -72,7 +75,7 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
           return Promise.reject(error);
         });
     },
-    [updateSecurity, security]
+    [updateSecurity, security],
   );
 
   return (
@@ -83,8 +86,12 @@ export const SecurityCard: FC<SecurityCardProps> = ({ security, onClick }) => {
       >
         <div className="flex flex-col items-start">
           <p className="font-medium">{security.security.name}</p>
-          <p className="text-sm text-muted-foreground">{security.security.symbol}</p>
-          <p className="text-sm text-muted-foreground">{security.startDate.toLocaleDateString()}</p>
+          <p className="text-sm text-muted-foreground">
+            {security.security.symbol}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {security.startDate.toLocaleDateString()}
+          </p>
         </div>
         <div className="flex flex-col items-end">
           <p className="font-medium">

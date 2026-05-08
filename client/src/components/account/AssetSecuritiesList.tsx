@@ -1,6 +1,6 @@
 import { UserAssetSecurityOrphanNewCreateInsert } from "shared/schema";
 import { FC, useState } from "react";
-import { SecurityCard } from "./SecurityCard";
+import { AssetSecuritiesListItem } from "./AssetSecuritiesListItem";
 import { cn } from "@/lib/utils";
 import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
 import { AssetSecurityUpsertDialog } from "./AssetSecurityUpsertDialog";
@@ -61,7 +61,7 @@ export const AssetSecuritiesList: FC<AssetSecuritiesListProps> = ({
           </div>
         ) : (
           securities.map((security) => (
-            <SecurityCard
+            <AssetSecuritiesListItem
               key={security.id}
               security={security}
               onClick={onItemClick ?? (() => {})}
