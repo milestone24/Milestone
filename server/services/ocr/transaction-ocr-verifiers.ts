@@ -16,7 +16,7 @@ import {
   ocrAssetCandidateResultSchema,
   type OcrAssetCandidateResult,
   type SecurityTransactionOcrExtractionRow,
-} from "@shared/schema/transaction";
+} from "@shared/schema/ocr";
 import type { OcrPipelineVerboseLog } from "./transaction-ocr-orchestrator";
 
 const UUID_RE =

@@ -1,4 +1,4 @@
-import type { OcrAssetCandidateSecurity } from "@shared/schema/transaction";
+import type { OcrAssetCandidateSecurity } from "@shared/schema/ocr";
 
 interface OcrCandidateSecurityRowProps {
   security: OcrAssetCandidateSecurity;

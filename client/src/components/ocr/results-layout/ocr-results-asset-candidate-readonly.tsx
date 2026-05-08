@@ -1,5 +1,5 @@
 import { OcrCandidateSecurityRow } from "@/components/ocr/OcrCandidateSecurityRow";
-import type { OcrAssetCandidateResult } from "@shared/schema/transaction";
+import type { OcrAssetCandidateResult } from "@shared/schema/ocr";
 import { cn } from "@/lib/utils";
 
 type OcrResultsAssetCandidateReadonlyProps = {

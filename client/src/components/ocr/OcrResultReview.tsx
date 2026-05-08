@@ -12,9 +12,9 @@ import {
   OcrResultsWarningNotice,
 } from "@/components/ocr/results-layout";
 import { useSecurityTransactions } from "@/hooks/use-security-transactions";
-import { securityTransactionOcrRowToOrphanInsert } from "@shared/schema/transaction";
+import { securityTransactionOcrRowToInsert } from "@shared/schema/ocr";
 import type { ExtractedAmount, DocumentOcrPipelineResult } from "@shared/schema/document";
-import type { OcrAssetCandidateResult } from "@shared/schema/transaction";
+import type { OcrAssetCandidateResult } from "@shared/schema/ocr";
 import type { UserAsset } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {

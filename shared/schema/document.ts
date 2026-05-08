@@ -6,7 +6,7 @@ import {
 import {
   ocrAssetCandidateResultListSchema,
   securityTransactionOcrExtractionListSchema,
-} from "./transaction";
+} from "./ocr";
 import type {
   DocumentInsert as DBDocumentInsert,
   DocumentSelect as DBDocumentSelect,

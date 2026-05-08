@@ -9,7 +9,7 @@ import {
 import { loadPdfTextExtractionConfigFromEnv } from "@server/services/pdf-text";
 import type { DocumentOcrPipelineResult, ExtractedAmount } from "@shared/schema/document";
 import { statementPlatformBrandIdentificationSchema } from "@shared/schema/platform-brand-ocr";
-import { securityTransactionOcrExtractionListSchema } from "@shared/schema/transaction";
+import { securityTransactionOcrExtractionListSchema } from "@shared/schema/ocr";
 import {
   appendPhaseInstruction,
   prepareOcrDocumentUserContentBase,

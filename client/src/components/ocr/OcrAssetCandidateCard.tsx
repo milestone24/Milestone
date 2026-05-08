@@ -1,5 +1,5 @@
 import { OcrCandidateSecurityRow } from "./OcrCandidateSecurityRow";
-import type { OcrAssetCandidateResult } from "@shared/schema/transaction";
+import type { OcrAssetCandidateResult } from "@shared/schema/ocr";
 
 interface OcrAssetCandidateCardProps {
   candidate: OcrAssetCandidateResult;
