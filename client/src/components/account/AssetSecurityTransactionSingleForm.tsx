@@ -303,25 +303,24 @@ export const AssetSecurityTransactionSingleForm = ({
             )}
           />
 
-          <div className="flex items-center gap-2 rounded-md border p-3">
-            <FormField
-              control={control}
-              name="fundedFromCash"
-              render={({ field }) => (
-                <FormItem>
+          <FormField
+            control={control}
+            name="fundedFromCash"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
                   <FormLabel>Funded from cash balance</FormLabel>
-                  <FormControl>
-                    <Checkbox
-                      id="link-cash"
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         <div className="flex justify-end gap-2">
