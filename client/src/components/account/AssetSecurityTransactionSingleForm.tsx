@@ -4,6 +4,7 @@ import type { UserAssetSecuritySelect } from "@shared/schema/portfolio-assets";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -59,6 +60,7 @@ export const AssetSecurityTransactionSingleForm = ({
   });
 
   const [searchInput, setSearchInput] = useState("");
+  const [duplicateAssetSecurityId, setDuplicateAssetSecurityId] = useState<string | undefined>(undefined);
 
   const debouncedSearch = useDebouncedCallback(
     (input: string) => setSearchInput(input),
@@ -88,8 +90,37 @@ export const AssetSecurityTransactionSingleForm = ({
   } = form;
 
   const setSelectedNewSecurity = (security: SecuritySearchResult | null) => {
-    if (security === null) return;
+    if (security === null) {
+      setValue("security", undefined as never);
+      setDuplicateAssetSecurityId(undefined);
+      form.clearErrors("security");
+      return;
+    }
+
+    const existing = securities.find(
+      (s) => s.security.sourceIdentifier === security.sourceIdentifier
+    );
+
+    if (existing) {
+      setDuplicateAssetSecurityId(existing.id);
+      form.setError("security", {
+        type: "manual",
+        message: "This investment is already in this account.",
+      });
+      return;
+    }
+
+    setDuplicateAssetSecurityId(undefined);
+    form.clearErrors("security");
     setValue("security", security);
+  };
+
+  const switchToExistingSecurity = () => {
+    if (!duplicateAssetSecurityId) return;
+    setValue("mode", "existing");
+    setValue("assetSecurityId", duplicateAssetSecurityId);
+    setDuplicateAssetSecurityId(undefined);
+    form.clearErrors("security");
   };
 
   const mode = watch("mode");
@@ -176,60 +207,78 @@ export const AssetSecurityTransactionSingleForm = ({
               )}
             />
           ) : (
-            <div className="flex flex-col gap-2">
-              <Label>Search Security</Label>
-              <p className="text-sm text-muted-foreground">
-                Search for a security by name, ticker or ISIN.
-                <br />
-                You must enter at least three characters to search.
-              </p>
-              {isSearchError && (
-                <p className="text-sm font-medium text-destructive">
-                  Unable to search for investments. Please try again.
-                </p>
+            <FormField
+              control={control}
+              name="security"
+              render={() => (
+                <FormItem className="flex flex-col gap-1">
+                  <FormLabel>Search Security</FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    Search for a security by name, ticker or ISIN.
+                    <br />
+                    You must enter at least three characters to search.
+                  </p>
+                  {isSearchError && (
+                    <p className="text-sm font-medium text-destructive">
+                      Unable to search for investments. Please try again.
+                    </p>
+                  )}
+                  <FormControl>
+                    <RSelect
+                      unstyled
+                      classNames={{
+                        control: ({ isFocused }) =>
+                          cn(
+                            "flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background",
+                            isFocused && "ring-1 ring-ring ring-offset-2",
+                          ),
+                        placeholder: () => "text-muted-foreground",
+                        input: () => "text-foreground",
+                        singleValue: () => "text-foreground",
+                        menu: () =>
+                          "mt-1 rounded-md border border-border bg-popover shadow-md z-50",
+                        menuList: () => "p-1",
+                        option: ({ isFocused, isSelected }) =>
+                          cn(
+                            "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
+                            (isFocused || isSelected) &&
+                              "bg-accent text-accent-foreground",
+                          ),
+                        noOptionsMessage: () =>
+                          "py-2 text-sm text-center text-muted-foreground",
+                        loadingMessage: () =>
+                          "py-2 text-sm text-center text-muted-foreground",
+                        indicatorSeparator: () => "bg-border mx-1",
+                        dropdownIndicator: () => "text-muted-foreground px-1",
+                        clearIndicator: () =>
+                          "text-muted-foreground hover:text-foreground px-1 cursor-pointer",
+                      }}
+                      tabSelectsValue={false}
+                      options={securitySearchResults ?? []}
+                      getOptionLabel={(s) => `${s.symbol} - ${s.name}`}
+                      onChange={(security) => {
+                        setSelectedNewSecurity(security);
+                      }}
+                      onInputChange={(input) => debouncedSearch(input)}
+                      inputValue={searchInput}
+                      isClearable
+                      isLoading={isSearchLoading}
+                      placeholder="Search investments..."
+                    />
+                  </FormControl>
+                  <FormMessage />
+                  {duplicateAssetSecurityId && (
+                    <button
+                      type="button"
+                      className="text-sm text-primary underline-offset-4 hover:underline self-start"
+                      onClick={switchToExistingSecurity}
+                    >
+                      Add a transaction for the existing holding instead
+                    </button>
+                  )}
+                </FormItem>
               )}
-              <RSelect
-                unstyled
-                classNames={{
-                  control: ({ isFocused }) =>
-                    cn(
-                      "flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background",
-                      isFocused && "ring-1 ring-ring ring-offset-2",
-                    ),
-                  placeholder: () => "text-muted-foreground",
-                  input: () => "text-foreground",
-                  singleValue: () => "text-foreground",
-                  menu: () =>
-                    "mt-1 rounded-md border border-border bg-popover shadow-md z-50",
-                  menuList: () => "p-1",
-                  option: ({ isFocused, isSelected }) =>
-                    cn(
-                      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
-                      (isFocused || isSelected) &&
-                        "bg-accent text-accent-foreground",
-                    ),
-                  noOptionsMessage: () =>
-                    "py-2 text-sm text-center text-muted-foreground",
-                  loadingMessage: () =>
-                    "py-2 text-sm text-center text-muted-foreground",
-                  indicatorSeparator: () => "bg-border mx-1",
-                  dropdownIndicator: () => "text-muted-foreground px-1",
-                  clearIndicator: () =>
-                    "text-muted-foreground hover:text-foreground px-1 cursor-pointer",
-                }}
-                tabSelectsValue={false}
-                options={securitySearchResults ?? []}
-                getOptionLabel={(s) => `${s.symbol} - ${s.name}`}
-                onChange={(security) => {
-                  setSelectedNewSecurity(security);
-                }}
-                onInputChange={(input) => debouncedSearch(input)}
-                inputValue={searchInput}
-                isClearable
-                isLoading={isSearchLoading}
-                placeholder="Search investments..."
-              />
-            </div>
+            />
           )}
 
           <FormField
@@ -307,7 +356,7 @@ export const AssetSecurityTransactionSingleForm = ({
             control={control}
             name="fundedFromCash"
             render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border">
                 <FormControl>
                   <Checkbox
                     checked={field.value}
@@ -315,7 +364,7 @@ export const AssetSecurityTransactionSingleForm = ({
                   />
                 </FormControl>
                 <div className="space-y-1 leading-none">
-                  <FormLabel>Funded from cash balance</FormLabel>
+                  <FormLabel>Use cash balance</FormLabel>
                 </div>
                 <FormMessage />
               </FormItem>
