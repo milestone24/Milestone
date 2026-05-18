@@ -100,7 +100,10 @@ export function AddCalculatedTransactionContent({
             <button
               type="button"
               className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-border p-5 text-left hover:border-primary hover:bg-primary/5 transition-colors"
-              onClick={() => { setTxKind("cash"); setPhase("form"); }}
+              onClick={() => {
+                setTxKind("cash");
+                setPhase("form");
+              }}
             >
               <Coins className="h-7 w-7 text-muted-foreground" />
               <span className="text-sm font-medium">Cash movement</span>
@@ -108,7 +111,10 @@ export function AddCalculatedTransactionContent({
             <button
               type="button"
               className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-border p-5 text-left hover:border-primary hover:bg-primary/5 transition-colors"
-              onClick={() => { setTxKind("investment"); setPhase("form"); }}
+              onClick={() => {
+                setTxKind("investment");
+                setPhase("form");
+              }}
             >
               <Layers2 className="h-7 w-7 text-muted-foreground" />
               <span className="text-sm font-medium">Investment</span>
@@ -123,9 +129,6 @@ export function AddCalculatedTransactionContent({
       ) : (
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label className="text-sm font-medium">
-              {txKind === "cash" ? "Movement" : "Trade side"}
-            </Label>
             <RadioGroup
               value={direction}
               onValueChange={(v) => setDirection(v as Direction)}
