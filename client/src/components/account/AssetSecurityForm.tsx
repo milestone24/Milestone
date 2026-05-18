@@ -442,13 +442,9 @@ const AssetSecurityNewFields = () => {
                     />
                   </FormControl>
                   <FormLabel className="font-normal cursor-pointer">
-                    Funded from cash balance
+                    Use cash balance
                   </FormLabel>
                 </div>
-                <FormDescription>
-                  Record this purchase as a cash outflow from the account
-                  balance
-                </FormDescription>
               </FormItem>
             )}
           />
