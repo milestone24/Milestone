@@ -131,7 +131,7 @@ export const TransactionSingleForm = ({
             {isSubmitting ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : null}
-            {data ? "Update Contribution" : "Add Contribution"}
+            {data ? "Update Transaction" : "Add Transaction"}
           </Button>
         </div>
       </form>
