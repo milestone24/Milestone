@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -56,12 +56,19 @@ import { AccountDetails } from "@/components/account/AccountDetails";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { useAssetCashBalance } from "@/hooks/use-asset-cash-balance";
 import { Coins } from "lucide-react";
+import { useRecordTransaction } from "@/context/RecordTransactionContext";
 
 function AssetPage() {
   const params = useParams();
   const [, setLocation] = useLocation();
 
   const assetId: UserAsset["id"] | undefined = params?.id;
+
+  const { setPageAssetId } = useRecordTransaction();
+  useEffect(() => {
+    setPageAssetId(assetId);
+    return () => setPageAssetId(undefined);
+  }, [assetId, setPageAssetId]);
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { mutateAsync: deleteAsset } = useAssetDelete();

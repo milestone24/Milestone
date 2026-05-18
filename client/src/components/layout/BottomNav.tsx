@@ -2,6 +2,7 @@ import { LayoutGrid, Clock, Plus, Activity, Star } from "lucide-react";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { triggerHapticFeedback } from "@/capacitor";
+import { useRecordTransaction } from "@/context/RecordTransactionContext";
 
 type NavItem = {
   id: string;
@@ -55,10 +56,15 @@ function getActiveIndex(location: string): number {
 export default function BottomNav() {
   const [location, setLocation] = useLocation();
   const activeIndex = getActiveIndex(location);
+  const { openTransaction } = useRecordTransaction();
 
   const handleNavigation = (item: NavItem) => {
     triggerHapticFeedback();
-    setLocation(item.path);
+    if (item.id === "record") {
+      openTransaction();
+    } else {
+      setLocation(item.path);
+    }
   };
 
   return (

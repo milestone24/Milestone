@@ -32,7 +32,7 @@ import {
 } from "../ui/dialog";
 import { OcrDocumentUpload } from "@/components/ocr/OcrDocumentUpload";
 import { AssetOcrPendingReviewSection } from "@/components/ocr/AssetOcrPendingReviewSection";
-import { AddCalculatedTransactionDialog } from "./AddCalculatedTransactionDialog";
+import { useRecordTransaction } from "@/context/RecordTransactionContext";
 import { AssetCashTransactionItem } from "./AssetCashTransactionItem";
 import { TransactionsDialogue } from "./TransactionsDialogue";
 import {
@@ -122,7 +122,7 @@ export const CalculatedTransactionsPanel = ({
     createRecurringContributionGroup,
   } = useRecurringContributions(assetId);
 
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const { openTransaction } = useRecordTransaction();
   const [recurringDialogOpen, setRecurringDialogOpen] = useState(false);
   const [ocrUploadDialogOpen, setOcrUploadDialogOpen] = useState(false);
   const [ocrUploadKey, setOcrUploadKey] = useState(0);
@@ -327,19 +327,12 @@ export const CalculatedTransactionsPanel = ({
               variant="default"
               size="sm"
               className="gap-1.5"
-              onClick={() => setAddDialogOpen(true)}
+              onClick={() => openTransaction(assetId)}
             >
               <Plus className="h-4 w-4" />
               Add transaction
             </Button>
           </div>
-
-          <AddCalculatedTransactionDialog
-            open={addDialogOpen}
-            onOpenChange={setAddDialogOpen}
-            assetId={assetId}
-            securities={securities}
-          />
 
           <RecurringContributionsList
             contributions={recurringContributions}

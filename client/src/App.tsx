@@ -16,6 +16,8 @@ import { ErrorBoundary } from "react-error-boundary";
 import { useSocket } from "./hooks/use-socket";
 import { useSession } from "./hooks/use-session";
 import { brokerPlatformsQueryKey, brokerPlatformsQueryFn } from "./hooks/use-broker-platforms";
+import { RecordTransactionProvider } from "@/context/RecordTransactionContext";
+import { RecordTransactionDialog } from "@/components/record/RecordTransactionDialog";
 
 const Portfolio = lazy(() => import("@/pages/portfolio"));
 const AssetPage = lazy(() => import("@/pages/asset"));
@@ -27,7 +29,6 @@ const FireLast = lazy(() => import("@/pages/fire-last"));
 const Profile = lazy(() => import("@/pages/profile"));
 const Settings = lazy(() => import("@/pages/settings"));
 const ApiConnections = lazy(() => import("@/pages/api-connections"));
-const Record = lazy(() => import("@/pages/record"));
 const Documents = lazy(() => import("@/pages/documents"));
 const OcrJobs = lazy(() => import("@/pages/ocr-jobs"));
 const OcrJobDetail = lazy(() => import("@/pages/ocr-job-detail"));
@@ -80,13 +81,6 @@ function Router() {
             {() => (
               <ProtectedRoute>
                 <RouteWithLayout component={Track} />
-              </ProtectedRoute>
-            )}
-          </Route>
-          <Route path="/record">
-            {() => (
-              <ProtectedRoute>
-                <RouteWithLayout component={Record} />
               </ProtectedRoute>
             )}
           </Route>
@@ -200,9 +194,12 @@ function App() {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <SessionProvider>
-          <StaticDataPrefetch />
-          <Router />
-          <Toaster />
+          <RecordTransactionProvider>
+            <StaticDataPrefetch />
+            <Router />
+            <RecordTransactionDialog />
+            <Toaster />
+          </RecordTransactionProvider>
         </SessionProvider>
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>

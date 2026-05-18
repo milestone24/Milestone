@@ -33,6 +33,7 @@ import {
   RecurringContributionTriggerButton,
 } from "./RecurringContributionDialog";
 import { RecurringContributionsList } from "./RecurringContributionsList";
+import { useRecordTransaction } from "@/context/RecordTransactionContext";
 import { TransactionsDialogue } from "./TransactionsDialogue";
 
 type TransactionsPanelProps = {
@@ -40,6 +41,7 @@ type TransactionsPanelProps = {
 };
 
 export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
+  const { openTransaction } = useRecordTransaction();
   const addAssetContribution = useAssetContributionCreate(assetId);
   const updateAssetContribution = useAssetContributionUpdate(assetId);
   const deleteAssetContribution = useAssetContributionDelete(assetId);
@@ -70,12 +72,9 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
     createRecurringContribution,
   } = useRecurringContributions(assetId);
 
-  // State for single contribution dialog
+  // State for editing an existing contribution
   const [contributionDialogData, setContributionDialogData] = useState<
-    | {
-        data: AssetTransaction | null;
-      }
-    | undefined
+    { data: AssetTransaction } | undefined
   >(undefined);
 
   // State for create recurring contribution dialog
@@ -150,16 +149,12 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
     setIsCreateRecurringOpen(false);
   };
 
-  // Handler for single contributions dialog
-  const handleSingleContributionSubmit = async (
+  const handleEditContributionSubmit = async (
     data: AssetContributionFormData,
     contributionId?: string
   ): Promise<void> => {
-    if (contributionId) {
-      await handleEditContribution(contributionId, data);
-    } else {
-      await handleCreateContribution(data);
-    }
+    if (!contributionId) return;
+    await handleEditContribution(contributionId, data);
     setContributionDialogData(undefined);
   };
 
@@ -245,7 +240,7 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
             variant="outline"
             size="sm"
             className="flex items-center"
-            onClick={() => setContributionDialogData({ data: null })}
+            onClick={() => openTransaction(assetId)}
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Contribution
@@ -339,8 +334,8 @@ export const TransactionsPanel = ({ assetId }: TransactionsPanelProps) => {
             setContributionDialogData(undefined);
           }
         }}
-        onSubmit={handleSingleContributionSubmit}
-        data={contributionDialogData?.data}
+        onSubmit={handleEditContributionSubmit}
+        data={contributionDialogData?.data ?? null}
       />
 
       {/* Delete Single Contribution Confirmation Dialog */}
