@@ -78,6 +78,13 @@
       "when": 1779173523218,
       "tag": "0010_asset-transaction-groups",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1779178138235,
+      "tag": "0011_decimal-extend-scale",
+      "breakpoints": true
     }
   ]
 }
