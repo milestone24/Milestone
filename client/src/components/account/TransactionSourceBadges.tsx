@@ -14,6 +14,10 @@ const sourceLabels: Record<AssetTransaction["source"], BadgeProps> = {
   recurring: { variant: "secondary", label: "Recurring" },
   ocr: { variant: "secondary", label: "OCR" },
   import: { variant: "secondary", label: "Import" },
+  dividend: { variant: "secondary", label: "Dividend" },
+  "sipp-rebate": { variant: "secondary", label: "SIPP Rebate" },
+  "cash-top-up": { variant: "secondary", label: "Cash Top-up" },
+  "cash-withdrawal": { variant: "secondary", label: "Cash Withdrawal" },
 };
 
 const getFlagBadges = (flags: AssetTransactionFlagsInsert | null): BadgeProps[] => {

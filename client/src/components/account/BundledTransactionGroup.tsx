@@ -3,6 +3,7 @@ import type {
   AssetContributionFormData,
   AssetTransaction,
   FlatCombinedTransactionRow,
+  SecurityTransactionSource,
   UserAssetSecuritySelect,
   UserAssetSecurityTransactionResolved,
 } from "@shared/schema";
@@ -46,7 +47,7 @@ function toSecurityResolved(
     currency: row.currency,
     valueDate: row.valueDate,
     recordedAt: row.recordedAt,
-    source: row.source ?? "manual",
+    source: (row.source ?? "manual") as SecurityTransactionSource,
     flags: row.flags ?? null,
     ledgerGroupId: row.groupId ?? null,
     createdAt: row.createdAt ?? row.recordedAt,

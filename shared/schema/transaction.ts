@@ -6,7 +6,11 @@ import {
   recurringContributionProcessTypes,
   recurringContributionTypes,
   assetTransactionSources,
+  securityTransactionSources,
 } from "@server/db/schema";
+
+export { assetTransactionSources, securityTransactionSources } from "@server/db/schema";
+export type { AssetTransactionSource, SecurityTransactionSource } from "@server/db/schema";
 import type {
   RecurringContributionInsert as DBRecurringContributionInsert,
   RecurringContributionSelect as DBRecurringContributionSelect,
@@ -212,7 +216,7 @@ export const securityTransactionOrphanInsertSchema = z.object({
   currency: z.string().optional(),
   valueDate: z.coerce.date(),
   recordedAt: z.coerce.date().optional(),
-  source: z.enum(assetTransactionSources).optional(),
+  source: z.enum(securityTransactionSources).optional(),
   flags: assetTransactionFlagsSchema.optional(),
   fundedFromCash: z.boolean().optional(),
 });
@@ -269,7 +273,7 @@ export const securityTransactionSelectSchema = z.object({
   currency: z.string(),
   valueDate: z.coerce.date(),
   recordedAt: z.coerce.date(),
-  source: z.enum(assetTransactionSources),
+  source: z.enum(securityTransactionSources),
   flags: assetTransactionFlagsSchema.nullable(),
   ledgerGroupId: z.string().uuid().nullable(),
   // TODO: replace createdAt/updatedAt with a shared timestamp fields schema when one is available
