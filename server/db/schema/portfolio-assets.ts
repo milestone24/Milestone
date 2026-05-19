@@ -47,12 +47,28 @@ export const assetTransactionSources = [
   "recurring",
   "ocr",
   "import",
+  "dividend",
+  "sipp-rebate",
+  "cash-top-up",
+  "cash-withdrawal",
 ] as const;
 export const assetTransactionSourceEnum = pgEnum(
   "asset_transaction_source",
   assetTransactionSources
 );
 export type AssetTransactionSource = (typeof assetTransactionSources)[number];
+
+export const securityTransactionSources = [
+  "manual",
+  "recurring",
+  "ocr",
+  "import",
+] as const;
+export const securityTransactionSourceEnum = pgEnum(
+  "security_transaction_source",
+  securityTransactionSources
+);
+export type SecurityTransactionSource = (typeof securityTransactionSources)[number];
 
 export type AssetTransactionFlags = {
   estimated?: boolean;
@@ -83,7 +99,6 @@ export type AssetValueMetadataSecurity = {
   value: DecimalValueString;
   shareHolding: DecimalValueString;
 };
-
 
 export type AssetValueMetadata = {
   calculatedAt: string;
@@ -418,7 +433,7 @@ export const securityTransactions = pgTable(
     currency: text("currency").notNull().default("GBP"),
     valueDate: timestamp("value_date").notNull(),
     recordedAt: timestamp("recorded_at").notNull(),
-    source: assetTransactionSourceEnum("source").notNull().default("manual"),
+    source: securityTransactionSourceEnum("source").notNull().default("manual"),
     flags: jsonb("flags").$type<AssetTransactionFlags>(),
     ledgerGroupId: uuid("ledger_group_id"),
     ...timestampColumns(),
