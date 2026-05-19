@@ -87,8 +87,47 @@ export const decimalValueNonZeroSchema = decimalValueSchema.refine(
 //   toDriver: (val) => val, // Send the branded string directly to the driver
 // });
 
+/**
+ * Drizzle column helper for **monetary values** (currency amounts, fees, portfolio values).
+ *
+ * DECIMAL(18, 4):
+ * - precision 18 → 18 total significant digits
+ * - scale 4      → 4 decimal places
+ * - integer part → 14 digits (up to 99,999,999,999,999 — sufficient for any realistic portfolio value)
+ *
+ * Rationale:
+ * - SEC Rule 612 mandates a minimum price increment of $0.0001 (4dp) for sub-dollar securities.
+ * - NASDAQ reporting standard uses 4 decimal places in practice.
+ * - 2dp (the previous setting) was insufficient for sub-dollar price precision.
+ *
+ * Reference: docs/Financial-Decimal-Precision-Standards.md
+ */
 export const brandedDecimal = (name: string) =>
   decimal(name, {
     precision: 18,
-    scale: 2,
+    scale: 4,
+  }).$type<DecimalValueString>();
+
+/**
+ * Drizzle column helper for **share quantity values** (number of shares held in a security transaction).
+ *
+ * DECIMAL(18, 8):
+ * - precision 18 → 18 total significant digits
+ * - scale 8      → 8 decimal places
+ * - integer part → 10 digits (up to 9,999,999,999 — covers institutional holdings in the billions)
+ *
+ * Rationale:
+ * - FINRA mandates 6 decimal places for fractional share reporting (effective Feb 2026).
+ * - Scale 8 satisfies the FINRA requirement with 2 decimal places of headroom.
+ * - Robinhood (the most precise retail broker) supports 6dp (0.000001); scale 8 exceeds this.
+ * - The TypeScript type is DecimalValueString — the brand encodes "validated decimal string",
+ *   not semantic meaning. Share quantities and monetary values share the same brand type
+ *   as both are valid decimal strings; the column definition enforces the appropriate DB precision.
+ *
+ * Reference: docs/Financial-Decimal-Precision-Standards.md
+ */
+export const brandedDecimalQuantity = (name: string) =>
+  decimal(name, {
+    precision: 18,
+    scale: 8,
   }).$type<DecimalValueString>();

@@ -17,6 +17,7 @@ import {
   slugify,
   DecimalValueString,
   brandedDecimal,
+  brandedDecimalQuantity,
 } from "./utils";
 import { relations, InferSelectModel, sql } from "drizzle-orm";
 import { IncludeRelation } from "../types/utils";
@@ -420,7 +421,7 @@ export const securityTransactions = pgTable(
     assetSecurityId: uuid("asset_security_id")
       .notNull()
       .references(() => userAssetSecurities.id, { onDelete: "cascade" }),
-    value: brandedDecimal("value").notNull(), //The number of shares held
+    value: brandedDecimalQuantity("value").notNull(), //The number of shares held
     //TODO
     //We should have this but when user is adding there account they might not know the currency value.
     //Do we force the user to add the currency value? or do we obtain the currency value from the
