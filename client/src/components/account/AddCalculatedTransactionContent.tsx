@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Coins, Layers2 } from "lucide-react";
 import { TransactionSingleForm } from "./TransactionSingleForm";
@@ -11,6 +12,7 @@ import { useAssetContributionCreate } from "@/hooks/use-asset-contribution-creat
 import { useSecurityTransactions } from "@/hooks/use-security-transactions";
 import type {
   AssetContributionFormData,
+  AssetTransactionSource,
   SecurityTransactionInsert,
   UserAssetSecuritySelect,
 } from "@shared/schema";
@@ -18,6 +20,20 @@ import { createDecimalValueString } from "@shared/schema";
 
 type TxKind = "cash" | "investment";
 type Direction = "purchase" | "withdrawal";
+
+type DepositSource = Extract<AssetTransactionSource, "dividend" | "sipp-rebate" | "cash-top-up">;
+type WithdrawalSource = Extract<AssetTransactionSource, "cash-withdrawal">;
+type CashDirectionSource = DepositSource | WithdrawalSource;
+
+const depositSources: { value: DepositSource; label: string }[] = [
+  { value: "dividend", label: "Dividend" },
+  { value: "sipp-rebate", label: "SIPP Rebate" },
+  { value: "cash-top-up", label: "Cash Top-up" },
+];
+
+const withdrawalSources: { value: WithdrawalSource; label: string }[] = [
+  { value: "cash-withdrawal", label: "Cash Withdrawal" },
+];
 
 type AddCalculatedTransactionContentProps = {
   assetId: string;
@@ -35,6 +51,7 @@ export function AddCalculatedTransactionContent({
   const [phase, setPhase] = useState<"kind" | "form">("kind");
   const [txKind, setTxKind] = useState<TxKind | null>(null);
   const [direction, setDirection] = useState<Direction>("purchase");
+  const [cashSource, setCashSource] = useState<CashDirectionSource>("dividend");
 
   const addAssetContribution = useAssetContributionCreate(assetId);
   const { addSecurityTransaction } = useSecurityTransactions(assetId);
@@ -44,8 +61,14 @@ export function AddCalculatedTransactionContent({
       setPhase("kind");
       setTxKind(null);
       setDirection("purchase");
+      setCashSource("dividend");
     }
   }, [open]);
+
+  const handleDirectionChange = (value: Direction) => {
+    setDirection(value);
+    setCashSource(value === "withdrawal" ? "cash-withdrawal" : "dividend");
+  };
 
   const handleCashSubmit = async (data: AssetContributionFormData) => {
     const sign = direction === "withdrawal" ? -1 : 1;
@@ -57,6 +80,7 @@ export function AddCalculatedTransactionContent({
       value: signed,
       valueDate: data.valueDate,
       currencyValue: signed,
+      source: cashSource,
     });
     onClose();
   };
@@ -87,9 +111,9 @@ export function AddCalculatedTransactionContent({
         <DialogTitle>Add transaction</DialogTitle>
         <DialogDescription>
           {phase === "kind"
-            ? "Choose whether this is a cash movement or an investment trade."
+            ? "Choose whether this is a cash or received transaction, or an investment trade."
             : txKind === "cash"
-              ? "Cash transaction — record money into or out of this account."
+              ? "Cash and received — record money into or out of this account."
               : "Investment transaction — record a buy or sell for a holding."}
         </DialogDescription>
       </DialogHeader>
@@ -106,7 +130,7 @@ export function AddCalculatedTransactionContent({
               }}
             >
               <Coins className="h-7 w-7 text-muted-foreground" />
-              <span className="text-sm font-medium">Cash movement</span>
+              <span className="text-sm font-medium">Cash and Received</span>
             </button>
             <button
               type="button"
@@ -131,7 +155,7 @@ export function AddCalculatedTransactionContent({
           <div className="space-y-2">
             <RadioGroup
               value={direction}
-              onValueChange={(v) => setDirection(v as Direction)}
+              onValueChange={(v) => handleDirectionChange(v as Direction)}
               className="flex flex-wrap gap-4"
             >
               <div className="flex items-center space-x-2">
@@ -155,6 +179,28 @@ export function AddCalculatedTransactionContent({
             </RadioGroup>
           </div>
 
+          {txKind === "cash" ? (
+            <div className="space-y-2">
+              <Label htmlFor="cash-source">Source</Label>
+              <Select
+                value={cashSource}
+                onValueChange={(v) => setCashSource(v as CashDirectionSource)}
+              >
+                <SelectTrigger id="cash-source">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(direction === "withdrawal" ? withdrawalSources : depositSources).map(
+                    ({ value, label }) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    )
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
           {txKind === "cash" ? (
             <TransactionSingleForm
               onSubmit={handleCashSubmit}
