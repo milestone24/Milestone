@@ -11,3 +11,4 @@ export * from "./process";
 export * from "./document";
 export * from "./platform-brand-ocr";
 export * from "./ocr";
+export * from "./decimal-value";

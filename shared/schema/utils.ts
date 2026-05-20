@@ -1,8 +1,4 @@
-import {
-  DecimalValueString as DBDecimalValueString,
-  decimalValueSchema,
-} from "@server/db/schema/utils";
-import z, { BRAND } from "zod";
+import z from "zod";
 /**
  * IfEquals is a utility type that compares two types for equality.
  *
@@ -77,32 +73,11 @@ export type ExtractCommonFields<T, U> = Pick<
   }[keyof T]
 >;
 
-// Define the branded type for a float string
-export type DecimalValueString = DBDecimalValueString;
-
 // Utility type for mapping DB schema types to application schema types.
 // Takes a DB type T and a union of keys K that are nullable in the DB,
 // making those keys optional (null→undefined) while leaving all other keys unchanged.
 export type NullableKeysToOptional<T, K extends keyof T> =
   Omit<T, K> & { [P in K]?: Exclude<T[P], null> };
-
-// A type guard function to check if a string is a valid float string
-export function isDecimalValueString(
-  value: string
-): value is DecimalValueString {
-  // Use a regular expression to validate the format of a float string
-  // This regex allows for optional sign, digits, optional decimal point with digits
-  const decimalValueRegex = /^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$/;
-  return decimalValueRegex.test(value) && !isNaN(parseFloat(value));
-}
-
-// A function to create a branded FloatString from a regular string
-export function createDecimalValueString(value: string): DecimalValueString {
-  if (!isDecimalValueString(value)) {
-    throw new Error(`"${value}" is not a valid decimal string.`);
-  }
-  return value as DecimalValueString;
-}
 
 export const dateTransformedSchema = z.coerce
   .date()

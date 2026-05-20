@@ -54,27 +54,6 @@ export type DecimalValueStringBrand = BRAND<"DecimalValueString">;
 //export type DecimalValueString = z.infer<typeof decimalValueSchema>;
 export type DecimalValueString = string & DecimalValueStringBrand;
 export const decimalValueSchema = z.string().brand<"DecimalValueString">();
-export const decimalValueSchemaRequiredGreaterThanZero =
-  decimalValueSchema.refine(
-    (value) => value !== "" && value !== null && Number(value) > 0,
-    {
-      message: "Value is required and must be greater than 0",
-    }
-  );
-
-/**
- * Branded decimal string that is valid and **not zero** (positive or negative).
- * Keep the string guard aligned with `isDecimalValueString` in `shared/schema/utils.ts`.
- */
-export const decimalValueNonZeroSchema = decimalValueSchema.refine(
-  (value) =>
-    value !== "" &&
-    value != null &&
-    /^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(value) &&
-    !Number.isNaN(parseFloat(value)) &&
-    Number(value) !== 0,
-  { message: "Amount must be a non-zero decimal" }
-);
 
 //Create a custom type for Drizzle
 //NOT USED ANYMORE, used as simple approach using the $type<DecimalValueString> approach
@@ -86,22 +65,6 @@ export const decimalValueNonZeroSchema = decimalValueSchema.refine(
 //   fromDriver: (val) => val as DecimalValueString, // Cast the string from the driver to your branded type
 //   toDriver: (val) => val, // Send the branded string directly to the driver
 // });
-
-/**
- * Returns a Zod refine predicate that passes only when the decimal string has at most
- * `maxPlaces` digits after the decimal point. Intended for share quantity fields to
- * align client-side validation with the `brandedDecimalQuantity` column scale (8).
- *
- * @example
- * value: decimalValueNonZeroSchema.refine(
- *   maxDecimalPlaces(8),
- *   { message: "Share quantity must not exceed 8 decimal places" }
- * )
- */
-export const maxDecimalPlaces = (maxPlaces: number) => (value: string) => {
-  const parts = value.split(".");
-  return parts.length === 1 || (parts[1]?.length ?? 0) <= maxPlaces;
-};
 
 /**
  * Drizzle column helper for **monetary values** (currency amounts, fees, portfolio values).
