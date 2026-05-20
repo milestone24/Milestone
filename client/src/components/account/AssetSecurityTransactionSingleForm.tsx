@@ -57,10 +57,13 @@ export const AssetSecurityTransactionSingleForm = ({
     defaultValues: {
       mode: data?.mode ?? "existing",
     },
+    mode: "all",
   });
 
   const [searchInput, setSearchInput] = useState("");
-  const [duplicateAssetSecurityId, setDuplicateAssetSecurityId] = useState<string | undefined>(undefined);
+  const [duplicateAssetSecurityId, setDuplicateAssetSecurityId] = useState<
+    string | undefined
+  >(undefined);
 
   const debouncedSearch = useDebouncedCallback(
     (input: string) => setSearchInput(input),
@@ -80,13 +83,7 @@ export const AssetSecurityTransactionSingleForm = ({
     watch,
     setValue,
     getValues,
-    formState: {
-      isSubmitting,
-      isValid,
-      errors,
-      isSubmitSuccessful,
-      isSubmitted,
-    },
+    formState: { isSubmitting, isValid },
   } = form;
 
   const setSelectedNewSecurity = (security: SecuritySearchResult | null) => {
@@ -98,7 +95,7 @@ export const AssetSecurityTransactionSingleForm = ({
     }
 
     const existing = securities.find(
-      (s) => s.security.sourceIdentifier === security.sourceIdentifier
+      (s) => s.security.sourceIdentifier === security.sourceIdentifier,
     );
 
     if (existing) {
