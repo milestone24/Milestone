@@ -16,13 +16,14 @@ import type {
 import {
   accountType,
   decimalValueSchema,
-  decimalValueSchemaRequiredGreaterThanZero,
-  maxDecimalPlaces,
 } from "@server/db/schema/index";
 import {
+  currencyGreaterThanZeroSchema,
+  currencyNonZeroSchema,
   DecimalValueString,
   isDecimalValueString,
-} from "./utils";
+  shareQuantityGreaterThanZeroSchema,
+} from "./decimal-value";
 import {
   securityInsertSchema,
   SecuritySelect,
@@ -53,20 +54,8 @@ export const userAssetSecurityBaseSchema = z.object({
 export type UserAssetSecurityBase = z.infer<typeof userAssetSecurityBaseSchema>;
 
 export const userAssetSecurityInitialHoldingSchema = z.object({
-  shareHolding: decimalValueSchemaRequiredGreaterThanZero
-    .refine(isDecimalValueString, {
-      message: "Share holding must be a valid decimal string",
-    })
-    .refine(maxDecimalPlaces(8), {
-      message: "Share quantity must not exceed 8 decimal places",
-    }),
-  currencyValue: decimalValueSchemaRequiredGreaterThanZero
-    .refine(isDecimalValueString, {
-      message: "Currency value must be a valid decimal string",
-    })
-    .refine(maxDecimalPlaces(2), {
-      message: "Currency value must not exceed 2 decimal places",
-    }),
+  shareHolding: shareQuantityGreaterThanZeroSchema,
+  currencyValue: currencyGreaterThanZeroSchema
 });
 
 export type UserAssetSecurityInitialHolding = z.infer<
@@ -131,13 +120,7 @@ export const userAssetSecurityLinkInsertSchema =
   userAssetSecurityBaseSchema.extend({
     userAssetId: z.string(),
     securityId: z.string(),
-    priorGainLoss: decimalValueSchema
-      .refine(isDecimalValueString, {
-        message: "Prior gain/loss must be a valid decimal string",
-      })
-      .refine(maxDecimalPlaces(2), {
-        message: "Prior gain/loss must not exceed 2 decimal places",
-      })
+    priorGainLoss: currencyNonZeroSchema
       .optional(),
   });
 
@@ -163,21 +146,12 @@ export const userAssetOrphanInsertSchema = z.object({
   valueMethod: z.enum(["manual", "calculated"]),
 
   //Only to be specified by user if the asset is to be manually updated
-  currentValue: decimalValueSchema
-    .refine(isDecimalValueString, {
-      message: "Current value must be a valid decimal string",
-    })
+  currentValue: currencyGreaterThanZeroSchema
     .optional(),
   securities: z.array(
     userAssetSecurityOrphanNewCreateInsertSchema.extend({ lid: z.string() })
   ),
-  initialCashHolding: decimalValueSchemaRequiredGreaterThanZero
-    .refine(isDecimalValueString, {
-      message: "Initial cash holding must be a valid decimal string",
-    })
-    .refine(maxDecimalPlaces(2), {
-      message: "Initial cash holding must not exceed 2 decimal places",
-    })
+  initialCashHolding: currencyGreaterThanZeroSchema
     .optional(),
   contributions: recurringContributionGroupInsertSchema.optional(),
 });

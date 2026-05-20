@@ -1,13 +1,11 @@
 import { z, ZodType } from "zod";
 import { InsertMilestone as DBInsertMilestone, SelectMilestone as DBMilestone } from "@server/db/schema/portfolio-milestone";
-import { IfConstructorEquals, isDecimalValueString, Orphan } from "./utils";
 import { decimalValueSchema } from "@server/db/schema/utils";
+import { currencyGreaterThanZeroSchema } from "./decimal-value";
 
 export const milestoneOrphanInsertSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  targetValue: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Target value must be a valid decimal string",
-  }),
+  targetValue: currencyGreaterThanZeroSchema,
   accountType: z.string().optional().nullable(),
 });
 
@@ -32,9 +30,7 @@ export const milestoneSchema = z.object({
   id: z.string(),
   userAccountId: z.string(),
   name: z.string(),
-  targetValue: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Target value must be a valid decimal string",
-  }),
+  targetValue: currencyGreaterThanZeroSchema,
   accountType: z.string().nullable(),
   isCompleted: z.boolean(),
   createdAt: z.coerce.date(),

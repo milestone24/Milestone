@@ -1,12 +1,13 @@
 import { z, ZodType } from "zod";
 import { InsertFireSettings as DBInsertFireSettings, SelectFireSettings as DBSelectFireSettings } from "@server/db/schema/portfolio-fire";
-import { IfConstructorEquals, isDecimalValueString, Orphan } from "./utils";
+import { IfConstructorEquals, Orphan } from "./utils";
 import { decimalValueSchema } from "@server/db/schema/utils";
 import {
   type IncomeGoalKey as DBIncomeGoalKey,
   type IncomeGoal as DBIncomeGoal,
   IncomeGoalKeys as DBIncomeGoalKeys,
 } from "@server/db/schema/portfolio-fire";
+import { currencyGreaterThanZeroSchema } from "./decimal-value";
 
 export const DEFAULT_TARGET_RETIREMENT_AGE = 60;
 export const DEFAULT_ANNUAL_INCOME_GOAL = 48000;
@@ -35,9 +36,7 @@ export const incomeGoalSchema = z.object({
   //ie fireSettings "reduced_spending_at_75"
   key: z.enum(DBIncomeGoalKeys).optional(),
   fromAge: z.number().int(),
-  incomeGoal: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Income goal must be a valid decimal string",
-  }),
+  incomeGoal: currencyGreaterThanZeroSchema
 });
 
 incomeGoalSchema._output satisfies DBIncomeGoal;
@@ -46,16 +45,12 @@ export type IncomeGoal = z.infer<typeof incomeGoalSchema>;
 
 export const fireSettingsOrphanSchema = z.object({
   targetRetirementAge: z.coerce.number().int(),
-  annualIncomeGoal: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Annual income goal is required",
-  }),
+  annualIncomeGoal: currencyGreaterThanZeroSchema,
   //Temporarily satisfy the type whilst we remove expectedAnnualReturn from the settings.
   // expectedAnnualReturn: decimalValueSchema.refine(isDecimalValueString, {
   //   message: "Expected annual return must be a valid decimal string",
   // }),
-  safeWithdrawalRate: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Safe withdrawal rate is required",
-  }),
+  safeWithdrawalRate: currencyGreaterThanZeroSchema,
   //Temporarily satisfy the type whilst we remove monthlyInvestment from the settings.
   // monthlyInvestment: decimalValueSchema.refine(isDecimalValueString, {
   //   message: "Monthly investment must be a valid decimal string",

@@ -1,13 +1,10 @@
 import { z, ZodType } from "zod";
 import {
-  decimalValueSchema,
-  decimalValueNonZeroSchema,
-  decimalValueSchemaRequiredGreaterThanZero,
+  //decimalValueSchema,
   recurringContributionProcessTypes,
   recurringContributionTypes,
   assetTransactionSources,
   securityTransactionSources,
-  maxDecimalPlaces,
 } from "@server/db/schema";
 
 export { assetTransactionSources, securityTransactionSources } from "@server/db/schema";
@@ -22,11 +19,15 @@ import type {
   AssetTransactionFlags,
 } from "@server/db/schema";
 import {
+  decimalValueSchema,
   createDecimalValueString,
+  currencyNonZeroSchema,
+  currencyGreaterThanZeroSchema,
   DecimalValueString,
-  IfConstructorEquals,
   isDecimalValueString,
-} from "./utils";
+  shareQuantityNoneZeroSchema,
+  maxDecimalPlaces,
+} from "./decimal-value";
 import { BrandedValue, ValueAbstract, ValueAbstractType } from "./common";
 import { securitySearchResultSchema } from "./securities";
 
@@ -133,15 +134,13 @@ export const assetTransactionSelectSchema = z.object({
 assetTransactionSelectSchema._output satisfies AssetTransaction;
 
 export const userAssetTransactionOrphanInsertSchema = z.object({
-  value: decimalValueSchema,
+  value: currencyNonZeroSchema,
   valueDate: z.coerce.date(),
   //TODO
   //The currency information will need to be added and not optional eventually
-  currencyValue: decimalValueSchema
-    .refine(maxDecimalPlaces(2), { message: "Currency value must not exceed 2 decimal places" })
+  currencyValue: currencyNonZeroSchema
     .optional(),
-  fees: decimalValueSchema
-    .refine(maxDecimalPlaces(2), { message: "Fees must not exceed 2 decimal places" })
+  fees: currencyGreaterThanZeroSchema
     .optional(),
   currency: z.string().optional(),
   source: z.enum(assetTransactionSources).optional(),
@@ -219,19 +218,9 @@ SecurityTransaction
 export type SecurityTransaction = DBSecurityTransactionSelect;
 
 export const securityTransactionOrphanInsertSchema = z.object({
-  value: decimalValueNonZeroSchema
-    .refine(
-      maxDecimalPlaces(8),
-      { message: "Share quantity must not exceed 8 decimal places" }
-    )
-  ,
-  currencyValue: decimalValueNonZeroSchema.refine(
-    maxDecimalPlaces(2),
-    { message: "Currency value must not exceed 2 decimal places" }
-  ),
-  fees: decimalValueSchema
-    .refine(maxDecimalPlaces(2), { message: "Fees must not exceed 2 decimal places" })
-    .optional(),
+  value: shareQuantityNoneZeroSchema,
+  currencyValue: currencyNonZeroSchema,
+  fees: currencyNonZeroSchema.optional(),
   currency: z.string().optional(),
   valueDate: z.coerce.date(),
   recordedAt: z.coerce.date().optional(),
@@ -347,7 +336,7 @@ export type BrandedUserAssetSecurityTransactionResolved = BrandedValue<
 // >;
 
 export const recurringContributionOrphanInsertSchemaBase = z.object({
-  amount: decimalValueSchemaRequiredGreaterThanZero,
+  amount: currencyGreaterThanZeroSchema,
   process: z.enum(recurringContributionProcessTypes),
   startDate: z.coerce.date(),
   patternConfig: patternSchema,
@@ -394,9 +383,7 @@ export const recurringContributionSelectSchema = z.object({
   process: z.enum(recurringContributionProcessTypes),
   assetId: z.string(),
   securityId: z.string().nullable(),
-  amount: decimalValueSchema.refine(isDecimalValueString, {
-    message: "Amount must be a valid decimal string",
-  }),
+  amount: currencyGreaterThanZeroSchema,
   startDate: z.coerce.date(),
   patternConfig: patternSchema,
   lastProcessedDate: z.coerce.date().nullable(),
