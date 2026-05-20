@@ -7,6 +7,7 @@ import {
   recurringContributionTypes,
   assetTransactionSources,
   securityTransactionSources,
+  maxDecimalPlaces,
 } from "@server/db/schema";
 
 export { assetTransactionSources, securityTransactionSources } from "@server/db/schema";
@@ -210,7 +211,12 @@ SecurityTransaction
 export type SecurityTransaction = DBSecurityTransactionSelect;
 
 export const securityTransactionOrphanInsertSchema = z.object({
-  value: decimalValueNonZeroSchema,
+  value: decimalValueNonZeroSchema
+    .refine(
+      maxDecimalPlaces(8),
+      { message: "Share quantity must not exceed 8 decimal places" }
+    )
+  ,
   currencyValue: decimalValueNonZeroSchema,
   fees: decimalValueSchema.optional(),
   currency: z.string().optional(),

@@ -17,6 +17,7 @@ import {
   accountType,
   decimalValueSchema,
   decimalValueSchemaRequiredGreaterThanZero,
+  maxDecimalPlaces,
 } from "@server/db/schema/index";
 import {
   DecimalValueString,
@@ -52,12 +53,13 @@ export const userAssetSecurityBaseSchema = z.object({
 export type UserAssetSecurityBase = z.infer<typeof userAssetSecurityBaseSchema>;
 
 export const userAssetSecurityInitialHoldingSchema = z.object({
-  shareHolding: decimalValueSchemaRequiredGreaterThanZero.refine(
-    isDecimalValueString,
-    {
+  shareHolding: decimalValueSchemaRequiredGreaterThanZero
+    .refine(isDecimalValueString, {
       message: "Share holding must be a valid decimal string",
-    }
-  ),
+    })
+    .refine(maxDecimalPlaces(8), {
+      message: "Share quantity must not exceed 8 decimal places",
+    }),
   currencyValue: decimalValueSchemaRequiredGreaterThanZero.refine(
     isDecimalValueString,
     {
