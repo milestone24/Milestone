@@ -1,6 +1,6 @@
 import { describe, it } from "vitest";
 import { projectToRetirement } from "./projection-fire-calculator";
-import { createDecimalValueString } from "@shared/schema/utils";
+import { createDecimalValueString } from "@shared/schema/decimal-value";
 import { createRRulePattern } from "./scheduling";
 import {
   Contributor,

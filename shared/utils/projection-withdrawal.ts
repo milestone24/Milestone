@@ -9,7 +9,7 @@ import {
 import {
   DecimalValueString,
   createDecimalValueString,
-} from "@shared/schema/utils";
+} from "@shared/schema/decimal-value";
 import { AccountType } from "@shared/schema";
 import Decimal from "decimal.js";
 import { addYears, differenceInYears } from "date-fns";

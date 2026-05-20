@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { createDecimalValueString } from "@shared/schema/utils";
+import { createDecimalValueString } from "@shared/schema/decimal-value";
 import { Contributor, ContributorSchedule } from "@shared/schema/projections";
 import { createRRulePattern } from "./scheduling";
 import { calculateYearsToTarget } from "./projection-utils";

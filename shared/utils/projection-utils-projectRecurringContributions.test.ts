@@ -1,7 +1,7 @@
 import { projectRecurringContributions } from "./projection-utils";
 import { describe, it, expect } from "vitest";
 import { Contributor, ContributorSchedule } from "@shared/schema/projections";
-import { createDecimalValueString } from "@shared/schema/utils";
+import { createDecimalValueString } from "@shared/schema/decimal-value";
 import { createRRulePattern } from "./scheduling";
 import { addYears } from "date-fns";
 

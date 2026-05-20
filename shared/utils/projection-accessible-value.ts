@@ -5,7 +5,7 @@ import {
 import {
   DecimalValueString,
   createDecimalValueString,
-} from "@shared/schema/utils";
+} from "@shared/schema/decimal-value";
 import Decimal from "decimal.js";
 import {
   checkValueReleaseEligibility,

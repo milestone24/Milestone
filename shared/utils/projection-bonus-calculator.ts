@@ -2,7 +2,7 @@ import { BonusValue } from "@shared/schema/projections";
 import {
   DecimalValueString,
   createDecimalValueString,
-} from "@shared/schema/utils";
+} from "@shared/schema/decimal-value";
 import Decimal from "decimal.js";
 import { startOfYear, setMonth, setDate } from "date-fns";
 

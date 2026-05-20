@@ -14,7 +14,7 @@ import {
 import { db, type Database } from "../../db/index";
 import { createId } from "@paralleldrive/cuid2";
 import { hash, compare } from "bcryptjs";
-import { createDecimalValueString } from "@shared/schema/utils";
+import { createDecimalValueString } from "@shared/schema/decimal-value";
 
 export class DatabaseUserService {
   private db: Database;

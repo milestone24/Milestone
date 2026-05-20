@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { calculateYearsAheadOrBehind, calculateYearsToTarget } from "./projection-utils";
-import { createDecimalValueString } from "@shared/schema/utils";
+import { createDecimalValueString } from "@shared/schema/decimal-value";
 import type { Contributor, ContributorSchedule } from "@shared/schema/projections";
 import { createRRulePattern } from "./scheduling";
 import { createModifierChain, ModifierChain } from "./projection-modifiers";

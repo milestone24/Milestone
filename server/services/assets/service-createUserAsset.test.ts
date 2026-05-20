@@ -1,7 +1,7 @@
 import { DatabaseAssetService } from "./database";
 import { DatabaseUserService } from "@server/services/users/database";
 import { beforeAll, afterAll, describe, it, expect, vi } from "vitest";
-import { createDecimalValueString } from "@shared/schema/utils";
+import { createDecimalValueString } from "@shared/schema/decimal-value";
 import { BrokerPlatform, UserAssetInsert } from "@shared/schema";
 import { createRRulePattern } from "@shared/utils/scheduling";
 import { subDays } from "date-fns";

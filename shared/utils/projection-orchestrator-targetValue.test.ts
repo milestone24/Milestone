@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { addYears, subMonths, startOfMonth, differenceInMonths } from "date-fns";
 import { orchestrateProjection } from "./projection-orchestrator";
 import { findForwardStartIndex } from "./projection-model-path";
-import { createDecimalValueString } from "@shared/schema/utils";
+import { createDecimalValueString } from "@shared/schema/decimal-value";
 import {
   Contributor,
   ProjectionConfigWithDateRange,

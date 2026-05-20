@@ -13,10 +13,9 @@ import { Milestone } from "./portfolio-milestone";
 import { FireSettings, incomeGoalSchema } from "./portfolio-fire";
 import { UserProfile } from "./user-account";
 import { decimalValueSchema, schedulePatternType } from "@server/db/schema";
+import { isDecimalValueString, DecimalValueString } from "./decimal-value";
 import {
   dateTransformedSchema,
-  DecimalValueString,
-  isDecimalValueString,
 } from "./utils";
 import Decimal from "decimal.js";
 

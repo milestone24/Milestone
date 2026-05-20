@@ -11,7 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { FireSettingsFormValues } from "@/components/fire/FireSettingsForm";
 import { DEFAULT_TARGET_RETIREMENT_AGE, FireSettingsInsert, fireSettingsOrphanFormSchema, IncomeGoalKey } from "@shared/schema/portfolio-fire";
 import type { IncomeGoal } from "@shared/schema/portfolio-fire";
-import { createDecimalValueString } from "@shared/schema/utils";
+import { createDecimalValueString } from "@shared/schema/decimal-value";
 import { Contributor, FireProjection, FIREProjectionConfig, ProjectionConfig, ProjectionModifier, SimpleProjectionConfig } from "@shared/schema";
 import Decimal from "decimal.js";
 import { ContributionPreviewState, DEFAULT_PREVIEW_INFLATION_RATE, PreviewModifiersState, useFirePreviewState } from "./use-fire-preview-state";

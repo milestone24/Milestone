@@ -21,7 +21,7 @@ import {
 } from "./projection-orchestrator";
 import { differenceInYears, addYears } from "date-fns";
 import Decimal from "decimal.js";
-import { createDecimalValueString } from "@shared/schema/utils";
+import { createDecimalValueString } from "@shared/schema/decimal-value";
 import {
   addDateRengeToProjectionConfig,
   calculateYearsAheadOrBehind,

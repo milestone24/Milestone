@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { decimalValueSchema } from "@server/db/schema/utils";
-import { DecimalValueString } from "./utils";
+import { DecimalValueString } from "./decimal-value";
 
 export type ValueAbstract = {
   value: DecimalValueString;
