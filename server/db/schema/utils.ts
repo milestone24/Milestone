@@ -88,6 +88,22 @@ export const decimalValueNonZeroSchema = decimalValueSchema.refine(
 // });
 
 /**
+ * Returns a Zod refine predicate that passes only when the decimal string has at most
+ * `maxPlaces` digits after the decimal point. Intended for share quantity fields to
+ * align client-side validation with the `brandedDecimalQuantity` column scale (8).
+ *
+ * @example
+ * value: decimalValueNonZeroSchema.refine(
+ *   maxDecimalPlaces(8),
+ *   { message: "Share quantity must not exceed 8 decimal places" }
+ * )
+ */
+export const maxDecimalPlaces = (maxPlaces: number) => (value: string) => {
+  const parts = value.split(".");
+  return parts.length === 1 || (parts[1]?.length ?? 0) <= maxPlaces;
+};
+
+/**
  * Drizzle column helper for **monetary values** (currency amounts, fees, portfolio values).
  *
  * DECIMAL(18, 4):
