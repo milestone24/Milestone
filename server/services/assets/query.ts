@@ -58,7 +58,7 @@ const calculatedAssetCurrentValueSql = sql<DecimalValueString>`cast(
     ELSE
       COALESCE(latest_value.value, 0)
   END
-  AS decimal(18, 2))`;
+  AS decimal(18, 4))`;
 
 export const calculatedAssetsQueryBuilder = (db: Database) =>
   db
@@ -112,11 +112,11 @@ export const securityTransactionsAccumulatedCTEBuilder = (
           value: securityTransactions.value,
           currencyValue: securityTransactions.currencyValue,
           accumalitiveSecurityValue:
-            sql<DecimalValueString>`cast(sum(${securityTransactions.value}) over (partition by ${userAssetSecurities.id} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 2))`.as(
+            sql<DecimalValueString>`cast(sum(${securityTransactions.value}) over (partition by ${userAssetSecurities.id} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 8))`.as(
               "accumalitiveSecurityValue"
             ),
           accumulativeSecurityCurrencyValue:
-            sql<DecimalValueString>`cast(sum(${securityTransactions.currencyValue}) over (partition by ${userAssetSecurities.id} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 2))`.as(
+            sql<DecimalValueString>`cast(sum(${securityTransactions.currencyValue}) over (partition by ${userAssetSecurities.id} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 4))`.as(
               "accumulativeSecurityCurrencyValue"
             ),
           accumulativeSecurityCurrencyValueRow:
@@ -124,7 +124,7 @@ export const securityTransactionsAccumulatedCTEBuilder = (
               "accumulativeSecurityCurrencyValueRow"
             ),
           accumulativeAssetCurrencyValue:
-            sql<DecimalValueString>`cast(sum(${securityTransactions.currencyValue}) over (partition by ${userAssetSecurities.userAssetId} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 2))`.as(
+            sql<DecimalValueString>`cast(sum(${securityTransactions.currencyValue}) over (partition by ${userAssetSecurities.userAssetId} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 4))`.as(
               "accumulativeAssetCurrencyValue"
             ),
           accumulativeAssetCurrencyValueRow:
@@ -161,7 +161,7 @@ export const assetTransactionsAccumulatedCte = (
           Extract<ValueAbstractType, "transaction">
         >`'transaction'`.as("recordType"),
         transactionType: sql<TransactionType>`'asset'`.as("transactionType"),
-        accumulativeAssetCurrencyValue: sql<DecimalValueString>`cast(sum(${assetTransactions.currencyValue}) over (partition by ${assetTransactions.assetId} order by ${assetTransactions.valueDate} rows unbounded preceding) as decimal(18, 2))`.as(
+        accumulativeAssetCurrencyValue: sql<DecimalValueString>`cast(sum(${assetTransactions.currencyValue}) over (partition by ${assetTransactions.assetId} order by ${assetTransactions.valueDate} rows unbounded preceding) as decimal(18, 4))`.as(
           "accumulativeAssetCurrencyValue"
         ),
         accumulativeAssetCurrencyValueRow: sql<number>`ROW_NUMBER() OVER (PARTITION BY ${assetTransactions.assetId} ORDER BY ${assetTransactions.valueDate}, ${assetTransactions.id})`.as(

@@ -1264,8 +1264,8 @@ export class DatabaseAssetService {
         transactionType: sql<TransactionType>`'security'`,
 
         securityName: securities.name,
-        currentValue: sql<string>`cast(sum(${securityTransactions.value}) over (partition by ${securityTransactions.assetSecurityId} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 2))`,
-        currentCurrencyValue: sql<string>`cast(sum(${securityTransactions.currencyValue}) over (partition by ${securityTransactions.assetSecurityId} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 2))`,
+        currentValue: sql<string>`cast(sum(${securityTransactions.value}) over (partition by ${securityTransactions.assetSecurityId} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 8))`,
+        currentCurrencyValue: sql<string>`cast(sum(${securityTransactions.currencyValue}) over (partition by ${securityTransactions.assetSecurityId} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 4))`,
 
         security_transactions: {
           ...getTableColumns(securityTransactions),
@@ -1275,8 +1275,8 @@ export class DatabaseAssetService {
           type: sql<Extract<ValueAbstractType, "transaction">>`'transaction'`,
           transactionType: sql<TransactionType>`'security'`,
           transactionId: securityTransactions.id,
-          currentValue: sql<number>`cast(sum(${securityTransactions.value}) over (partition by ${securityTransactions.assetSecurityId} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 2))`,
-          accumulativeCurrencyValue: sql<number>`cast(sum(${securityTransactions.currencyValue}) over (partition by ${securityTransactions.assetSecurityId} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 2))`,
+          currentValue: sql<number>`cast(sum(${securityTransactions.value}) over (partition by ${securityTransactions.assetSecurityId} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 8))`,
+          accumulativeCurrencyValue: sql<number>`cast(sum(${securityTransactions.currencyValue}) over (partition by ${securityTransactions.assetSecurityId} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 4))`,
         },
         securities: securities,
       })
@@ -1650,11 +1650,11 @@ export class DatabaseAssetService {
           value: securityTransactions.value,
           currencyValue: securityTransactions.currencyValue,
           accumalitiveSecurityValue:
-            sql<DecimalValueString>`cast(sum(${securityTransactions.value}) over (partition by ${userAssetSecurities.id} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 2))`.as(
+            sql<DecimalValueString>`cast(sum(${securityTransactions.value}) over (partition by ${userAssetSecurities.id} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 8))`.as(
               "accumalitiveSecurityValue"
             ),
           accumulativeSecurityCurrencyValue:
-            sql<DecimalValueString>`cast(sum(${securityTransactions.currencyValue}) over (partition by ${userAssetSecurities.id} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 2))`.as(
+            sql<DecimalValueString>`cast(sum(${securityTransactions.currencyValue}) over (partition by ${userAssetSecurities.id} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 4))`.as(
               "accumulativeSecurityCurrencyValue"
             ),
           accumulativeSecurityCurrencyValueRow:
@@ -1662,7 +1662,7 @@ export class DatabaseAssetService {
               "accumulativeSecurityCurrencyValueRow"
             ),
           accumulativeAssetCurrencyValue:
-            sql<DecimalValueString>`cast(sum(${securityTransactions.currencyValue}) over (partition by ${userAssetSecurities.userAssetId} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 2))`.as(
+            sql<DecimalValueString>`cast(sum(${securityTransactions.currencyValue}) over (partition by ${userAssetSecurities.userAssetId} order by ${securityTransactions.valueDate} rows unbounded preceding) as decimal(18, 4))`.as(
               "accumulativeAssetCurrencyValue"
             ),
           accumulativeAssetCurrencyValueRow:
@@ -2777,7 +2777,7 @@ export class DatabaseAssetService {
   async createTempTableForAssetValues(): Promise<void> {
     await this.db.execute(sql`
       CREATE TEMP TABLE IF NOT EXISTS asset_values_temp (
-        value decimal(18,2) not null,
+        value decimal(18,4) not null,
         recorded_at timestamptz not null,
         value_date timestamptz not null,
         entry_method value_entry_method not null default 'manual',
