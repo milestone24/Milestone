@@ -217,8 +217,13 @@ export const securityTransactionOrphanInsertSchema = z.object({
       { message: "Share quantity must not exceed 8 decimal places" }
     )
   ,
-  currencyValue: decimalValueNonZeroSchema,
-  fees: decimalValueSchema.optional(),
+  currencyValue: decimalValueNonZeroSchema.refine(
+    maxDecimalPlaces(2),
+    { message: "Currency value must not exceed 2 decimal places" }
+  ),
+  fees: decimalValueSchema
+    .refine(maxDecimalPlaces(2), { message: "Fees must not exceed 2 decimal places" })
+    .optional(),
   currency: z.string().optional(),
   valueDate: z.coerce.date(),
   recordedAt: z.coerce.date().optional(),

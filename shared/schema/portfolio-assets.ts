@@ -60,12 +60,13 @@ export const userAssetSecurityInitialHoldingSchema = z.object({
     .refine(maxDecimalPlaces(8), {
       message: "Share quantity must not exceed 8 decimal places",
     }),
-  currencyValue: decimalValueSchemaRequiredGreaterThanZero.refine(
-    isDecimalValueString,
-    {
+  currencyValue: decimalValueSchemaRequiredGreaterThanZero
+    .refine(isDecimalValueString, {
       message: "Currency value must be a valid decimal string",
-    }
-  ),
+    })
+    .refine(maxDecimalPlaces(2), {
+      message: "Currency value must not exceed 2 decimal places",
+    }),
 });
 
 export type UserAssetSecurityInitialHolding = z.infer<
