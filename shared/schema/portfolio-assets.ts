@@ -135,6 +135,9 @@ export const userAssetSecurityLinkInsertSchema =
       .refine(isDecimalValueString, {
         message: "Prior gain/loss must be a valid decimal string",
       })
+      .refine(maxDecimalPlaces(2), {
+        message: "Prior gain/loss must not exceed 2 decimal places",
+      })
       .optional(),
   });
 
@@ -171,6 +174,9 @@ export const userAssetOrphanInsertSchema = z.object({
   initialCashHolding: decimalValueSchemaRequiredGreaterThanZero
     .refine(isDecimalValueString, {
       message: "Initial cash holding must be a valid decimal string",
+    })
+    .refine(maxDecimalPlaces(2), {
+      message: "Initial cash holding must not exceed 2 decimal places",
     })
     .optional(),
   contributions: recurringContributionGroupInsertSchema.optional(),
