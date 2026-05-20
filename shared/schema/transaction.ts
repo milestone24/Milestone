@@ -137,8 +137,12 @@ export const userAssetTransactionOrphanInsertSchema = z.object({
   valueDate: z.coerce.date(),
   //TODO
   //The currency information will need to be added and not optional eventually
-  currencyValue: decimalValueSchema.optional(),
-  fees: decimalValueSchema.optional(),
+  currencyValue: decimalValueSchema
+    .refine(maxDecimalPlaces(2), { message: "Currency value must not exceed 2 decimal places" })
+    .optional(),
+  fees: decimalValueSchema
+    .refine(maxDecimalPlaces(2), { message: "Fees must not exceed 2 decimal places" })
+    .optional(),
   currency: z.string().optional(),
   source: z.enum(assetTransactionSources).optional(),
   flags: assetTransactionFlagsSchema.optional(),
@@ -169,8 +173,12 @@ export const assetContributionOrphanInsertSchema = z.object({
     message: "Value must be a valid decimal string",
   }),
   valueDate: z.coerce.date(),
-  currencyValue: decimalValueSchema.optional(),
-  fees: decimalValueSchema.optional(),
+  currencyValue: decimalValueSchema
+    .refine(maxDecimalPlaces(2), { message: "Currency value must not exceed 2 decimal places" })
+    .optional(),
+  fees: decimalValueSchema
+    .refine(maxDecimalPlaces(2), { message: "Fees must not exceed 2 decimal places" })
+    .optional(),
   currency: z.string().optional(),
   source: z.enum(assetTransactionSources).optional(),
   flags: assetTransactionFlagsSchema.optional(),
