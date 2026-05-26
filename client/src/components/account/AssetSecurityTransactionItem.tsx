@@ -24,7 +24,7 @@ import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
 import { AssetSecurityTransactionEditDialogue } from "./AssetSecurityTransactionEditDialogue";
 import { useTransactionBundle } from "@/hooks/use-transaction-bundle";
 import Decimal from "decimal.js";
-import { formatCurrencyDecimal } from "@/utils/decimal";
+import { PosNegNumber } from "@/components/common/PosNegNumber";
 
 type AssetSecurityTransactionItemProps = {
   transaction: UserAssetSecurityTransactionResolved;
@@ -132,7 +132,7 @@ export const AssetSecurityTransactionItem = ({
               year: "numeric",
             })}
             {" · "}
-            {formatCurrencyDecimal(transaction.currencyValue)}
+            <PosNegNumber value={Number(transaction.currencyValue)} />
           </span>
         </div>
       </div>
