@@ -3,9 +3,8 @@ import Decimal from "decimal.js";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Coins, Layers2 } from "lucide-react";
+import { Coins, Layers2, Percent, PiggyBank } from "lucide-react";
 import { TransactionSingleForm } from "./TransactionSingleForm";
 import { AssetSecurityTransactionSingleForm } from "./AssetSecurityTransactionSingleForm";
 import { useAssetContributionCreate } from "@/hooks/use-asset-contribution-create";
@@ -18,22 +17,8 @@ import type {
 } from "@shared/schema";
 import { createDecimalValueString } from "@shared/schema";
 
-type TxKind = "cash" | "investment";
+type TxKind = "cash" | "investment" | "dividend" | "sipp-rebate";
 type Direction = "purchase" | "withdrawal";
-
-type DepositSource = Extract<AssetTransactionSource, "dividend" | "sipp-rebate" | "cash-top-up">;
-type WithdrawalSource = Extract<AssetTransactionSource, "cash-withdrawal">;
-type CashDirectionSource = DepositSource | WithdrawalSource;
-
-const depositSources: { value: DepositSource; label: string }[] = [
-  { value: "dividend", label: "Dividend" },
-  { value: "sipp-rebate", label: "SIPP Rebate" },
-  { value: "cash-top-up", label: "Cash Top-up" },
-];
-
-const withdrawalSources: { value: WithdrawalSource; label: string }[] = [
-  { value: "cash-withdrawal", label: "Cash Withdrawal" },
-];
 
 type AddCalculatedTransactionContentProps = {
   assetId: string;
@@ -51,7 +36,6 @@ export function AddCalculatedTransactionContent({
   const [phase, setPhase] = useState<"kind" | "form">("kind");
   const [txKind, setTxKind] = useState<TxKind | null>(null);
   const [direction, setDirection] = useState<Direction>("purchase");
-  const [cashSource, setCashSource] = useState<CashDirectionSource>("dividend");
 
   const addAssetContribution = useAssetContributionCreate(assetId);
   const { addSecurityTransaction } = useSecurityTransactions(assetId);
@@ -61,13 +45,13 @@ export function AddCalculatedTransactionContent({
       setPhase("kind");
       setTxKind(null);
       setDirection("purchase");
-      setCashSource("dividend");
     }
   }, [open]);
 
-  const handleDirectionChange = (value: Direction) => {
-    setDirection(value);
-    setCashSource(value === "withdrawal" ? "cash-withdrawal" : "dividend");
+  const resolveSource = (): AssetTransactionSource => {
+    if (txKind === "dividend") return "dividend";
+    if (txKind === "sipp-rebate") return "sipp-rebate";
+    return direction === "withdrawal" ? "cash-withdrawal" : "cash-top-up";
   };
 
   const handleCashSubmit = async (data: AssetContributionFormData) => {
@@ -80,7 +64,7 @@ export function AddCalculatedTransactionContent({
       value: signed,
       valueDate: data.valueDate,
       currencyValue: signed,
-      source: cashSource,
+      source: resolveSource(),
     });
     onClose();
   };
@@ -100,10 +84,20 @@ export function AddCalculatedTransactionContent({
     onClose();
   };
 
+  const isCashKind = txKind === "cash" || txKind === "dividend" || txKind === "sipp-rebate";
+  const showDirectionToggle = txKind === "cash" || txKind === "investment";
+
   const directionLabels =
     txKind === "cash"
       ? { purchase: "Deposit / in", withdrawal: "Withdraw / out" }
       : { purchase: "Buy", withdrawal: "Sell" };
+
+  const formDescription = () => {
+    if (txKind === "dividend") return "Dividend — record a dividend received into this account.";
+    if (txKind === "sipp-rebate") return "SIPP rebate — record a government tax rebate into this account.";
+    if (txKind === "cash") return "Cash — record money into or out of this account.";
+    return "Investment transaction — record a buy or sell for a holding.";
+  };
 
   return (
     <>
@@ -111,10 +105,8 @@ export function AddCalculatedTransactionContent({
         <DialogTitle>Add transaction</DialogTitle>
         <DialogDescription>
           {phase === "kind"
-            ? "Choose whether this is a cash or received transaction, or an investment trade."
-            : txKind === "cash"
-              ? "Cash and received — record money into or out of this account."
-              : "Investment transaction — record a buy or sell for a holding."}
+            ? "Select the type of transaction you want to record."
+            : formDescription()}
         </DialogDescription>
       </DialogHeader>
 
@@ -130,7 +122,7 @@ export function AddCalculatedTransactionContent({
               }}
             >
               <Coins className="h-7 w-7 text-muted-foreground" />
-              <span className="text-sm font-medium">Cash and Received</span>
+              <span className="text-sm font-medium">Cash</span>
             </button>
             <button
               type="button"
@@ -143,6 +135,28 @@ export function AddCalculatedTransactionContent({
               <Layers2 className="h-7 w-7 text-muted-foreground" />
               <span className="text-sm font-medium">Investment</span>
             </button>
+            <button
+              type="button"
+              className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-border p-5 text-left hover:border-primary hover:bg-primary/5 transition-colors"
+              onClick={() => {
+                setTxKind("dividend");
+                setPhase("form");
+              }}
+            >
+              <Percent className="h-7 w-7 text-muted-foreground" />
+              <span className="text-sm font-medium">Dividend</span>
+            </button>
+            <button
+              type="button"
+              className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-border p-5 text-left hover:border-primary hover:bg-primary/5 transition-colors"
+              onClick={() => {
+                setTxKind("sipp-rebate");
+                setPhase("form");
+              }}
+            >
+              <PiggyBank className="h-7 w-7 text-muted-foreground" />
+              <span className="text-sm font-medium">SIPP Rebate</span>
+            </button>
           </div>
           <div className="flex justify-end pt-1">
             <Button type="button" variant="ghost" size="sm" onClick={onClose}>
@@ -152,56 +166,36 @@ export function AddCalculatedTransactionContent({
         </div>
       ) : (
         <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <RadioGroup
-              value={direction}
-              onValueChange={(v) => handleDirectionChange(v as Direction)}
-              className="flex flex-wrap gap-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="purchase" id="dir-purchase" />
-                <Label
-                  htmlFor="dir-purchase"
-                  className="font-normal cursor-pointer"
-                >
-                  {directionLabels.purchase}
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="withdrawal" id="dir-withdrawal" />
-                <Label
-                  htmlFor="dir-withdrawal"
-                  className="font-normal cursor-pointer"
-                >
-                  {directionLabels.withdrawal}
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          {txKind === "cash" ? (
+          {showDirectionToggle && (
             <div className="space-y-2">
-              <Label htmlFor="cash-source">Source</Label>
-              <Select
-                value={cashSource}
-                onValueChange={(v) => setCashSource(v as CashDirectionSource)}
+              <RadioGroup
+                value={direction}
+                onValueChange={(v) => setDirection(v as Direction)}
+                className="flex flex-wrap gap-4"
               >
-                <SelectTrigger id="cash-source">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(direction === "withdrawal" ? withdrawalSources : depositSources).map(
-                    ({ value, label }) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    )
-                  )}
-                </SelectContent>
-              </Select>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="purchase" id="dir-purchase" />
+                  <Label
+                    htmlFor="dir-purchase"
+                    className="font-normal cursor-pointer"
+                  >
+                    {directionLabels.purchase}
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="withdrawal" id="dir-withdrawal" />
+                  <Label
+                    htmlFor="dir-withdrawal"
+                    className="font-normal cursor-pointer"
+                  >
+                    {directionLabels.withdrawal}
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
-          ) : null}
-          {txKind === "cash" ? (
+          )}
+
+          {isCashKind ? (
             <TransactionSingleForm
               onSubmit={handleCashSubmit}
               onCancel={onClose}
