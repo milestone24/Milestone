@@ -22,6 +22,8 @@ import { useSecurityTransactions } from "@/hooks/use-security-transactions";
 import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
 import { AssetSecurityTransactionEditDialogue } from "./AssetSecurityTransactionEditDialogue";
 import { useTransactionBundle } from "@/hooks/use-transaction-bundle";
+import Decimal from "decimal.js";
+import { formatCurrencyDecimal } from "@/utils/decimal";
 
 type AssetSecurityTransactionItemProps = {
   transaction: UserAssetSecurityTransactionResolved;
@@ -116,7 +118,8 @@ export const AssetSecurityTransactionItem = ({
               month: "short",
               year: "numeric",
             })}
-            {" · "}£{transaction.currencyValue.toLocaleString()}
+            {" · "}
+            {formatCurrencyDecimal(transaction.currencyValue)}
           </span>
         </div>
       </div>
