@@ -26,6 +26,7 @@ import {
   DecimalValueString,
   isDecimalValueString,
   shareQuantityNoneZeroSchema,
+  shareValueNoneZeroSchema,
   maxDecimalPlaces,
 } from "./decimal-value";
 import { BrandedValue, ValueAbstract, ValueAbstractType } from "./common";
@@ -219,6 +220,7 @@ export type SecurityTransaction = DBSecurityTransactionSelect;
 
 export const securityTransactionOrphanInsertSchema = z.object({
   value: shareQuantityNoneZeroSchema,
+  perUnitValue: shareValueNoneZeroSchema,
   currencyValue: currencyNonZeroSchema,
   fees: currencyNonZeroSchema.optional(),
   currency: z.string().optional(),
@@ -277,6 +279,7 @@ export const securityTransactionSelectSchema = z.object({
   assetSecurityId: z.string(),
   value: decimalValueSchema,
   currencyValue: decimalValueSchema,
+  perUnitValue: decimalValueSchema,
   fees: decimalValueSchema.nullable(),
   currency: z.string(),
   valueDate: z.coerce.date(),

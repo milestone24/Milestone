@@ -23,6 +23,7 @@ import {
   DecimalValueString,
   isDecimalValueString,
   shareQuantityGreaterThanZeroSchema,
+  shareValueGreaterThanZeroSchema,
 } from "./decimal-value";
 import {
   securityInsertSchema,
@@ -55,7 +56,8 @@ export type UserAssetSecurityBase = z.infer<typeof userAssetSecurityBaseSchema>;
 
 export const userAssetSecurityInitialHoldingSchema = z.object({
   shareHolding: shareQuantityGreaterThanZeroSchema,
-  currencyValue: currencyGreaterThanZeroSchema
+  perUnitValue: shareValueGreaterThanZeroSchema,
+  currencyValue: currencyGreaterThanZeroSchema,
 });
 
 export type UserAssetSecurityInitialHolding = z.infer<

@@ -107,3 +107,11 @@ export const shareQuantityNoneZeroSchema = decimalValueNonZeroSchema
   );
 export const shareQuantityGreaterThanZeroSchema = decimalValueSchemaGreaterThanZero
   .refine(maxDecimalPlaces(8), { message: shareQuantityDecimalPlacesMessage });
+
+const shareValueDecimalPlacesMessage = "Share value must not exceed 4 decimal places";
+
+export const shareValueNoneZeroSchema = decimalValueNonZeroSchema
+  .refine(maxDecimalPlaces(4), { message: shareValueDecimalPlacesMessage });
+
+export const shareValueGreaterThanZeroSchema = decimalValueSchemaGreaterThanZero
+  .refine(maxDecimalPlaces(4), { message: shareValueDecimalPlacesMessage });

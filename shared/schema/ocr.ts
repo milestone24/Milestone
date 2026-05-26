@@ -1,5 +1,7 @@
 import { z } from "zod";
+import Decimal from "decimal.js";
 import { SecurityTransactionInsert, SecurityTransactionOrphanInsert, securityTransactionOrphanInsertSchema } from "./transaction";
+import { createDecimalValueString } from "./decimal-value";
 
 /** Optional identity fields an OCR model may emit before `assetSecurityId` resolution. */
 export type OcrSecurityIdentityFieldKey = "name" | "isin" | "symbol";
@@ -198,6 +200,11 @@ export function securityTransactionOcrRowToOrphanInsert(
 ): SecurityTransactionOrphanInsert {
   return {
     value: row.value,
+    perUnitValue: createDecimalValueString(
+      new Decimal(row.currencyValue)
+        .div(new Decimal(row.value).abs())
+        .toString(),
+    ),
     currencyValue: row.currencyValue,
     fees: row.fees,
     currency: row.currency,
