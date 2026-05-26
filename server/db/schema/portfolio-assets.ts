@@ -434,6 +434,7 @@ export const securityTransactions = pgTable(
     currency: text("currency").notNull().default("GBP"),
     valueDate: timestamp("value_date").notNull(),
     recordedAt: timestamp("recorded_at").notNull(),
+    perUnitValue: brandedDecimal("per_unit_value").notNull(),
     source: securityTransactionSourceEnum("source").notNull().default("manual"),
     flags: jsonb("flags").$type<AssetTransactionFlags>(),
     ledgerGroupId: uuid("ledger_group_id"),
