@@ -84,6 +84,7 @@ function flatRowToSecurityResolved(
     assetSecurityId: row.assetSecurityId!,
     value: row.value,
     currencyValue: row.currencyValue,
+    perUnitValue: createDecimalValueString("0"),
     fees: row.fees ?? null,
     currency: row.currency,
     valueDate: row.valueDate,

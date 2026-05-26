@@ -1,6 +1,8 @@
 import { useDebouncedCallback } from "@/hooks/use-debounce-callback";
 import { useFindSecurities } from "@/hooks/use-find-securities";
+import { formatCurrencyDecimal } from "@/utils/decimal";
 import { SecurityInsert, createDecimalValueString } from "@shared/schema";
+import Decimal from "decimal.js";
 import {
   ResolvedAssetSecurity,
   UserAssetSecurityBase,
@@ -275,6 +277,20 @@ const AssetSecurityNewFields = () => {
 
   const [addInitialTransaction, setAddInitialTransaction] = useState(false);
 
+  const watchedShares = watch("initialHolding.shareHolding");
+  const watchedPerUnitValue = watch("initialHolding.perUnitValue");
+
+  const derivedCurrencyValue =
+    watchedShares && watchedPerUnitValue
+      ? createDecimalValueString(
+          new Decimal(watchedShares)
+            .abs()
+            .mul(watchedPerUnitValue)
+            .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+            .toString(),
+        )
+      : null;
+
   const [searchInput, setSearchInput] = useState("");
 
   const debouncedSearch = useDebouncedCallback(
@@ -389,11 +405,23 @@ const AssetSecurityNewFields = () => {
                     {...field}
                     value={field.value ?? ""}
                     onChange={(e) => {
-                      field.onChange(
+                      const shares =
                         e.target.value == ""
                           ? ""
-                          : createDecimalValueString(e.target.value),
-                      );
+                          : createDecimalValueString(e.target.value);
+                      field.onChange(shares);
+                      if (shares && watchedPerUnitValue) {
+                        setValue(
+                          "initialHolding.currencyValue",
+                          createDecimalValueString(
+                            new Decimal(shares)
+                              .abs()
+                              .mul(watchedPerUnitValue)
+                              .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+                              .toString(),
+                          ),
+                        );
+                      }
                     }}
                   />
                 </FormControl>
@@ -403,25 +431,34 @@ const AssetSecurityNewFields = () => {
           />
           <FormField
             control={control}
-            name="initialHolding.currencyValue"
+            name="initialHolding.perUnitValue"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Currency Value</FormLabel>
-                <FormDescription>
-                  The currency paid for the security to date.
-                </FormDescription>
+                <FormLabel>Price Per Share</FormLabel>
                 <FormControl>
                   <Input
                     type="number"
-                    placeholder="Currency Value"
+                    placeholder="Price Per Share"
                     {...field}
                     value={field.value ?? ""}
                     onChange={(e) => {
-                      field.onChange(
+                      const perUnitValue =
                         e.target.value == ""
                           ? ""
-                          : createDecimalValueString(e.target.value),
-                      );
+                          : createDecimalValueString(e.target.value);
+                      field.onChange(perUnitValue);
+                      if (perUnitValue && watchedShares) {
+                        setValue(
+                          "initialHolding.currencyValue",
+                          createDecimalValueString(
+                            new Decimal(watchedShares)
+                              .abs()
+                              .mul(perUnitValue)
+                              .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+                              .toString(),
+                          ),
+                        );
+                      }
                     }}
                   />
                 </FormControl>
@@ -429,6 +466,11 @@ const AssetSecurityNewFields = () => {
               </FormItem>
             )}
           />
+          {derivedCurrencyValue && (
+            <p className="text-sm text-muted-foreground">
+              Total: {formatCurrencyDecimal(derivedCurrencyValue)}
+            </p>
+          )}
           <FormField
             control={control}
             name="fundedFromCash"

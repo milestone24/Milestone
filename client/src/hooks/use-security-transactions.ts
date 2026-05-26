@@ -97,6 +97,7 @@ export const useSecurityTransactions = (assetId: string) => {
           startDate: data.valueDate,
           initialHolding: {
             shareHolding: data.value,
+            perUnitValue: data.perUnitValue,
             currencyValue: data.currencyValue,
           },
           fundedFromCash: data.fundedFromCash,

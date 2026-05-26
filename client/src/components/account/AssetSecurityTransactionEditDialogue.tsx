@@ -14,7 +14,9 @@ import type {
   SecurityTransactionUpsert,
   UserAssetSecuritySelect,
 } from "@shared/schema";
+import { createDecimalValueString } from "@shared/schema";
 import { useCallback } from "react";
+import Decimal from "decimal.js";
 import { AssetSecurityTransactionSingleForm } from "./AssetSecurityTransactionSingleForm";
 
 type AssetSecurityTransactionEditDialogueProps = {
@@ -80,6 +82,13 @@ export const AssetSecurityTransactionEditDialogue = ({
               ? {
                   mode: "existing",
                   value: data.value,
+                  perUnitValue: data.perUnitValue
+                    ? data.perUnitValue
+                    : createDecimalValueString(
+                        new Decimal(data.currencyValue)
+                          .div(new Decimal(data.value).abs())
+                          .toString(),
+                      ),
                   currencyValue: data.currencyValue,
                   valueDate: data.valueDate,
                   assetSecurityId: data.assetSecurityId,

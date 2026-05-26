@@ -24,6 +24,7 @@ import type {
 import { securityTransactionInsertSchema } from "@shared/schema/transaction";
 import { useForm } from "react-hook-form";
 import { createDecimalValueString } from "@shared/schema";
+import Decimal from "decimal.js";
 import {
   Select,
   SelectContent,
@@ -35,6 +36,7 @@ import RSelect from "react-select";
 import { cn } from "@/lib/utils";
 import { useFindSecurities } from "@/hooks/use-find-securities";
 import { useDebouncedCallback } from "@/hooks/use-debounce-callback";
+import { formatCurrencyDecimal } from "@/utils/decimal";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 
 type AssetSecurityTransactionSingleFormProps = {
@@ -123,6 +125,8 @@ export const AssetSecurityTransactionSingleForm = ({
   const mode = watch("mode");
   const security = watch("security");
   const assetSecurityId = watch("assetSecurityId");
+  const watchedShares = watch("value");
+  const watchedPerUnitValue = watch("perUnitValue");
 
   const hasSecuritySelected =
     mode === "existing"
@@ -130,6 +134,17 @@ export const AssetSecurityTransactionSingleForm = ({
       : mode === "new"
         ? !!security
         : false;
+
+  const derivedCurrencyValue =
+    watchedShares && watchedPerUnitValue
+      ? createDecimalValueString(
+          new Decimal(watchedShares)
+            .abs()
+            .mul(watchedPerUnitValue)
+            .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+            .toString(),
+        )
+      : null;
 
   const canSubmit = !isSubmitting && isValid && hasSecuritySelected;
 
@@ -310,11 +325,23 @@ export const AssetSecurityTransactionSingleForm = ({
                     {...field}
                     value={field.value ?? ""}
                     onChange={(e) => {
-                      field.onChange(
+                      const shares =
                         e.target.value === ""
                           ? ""
-                          : createDecimalValueString(e.target.value),
-                      );
+                          : createDecimalValueString(e.target.value);
+                      field.onChange(shares);
+                      if (shares && watchedPerUnitValue) {
+                        setValue(
+                          "currencyValue",
+                          createDecimalValueString(
+                            new Decimal(shares)
+                              .abs()
+                              .mul(watchedPerUnitValue)
+                              .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+                              .toString(),
+                          ),
+                        );
+                      }
                     }}
                   />
                 </FormControl>
@@ -325,22 +352,34 @@ export const AssetSecurityTransactionSingleForm = ({
 
           <FormField
             control={control}
-            name="currencyValue"
+            name="perUnitValue"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Currency Payment</FormLabel>
+                <FormLabel>Price Per Share</FormLabel>
                 <FormControl>
                   <Input
                     type="number"
-                    placeholder="Currency Payment"
+                    placeholder="Price Per Share"
                     {...field}
                     value={field.value ?? ""}
                     onChange={(e) => {
-                      field.onChange(
+                      const perUnitValue =
                         e.target.value === ""
                           ? ""
-                          : createDecimalValueString(e.target.value),
-                      );
+                          : createDecimalValueString(e.target.value);
+                      field.onChange(perUnitValue);
+                      if (perUnitValue && watchedShares) {
+                        setValue(
+                          "currencyValue",
+                          createDecimalValueString(
+                            new Decimal(watchedShares)
+                              .abs()
+                              .mul(perUnitValue)
+                              .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+                              .toString(),
+                          ),
+                        );
+                      }
                     }}
                   />
                 </FormControl>
@@ -348,6 +387,11 @@ export const AssetSecurityTransactionSingleForm = ({
               </FormItem>
             )}
           />
+          {derivedCurrencyValue && (
+            <p className="text-sm text-muted-foreground">
+              Total: {formatCurrencyDecimal(derivedCurrencyValue)}
+            </p>
+          )}
 
           <FormField
             control={control}
