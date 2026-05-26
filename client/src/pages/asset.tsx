@@ -284,7 +284,11 @@ function AssetPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="bg-card rounded-lg p-4 mb-4 flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => window.history.back()}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => window.history.back()}
+        >
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <BrokerLogoBoxed
@@ -413,6 +417,7 @@ function AssetPage() {
               <h2 className="text-lg font-medium my-2 md:my-4">Investments</h2>
               <AssetSecuritiesList
                 className="my-4"
+                canAddSecurity={false}
                 //onItemClick={handleSecurityClick}
               />
             </div>
