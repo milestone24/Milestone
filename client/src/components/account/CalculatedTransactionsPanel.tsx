@@ -1,6 +1,5 @@
 import { BsPiggyBank } from "react-icons/bs";
 import { useMemo, useState } from "react";
-import { BundledTransactionGroup } from "./BundledTransactionGroup";
 import type {
   AssetTransaction,
   FlatCombinedTransactionRow,
@@ -354,13 +353,10 @@ export const CalculatedTransactionsPanel = ({
             {renderItems.map((item) => {
               if (item.kind === "bundle") {
                 return (
-                  <BundledTransactionGroup
+                  <AssetSecurityTransactionItem
                     key={item.groupId}
-                    groupId={item.groupId}
-                    securityRow={item.securityRow}
-                    cashRow={item.cashRow}
+                    transaction={flatRowToSecurityResolved(item.securityRow, securities)}
                     securities={securities}
-                    assetId={assetId}
                   />
                 );
               }
