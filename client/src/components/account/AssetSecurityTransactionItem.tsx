@@ -132,7 +132,7 @@ export const AssetSecurityTransactionItem = ({
               year: "numeric",
             })}
             {" · "}
-            <PosNegNumber value={Number(transaction.currencyValue)} />
+            <PosNegNumber value={-Number(transaction.currencyValue)} />
           </span>
         </div>
       </div>
