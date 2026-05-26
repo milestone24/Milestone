@@ -4,6 +4,7 @@ import {
   UserAssetSecurityTransactionResolved,
 } from "@shared/schema";
 import { TransactionSourceBadges } from "./TransactionSourceBadges";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Layers2, Loader2, Trash2 } from "lucide-react";
 import {
@@ -112,6 +113,18 @@ export const AssetSecurityTransactionItem = ({
             source={transaction.source}
             flags={transaction.flags}
           />
+          {transaction.ledgerGroupId && (
+            <Badge
+              variant="outline"
+              className={
+                Number(transaction.value) > 0
+                  ? "bg-red-100 text-red-700 border-red-400 dark:bg-red-900/40 dark:text-red-300 dark:border-red-600"
+                  : "bg-green-100 text-green-700 border-green-400 dark:bg-green-900/40 dark:text-green-300 dark:border-green-600"
+              }
+            >
+              {Number(transaction.value) > 0 ? "Cash out" : "Cash in"}
+            </Badge>
+          )}
           <span>
             {new Date(transaction.valueDate).toLocaleDateString("en-GB", {
               day: "2-digit",
