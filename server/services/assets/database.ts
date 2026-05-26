@@ -1327,6 +1327,7 @@ export class DatabaseAssetService {
             recordedAt: data.recordedAt ?? new Date(),
             source: data.source ?? "manual",
             ledgerGroupId,
+            perUnitValue: data.perUnitValue,
           })
           .returning();
 
@@ -2545,6 +2546,7 @@ export class DatabaseAssetService {
             value: data.initialHolding.shareHolding,
             currency: value.security.currency ?? "GBP",
             currencyValue: data.initialHolding.currencyValue,
+            perUnitValue: data.initialHolding.perUnitValue,
             recordedAt: new Date(),
             valueDate: data.startDate,
             source: "manual",

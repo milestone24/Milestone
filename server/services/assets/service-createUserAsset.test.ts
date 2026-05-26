@@ -102,6 +102,7 @@ describe("DatabaseAssetService createUserAsset", () => {
             },
             initialHolding: {
               shareHolding: createDecimalValueString("10000"),
+              perUnitValue: createDecimalValueString("0.01"),
               currencyValue: createDecimalValueString("100"),
             },
             startDate,
