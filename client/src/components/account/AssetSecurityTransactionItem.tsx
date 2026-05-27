@@ -3,6 +3,7 @@ import {
   UserAssetSecuritySelect,
   UserAssetSecurityTransactionResolved,
 } from "@shared/schema";
+import { formatShareValueDecimal } from "@/utils/decimal";
 import { TransactionSourceBadges } from "./TransactionSourceBadges";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -104,6 +105,14 @@ export const AssetSecurityTransactionItem = ({
             {Number(transaction.value) > 0 ? "+" : ""}
             {Number(transaction.value)} shares
           </span>
+          {Number(transaction.perUnitValue) > 0 && (
+            <>
+              <span className="text-muted-foreground">@</span>
+              <span className="text-sm text-muted-foreground">
+                {formatShareValueDecimal(transaction.perUnitValue)}
+              </span>
+            </>
+          )}
           {isInProcess && (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           )}

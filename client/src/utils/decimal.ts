@@ -18,3 +18,10 @@ export const formatShareQuantityDecimal = (value: DecimalValueString) => {
     minimumFractionDigits: 8,
   }).format(Decimal(value).toNumber());
 };
+
+export const formatShareValueDecimal = (value: DecimalValueString) => {
+  return Intl.NumberFormat("en-GB", {
+    maximumFractionDigits: 4,
+    minimumFractionDigits: 2,
+  }).format(Decimal(value).toNumber());
+};
