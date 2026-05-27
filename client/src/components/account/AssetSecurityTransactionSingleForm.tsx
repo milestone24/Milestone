@@ -204,7 +204,7 @@ export const AssetSecurityTransactionSingleForm = ({
                           htmlFor="sec-mode-existing"
                           className="font-normal cursor-pointer"
                         >
-                          Select existing
+                          Use existing security
                         </Label>
                       </div>
                       <div className="flex items-center space-x-2">
