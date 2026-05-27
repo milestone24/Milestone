@@ -248,6 +248,8 @@ export const existingSecurityTransactionInsertSchema = securityTransactionOrphan
   assetSecurityId: z.string().refine((value) => value !== "", {
     message: "Security is required",
   }),
+  //This is only here to satisfy the the union with .
+  ledgerGroupId: z.string().uuid().optional(),
 });
 
 existingSecurityTransactionInsertSchema._output satisfies Omit<
@@ -260,6 +262,7 @@ export const newSecurityTransactionInsertSchema = securityTransactionOrphanInser
   security: securitySearchResultSchema.refine((value) => value !== null && value !== undefined, {
     message: "Security is required",
   }),
+  ledgerGroupId: z.literal(undefined),
 });
 
 export const securityTransactionInsertSchema = z.discriminatedUnion("mode", [
@@ -269,11 +272,19 @@ export const securityTransactionInsertSchema = z.discriminatedUnion("mode", [
 
 export type SecurityTransactionInsert = z.infer<
   typeof securityTransactionInsertSchema
->;
+  >
 
-export type SecurityTransactionUpsert = SecurityTransactionInsert & {
-  id?: string;
-};
+export const securityTransactionMutateSchema = securityTransactionOrphanInsertSchema.extend({
+  mode: z.literal("existing"),
+  assetSecurityId: z.string().refine((value) => value !== "", {
+    message: "Security is required",
+  }),
+  ledgerGroupId: z.string().uuid().optional()
+});
+
+export type SecurityTransactionMutate = z.infer<typeof securityTransactionMutateSchema>;
+
+export type SecurityTransactionUpsert = SecurityTransactionInsert | SecurityTransactionMutate;
 
 export const securityTransactionSelectSchema = z.object({
   id: z.string(),

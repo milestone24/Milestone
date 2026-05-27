@@ -14,9 +14,7 @@ import type {
   SecurityTransactionUpsert,
   UserAssetSecuritySelect,
 } from "@shared/schema";
-import { createDecimalValueString } from "@shared/schema";
 import { useCallback } from "react";
-import Decimal from "decimal.js";
 import { AssetSecurityTransactionSingleForm } from "./AssetSecurityTransactionSingleForm";
 
 type AssetSecurityTransactionEditDialogueProps = {
@@ -74,27 +72,11 @@ export const AssetSecurityTransactionEditDialogue = ({
             Record a new transaction to this account.
           </DialogDescription>
         </DialogHeader>
+
         <AssetSecurityTransactionSingleForm
           onSubmit={handleTransactionSubmit}
           securities={securities}
-          data={
-            data
-              ? {
-                  mode: "existing",
-                  value: data.value,
-                  perUnitValue: data.perUnitValue
-                    ? data.perUnitValue
-                    : createDecimalValueString(
-                        new Decimal(data.currencyValue)
-                          .div(new Decimal(data.value).abs())
-                          .toString(),
-                      ),
-                  currencyValue: data.currencyValue,
-                  valueDate: data.valueDate,
-                  assetSecurityId: data.assetSecurityId,
-                }
-              : undefined
-          }
+          data={data}
           CancelButton={
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>

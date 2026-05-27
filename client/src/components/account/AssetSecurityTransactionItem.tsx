@@ -70,6 +70,7 @@ export const AssetSecurityTransactionItem = ({
 
   const handleTransactionSubmit = useCallback(
     async (data: SecurityTransactionUpsert) => {
+
       const response = await updateSecurityTransaction.mutateAsync({
         securityId: transaction.assetSecurityId,
         transactionId: transaction.id,

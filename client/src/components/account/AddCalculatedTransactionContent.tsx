@@ -13,6 +13,7 @@ import type {
   AssetContributionFormData,
   AssetTransactionSource,
   SecurityTransactionInsert,
+  SecurityTransactionUpsert,
   UserAssetSecuritySelect,
 } from "@shared/schema";
 import { createDecimalValueString } from "@shared/schema";
@@ -69,17 +70,30 @@ export function AddCalculatedTransactionContent({
     onClose();
   };
 
-  const handleInvestmentSubmit = async (payload: SecurityTransactionInsert) => {
+  const handleInvestmentSubmit = async (payload: SecurityTransactionUpsert) => {
     const sign = direction === "withdrawal" ? -1 : 1;
-    const adjustedPayload: SecurityTransactionInsert = {
-      ...payload,
-      value: createDecimalValueString(
-        Decimal(String(payload.value)).mul(sign).toString()
-      ),
-      currencyValue: createDecimalValueString(
-        Decimal(String(payload.currencyValue)).mul(sign).toString()
-      ),
-    };
+    const adjustedValue = createDecimalValueString(
+      Decimal(String(payload.value)).mul(sign).toString(),
+    );
+    const adjustedCurrencyValue = createDecimalValueString(
+      Decimal(String(payload.currencyValue)).mul(sign).toString(),
+    );
+
+    const adjustedPayload: SecurityTransactionInsert =
+      payload.mode === "existing"
+        ? {
+            ...payload,
+            value: adjustedValue,
+            currencyValue: adjustedCurrencyValue,
+            ledgerGroupId: payload.ledgerGroupId,
+          }
+        : {
+            ...payload,
+            value: adjustedValue,
+            currencyValue: adjustedCurrencyValue,
+            ledgerGroupId: payload.ledgerGroupId,
+          };
+
     await addSecurityTransaction.mutateAsync(adjustedPayload);
     onClose();
   };
