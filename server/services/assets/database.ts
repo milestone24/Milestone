@@ -1406,20 +1406,39 @@ export class DatabaseAssetService {
   ): Promise<SecurityTransaction> {
     const accountId = getUserAccountId();
 
-    const [securityTransaction] = await this.db
-      .update(securityTransactions)
-      .set(data)
-      .where(
-        and(
-          eq(securityTransactions.assetSecurityId, assetSecurityId),
-          eq(securityTransactions.id, transactionId)
+    const securityTransaction = await this.db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(securityTransactions)
+        .set(data)
+        .where(
+          and(
+            eq(securityTransactions.assetSecurityId, assetSecurityId),
+            eq(securityTransactions.id, transactionId)
+          )
         )
-      )
-      .returning();
+        .returning();
 
-    if (!securityTransaction) {
-      throw new Error("Failed to delete user asset security transaction");
-    }
+      if (!updated) {
+        throw new Error("Failed to update user asset security transaction");
+      }
+
+      if (updated.ledgerGroupId) {
+        await tx
+          .update(assetTransactions)
+          .set({
+            currencyValue: createDecimalValueString(Decimal(data.currencyValue).negated().toString()),
+            valueDate: data.valueDate,
+          })
+          .where(
+            and(
+              eq(assetTransactions.assetId, assetId),
+              eq(assetTransactions.ledgerGroupId, updated.ledgerGroupId)
+            )
+          );
+      }
+
+      return updated;
+    });
 
     this.assetValuesService.updateAssetValuesForAssetOfAccount(
       accountId,
