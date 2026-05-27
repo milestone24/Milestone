@@ -103,6 +103,7 @@ transactionAbstractSchema._output satisfies TransactionAbstract;
  */
 export const flatCombinedTransactionRowSchema = transactionAbstractSchema.extend({
   assetSecurityId: z.string().optional(),
+  perUnitValue: decimalValueSchema.nullable().optional(),
   fees: decimalValueSchema.nullable().optional(),
   source: z.enum(assetTransactionSources).optional(),
   flags: assetTransactionFlagsSchema.nullable().optional(),
