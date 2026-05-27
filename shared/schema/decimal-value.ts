@@ -61,17 +61,27 @@ const isNullOrUndefined = (value: string | null | undefined) => value === null |
 export const decimalValueNonZeroSchema = decimalValueSchema
   //.transform((value) => value === "" ? undefined : value)
   .refine(
-    (value) => {
-
-      console.log("value", value == "", isNullOrUndefined(value));
+    (value) =>
       //We deliberately allow null, and undefined values to pass through to the next refine
       //We let the zod use case define if the value is required or optional to handle the error message
-      return isNullOrUndefined(value)
+      isNullOrUndefined(value)
         ? false
         : value != "" && isDecimalValueString(value) &&
-        Number(value) !== 0
-    },
+        Number(value) !== 0,
     { message: "Value must be a decimal number and be not zero" }
+  );
+
+export const decimalValueZeroOrGreaterSchema = decimalValueSchema
+  //.transform((value) => value === "" ? undefined : value)
+  .refine(
+    (value) =>
+      //We deliberately allow null, and undefined values to pass through to the next refine
+      //We let the zod use case define if the value is required or optional to handle the error message
+      isNullOrUndefined(value)
+        ? false
+        : value != "" && isDecimalValueString(value) &&
+        Number(value) >= 0,
+    { message: "Value must be a decimal number and be zero or greater" }
   );
 
 export const decimalValueSchemaGreaterThanZero =
@@ -93,6 +103,9 @@ export const decimalValueSchemaGreaterThanZero =
 const cuurencyValueDecimalPlacesMessage = "Currency value must not exceed 2 decimal places";
 
 export const currencyNonZeroSchema = decimalValueNonZeroSchema
+  .refine(maxDecimalPlaces(2), { message: cuurencyValueDecimalPlacesMessage });
+
+export const currencyZeroOrGreaterSchema = decimalValueZeroOrGreaterSchema
   .refine(maxDecimalPlaces(2), { message: cuurencyValueDecimalPlacesMessage });
 
 export const currencyGreaterThanZeroSchema = decimalValueSchemaGreaterThanZero

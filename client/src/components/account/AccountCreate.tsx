@@ -620,7 +620,11 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
 
   const handleNext = async (next: () => void) => {
     // TODO: re-enable manual value method — was: valueMethod === "calculated" ? ["valueMethod", "securities"] : ["valueMethod", "currentValue"]
-    const triggerFields: (keyof UserAssetOrphanInsert)[] = ["valueMethod", "securities"];
+    const triggerFields: (keyof UserAssetOrphanInsert)[] = [
+      "valueMethod",
+      "securities",
+      "initialCashHolding",
+    ];
     const isValid = await form.trigger(triggerFields);
     if (isValid) {
       next();
@@ -728,8 +732,8 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
                     <div>
                       <FormLabel>Add Investments</FormLabel>
                       <FormDescription>
-                        In order to calculate the value of your account, we need to
-                        know which investments are held in the account
+                        In order to calculate the value of your account, we need
+                        to know which investments are held in the account
                       </FormDescription>
                     </div>
                     <div className="space-y-2 flex flex-col gap-2">
@@ -741,7 +745,10 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
                           <div className="flex-1">
                             <SecurityCard security={field} />
                           </div>
-                          <Button variant="outline" onClick={() => remove(index)}>
+                          <Button
+                            variant="outline"
+                            onClick={() => remove(index)}
+                          >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
@@ -759,9 +766,9 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
                 name="initialCashHolding"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Initial Cash Balance</FormLabel>
+                    <FormLabel>Cash Balance</FormLabel>
                     <FormDescription>
-                      Optionally set the uninvested cash held in this account
+                      Set the uninvested cash held in this account
                     </FormDescription>
                     <FormControl>
                       <Input
@@ -770,7 +777,9 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
                         {...field}
                         value={field.value ?? ""}
                         onChange={(e) =>
-                          field.onChange(e.target.value === "" ? undefined : e.target.value)
+                          field.onChange(
+                            e.target.value === "" ? undefined : e.target.value,
+                          )
                         }
                       />
                     </FormControl>
@@ -801,7 +810,7 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
             />
           ) : null}
           */}
-          <ActionsBar {...actionsBarProps} isProcessing={isSubmitting}/>
+          <ActionsBar {...actionsBarProps} isProcessing={isSubmitting} />
         </>
       )}
     </>

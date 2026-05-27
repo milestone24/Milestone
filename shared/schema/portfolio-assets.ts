@@ -20,6 +20,7 @@ import {
 import {
   currencyGreaterThanZeroSchema,
   currencyNonZeroSchema,
+  currencyZeroOrGreaterSchema,
   DecimalValueString,
   isDecimalValueString,
   shareQuantityGreaterThanZeroSchema,
@@ -153,8 +154,7 @@ export const userAssetOrphanInsertSchema = z.object({
   securities: z.array(
     userAssetSecurityOrphanNewCreateInsertSchema.extend({ lid: z.string() })
   ),
-  initialCashHolding: currencyGreaterThanZeroSchema
-    .optional(),
+  initialCashHolding: currencyZeroOrGreaterSchema,
   contributions: recurringContributionGroupInsertSchema.optional(),
 });
 
