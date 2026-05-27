@@ -85,15 +85,6 @@ export const AssetSecurityNewForm = ({
     formState: { isValid, isSubmitting, errors },
   } = form;
 
-  const val =
-    userAssetSecurityOrphanNewCreateInsertSchema.safeParse(getValues());
-
-  console.log("AssetSecurityNewForm getValues", getValues());
-  console.log("AssetSecurityNewForm val", val);
-
-  console.log("AssetSecurityNewForm errors", errors);
-  console.log("AssetSecurityNewForm isValid", isValid);
-
   const [error, setError] = useState<string | undefined>(undefined);
 
   const baseFieldProps: AssetSecurityBaseFieldsProps =
