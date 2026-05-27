@@ -1,4 +1,5 @@
 import { ReactNode, useCallback, useEffect } from "react";
+import { SavingsLoader } from "@/components/loaders/SavingsLoader";
 import { useLocation } from "wouter";
 import { useSession } from "../hooks/use-session";
 
@@ -34,9 +35,8 @@ export function ProtectedRoute({
   // Show loading state while checking authentication
   if (isInitialUserLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-background">
-        <div className="h-12 w-12 border-4 border-t-primary border-muted rounded-full animate-spin mb-4"></div>
-        <p className="text-muted-foreground text-lg font-medium">Loading your data...</p>
+      <div className="flex items-center justify-center h-screen bg-background">
+        <SavingsLoader size="lg" />
       </div>
     );
   }

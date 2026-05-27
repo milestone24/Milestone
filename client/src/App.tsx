@@ -10,7 +10,7 @@ import NotFound from "@/pages/not-found";
 import { lazy, Suspense, useEffect } from "react";
 import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/registerPage";
-import { Loader, Loader2 } from "lucide-react";
+import { SavingsLoader } from "@/components/loaders/SavingsLoader";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ErrorBoundary } from "react-error-boundary";
 import { useSocket } from "./hooks/use-socket";
@@ -41,7 +41,7 @@ function RouteWithLayout({
 }) {
   return (
     <ResponsiveLayout>
-      <Suspense fallback={<Loader />}>
+      <Suspense fallback={<SavingsLoader />}>
         <ErrorBoundary fallback={<p>⚠️Something went wrong</p>}>
           <Component {...rest} />
         </ErrorBoundary>
@@ -167,9 +167,8 @@ function Router() {
 
 function Loading() {
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-background">
-      <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-      <p className="text-muted-foreground text-lg font-medium">Loading your data...</p>
+    <div className="flex items-center justify-center h-screen bg-background">
+      <SavingsLoader size="lg" />
     </div>
   );
 }
