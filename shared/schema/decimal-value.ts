@@ -19,7 +19,9 @@ export { decimalValueSchema } from "@server/db/schema/utils";
 export const maxDecimalPlaces = (maxPlaces: number) => (value: string | undefined) => {
   if (!value) return true;
   const parts = value.split(".");
-  return parts.length === 1 || (parts[1]?.length ?? 0) <= maxPlaces;
+  if (parts.length === 1) return true;
+  const significantPart = (parts[1] ?? "").replace(/0+$/, "");
+  return significantPart.length <= maxPlaces;
 };
 
 export const isDecimal = (value: string) => {

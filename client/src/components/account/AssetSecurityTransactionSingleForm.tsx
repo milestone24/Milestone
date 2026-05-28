@@ -10,7 +10,7 @@ import {
   FormLabel,
   FormMessage,
 } from "../ui/form";
-import { Input } from "../ui/input";
+import { DecimalInput } from "../ui/decimal-input";
 import { DateInput } from "../ui/date-input";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
@@ -27,7 +27,7 @@ import {
   securityTransactionMutateSchema,
 } from "@shared/schema/transaction";
 import { useForm } from "react-hook-form";
-import { createDecimalValueString } from "@shared/schema";
+import { createDecimalValueString, isDecimalValueString } from "@shared/schema";
 import Decimal from "decimal.js";
 import {
   Select,
@@ -362,18 +362,16 @@ export const AssetSecurityTransactionSingleForm = ({
               <FormItem>
                 <FormLabel>Number of Shares</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
+                  <DecimalInput
+                    ref={field.ref}
+                    value={field.value ?? undefined}
+                    decimalScale={8}
                     placeholder="Number of Shares"
-                    {...field}
-                    value={field.value ?? ""}
-                    onChange={(e) => {
-                      const shares =
-                        e.target.value === ""
-                          ? ""
-                          : createDecimalValueString(e.target.value);
+                    onBlur={field.onBlur}
+                    disabled={field.disabled}
+                    onChange={(shares) => {
                       field.onChange(shares);
-                      if (shares && watchedPerUnitValue) {
+                      if (isDecimalValueString(shares) && watchedPerUnitValue && isDecimalValueString(watchedPerUnitValue)) {
                         setValue(
                           "currencyValue",
                           createDecimalValueString(
@@ -400,18 +398,16 @@ export const AssetSecurityTransactionSingleForm = ({
               <FormItem>
                 <FormLabel>Price Per Share</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
+                  <DecimalInput
+                    ref={field.ref}
+                    value={field.value ?? undefined}
+                    decimalScale={4}
                     placeholder="Price Per Share"
-                    {...field}
-                    value={field.value ?? ""}
-                    onChange={(e) => {
-                      const perUnitValue =
-                        e.target.value === ""
-                          ? ""
-                          : createDecimalValueString(e.target.value);
+                    onBlur={field.onBlur}
+                    disabled={field.disabled}
+                    onChange={(perUnitValue) => {
                       field.onChange(perUnitValue);
-                      if (perUnitValue && watchedShares) {
+                      if (isDecimalValueString(perUnitValue) && watchedShares && isDecimalValueString(watchedShares)) {
                         setValue(
                           "currencyValue",
                           createDecimalValueString(
