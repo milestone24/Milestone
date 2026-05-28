@@ -42,6 +42,7 @@ import { useFindSecurities } from "@/hooks/use-find-securities";
 import { useDebouncedCallback } from "@/hooks/use-debounce-callback";
 import { formatCurrencyDecimal } from "@/utils/decimal";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
+import { useDerivedSharePaymentTotal } from "@/hooks/useDerivedSharePaymentTotal";
 
 type AssetSecurityTransactionSingleFormProps = {
   onSubmit: (data: SecurityTransactionUpsert) => Promise<void>;
@@ -147,6 +148,11 @@ export const AssetSecurityTransactionSingleForm = ({
   const assetSecurityId = watch("assetSecurityId");
   const watchedShares = watch("value");
   const watchedPerUnitValue = watch("perUnitValue");
+  const watchedCurrencyValue = watch("currencyValue");
+
+  useDerivedSharePaymentTotal(watchedShares, watchedPerUnitValue, (value) =>
+    setValue("currencyValue", value),
+  );
 
   const hasSecuritySelected =
     mode === "existing"
@@ -371,18 +377,6 @@ export const AssetSecurityTransactionSingleForm = ({
                     disabled={field.disabled}
                     onChange={(shares) => {
                       field.onChange(shares);
-                      if (isDecimalValueString(shares) && watchedPerUnitValue && isDecimalValueString(watchedPerUnitValue)) {
-                        setValue(
-                          "currencyValue",
-                          createDecimalValueString(
-                            new Decimal(shares)
-                              .abs()
-                              .mul(watchedPerUnitValue)
-                              .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
-                              .toString(),
-                          ),
-                        );
-                      }
                     }}
                   />
                 </FormControl>
@@ -407,18 +401,6 @@ export const AssetSecurityTransactionSingleForm = ({
                     disabled={field.disabled}
                     onChange={(perUnitValue) => {
                       field.onChange(perUnitValue);
-                      if (isDecimalValueString(perUnitValue) && watchedShares && isDecimalValueString(watchedShares)) {
-                        setValue(
-                          "currencyValue",
-                          createDecimalValueString(
-                            new Decimal(watchedShares)
-                              .abs()
-                              .mul(perUnitValue)
-                              .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
-                              .toString(),
-                          ),
-                        );
-                      }
                     }}
                   />
                 </FormControl>
@@ -426,11 +408,13 @@ export const AssetSecurityTransactionSingleForm = ({
               </FormItem>
             )}
           />
-          {derivedCurrencyValue && (
-            <p className="text-sm text-muted-foreground">
-              Total: {formatCurrencyDecimal(derivedCurrencyValue)}
-            </p>
-          )}
+
+          <p className="text-sm text-muted-foreground">
+            Total payment:{" "}
+            {watchedCurrencyValue
+              ? formatCurrencyDecimal(watchedCurrencyValue)
+              : "--"}
+          </p>
 
           {!!data ? (
             <>
