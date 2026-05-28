@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/ui/decimal-input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, X, Pencil, AlertCircle } from "lucide-react";
@@ -317,10 +318,14 @@ export default function Goals() {
                         <FormItem>
                           <FormLabel>Target Value (£)</FormLabel>
                           <FormControl>
-                            <Input
-                              type="number"
+                            <DecimalInput
+                              ref={field.ref}
+                              value={field.value ?? undefined}
+                              decimalScale={2}
                               placeholder="0.00"
-                              {...field}
+                              onBlur={field.onBlur}
+                              disabled={field.disabled}
+                              onChange={field.onChange}
                             />
                           </FormControl>
                           <FormMessage />
