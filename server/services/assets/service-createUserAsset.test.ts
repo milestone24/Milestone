@@ -108,6 +108,7 @@ describe("DatabaseAssetService createUserAsset", () => {
             startDate,
           },
         ],
+        initialCashHolding: createDecimalValueString("100"),
         contributions: {
           amount: createDecimalValueString("200"),
           process: "manual",
