@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/ui/decimal-input";
 import { Button } from "@/components/ui/button";
 import { Alert } from "../ui/alert";
 import { AlertDescription } from "../ui/alert";
@@ -166,10 +167,14 @@ export function EditMilestoneDialog({
                 <FormItem>
                   <FormLabel>Target Value (£)</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
+                    <DecimalInput
+                      ref={field.ref}
+                      value={field.value ?? undefined}
+                      decimalScale={2}
                       placeholder="Enter target value"
-                      {...field}
+                      onBlur={field.onBlur}
+                      disabled={field.disabled}
+                      onChange={field.onChange}
                     />
                   </FormControl>
                   <FormMessage />
