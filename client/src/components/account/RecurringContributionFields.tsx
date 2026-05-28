@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 import { useController, useWatch } from "react-hook-form";
 import type { RecurringContributionFormData } from "@shared/schema/transaction";
-import { createDecimalValueString } from "@shared/schema";
 import {
   FormControl,
   FormDescription,
@@ -9,7 +8,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "../ui/input";
+import { DecimalInput } from "../ui/decimal-input";
 import { DateInput } from "../ui/date-input";
 import { Checkbox } from "../ui/checkbox";
 import { Switch } from "../ui/switch";
@@ -86,18 +85,14 @@ export const RecurringContributionFields = ({
           How much do you invest at the scheduled time?
         </FormDescription>
         <FormControl>
-          <Input
-            type="number"
+          <DecimalInput
+            ref={amountField.ref}
+            value={amountField.value ?? undefined}
+            decimalScale={2}
             placeholder="Contribution Amount"
-            value={amountField.value ?? ""}
-            onChange={(e) => {
-              amountField.onChange(
-                e.target.value == ""
-                  ? ""
-                  : createDecimalValueString(e.target.value)
-              );
-            }}
             onBlur={amountField.onBlur}
+            disabled={amountField.disabled}
+            onChange={amountField.onChange}
           />
         </FormControl>
         {amountFieldState.error && (

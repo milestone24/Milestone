@@ -11,7 +11,7 @@ import {
   FormLabel,
   FormMessage,
 } from "../ui/form";
-import { Input } from "../ui/input";
+import { DecimalInput } from "../ui/decimal-input";
 import { DateInput } from "../ui/date-input";
 import { Button } from "../ui/button";
 import { Loader2 } from "lucide-react";
@@ -103,12 +103,14 @@ export const TransactionSingleForm = ({
               <FormItem>
                 <FormLabel>Amount (£)</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
-                    step="any"
-                    {...field}
-                    value={field.value ?? ""}
-                    onChange={(e) => field.onChange(e.target.value)}
+                  <DecimalInput
+                    ref={field.ref}
+                    value={field.value ?? undefined}
+                    decimalScale={2}
+                    placeholder="Amount"
+                    onBlur={field.onBlur}
+                    disabled={field.disabled}
+                    onChange={field.onChange}
                   />
                 </FormControl>
                 <FormMessage />
