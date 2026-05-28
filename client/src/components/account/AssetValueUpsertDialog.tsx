@@ -17,7 +17,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/ui/decimal-input";
 import { DateInput } from "@/components/ui/date-input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -127,11 +127,14 @@ export const AssetValueUpsertDialog = ({
                 <FormItem>
                   <FormLabel>Value</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
+                    <DecimalInput
+                      ref={field.ref}
+                      value={field.value ?? undefined}
+                      decimalScale={2}
                       placeholder="Enter value"
-                      {...field}
+                      onBlur={field.onBlur}
+                      disabled={field.disabled}
+                      onChange={field.onChange}
                     />
                   </FormControl>
                   <FormMessage />
