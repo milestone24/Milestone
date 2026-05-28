@@ -13,7 +13,7 @@ import {
   FormLabel,
   FormMessage,
 } from "../ui/form";
-import { Input } from "../ui/input";
+import { DecimalInput } from "../ui/decimal-input";
 import { useEffect } from "react";
 import Decimal from "decimal.js";
 import { RecurringContributionFields } from "./RecurringContributionFields";
@@ -187,18 +187,14 @@ const GroupSecurities = <T extends AssetSecurityLike>({
                     render={({ field }) => (
                       <FormItem>
                         <FormControl className="flex flex-row gap-2">
-                          <Input
-                            type="number"
+                          <DecimalInput
+                            ref={field.ref}
+                            value={field.value ?? undefined}
+                            decimalScale={2}
                             placeholder="Commitment"
-                            {...field}
-                            value={field.value ?? ""}
-                            onChange={(e) => {
-                              field.onChange(
-                                e.target.value == ""
-                                  ? ""
-                                  : createDecimalValueString(e.target.value)
-                              );
-                            }}
+                            onBlur={field.onBlur}
+                            disabled={field.disabled}
+                            onChange={field.onChange}
                           />
                         </FormControl>
                         <FormMessage />
