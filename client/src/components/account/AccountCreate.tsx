@@ -27,6 +27,7 @@ import {
   FormMessage,
 } from "../ui/form";
 import { Input } from "../ui/input";
+import { DecimalInput } from "../ui/decimal-input";
 import { DateInput } from "../ui/date-input";
 import {
   Select,
@@ -771,16 +772,14 @@ const AccountCreateTwo: React.FC<AccountCreateFormProps> = (props) => {
                       Set the uninvested cash held in this account
                     </FormDescription>
                     <FormControl>
-                      <Input
-                        type="number"
+                      <DecimalInput
+                        ref={field.ref}
+                        value={field.value ?? undefined}
+                        decimalScale={2}
                         placeholder="0.00"
-                        {...field}
-                        value={field.value ?? ""}
-                        onChange={(e) =>
-                          field.onChange(
-                            e.target.value === "" ? undefined : e.target.value,
-                          )
-                        }
+                        onBlur={field.onBlur}
+                        disabled={field.disabled}
+                        onChange={field.onChange}
                       />
                     </FormControl>
                     <FormMessage />
