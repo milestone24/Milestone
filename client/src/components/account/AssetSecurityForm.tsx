@@ -1,8 +1,7 @@
 import { useDebouncedCallback } from "@/hooks/use-debounce-callback";
 import { useFindSecurities } from "@/hooks/use-find-securities";
 import { formatCurrencyDecimal } from "@/utils/decimal";
-import { SecurityInsert, createDecimalValueString } from "@shared/schema";
-import Decimal from "decimal.js";
+import { SecurityInsert } from "@shared/schema";
 import {
   ResolvedAssetSecurity,
   UserAssetSecurityBase,
@@ -24,7 +23,8 @@ import {
 } from "../ui/form";
 import RSelect from "react-select";
 import { cn } from "@/lib/utils";
-import { Input } from "../ui/input";
+import { DecimalInput } from "../ui/decimal-input";
+import { useDerivedSharePaymentTotal } from "@/hooks/useDerivedSharePaymentTotal";
 import { DateInput } from "../ui/date-input";
 import { Button } from "../ui/button";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -270,17 +270,11 @@ const AssetSecurityNewFields = () => {
 
   const watchedShares = watch("initialHolding.shareHolding");
   const watchedPerUnitValue = watch("initialHolding.perUnitValue");
+  const watchedCurrencyValue = watch("initialHolding.currencyValue");
 
-  const derivedCurrencyValue =
-    watchedShares && watchedPerUnitValue
-      ? createDecimalValueString(
-          new Decimal(watchedShares)
-            .abs()
-            .mul(watchedPerUnitValue)
-            .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
-            .toString(),
-        )
-      : null;
+  useDerivedSharePaymentTotal(watchedShares, watchedPerUnitValue, (value) =>
+    setValue("initialHolding.currencyValue", value),
+  );
 
   const [searchInput, setSearchInput] = useState("");
 
@@ -390,30 +384,14 @@ const AssetSecurityNewFields = () => {
               <FormItem>
                 <FormLabel>Shares Held</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
+                  <DecimalInput
+                    ref={field.ref}
+                    value={field.value ?? undefined}
+                    decimalScale={8}
                     placeholder="Shares Held"
-                    {...field}
-                    value={field.value ?? ""}
-                    onChange={(e) => {
-                      const shares =
-                        e.target.value == ""
-                          ? ""
-                          : createDecimalValueString(e.target.value);
-                      field.onChange(shares);
-                      if (shares && watchedPerUnitValue) {
-                        setValue(
-                          "initialHolding.currencyValue",
-                          createDecimalValueString(
-                            new Decimal(shares)
-                              .abs()
-                              .mul(watchedPerUnitValue)
-                              .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
-                              .toString(),
-                          ),
-                        );
-                      }
-                    }}
+                    onBlur={field.onBlur}
+                    disabled={field.disabled}
+                    onChange={field.onChange}
                   />
                 </FormControl>
                 <FormMessage />
@@ -427,39 +405,23 @@ const AssetSecurityNewFields = () => {
               <FormItem>
                 <FormLabel>Price Per Share</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
+                  <DecimalInput
+                    ref={field.ref}
+                    value={field.value ?? undefined}
+                    decimalScale={4}
                     placeholder="Price Per Share"
-                    {...field}
-                    value={field.value ?? ""}
-                    onChange={(e) => {
-                      const perUnitValue =
-                        e.target.value == ""
-                          ? ""
-                          : createDecimalValueString(e.target.value);
-                      field.onChange(perUnitValue);
-                      if (perUnitValue && watchedShares) {
-                        setValue(
-                          "initialHolding.currencyValue",
-                          createDecimalValueString(
-                            new Decimal(watchedShares)
-                              .abs()
-                              .mul(perUnitValue)
-                              .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
-                              .toString(),
-                          ),
-                        );
-                      }
-                    }}
+                    onBlur={field.onBlur}
+                    disabled={field.disabled}
+                    onChange={field.onChange}
                   />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          {derivedCurrencyValue && (
+          {watchedCurrencyValue && (
             <p className="text-sm text-muted-foreground">
-              Total: {formatCurrencyDecimal(derivedCurrencyValue)}
+              Total: {formatCurrencyDecimal(watchedCurrencyValue)}
             </p>
           )}
           <FormField
