@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createDecimalValueString, isDecimalValueString, DecimalValueString } from "@shared/schema";
 import Decimal from "decimal.js";
 
@@ -7,9 +7,12 @@ export const useDerivedSharePaymentTotal = (
   perUnitValue: DecimalValueString | undefined,
   setValue: (value: DecimalValueString) => void
 ) => {
+  const setValueRef = useRef(setValue);
+  setValueRef.current = setValue;
+
   useEffect(() => {
     if (!shares || !perUnitValue || !isDecimalValueString(shares) || !isDecimalValueString(perUnitValue)) return;
-    setValue(
+    setValueRef.current(
       createDecimalValueString(
         new Decimal(shares)
           .abs()
@@ -18,5 +21,5 @@ export const useDerivedSharePaymentTotal = (
           .toString(),
       ),
     );
-  }, [shares, perUnitValue, setValue]);
+  }, [shares, perUnitValue]);
 };
