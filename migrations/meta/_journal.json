@@ -92,6 +92,13 @@
       "when": 1779781685843,
       "tag": "0012_security-price-per-unit",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1780298159858,
+      "tag": "0013_asset-security-taxes",
+      "breakpoints": true
     }
   ]
 }

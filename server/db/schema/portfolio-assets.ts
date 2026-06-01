@@ -429,6 +429,7 @@ export const securityTransactions = pgTable(
     //currencyValue: real("currency_value").notNull().default(0),
     currencyValue: brandedDecimal("currency_value").notNull(),
     fees: brandedDecimal("fees").default("0" as DecimalValueString),
+    taxes: brandedDecimal("taxes").default("0" as DecimalValueString),
     //TODO
     //The currency information will need to be added and not optional with default value eventually
     currency: text("currency").notNull().default("GBP"),
