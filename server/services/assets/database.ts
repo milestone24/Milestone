@@ -83,6 +83,7 @@ import {
   computePortfolioRangeReturns,
   mapDecimalToNullableDecimalString,
 } from "@shared/utils/portfolio-returns-range";
+import { twrSubPeriodReturn } from "@shared/utils/portfolio-returns-twr";
 import type { PortfolioReturnsMwrCashFlow } from "@shared/utils/portfolio-returns-mwr";
 import {
   QueryParams,
@@ -639,6 +640,57 @@ export class DatabaseAssetService {
     return userAsset;
   }
 
+  private async resolveAssetSecurityWithCalculatedValue(
+    security: typeof userAssetSecurities.$inferSelect & {
+      security: typeof securities.$inferSelect;
+    }
+  ): Promise<ResolvedAssetSecurity> {
+    const [latestDay, previousDay] =
+      await this.db.query.securityDailyHistory.findMany({
+        where: eq(securityDailyHistory.securityId, security.securityId),
+        orderBy: (securityDailyHistory, { desc }) => [
+          desc(securityDailyHistory.date),
+        ],
+        limit: 2,
+      });
+
+    const shareHoldings = await this.db
+      .select({ sum: sum(securityTransactions.value) })
+      .from(securityTransactions)
+      .where(eq(securityTransactions.assetSecurityId, security.id));
+
+    const totalShares = new Decimal(shareHoldings?.[0]?.sum ?? 0);
+    const latestClose = new Decimal(latestDay?.close ?? 0);
+    const previousClose = new Decimal(previousDay?.close ?? 0);
+
+    const latestMV = latestClose.mul(totalShares);
+    const previousMV = previousClose.mul(totalShares);
+
+    const currentChange = latestDay
+      ? createDecimalValueString(latestClose.sub(previousClose).mul(totalShares).toString())
+      : createDecimalValueString("0");
+
+    const twr = latestDay && previousDay
+      ? twrSubPeriodReturn(previousMV, latestMV)
+      : null;
+
+    const currentChangePercentage = createDecimalValueString(
+      twr ? twr.toString() : "0"
+    );
+
+    return {
+      ...security,
+      security: mapDbSecurityToSelect(security.security),
+      calculatedValue: {
+        value: latestDay
+          ? createDecimalValueString(latestMV.toString())
+          : createDecimalValueString("0"),
+        currentChange,
+        currentChangePercentage,
+      },
+    };
+  }
+
   async getResolvedUserAssetSecurities(
     assetId: UserAsset["id"],
     query: QueryParams
@@ -650,38 +702,9 @@ export class DatabaseAssetService {
       },
     });
     const securitiesWithValue: ResolvedAssetSecurity[] = await Promise.all(
-      securities.map(async (security) => {
-        const lastValue = await this.db.query.securityDailyHistory.findFirst({
-          where: eq(securityDailyHistory.securityId, security.securityId),
-          orderBy: (securityDailyHistory, { desc }) => [
-            desc(securityDailyHistory.date),
-          ],
-        });
-
-        const shareHoldings = await this.db
-          .select({
-            sum: sum(securityTransactions.value),
-          })
-          .from(securityTransactions)
-          .where(eq(securityTransactions.assetSecurityId, security.id));
-
-        return {
-          ...security,
-          security: mapDbSecurityToSelect(security.security),
-          calculatedValue: {
-            value: lastValue
-              ? createDecimalValueString(
-                  Decimal(lastValue.close ?? 0)
-                    .mul(Decimal(shareHoldings?.[0]?.sum ?? 0))
-                    .toString() as DecimalValueString
-                )
-              : createDecimalValueString("0"),
-            //Todo calculate this when we have a date range
-            currentChange: createDecimalValueString("0"),
-            currentChangePercentage: createDecimalValueString("0"),
-          },
-        };
-      })
+      securities.map((security) =>
+        this.resolveAssetSecurityWithCalculatedValue(security)
+      )
     );
 
     return securitiesWithValue;
