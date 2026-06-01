@@ -15,7 +15,7 @@ import { DateInput } from "../ui/date-input";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Label } from "../ui/label";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import type {
   SecurityTransactionSelect,
   SecurityTransactionInsert,
@@ -43,6 +43,11 @@ import { useDebouncedCallback } from "@/hooks/use-debounce-callback";
 import { formatCurrencyDecimal } from "@/utils/decimal";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import { useDerivedSharePaymentTotal } from "@/hooks/useDerivedSharePaymentTotal";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../ui/collapsible";
 
 type AssetSecurityTransactionSingleFormProps = {
   onSubmit: (data: SecurityTransactionUpsert) => Promise<void>;
@@ -71,6 +76,8 @@ export const AssetSecurityTransactionSingleForm = ({
           currencyValue: data?.currencyValue,
           valueDate: data?.valueDate,
           assetSecurityId: data?.assetSecurityId,
+          fees: data?.fees ?? undefined,
+          taxes: data?.taxes ?? undefined,
           ledgerGroupId: data?.ledgerGroupId ?? undefined,
           //If data is set we only set this to satisfy the form data resolver.
           //It will be ignored by the onSubmit handler and beackend as ledgerGroupId is set.
@@ -83,6 +90,7 @@ export const AssetSecurityTransactionSingleForm = ({
     mode: "all",
   });
 
+  const [feesTaxesOpen, setFeesTaxesOpen] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [duplicateAssetSecurityId, setDuplicateAssetSecurityId] = useState<
     string | undefined
@@ -451,6 +459,65 @@ export const AssetSecurityTransactionSingleForm = ({
             />
           )}
         </div>
+
+        <Collapsible open={feesTaxesOpen} onOpenChange={setFeesTaxesOpen}>
+          <CollapsibleTrigger
+            type="button"
+            className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted/50"
+          >
+            Fees & Taxes
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 shrink-0 transition-transform duration-200",
+                feesTaxesOpen && "rotate-180",
+              )}
+            />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="flex flex-col gap-4 pt-4 data-[state=closed]:hidden">
+            <FormField
+              control={control}
+              name="fees"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fees</FormLabel>
+                  <FormControl>
+                    <DecimalInput
+                      ref={field.ref}
+                      value={field.value ?? undefined}
+                      decimalScale={2}
+                      placeholder="Fees"
+                      onBlur={field.onBlur}
+                      disabled={field.disabled}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={control}
+              name="taxes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Taxes</FormLabel>
+                  <FormControl>
+                    <DecimalInput
+                      ref={field.ref}
+                      value={field.value ?? undefined}
+                      decimalScale={2}
+                      placeholder="Taxes"
+                      onBlur={field.onBlur}
+                      disabled={field.disabled}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CollapsibleContent>
+        </Collapsible>
 
         <div className="flex justify-end gap-2">
           {CancelButton}

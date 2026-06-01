@@ -86,6 +86,7 @@ function flatRowToSecurityResolved(
     currencyValue: row.currencyValue,
     perUnitValue: row.perUnitValue ?? createDecimalValueString("0"),
     fees: row.fees ?? null,
+    taxes: row.taxes ?? null,
     currency: row.currency,
     valueDate: row.valueDate,
     recordedAt: row.recordedAt,
