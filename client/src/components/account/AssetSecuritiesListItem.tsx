@@ -4,7 +4,8 @@ import {
   UserAssetSecurityOrphanLinkInsert,
 } from "shared/schema";
 import { Button } from "../ui/button";
-import { Loader2, Pencil, Trash2 } from "lucide-react";
+import { Info, Loader2, Pencil, Trash2 } from "lucide-react";
+import { PosNegNumber } from "../common/PosNegNumber";
 import { useAssetSecurities } from "@/context/AssetSecuritiesContext";
 import { AssetSecurityUpsertDialog } from "./AssetSecurityUpsertDialog";
 import {
@@ -17,6 +18,14 @@ import {
   AlertDialogContent,
   AlertDialogFooter,
 } from "../ui/alert-dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+} from "../ui/sheet";
 
 type AssetSecuritiesListItemProps = {
   security: ResolvedAssetSecurity;
@@ -78,6 +87,8 @@ export const AssetSecuritiesListItem: FC<AssetSecuritiesListItemProps> = ({
     [updateSecurity, security],
   );
 
+  console.log("AssetSecuritiesListItem security", security);
+
   return (
     <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
       <div
@@ -97,10 +108,57 @@ export const AssetSecuritiesListItem: FC<AssetSecuritiesListItemProps> = ({
           <p className="font-medium">
             £{Number(security.calculatedValue.value).toLocaleString()}
           </p>
-          <p className="text-sm text-muted-foreground">
-            {Number(security.calculatedValue.currentChange) >= 0 ? "+" : ""}
-            {Number(security.calculatedValue.currentChange).toLocaleString()}
-          </p>
+          <span className="inline-flex items-center gap-x-1">
+            <PosNegNumber
+              value={Number(security.calculatedValue.currentChange)}
+            />
+            <span className="text-sm text-muted-foreground">(</span>
+            <PosNegNumber
+              value={Number(security.calculatedValue.currentChangePercentage)}
+              displayInPercentage
+            />
+            <span className="text-sm text-muted-foreground">)</span>
+            <Sheet>
+              <SheetTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Info className="h-3 w-3" />
+                </button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Daily change</SheetTitle>
+                  <SheetDescription>
+                    How the change values are calculated
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="mt-4 space-y-4 text-sm">
+                  <p>
+                    The change values shown are based on the two most recent
+                    daily closing prices available for this security.
+                  </p>
+                  <p>
+                    <span className="font-medium">Change (£)</span> is the
+                    difference between the latest and previous closing price,
+                    multiplied by the number of shares held.
+                  </p>
+                  <p>
+                    <span className="font-medium">Change (%)</span> is
+                    calculated using the Time-Weighted Return (TWR) method
+                    between those same two closing prices.
+                  </p>
+                  <p className="text-muted-foreground">
+                    Prices are sourced from your locally synced price history.
+                    Use the refresh button on this page to fetch the latest
+                    prices.
+                  </p>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </span>
         </div>
       </div>
       <div className="flex items-center gap-2">
