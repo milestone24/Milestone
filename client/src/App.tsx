@@ -32,6 +32,7 @@ const ApiConnections = lazy(() => import("@/pages/api-connections"));
 const Documents = lazy(() => import("@/pages/documents"));
 const OcrJobs = lazy(() => import("@/pages/ocr-jobs"));
 const OcrJobDetail = lazy(() => import("@/pages/ocr-job-detail"));
+const AccountCreateOne = lazy(() => import("@/pages/scratches/account-create-one"));
 
 function RouteWithLayout({
   component: Component,
@@ -158,6 +159,18 @@ function Router() {
               </ProtectedRoute>
             )}
           </Route>
+          {/* Scratch routes */}
+          <Route path="/scratches">
+            <Redirect to="/scratches/account-create-one" />
+          </Route>
+          <Route path="/scratches/account-create-one">
+            {() => (
+              <Suspense fallback={<SavingsLoader />}>
+                <AccountCreateOne />
+              </Suspense>
+            )}
+          </Route>
+
           <Route>{() => <RouteWithLayout component={NotFound} />}</Route>
         </Switch>
       </WouterRouter>
