@@ -18,6 +18,9 @@ import {
   DEFAULT_RUNNING_TTL_MS,
   startPeriodicReconciliationForResource,
 } from "./process-reconcile";
+import { sendNotification } from "@server/services/comms/socket";
+import { userAssets, userAssetSecurities } from "@server/db/schema";
+import { assetProcesses } from "@shared/api/queryKeys";
 
 /**
  * Service for creating and running securities daily history cache update
@@ -225,6 +228,18 @@ export class SecuritiesCacheService {
         pendingTtlMs: DEFAULT_PENDING_TTL_MS,
         runningTtlMs: DEFAULT_RUNNING_TTL_MS,
       });
+
+      const affectedAccounts = await this.db
+        .selectDistinct({ userAccountId: userAssets.userAccountId })
+        .from(userAssetSecurities)
+        .innerJoin(userAssets, eq(userAssets.id, userAssetSecurities.userAssetId));
+
+      for (const { userAccountId } of affectedAccounts) {
+        sendNotification(userAccountId, {
+          type: "query",
+          queryKeys: [[...assetProcesses]],
+        });
+      }
     } catch (error) {
       if (job) {
         await this.db

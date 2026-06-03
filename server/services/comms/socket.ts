@@ -9,3 +9,4 @@ export const sendNotification = (accountId: string, message: SocketMessage) => {
     });
   }
 };
+

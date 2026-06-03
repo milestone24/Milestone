@@ -14,6 +14,7 @@ import {
 } from "@shared/schema/process";
 import {
   processes as processesKey,
+  assetProcesses,
   assetSecurities,
   fireProjection,
   portfolioAssets,
@@ -276,6 +277,11 @@ export class AssetValuesService {
         jobId: job.id,
         pendingTtlMs: DEFAULT_PENDING_TTL_MS,
         runningTtlMs: DEFAULT_RUNNING_TTL_MS,
+      });
+
+      sendNotification(accountId, {
+        type: "query",
+        queryKeys: [[...assetProcesses, assetId]],
       });
     } catch (error) {
       console.error(
