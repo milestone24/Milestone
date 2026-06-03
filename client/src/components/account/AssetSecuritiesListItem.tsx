@@ -151,6 +151,11 @@ export const AssetSecuritiesListItem: FC<AssetSecuritiesListItemProps> = ({
                     between those same two closing prices.
                   </p>
                   <p className="text-muted-foreground">
+                    If both values are showing as zero, the closing price did
+                    not change between the two most recent trading days in your
+                    price history.
+                  </p>
+                  <p className="text-muted-foreground">
                     Prices are sourced from your locally synced price history.
                     Use the refresh button on this page to fetch the latest
                     prices.
