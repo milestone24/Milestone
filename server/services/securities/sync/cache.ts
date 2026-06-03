@@ -315,6 +315,7 @@ export class SecuritiesCacheUpdater extends EventEmitter<EmitEvents> {
         this.emit("exited", { jobId: this.jobId });
       })
       .catch((error) => {
+        console.error("SecuritiesCacheUpdater failed", this.jobId, error);
         this.emit("failed", { jobId: this.jobId });
         this.emit("exited", { jobId: this.jobId });
         //throw error;
