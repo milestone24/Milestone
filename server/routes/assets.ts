@@ -966,5 +966,39 @@ export async function registerRoutes(
     }
   );
 
+  router.get(
+    regExpPath(`/${uuidRouteParam("assetId")}/processes`),
+    requireUser,
+    async (req: AuthRequest, res) => {
+      const assetId = req.params.assetId;
+      if (!assetId) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
+
+      const rows = await requireTenantWithUserAccountId(
+        req.tenant,
+        async (tenant) => {
+          const owned = await db.query.userAssets.findFirst({
+            where: and(
+              eq(userAssets.id, assetId),
+              eq(userAssets.userAccountId, tenant.userAccountId)
+            ),
+            columns: { id: true },
+          });
+          if (!owned) {
+            return null;
+          }
+          return assetService.getActiveProcessesForAsset(assetId);
+        }
+      );
+
+      if (rows === null) {
+        return res.status(404).json({ error: "Asset not found" });
+      }
+
+      res.json(rows);
+    }
+  );
+
   return router;
 }

@@ -2883,6 +2883,57 @@ export class DatabaseAssetService {
   async clearStagingForJob(): Promise<void> {
     await this.db.execute(sql`DROP TABLE IF EXISTS asset_values_temp`);
   }
+
+  /**
+   * Returns all active (pending or running) processes that affect the given asset:
+   * - `update-asset-values` jobs whose payload targets this assetId directly
+   * - `update-securities-daily-history-cache` jobs for any security held by the asset,
+   *   including global cache jobs (no securityId in payload)
+   */
+  async getActiveProcessesForAsset(assetId: string) {
+    const assetValueProcesses = this.db
+      .select()
+      .from(processes)
+      .where(
+        and(
+          eq(processes.key, "update-asset-values"),
+          sql`${processes.payload}->>'assetId' = ${assetId}`,
+          inArray(processes.status, ["pending", "running"])
+        )
+      );
+
+    const assetSecurityRows = await this.db
+      .select({ securityId: userAssetSecurities.securityId })
+      .from(userAssetSecurities)
+      .where(eq(userAssetSecurities.userAssetId, assetId));
+
+    const securityIds = assetSecurityRows.map((r) => r.securityId);
+
+    if (securityIds.length === 0) {
+      return assetValueProcesses;
+    }
+
+    const securityCacheProcesses = this.db
+      .select()
+      .from(processes)
+      .where(
+        and(
+          eq(processes.key, "update-securities-daily-history-cache"),
+          sql`(
+            ${processes.payload}->>'securityId' = ANY(ARRAY[${sql.join(securityIds.map((id) => sql`${id}`), sql`, `)}]::text[])
+            OR NOT (${processes.payload} ? 'securityId')
+          )`,
+          inArray(processes.status, ["pending", "running"])
+        )
+      );
+
+    const [avRows, cacheRows] = await Promise.all([
+      assetValueProcesses,
+      securityCacheProcesses,
+    ]);
+
+    return [...avRows, ...cacheRows];
+  }
 }
 
 /* Asset Persistence Utility */
