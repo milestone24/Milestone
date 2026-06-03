@@ -27,8 +27,7 @@ import {
   securityTransactionMutateSchema,
 } from "@shared/schema/transaction";
 import { useForm } from "react-hook-form";
-import { createDecimalValueString, isDecimalValueString } from "@shared/schema";
-import Decimal from "decimal.js";
+import { isDecimalValueString } from "@shared/schema";
 import {
   Select,
   SelectContent,
@@ -156,10 +155,16 @@ export const AssetSecurityTransactionSingleForm = ({
   const assetSecurityId = watch("assetSecurityId");
   const watchedShares = watch("value");
   const watchedPerUnitValue = watch("perUnitValue");
+  const watchedFees = watch("fees");
+  const watchedTaxes = watch("taxes");
   const watchedCurrencyValue = watch("currencyValue");
 
-  useDerivedSharePaymentTotal(watchedShares, watchedPerUnitValue, (value) =>
-    setValue("currencyValue", value),
+  useDerivedSharePaymentTotal(
+    watchedShares,
+    watchedPerUnitValue,
+    (value) => setValue("currencyValue", value),
+    watchedFees,
+    watchedTaxes,
   );
 
   const hasSecuritySelected =
@@ -168,17 +173,6 @@ export const AssetSecurityTransactionSingleForm = ({
       : mode === "new"
         ? !!security
         : false;
-
-  const derivedCurrencyValue =
-    watchedShares && watchedPerUnitValue
-      ? createDecimalValueString(
-          new Decimal(watchedShares)
-            .abs()
-            .mul(watchedPerUnitValue)
-            .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
-            .toString(),
-        )
-      : null;
 
   /*
    * This is purely for display purposes when data has been given to this component (edit mode)
@@ -417,13 +411,6 @@ export const AssetSecurityTransactionSingleForm = ({
             )}
           />
 
-          <p className="text-sm text-muted-foreground">
-            Total payment:{" "}
-            {watchedCurrencyValue
-              ? formatCurrencyDecimal(watchedCurrencyValue)
-              : "--"}
-          </p>
-
           {!!data ? (
             <>
               {data.ledgerGroupId ? (
@@ -518,6 +505,13 @@ export const AssetSecurityTransactionSingleForm = ({
             />
           </CollapsibleContent>
         </Collapsible>
+
+        <p className="text-sm text-muted-foreground">
+          Total payment:{" "}
+          {watchedCurrencyValue
+            ? formatCurrencyDecimal(watchedCurrencyValue)
+            : "--"}
+        </p>
 
         <div className="flex justify-end gap-2">
           {CancelButton}
