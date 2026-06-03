@@ -5,7 +5,7 @@ import {
   isNotificationMessage,
   isQueryMessage,
 } from "@shared/schema/socket";
-import { assetOcrPendingReview } from "@shared/api/queryKeys";
+import { assetOcrPendingReview, assetProcesses } from "@shared/api/queryKeys";
 import { isInlineOcrProcessJob } from "@/lib/ocr-inline-job-awaiting";
 import { useEffect } from "react";
 import { toast } from "./use-toast";
@@ -38,6 +38,11 @@ export const useSocket = () => {
       if (isQueryMessage(data)) {
         for (const queryKey of data.queryKeys) {
           queryClient.invalidateQueries({ queryKey });
+          if (queryKey[0] === "assets" && queryKey[1]) {
+            queryClient.invalidateQueries({
+              queryKey: [...assetProcesses, queryKey[1]],
+            });
+          }
         }
       }
       if (isDocumentOcrCompletedSocketMessage(data)) {

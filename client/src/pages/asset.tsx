@@ -57,6 +57,7 @@ import { useThemeColors } from "@/hooks/use-theme-colors";
 import { useAssetCashBalance } from "@/hooks/use-asset-cash-balance";
 import { Coins } from "lucide-react";
 import { useRecordTransaction } from "@/context/RecordTransactionContext";
+import { AssetProcessIndicator } from "@/components/account/AssetProcessIndicator";
 
 function AssetPage() {
   const params = useParams();
@@ -366,6 +367,8 @@ function AssetPage() {
           </Button>
         </div>
       </div>
+
+      <AssetProcessIndicator assetId={assetId} />
 
       {/* Date Range Control */}
       <div className="my-4">
