@@ -307,6 +307,7 @@ export const assetValueMetadataSecuritySchema = z.object({
   shareHolding: decimalValueSchema.refine(isDecimalValueString, {
     message: "Share holding must be a valid decimal string",
   }),
+  carriedForward: z.boolean().optional(),
 });
 
 assetValueMetadataSecuritySchema._output satisfies AssetValueMetadataSecurity;

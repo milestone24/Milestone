@@ -99,6 +99,7 @@ export type AssetValueMetadataSecurity = {
   securitySymbol: string;
   value: DecimalValueString;
   shareHolding: DecimalValueString;
+  carriedForward?: boolean;
 };
 
 export type AssetValueMetadata = {
