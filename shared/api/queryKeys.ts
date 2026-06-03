@@ -68,3 +68,6 @@ export function emailIngestInboxDetailKey(inboxId: string) {
 
 /** Pending statement OCR reviews for an asset (`user_assets.id` nominee). */
 export const assetOcrPendingReview = ["asset", "ocr-pending-review"] as const;
+
+/** `GET /api/assets/:assetId/processes` — active (pending/running) processes for an asset. */
+export const assetProcesses = ["asset", "processes"] as const;
