@@ -6,7 +6,10 @@
 // 2. Asset value calculation and creation
 // 3. Real-time triggers and background sync operations
 
-import { getSecurityHistoryForDateRange as getSecurityHistoryForDateRangeCache } from "../cache"
+import {
+  getSecurityHistoryForDateRange as getSecurityHistoryForDateRangeCache,
+  getLastKnownSecurityPricesBeforeDate,
+} from "../cache"
 import { addDays } from "date-fns"
 import { AssetSecurity, AssetValueResult } from "../types"
 import {
@@ -96,6 +99,7 @@ type SecurityHistoryForAssetCalculation = {
   source: string;
   securityName: string;
   securitySymbol: string;
+  carriedForward?: boolean;
 };
 
 /** Normalise date to YYYY-MM-DD for use as map key (matches cache date handling). */
@@ -134,18 +138,26 @@ type HistoryRowForPreloaded = {
 /**
  * Calculate asset value for one date from a preloaded history map (no DB/cache calls).
  * Design: pure calculation + preloaded data; used by the chunked updater so the inner loop has no I/O.
+ *
+ * When `lastKnownBySecurityId` is provided, any security that has no price row for `date` will fall
+ * back to the last known price from that map. The caller is responsible for keeping the map current
+ * (updating it after each day so it reflects the most recent real price seen so far).
+ * Securities that used a carry-forward price are individually flagged via `carriedForward: true` in
+ * the metadata — the top-level `dataStatus` remains `"complete"` or `"partial"` as before.
  */
 export function calculateAssetValueForDateFromPreloadedHistory(
   assetSecuritiesWithShareHolding: CalculatedAssetSecurity[],
   date: Date,
-  historyBySecurityByDate: Map<string, Map<string, HistoryRowForPreloaded>>
+  historyBySecurityByDate: Map<string, Map<string, HistoryRowForPreloaded>>,
+  lastKnownBySecurityId?: Map<string, HistoryRowForPreloaded>
 ): Promise<AssetValueResult | null> {
   const dateStr = toDateKey(date);
   const securityHistory: SecurityHistoryForAssetCalculation[][] = [];
 
   for (const security of assetSecuritiesWithShareHolding) {
     const byDate = historyBySecurityByDate.get(security.securityId);
-    const row = byDate?.get(dateStr);
+    const realRow = byDate?.get(dateStr);
+    const row = realRow ?? lastKnownBySecurityId?.get(security.securityId);
     if (!row) {
       continue;
     }
@@ -156,6 +168,7 @@ export function calculateAssetValueForDateFromPreloadedHistory(
         source: row.source,
         securityName: row.securityName,
         securitySymbol: row.securitySymbol,
+        carriedForward: !realRow,
       },
     ]);
   }
@@ -192,6 +205,7 @@ const calculateAssetValue = async (
         shareHolding: createDecimalValueString(
           security.shareHolding.toString()
         ),
+        ...(security.carriedForward && { carriedForward: true }),
       });
     }
   }
@@ -200,6 +214,8 @@ const calculateAssetValue = async (
   if (securitiesProcessed === 0) {
     return null;
   }
+
+  const dataStatus = securitiesProcessed === securityHistory.length ? "complete" : "partial";
 
   return {
     value: createDecimalValueString(totalValue.toString()),
@@ -210,9 +226,8 @@ const calculateAssetValue = async (
       securitiesProcessed,
       securitiesTotal: securityHistory.length,
       securities: values,
-      dataStatus:
-        securitiesProcessed === securityHistory.length ? "complete" : "partial",
-      sourcesUsed: Array.from(sourcesUsed), // Dynamic source identifiers from actual services
+      dataStatus,
+      sourcesUsed: Array.from(sourcesUsed),
     },
   };
 };
@@ -384,6 +399,20 @@ const __updateAssetValues = async (
   const todayMinusOne = new Date();
   todayMinusOne.setDate(todayMinusOne.getDate() - 1);
 
+  const rawLastKnownLegacy = await getLastKnownSecurityPricesBeforeDate(
+    assetSecurities.map((s) => s.securityId),
+    currentDate
+  );
+  const lastKnownBySecurityId = new Map<string, HistoryRowForPreloaded>();
+  for (const [securityId, record] of rawLastKnownLegacy) {
+    lastKnownBySecurityId.set(securityId, {
+      close: record.close,
+      source: record.source,
+      securityName: record.security.name,
+      securitySymbol: record.security.symbol,
+    });
+  }
+
   /*
       Instead of the while loop,
       we should create a set of groups of dates.
@@ -418,6 +447,17 @@ const __updateAssetValues = async (
       currentDate
     );
 
+    if (assetValueResult) {
+      await updateLastKnownFromCacheForDay(assetSecurities, currentDate, lastKnownBySecurityId);
+    } else {
+      assetValueResult = await calculateAssetValueForDateFromPreloadedHistory(
+        assetSecuritiesWithShareHolding,
+        currentDate,
+        new Map(),
+        lastKnownBySecurityId
+      );
+    }
+
     if (await shouldStop()) {
       eventEmitter.emit("aborted", emitData);
       eventEmitter.emit("exited", emitData);
@@ -431,12 +471,8 @@ const __updateAssetValues = async (
       () => assetPersistence.getAssetCashBalanceAsOfDate(currentDate)
     );
 
-    if (assetValueResult) {
-      if (assetValueResult.metadata.dataStatus === "complete") {
-        values.push(assetValueResult);
-      }
-    } else {
-      //TODO: Handle this
+    if (assetValueResult?.metadata.dataStatus === "complete") {
+      values.push(assetValueResult);
     }
 
     // Heartbeat: touch process row so updatedAt advances for TTL/reconciliation. A timer-based touch (e.g. every N min) is a possible future improvement for long batches.
@@ -476,6 +512,53 @@ const __updateAssetValues = async (
 
 /** Chunk size in days for the chunked updater (bounded memory, persist per chunk). */
 const CHUNK_DAYS = 30;
+
+/**
+ * For the legacy (non-chunked) path: after a day where the cache returned real prices,
+ * update `lastKnownBySecurityId` by re-querying the cache for each security on that day.
+ * This keeps the carry-forward state current for subsequent days without changing the
+ * contract of `calculateAssetValueForDateFromCache`.
+ */
+async function updateLastKnownFromCacheForDay(
+  assetSecurities: AssetSecurity[],
+  date: Date,
+  lastKnownBySecurityId: Map<string, HistoryRowForPreloaded>
+): Promise<void> {
+  await Promise.all(
+    assetSecurities.map(async (security) => {
+      const rows = await getSecurityHistoryForDateRangeCache(security.securityId, date, date);
+      if (rows.length > 0) {
+        const record = rows[0]!;
+        lastKnownBySecurityId.set(security.securityId, {
+          close: record.close,
+          source: record.source,
+          securityName: record.security.name,
+          securitySymbol: record.security.symbol,
+        });
+      }
+    })
+  );
+}
+
+/**
+ * After processing a day, update `lastKnownBySecurityId` with any real price rows found
+ * in the chunk's preloaded history for that day. This keeps the carry-forward state current
+ * across days and chunk boundaries without additional DB queries.
+ */
+function updateLastKnownFromChunk(
+  assetSecurities: AssetSecurity[],
+  day: Date,
+  historyBySecurityByDate: Map<string, Map<string, HistoryRowForPreloaded>>,
+  lastKnownBySecurityId: Map<string, HistoryRowForPreloaded>
+): void {
+  const dateStr = toDateKey(day);
+  for (const security of assetSecurities) {
+    const row = historyBySecurityByDate.get(security.securityId)?.get(dateStr);
+    if (row) {
+      lastKnownBySecurityId.set(security.securityId, row);
+    }
+  }
+}
 
 /**
  * Chunked asset-value updater: processes the date range in bounded chunks, writes each chunk
@@ -550,6 +633,23 @@ export const __updateAssetValuesChunked = async (
   const runStartDate = new Date(currentDate);
   const runEndDate = new Date(todayMinusOne);
 
+  // Seed carry-forward state with the last known price per security before the run starts.
+  // This map is mutated as the run progresses so that real prices update the lookback state
+  // across both days within a chunk and chunk boundaries.
+  const rawLastKnown = await getLastKnownSecurityPricesBeforeDate(
+    assetSecurities.map((s) => s.securityId),
+    currentDate
+  );
+  const lastKnownBySecurityId = new Map<string, HistoryRowForPreloaded>();
+  for (const [securityId, record] of rawLastKnown) {
+    lastKnownBySecurityId.set(securityId, {
+      close: record.close,
+      source: record.source,
+      securityName: record.security.name,
+      securitySymbol: record.security.symbol,
+    });
+  }
+
   try {
     for await (const { chunkStart, chunkEnd } of dateRangeChunks(
       currentDate,
@@ -623,7 +723,8 @@ export const __updateAssetValuesChunked = async (
         let result = await calculateAssetValueForDateFromPreloadedHistory(
           withHolding,
           day,
-          historyBySecurityByDate
+          historyBySecurityByDate,
+          lastKnownBySecurityId
         );
         result = await addCashToCalculatedValueIfNeeded(
           result,
@@ -634,6 +735,7 @@ export const __updateAssetValuesChunked = async (
         if (result?.metadata.dataStatus === "complete") {
           chunkValues.push(result);
         }
+        updateLastKnownFromChunk(assetSecurities, day, historyBySecurityByDate, lastKnownBySecurityId);
         day = addDays(day, 1);
       }
 
