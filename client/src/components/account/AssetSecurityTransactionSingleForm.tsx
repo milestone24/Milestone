@@ -125,7 +125,9 @@ export const AssetSecurityTransactionSingleForm = ({
     }
 
     const existing = securities.find(
-      (s) => s.security.sourceIdentifier === security.sourceIdentifier,
+      (s) =>
+        s.security.symbol === security.symbol &&
+        s.security.exchange === security.exchange,
     );
 
     if (existing) {
