@@ -40,7 +40,7 @@ export const slugify = (column: string) =>
   sql`regexp_replace(regexp_replace(regexp_replace(lower(${column}), '[^a-z0-9]+', '-', 'g'), '^-+|-+$', '', 'g'), '-+', '-', 'g')`;
 
 import { customType } from "drizzle-orm/pg-core"; // Or mysql-core, sqlite-core depending on your database
-import z, { BRAND } from "zod";
+import { z, type BRAND } from "zod";
 
 //NOT USED ANYMORE, using Zod brands instead for easy cohesion with Zod schemas
 // declare const decimalValueStringBrandSymbol: unique symbol;

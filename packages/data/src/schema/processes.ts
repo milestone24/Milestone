@@ -8,7 +8,7 @@ import {
   AnyPgColumn,
   check,
 } from "drizzle-orm/pg-core";
-import { InferInsertModelBasic, timestampColumns } from "./utils";
+import { InferInsertModelBasic, timestampColumns } from "./utils.js";
 import { InferSelectModel, sql } from "drizzle-orm";
 
 export const processStatuses = [

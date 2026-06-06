@@ -1,6 +1,6 @@
 import { InferSelectModel, sql, relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { InferInsertModelBasic, timestampColumns } from "./utils";
+import { InferInsertModelBasic, timestampColumns } from "./utils.js";
 import {
   pgTable,
   text,

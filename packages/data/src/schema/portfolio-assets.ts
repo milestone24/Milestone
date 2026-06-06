@@ -10,7 +10,7 @@ import {
   index,
   unique,
 } from "drizzle-orm/pg-core";
-import { userAccounts } from "./user-account";
+import { userAccounts } from "./user-account.js";
 import {
   InferInsertModelBasic,
   timestampColumns,
@@ -18,12 +18,12 @@ import {
   DecimalValueString,
   brandedDecimal,
   brandedDecimalQuantity,
-} from "./utils";
+} from "./utils.js";
 import { relations, InferSelectModel, sql } from "drizzle-orm";
-import { IncludeRelation } from "../types/utils";
-import { InferResultType } from "../types/utils";
-import { securities, securityDailyHistory } from "./securities";
-import { accountTypeEnum } from "./contributor";
+import { IncludeRelation } from "../types/utils.js";
+import { InferResultType } from "../types/utils.js";
+import { securities, securityDailyHistory } from "./securities.js";
+import { accountTypeEnum } from "./contributor.js";
 //TODO reconsider naming here.
 //Maybe Investment Type?
 

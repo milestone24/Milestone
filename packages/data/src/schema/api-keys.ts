@@ -9,8 +9,8 @@ import {
   integer,
 } from "drizzle-orm/pg-core";
 import { InferSelectModel, relations, sql } from "drizzle-orm";
-import { InferInsertModelBasic, timestampColumns } from "./utils";
-import { coreUsers, userAccounts } from "./user-account";
+import { InferInsertModelBasic, timestampColumns } from "./utils.js";
+import { coreUsers, userAccounts } from "./user-account.js";
 
 // API Key type enum
 export const apiKeyTypeEnum = pgEnum("api_key_type", ["user", "system"]);

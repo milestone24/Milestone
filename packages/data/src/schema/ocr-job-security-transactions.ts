@@ -1,8 +1,8 @@
 import { index, pgTable, primaryKey, uuid } from "drizzle-orm/pg-core";
 import { InferSelectModel } from "drizzle-orm";
-import { InferInsertModelBasic } from "./utils";
-import { ocrJobs } from "./ocr-jobs";
-import { securityTransactions } from "./portfolio-assets";
+import { InferInsertModelBasic } from "./utils.js";
+import { ocrJobs } from "./ocr-jobs.js";
+import { securityTransactions } from "./portfolio-assets.js";
 
 /**
  * Links OCR jobs to security transactions created when the user accepts review

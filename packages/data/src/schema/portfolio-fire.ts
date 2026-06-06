@@ -6,13 +6,13 @@ import {
   boolean,
   jsonb,
 } from "drizzle-orm/pg-core";
-import { userAccounts } from "./user-account";
+import { userAccounts } from "./user-account.js";
 import {
   brandedDecimal,
   DecimalValueString,
   InferInsertModelBasic,
   timestampColumns,
-} from "./utils";
+} from "./utils.js";
 import { InferSelectModel, sql } from "drizzle-orm";
 
 export const IncomeGoalKeys = ["retirement_start", "reduced_spending_at_75", "other"] as const;

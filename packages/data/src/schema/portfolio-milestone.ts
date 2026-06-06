@@ -1,10 +1,10 @@
 import { pgTable, text, boolean, uuid, decimal } from "drizzle-orm/pg-core";
-import { userAccounts } from "./user-account";
+import { userAccounts } from "./user-account.js";
 import {
   brandedDecimal,
   InferInsertModelBasic,
   timestampColumns,
-} from "./utils";
+} from "./utils.js";
 import { InferSelectModel, sql } from "drizzle-orm";
 // Milestones table to track investment goals
 export const milestones = pgTable("milestones", {

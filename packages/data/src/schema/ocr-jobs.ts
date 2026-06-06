@@ -9,10 +9,10 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { InferSelectModel, sql } from "drizzle-orm";
-import { InferInsertModelBasic, timestampColumns } from "./utils";
-import { processStatus } from "./processes";
-import { documents } from "./portfolio-assets";
-import { processes } from "./processes";
+import { InferInsertModelBasic, timestampColumns } from "./utils.js";
+import { processStatus } from "./processes.js";
+import { documents } from "./portfolio-assets.js";
+import { processes } from "./processes.js";
 
 /**
  * Local shape for the balance extraction results stored in extracted_values.

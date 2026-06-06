@@ -11,10 +11,10 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { relations, sql, InferSelectModel } from "drizzle-orm";
-import { userAccounts } from "./user-account";
-import { documents, userAssets } from "./portfolio-assets";
-import { processes } from "./processes";
-import { InferInsertModelBasic, timestampColumns } from "./utils";
+import { userAccounts } from "./user-account.js";
+import { documents, userAssets } from "./portfolio-assets.js";
+import { processes } from "./processes.js";
+import { InferInsertModelBasic, timestampColumns } from "./utils.js";
 
 /**
  * Per-inbox allow list: JSON array of strings. Each entry is either a full

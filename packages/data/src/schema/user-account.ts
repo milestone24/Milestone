@@ -14,8 +14,8 @@ import {
   brandedDecimal,
   InferInsertModelBasic,
   timestampColumns,
-} from "./utils";
-import { userAssets } from "./portfolio-assets";
+} from "./utils.js";
+import { userAssets } from "./portfolio-assets.js";
 
 // Core User table
 export const coreUsers = pgTable("core_users", {

@@ -1,6 +1,6 @@
-import * as schema from "../schema/index";
+import * as schema from "../schema/index.js";
 import type { BuildQueryResult, DBQueryConfig, ExtractTablesWithRelations, InferInsertModel, Table, Equal } from "drizzle-orm";
-import { assetValues } from "../schema/portfolio-assets";
+import { assetValues } from "../schema/portfolio-assets.js";
 import { PgTable } from "drizzle-orm/pg-core";
 
 export type Schema = typeof schema;

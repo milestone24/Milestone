@@ -7,8 +7,8 @@ import {
   text,
   uuid,
 } from "drizzle-orm/pg-core";
-import { brokerPlatforms } from "./portfolio-assets";
-import { timestampColumns } from "./utils";
+import { brokerPlatforms } from "./portfolio-assets.js";
+import { timestampColumns } from "./utils.js";
 
 /**
  * Optional natural-language hints for the securities extraction LLM (phase 4a),
