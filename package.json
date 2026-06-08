@@ -9,8 +9,12 @@
   },
   "workspaces": [
     "packages/data",
-    "packages/js-common"
+    "packages/js-common",
+    "apps/client-primary"
   ],
+  "overrides": {
+    "zod": "^3.25.0"
+  },
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "check": "npm run check --workspaces --if-present"
