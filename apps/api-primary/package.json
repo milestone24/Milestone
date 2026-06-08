@@ -1,0 +1,24 @@
+{
+  "name": "@milestone/api-primary",
+  "version": "1.0.0",
+  "description": "Primary API server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.14.4",
+    "hono": "^4.7.11",
+    "@milestone/js-common": "*",
+    "@milestone/domain": "*",
+    "@milestone/data": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.19.4",
+    "typescript": "^6.0.3"
+  }
+}
