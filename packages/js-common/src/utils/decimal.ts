@@ -1,4 +1,4 @@
-import { DecimalValueString } from "@shared/schema";
+import { DecimalValueString } from "../schema";
 import Decimal from "decimal.js";
 
 

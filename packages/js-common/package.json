@@ -24,9 +24,37 @@
       "types": "./dist/utils/*.d.ts",
       "import": "./dist/utils/*.js"
     },
+    "./api/*": {
+      "types": "./dist/api/*.d.ts",
+      "import": "./dist/api/*.js"
+    },
+    "./platform/*": {
+      "types": "./dist/platform/*.d.ts",
+      "import": "./dist/platform/*.js"
+    },
     "./react": {
       "types": "./dist/react/index.d.ts",
       "import": "./dist/react/index.js"
+    },
+    "./react/context/*": {
+      "types": "./dist/react/context/*.d.ts",
+      "import": "./dist/react/context/*.js"
+    },
+    "./react/hooks/*": {
+      "types": "./dist/react/hooks/*.d.ts",
+      "import": "./dist/react/hooks/*.js"
+    },
+    "./react/chart/*": {
+      "types": "./dist/react/chart/*.d.ts",
+      "import": "./dist/react/chart/*.js"
+    },
+    "./react/form/*": {
+      "types": "./dist/react/form/*.d.ts",
+      "import": "./dist/react/form/*.js"
+    },
+    "./react/types/*": {
+      "types": "./dist/react/types/*.d.ts",
+      "import": "./dist/react/types/*.js"
     }
   },
   "scripts": {
@@ -37,17 +65,22 @@
   },
   "dependencies": {
     "@milestone/data": "*",
+    "@hookform/resolvers": "^3.9.1",
+    "@tanstack/react-query": "^5.60.5",
     "countries-list": "^3.1.1",
     "croner": "^9.1.0",
+    "d3": "^7.9.0",
     "date-fns": "^3.6.0",
     "decimal.js": "^10.6.0",
     "drizzle-orm": "^0.45.2",
     "nanoid": "^5.1.6",
     "react": "^18.3.1",
+    "react-hook-form": "^7.62.0",
     "rrule": "^2.8.1",
-    "zod": "^4.4.3"
+    "zod": "^3.25.0"
   },
   "devDependencies": {
+    "@types/d3": "^7.4.3",
     "@types/node": "^25.9.2",
     "@types/react": "^18.3.11",
     "typescript": "^6.0.3",

@@ -1,5 +1,5 @@
 import { differenceInMonths } from "date-fns";
-import type { FireProjection } from "@shared/schema/projections";
+import type { FireProjection } from "../schema/projections";
 
 function toDate(value: Date | string): Date {
   return value instanceof Date ? value : new Date(value);

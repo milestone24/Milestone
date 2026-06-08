@@ -76,6 +76,8 @@ export const fireSettingsOrphanFormSchema = fireSettingsOrphanSchema
     reduceSpendingAt75: z.boolean(),
   });
 
+export type FireSettingsFormValues = z.infer<typeof fireSettingsOrphanFormSchema>;
+
 export type FireSettingsOrphan = z.infer<typeof fireSettingsOrphanSchema>;
 
 export const fireSettingsInsertSchema = fireSettingsOrphanSchema.extend({
