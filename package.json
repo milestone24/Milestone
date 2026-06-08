@@ -10,7 +10,9 @@
   "workspaces": [
     "packages/data",
     "packages/js-common",
-    "apps/client-primary"
+    "apps/client-primary",
+    "apps/api-primary-node",
+    "apps/expo-primary"
   ],
   "overrides": {
     "zod": "^3.25.0"
