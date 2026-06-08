@@ -21,7 +21,9 @@
       "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"],
       "@server/*": ["./server/*"],
-      "@test/*": ["./vitest/*"]
+      "@test/*": ["./vitest/*"],
+      "@milestone/js-common": ["./packages/js-common/src/index.ts"],
+      "@milestone/js-common/*": ["./packages/js-common/src/*"]
     }
   }
 }
