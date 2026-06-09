@@ -13,8 +13,13 @@ const config: ExpoConfig = {
     supportsTablet: true,
     bundleIdentifier: "com.milestone.app",
     buildNumber: "1",
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false
+    }
   },
   android: {
+    package: "com.milestone.app",
+    versionCode: 1,
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
       foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -29,6 +34,7 @@ const config: ExpoConfig = {
     favicon: "./assets/images/favicon.png",
   },
   plugins: [
+    "expo-dev-client",
     "expo-router",
     [
       "expo-splash-screen",

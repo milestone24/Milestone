@@ -1,36 +1,32 @@
 # @milestone/expo-primary
 
-## Purpose
+Primary mobile client for this monorepo. React Native app built with [Expo SDK 56](https://docs.expo.dev/versions/v56.0.0/).
 
-Primary mobile client for this monorepo. React Native app built with [Expo](https://expo.dev).
+Uses **development builds** (`expo-dev-client`) — not App Store Expo Go.
 
-## What belongs here
+## Documentation
 
-- Screens, navigation, and mobile-specific UI
-- App-specific hooks and native integrations
-- API client calls to `apps/api-primary`
+- **[DEV_BUILD.md](./DEV_BUILD.md)** — full setup guide: EAS builds, daily workflow, when to rebuild, monorepo notes
+- **[TESTING.md](./TESTING.md)** — testing before client's Apple account: direct install, TestFlight, simulator, Android, migration
 
-## What does not belong here
+## Quick start
 
-- Shared UI that should match web → `@milestone/js-common` (where compatible)
-- Server or database code
+```bash
+# From monorepo root
+npm install
+npm run build -w @milestone/js-common
+
+# From apps/expo-primary
+eas login
+npm run build:dev:ios          # install dev app on iPhone (once)
+export EXPO_PUBLIC_API_URL=http://192.168.x.x:5000
+npm start                      # open Milestone dev app on phone
+```
 
 ## Key dependencies
 
 | Package | Role |
 |---------|------|
-| `@milestone/js-common` | Shared components/hooks where platform allows |
-
-## First-time setup
-
-```bash
-eas login
-eas init    # links project on expo.dev
-npx expo start
-```
-
-## Commands
-
-```bash
-npx expo start
-```
+| `@milestone/js-common` | Shared hooks, contexts, schemas, API transport |
+| `expo-dev-client` | Development build client |
+| `expo-router` | File-based navigation |
