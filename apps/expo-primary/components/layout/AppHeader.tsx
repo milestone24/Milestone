@@ -8,7 +8,13 @@ export function AppHeader() {
   return (
     <View className="flex-row items-center justify-between px-4 py-3 border-b border-border bg-card">
       <Text className="text-lg font-semibold text-foreground">Milestone</Text>
-      <View className="flex-row gap-3">
+      <View className="flex-row gap-3 items-center flex-shrink">
+        <Pressable onPress={() => router.push("/(app)/documents")}>
+          <Text className="text-sm text-primary">Docs</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push("/(app)/ocr-jobs")}>
+          <Text className="text-sm text-primary">OCR</Text>
+        </Pressable>
         <Pressable onPress={() => router.push("/(app)/profile")}>
           <Text className="text-sm text-primary">Profile</Text>
         </Pressable>
