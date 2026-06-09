@@ -11,6 +11,8 @@ const config: ExpoConfig = {
   userInterfaceStyle: "automatic",
   ios: {
     supportsTablet: true,
+    bundleIdentifier: "com.milestone.app",
+    buildNumber: "1",
   },
   android: {
     adaptiveIcon: {
