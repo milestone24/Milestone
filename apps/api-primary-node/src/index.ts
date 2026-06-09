@@ -97,7 +97,7 @@ app.use(express.static(path.join(process.cwd(), "public")));
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = process.env.PORT || 5000;
+  const port = process.env.API_PORT || 5001;
 
   try {
     await ping();
