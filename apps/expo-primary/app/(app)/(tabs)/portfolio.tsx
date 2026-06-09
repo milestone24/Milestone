@@ -24,6 +24,7 @@ import { getDateUrlParams } from "@milestone/js-common/utils/date";
 import ValuesChart, { type ChartData } from "@/components/charts/ValuesChart";
 import DateRangeBar from "@/components/layout/DateRangeBar";
 import { PosNegNumber } from "@/components/common/PosNegNumber";
+import { AddAccountModal } from "@/components/account/AddAccountModal";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getDateRange } from "@/components/ui/DateRangeControl";
@@ -38,6 +39,7 @@ function PortfolioContent() {
   );
 
   const [showChart, setShowChart] = useState(false);
+  const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
 
   const { data: brokerPlatforms } = useBrokerPlatforms();
   const { data: assets = [], isLoading: isLoadingAssets, isError: isErrorAssets, error: assetsError } =
@@ -200,6 +202,7 @@ function PortfolioContent() {
 
       <View className="flex-row justify-between items-center my-4">
         <Text className="text-lg font-semibold text-foreground">Accounts</Text>
+        <Button size="sm" label="Add" onPress={() => setIsAddAccountOpen(true)} />
       </View>
 
       {isLoadingAssets ? (
@@ -215,9 +218,7 @@ function PortfolioContent() {
       ) : assets.length === 0 ? (
         <View className="py-8 items-center">
           <Text className="text-muted-foreground mb-4">No investment accounts added yet.</Text>
-          <Text className="text-sm text-muted-foreground">
-            Add accounts via the web client until account creation is ported.
-          </Text>
+          <Button label="Add Account" onPress={() => setIsAddAccountOpen(true)} />
         </View>
       ) : (
         <View className="rounded-lg border border-border bg-card overflow-hidden">
@@ -262,6 +263,7 @@ function PortfolioContent() {
           })}
         </View>
       )}
+      <AddAccountModal open={isAddAccountOpen} onOpenChange={setIsAddAccountOpen} />
       </View>
     </ScrollView>
   );
