@@ -296,7 +296,7 @@ async function runDumpText(
   const {
     analyzeDocumentForOcrTranscript,
     loadPdfTextExtractionConfigFromEnv,
-  } = await import("@server/services/pdf-text");
+  } = await import("../apps/api-primary-node/src/services/pdf-text");
 
   const config = loadPdfTextExtractionConfigFromEnv();
   const signal = optionalAbortSignal(abortAfterMs);
@@ -332,13 +332,13 @@ async function runDumpText(
 async function runPrepareOnly(
   absolutePath: string,
   buffer: Buffer,
-  mimeType: import("@server/services/ocr/document-user-content").SupportedOcrDocumentMimeType,
+  mimeType: import("../apps/api-primary-node/src/services/ocr/document-user-content").SupportedOcrDocumentMimeType,
   abortAfterMs: number | undefined
 ): Promise<void> {
   const { prepareOcrDocumentUserContentBase } = await import(
-    "@server/services/ocr/document-user-content"
+    "../apps/api-primary-node/src/services/ocr/document-user-content"
   );
-  const { loadPdfTextExtractionConfigFromEnv } = await import("@server/services/pdf-text");
+  const { loadPdfTextExtractionConfigFromEnv } = await import("../apps/api-primary-node/src/services/pdf-text");
 
   const config = loadPdfTextExtractionConfigFromEnv();
   const signal = optionalAbortSignal(abortAfterMs);
@@ -361,17 +361,17 @@ async function runPrepareOnly(
 
 async function runBalancesPrepared(
   buffer: Buffer,
-  mimeType: import("@server/services/ocr").SupportedMimeType,
+  mimeType: import("../apps/api-primary-node/src/services/ocr").SupportedMimeType,
   platformKey: string,
   platformNames: string[],
   verbose: boolean,
   abortAfterMs: number | undefined
 ): Promise<void> {
-  const { OcrService } = await import("@server/services/ocr");
+  const { OcrService } = await import("../apps/api-primary-node/src/services/ocr");
   const { prepareOcrDocumentUserContentBase } = await import(
-    "@server/services/ocr/document-user-content"
+    "../apps/api-primary-node/src/services/ocr/document-user-content"
   );
-  const { loadPdfTextExtractionConfigFromEnv } = await import("@server/services/pdf-text");
+  const { loadPdfTextExtractionConfigFromEnv } = await import("../apps/api-primary-node/src/services/pdf-text");
 
   const ocr = new OcrService();
   const config = loadPdfTextExtractionConfigFromEnv();
@@ -471,7 +471,7 @@ async function main(): Promise<void> {
     OcrService,
     isSupportedMimeType,
     runFullDocumentOcrPipeline,
-  } = await import("@server/services/ocr");
+  } = await import("../apps/api-primary-node/src/services/ocr");
 
   if (!isSupportedMimeType(mimeType)) {
     console.error(`Unsupported MIME type: ${mimeType}`);

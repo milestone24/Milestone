@@ -1,5 +1,5 @@
-import { DatabaseAssetService } from "@server/services/assets/database";
-import { db } from "@server/db";
+import { DatabaseAssetService } from "../apps/api-primary-node/src/services/assets/database";
+import { db } from "../apps/api-primary-node/src/db";
 import {
   BrandedAbstractTransactionValue,
   WithAssetHistory,

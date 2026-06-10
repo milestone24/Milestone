@@ -10,10 +10,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './client/src'),
-      '@shared': path.resolve(__dirname, './shared'),
-      '@server': path.resolve(__dirname, './server'),
-      '@test': path.resolve(__dirname, './vitest'),
+      '@': path.resolve(__dirname, './apps/api-primary-node/src'),
     },
   },
 })

@@ -2,24 +2,24 @@
 
 //This script needs modifying to use the new AssetValuesUpdater Event Emitter
 
-import { factory } from "@server/services/securities";
+import { factory } from "../apps/api-primary-node/src/services/securities";
 
-import { db } from "@server/db";
+import { db } from "../apps/api-primary-node/src/db";
 
 const securityService = factory();
 
 import dotenv from "dotenv";
-import { userAssetSecurities } from "@server/db/schema";
+import { userAssetSecurities } from "../apps/api-primary-node/src/db/schema";
 import { eq } from "drizzle-orm";
 
-import { populateSecuritiesDailyHistoryCache } from "@server/services/securities/sync/cache";
+import { populateSecuritiesDailyHistoryCache } from "../apps/api-primary-node/src/services/securities/sync/cache";
 
-import { factory as assetValueFactory } from "@server/services/securities/sync/asset-value";
+import { factory as assetValueFactory } from "../apps/api-primary-node/src/services/securities/sync/asset-value";
 
 import {
   assetPersistenceFactory,
   DatabaseAssetService,
-} from "@server/services/assets/database";
+} from "../apps/api-primary-node/src/services/assets/database";
 import { createDecimalValueString } from "@shared/schema";
 
 const assetService = new DatabaseAssetService(db);

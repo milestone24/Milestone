@@ -1,6 +1,6 @@
 import { createApiClient, EndpointType, type BranchResponse } from '@neondatabase/api-client';
 import type { TestProject } from 'vitest/node';
-import { createDatabaseConnection } from '@server/db';
+import { createDatabaseConnection } from '@milestone/data';
 const apiClient = createApiClient({
   apiKey: process.env.NEON_API_KEY!,
 });
