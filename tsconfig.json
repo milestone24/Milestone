@@ -18,8 +18,7 @@
     "baseUrl": ".",
     "types": ["node", "vite/client", "vitest/globals"],
     "paths": {
-      "@/*": ["./apps/api-primary-node/src/*"],
-      "@shared/*": ["./packages/js-common/src/*"],
+      "@api/*": ["./apps/api-primary-node/src/*"],
       "@milestone/js-common": ["./packages/js-common/src/index.ts"],
       "@milestone/js-common/*": ["./packages/js-common/src/*"]
     }

@@ -11,11 +11,11 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { z } from "zod";
-import { findCachedSecurityMatch } from "../../apps/api-primary-node/src/services/securities/cache/security";
-import { findSecurities } from "../../apps/api-primary-node/src/services/securities/gateway/index";
-import { db } from "../../apps/api-primary-node/src/db";
-import { brokerPlatforms, userAccounts } from "../../apps/api-primary-node/src/db/schema";
-import { DatabaseAssetService } from "../../apps/api-primary-node/src/services/assets/database";
+import { findCachedSecurityMatch } from "@api/services/securities/cache/security";
+import { findSecurities } from "@api/services/securities/gateway/index";
+import { db } from "@api/db";
+import { brokerPlatforms, userAccounts } from "@api/db/schema";
+import { DatabaseAssetService } from "@api/services/assets/database";
 import {
   accountType,
   createDecimalValueString,

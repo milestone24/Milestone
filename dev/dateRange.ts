@@ -1,5 +1,5 @@
-import { db } from "../apps/api-primary-node/src/db";
-import { DatabaseAssetService } from "../apps/api-primary-node/src/services/assets/database";
+import { db } from "@api/db";
+import { DatabaseAssetService } from "@api/services/assets/database";
 
 const assetService = new DatabaseAssetService(db);
 
