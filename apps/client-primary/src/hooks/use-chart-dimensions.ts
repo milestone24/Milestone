@@ -8,7 +8,7 @@ import {
 export type { ChartDimensions, ChartDimensionsOptions };
 
 export function useChartDimensions(
-  containerRef: RefObject<HTMLDivElement>,
+  containerRef: RefObject<HTMLDivElement | null>,
   options: ChartDimensionsOptions = {}
 ): ChartDimensions {
   const {

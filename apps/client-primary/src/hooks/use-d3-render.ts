@@ -26,7 +26,7 @@ type Milestone = {
 };
 
 type UseD3RenderOptions = {
-  svgRef: RefObject<SVGSVGElement>;
+  svgRef: RefObject<SVGSVGElement | null>;
   data: ChartData;
   dimensions: ChartDimensions;
   scales: ChartScales;

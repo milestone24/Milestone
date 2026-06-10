@@ -25,7 +25,7 @@ export type UseChartInteractionsReturn = {
 };
 
 export function useChartInteractions(
-  svgRef: RefObject<SVGSVGElement>,
+  svgRef: RefObject<SVGSVGElement | null>,
   data: ChartData,
   scales: ChartScales,
   dimensions: { marginLeft: number; marginTop: number }

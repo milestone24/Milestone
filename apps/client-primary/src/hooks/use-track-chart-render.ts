@@ -17,7 +17,7 @@ type CurveType =
   | "catmullRom";
 
 type UseTrackChartRenderOptions = {
-  svgRef: RefObject<SVGSVGElement>;
+  svgRef: RefObject<SVGSVGElement | null>;
   dimensions: ChartDimensions;
   scales: TrackChartScales;
   processedData: ProcessedTrackChartData;

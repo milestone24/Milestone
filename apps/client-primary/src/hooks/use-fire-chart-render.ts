@@ -17,7 +17,7 @@ type CurveType =
   | "catmullRom";
 
 type UseFireChartRenderOptions = {
-  svgRef: RefObject<SVGSVGElement>;
+  svgRef: RefObject<SVGSVGElement | null>;
   dimensions: ChartDimensions;
   scales: FireChartScales;
   processedData: ProcessedFireChartData;
