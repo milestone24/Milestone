@@ -9,6 +9,7 @@ import { configureSharedQueryClient } from "@milestone/js-common/api/globalQuery
 configureApiTransport({
   request: (method, url, data) =>
     defaultFetchApiRequest(method, url, data, {
+      baseUrl: import.meta.env.VITE_API_URL ?? "",
       credentials: "include",
     }),
 });
@@ -17,3 +18,4 @@ export const queryClient = createQueryClient();
 configureSharedQueryClient(queryClient);
 
 export const apiRequest = sharedApiRequest;
+

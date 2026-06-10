@@ -38,6 +38,16 @@ export const webPlatformServices: PlatformServices = {
   },
   socketUrl: {
     getWebSocketUrl: () => {
+      const explicitWsUrl = import.meta.env.VITE_REMOTE_WS_URL;
+      if (explicitWsUrl) return explicitWsUrl;
+
+      const apiUrl = import.meta.env.VITE_API_URL;
+      if (apiUrl) {
+        const url = new URL(apiUrl);
+        url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+        return url.toString();
+      }
+
       const protocol = window.location.protocol === "https:" ? "wss" : "ws";
       return `${protocol}://${window.location.host}/`;
     },
