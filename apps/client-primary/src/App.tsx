@@ -185,6 +185,11 @@ function Router() {
   );
 }
 
+function SocketConnection() {
+  useSocket();
+  return null;
+}
+
 function StaticDataPrefetch() {
   const { isAuthenticated } = useSession();
 
@@ -200,13 +205,12 @@ function StaticDataPrefetch() {
 }
 
 function AppContent() {
-  useSocket();
-
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <SessionProvider>
           <RecordTransactionProvider>
+            <SocketConnection />
             <StaticDataPrefetch />
             <Router />
             <RecordTransactionDialog />

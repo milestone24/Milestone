@@ -1,4 +1,4 @@
-import { getSharedQueryClient } from "../../api/globalQueryClient";
+import { useQueryClient } from "@tanstack/react-query";
 import { assetOcrPendingReview, assetProcesses } from "../../api/queryKeys";
 import {
   useNotificationService,
@@ -16,7 +16,7 @@ import { useEffect } from "react";
 export const useSocket = () => {
   const socketUrl = useSocketUrl();
   const notifications = useNotificationService();
-  const queryClient = getSharedQueryClient();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const websocketUrl = socketUrl.getWebSocketUrl();

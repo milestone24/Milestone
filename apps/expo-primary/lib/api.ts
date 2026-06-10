@@ -4,7 +4,6 @@ import {
   defaultFetchApiRequest,
 } from "@milestone/js-common/api/transport";
 import { createQueryClient } from "@milestone/js-common/api/queryClient";
-import { configureSharedQueryClient } from "@milestone/js-common/api/globalQueryClient";
 
 export function getApiBaseUrl(): string {
   const extra = Constants.expoConfig?.extra as { apiUrl?: string } | undefined;
@@ -20,4 +19,3 @@ configureApiTransport({
 });
 
 export const queryClient = createQueryClient();
-configureSharedQueryClient(queryClient);

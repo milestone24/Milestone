@@ -4,7 +4,6 @@ import {
   defaultFetchApiRequest,
 } from "@milestone/js-common/api/transport";
 import { createQueryClient } from "@milestone/js-common/api/queryClient";
-import { configureSharedQueryClient } from "@milestone/js-common/api/globalQueryClient";
 
 configureApiTransport({
   request: (method, url, data) =>
@@ -15,7 +14,6 @@ configureApiTransport({
 });
 
 export const queryClient = createQueryClient();
-configureSharedQueryClient(queryClient);
 
 export const apiRequest = sharedApiRequest;
 
