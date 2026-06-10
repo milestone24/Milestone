@@ -3,15 +3,15 @@ import {
   factory as queueFactory,
   isAssetValuesUpdateMessage,
   Message,
-} from "@server/services/distributed/queue";
+} from "@/services/distributed/queue";
 import { AssetValuesUpdater } from "../securities/sync/asset-value";
 import {
   AssetPersistence,
   assetPersistenceFactory,
   DatabaseAssetService,
 } from "../assets/database";
-import { db } from "@server/db";
-import { processes, ProcessSelect } from "@server/db/schema";
+import { db } from "@/db";
+import { processes, ProcessSelect } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import {
   createAbortCompletionPromise,
@@ -20,7 +20,7 @@ import {
   waitForTerminalEvent,
 } from "./job-helpers";
 import { createJobScope } from "./job-scope";
-import { registerShutdownHandler, DEFAULT_SHUTDOWN_TIMEOUT_MS } from "@server/utils/shutdown";
+import { registerShutdownHandler, DEFAULT_SHUTDOWN_TIMEOUT_MS } from "@/utils/shutdown";
 
 /**
  * Describes the input event required to start an asset values update job.

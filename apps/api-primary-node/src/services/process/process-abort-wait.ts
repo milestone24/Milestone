@@ -23,8 +23,8 @@
  *   greater than the above so we do not mark a job stale while it is still within
  *   normal shutdown or wait-for-abort windows.
  */
-import type { Database } from "@server/db";
-import { processes } from "@server/db/schema";
+import type { Database } from "@/db";
+import { processes } from "@/db/schema";
 import type { ProcessSelect } from "@shared/schema/process";
 import type { SQL } from "drizzle-orm";
 import { and, eq, inArray, not, or } from "drizzle-orm";

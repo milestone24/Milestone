@@ -1,5 +1,5 @@
-import { refreshTokens } from "@server/db/schema/user-account";
-import { apiKeys } from "@server/db/schema/api-keys";
+import { refreshTokens } from "@/db/schema/user-account";
+import { apiKeys } from "@/db/schema/api-keys";
 import { AuthService } from "../../auth";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../db";

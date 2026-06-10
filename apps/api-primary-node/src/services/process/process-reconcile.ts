@@ -27,8 +27,8 @@
  * (DEFAULT_WAIT_TIMEOUT_MS = 20s in process-abort-wait). See process-abort-wait.ts
  * for the full timeout overview.
  */
-import { db } from "@server/db";
-import { processes } from "@server/db/schema";
+import { db } from "@/db";
+import { processes } from "@/db/schema";
 import type { SQL } from "drizzle-orm";
 import { and, eq, inArray, lt } from "drizzle-orm";
 

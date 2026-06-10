@@ -1,8 +1,8 @@
-import { db } from "@server/db";
-import { securities } from "@server/db/schema";
-import { QueryParams, ResourceQueryBuilder } from "@server/utils/resource-query-builder";
+import { db } from "@/db";
+import { securities } from "@/db/schema";
+import { QueryParams, ResourceQueryBuilder } from "@/utils/resource-query-builder";
 import { SecurityInsert, SecuritySearchResult, SecuritySelect } from "@shared/schema";
-import { mapDbSecurityToSelect } from "@server/utils/securities";
+import { mapDbSecurityToSelect } from "@/utils/securities";
 import { and, eq, sql } from "drizzle-orm";
 
 const securitiesQueryBuilder = new ResourceQueryBuilder({

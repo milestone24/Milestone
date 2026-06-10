@@ -1,5 +1,5 @@
-import { db } from "@server/db";
-import { assetValues } from "@server/db/schema";
+import { db } from "@/db";
+import { assetValues } from "@/db/schema";
 import { sql } from "drizzle-orm";
 
 export const assetValuesSwap = async (stagedTableName: string) => {

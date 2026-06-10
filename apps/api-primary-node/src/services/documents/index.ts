@@ -6,17 +6,17 @@ import {
 } from "@aws-sdk/client-s3";
 import { desc, eq, inArray } from "drizzle-orm";
 import path from "path";
-import { db } from "@server/db";
+import { db } from "@/db";
 import {
   documents,
   assetTransactionDocuments,
   securityTransactionDocuments,
   processes,
   ocrJobs,
-} from "@server/db/schema";
-import type { DocumentSelect } from "@server/db/schema";
+} from "@/db/schema";
+import type { DocumentSelect } from "@/db/schema";
 import type { DocumentWithOcr } from "@shared/schema/document";
-import { getUserAccountId } from "@server/auth";
+import { getUserAccountId } from "@/auth";
 
 const appEnv = process.env.APP_ENV ?? process.env.NODE_ENV ?? "development";
 

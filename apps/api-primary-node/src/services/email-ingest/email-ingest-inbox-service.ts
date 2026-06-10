@@ -1,13 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
-import { getUserAccountId } from "@server/auth";
-import { db } from "@server/db";
+import { getUserAccountId } from "@/auth";
+import { db } from "@/db";
 import {
   emailIngestInboxes,
   userAssets,
   type EmailIngestAllowedSenders,
   type EmailIngestInboxSelect,
-} from "@server/db/schema";
+} from "@/db/schema";
 import type {
   EmailIngestInboxCreateRequest,
   EmailIngestInboxResponse,

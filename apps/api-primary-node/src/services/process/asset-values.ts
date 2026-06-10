@@ -4,10 +4,10 @@
  * coordination is via DB state and queue events for distributed readiness.
  */
 import { sendNotification } from "../comms/socket";
-import { Database } from "@server/db";
+import { Database } from "@/db";
 import { and, eq, sql } from "drizzle-orm";
-import { processes, userAssets, userAssetSecurities } from "@server/db/schema";
-import { UUID_REGEX } from "@server/utils/uuid";
+import { processes, userAssets, userAssetSecurities } from "@/db/schema";
+import { UUID_REGEX } from "@/utils/uuid";
 import {
   ProcessSelect,
   UpdateAssetValuesProcess,
@@ -26,7 +26,7 @@ import {
   assetValues,
   portfolioValue,
 } from "@shared/api/queryKeys";
-import { factory as queueFactory } from "@server/services/distributed/queue";
+import { factory as queueFactory } from "@/services/distributed/queue";
 import { mockLambdaHandler } from "./asset-values-mock-lambda";
 import { handler } from "./asset-values-distributed-handler";
 import { SecuritiesCacheUpdater } from "../securities/sync/cache";

@@ -1,5 +1,5 @@
-import { db } from "@server/db";
-import { processes, ProcessSelect } from "@server/db/schema";
+import { db } from "@/db";
+import { processes, ProcessSelect } from "@/db/schema";
 import { eq, or, sql } from "drizzle-orm";
 import { and } from "drizzle-orm";
 

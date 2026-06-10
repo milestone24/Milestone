@@ -1,8 +1,8 @@
 import { Router, Request } from "express";
 import multer from "multer";
-import { AuthService, AuthRequest, requireTenantWithUserAccountId } from "server/auth";
-import { DocumentService } from "@server/services/documents";
-import { startDocumentOcr } from "@server/services/process/document-ocr";
+import { AuthService, AuthRequest, requireTenantWithUserAccountId } from "@/auth";
+import { DocumentService } from "@/services/documents";
+import { startDocumentOcr } from "@/services/process/document-ocr";
 
 const upload = multer({ storage: multer.memoryStorage() });
 const documentService = new DocumentService();

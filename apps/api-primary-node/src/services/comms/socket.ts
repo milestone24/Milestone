@@ -1,4 +1,4 @@
-import { connections } from "@server/sockets/connections";
+import { connections } from "@/sockets/connections";
 import { SocketMessage } from "@shared/schema/socket";
 
 export const sendNotification = (accountId: string, message: SocketMessage) => {

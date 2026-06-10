@@ -1,14 +1,14 @@
 import { randomBytes } from "crypto";
 import { eq, and } from "drizzle-orm";
-import { db } from "@server/db";
+import { db } from "@/db";
 import {
   apiKeys,
   ApiKeyType,
   ApiKeyScope,
   SYSTEM_TENANT_ID,
   SelectApiKey,
-} from "@server/db/schema/api-keys";
-import { hashApiKey } from "@server/auth";
+} from "@/db/schema/api-keys";
+import { hashApiKey } from "@/auth";
 
 export type CreateApiKeyOptions = {
   name: string;

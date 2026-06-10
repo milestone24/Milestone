@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ANTHROPIC_MESSAGES_MODEL } from '@server/constants/anthropic-messages-model';
+import { ANTHROPIC_MESSAGES_MODEL } from '@/constants/anthropic-messages-model';
 import { extractAccountValuesFromImage } from '../services/anthropic';
 import { log, error } from '../log';
 import { AuthRequest } from '../auth/types';

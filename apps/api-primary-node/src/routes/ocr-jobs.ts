@@ -1,12 +1,12 @@
 import { Router, Response } from "express";
-import { AuthRequest, AuthService, requireTenantWithUserAccountId } from "server/auth";
-import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
+import { AuthRequest, AuthService, requireTenantWithUserAccountId } from "@/auth";
+import { regExpPath, uuidRouteParam } from "@/utils/uuid";
 import { ocrJobReviewRequestSchema } from "@shared/schema/document";
-import { recordOcrJobReviewOutcome } from "@server/services/ocr/ocr-job-review-service";
+import { recordOcrJobReviewOutcome } from "@/services/ocr/ocr-job-review-service";
 import {
   getOcrJobDetailForAccount,
   listOcrJobsForAccount,
-} from "@server/services/ocr/ocr-jobs-account-service";
+} from "@/services/ocr/ocr-jobs-account-service";
 
 export async function registerRoutes(
   router: Router,

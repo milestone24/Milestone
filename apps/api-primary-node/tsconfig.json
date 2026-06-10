@@ -16,8 +16,7 @@
     "moduleResolution": "bundler",
     "types": ["node", "vite/client", "vitest/globals"],
     "paths": {
-      "@server/*": ["./src/*"],
-      "server/*": ["./src/*"],
+      "@/*": ["./src/*"],
       "@shared/*": ["../../packages/js-common/src/*"],
       "@milestone/js-common": ["../../packages/js-common/src/index.ts"],
       "@milestone/js-common/*": ["../../packages/js-common/src/*"]

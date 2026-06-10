@@ -5,8 +5,8 @@
  * Rows are inserted with `processes` in `startDocumentOcr` so every started job
  * has an `ocr_jobs` record.
  */
-import { db } from "@server/db";
-import { ocrJobs } from "@server/db/schema";
+import { db } from "@/db";
+import { ocrJobs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import type { ExtractedAmount } from "@shared/schema/document";
 import type { DocumentOcrPipelineResult } from "@shared/schema/document";

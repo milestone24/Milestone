@@ -1,5 +1,5 @@
 import { getDocumentProxy } from "unpdf";
-import { PdfPasswordProtectedError } from "@server/services/pdf-text/errors";
+import { PdfPasswordProtectedError } from "@/services/pdf-text/errors";
 
 function isPasswordProtectedPdfError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;

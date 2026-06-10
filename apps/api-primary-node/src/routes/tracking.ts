@@ -1,14 +1,14 @@
-import { AuthRequest, AuthService } from "@server/auth";
+import { AuthRequest, AuthService } from "@/auth";
 import { Router } from "express";
 import asyncCatch from "./utils";
-import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
-import { db } from "@server/db";
-import { processes } from "@server/db/schema";
+import { regExpPath, uuidRouteParam } from "@/utils/uuid";
+import { db } from "@/db";
+import { processes } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import {
   parseQueryParamsExpress,
   ResourceQueryBuilder,
-} from "@server/utils/resource-query-builder";
+} from "@/utils/resource-query-builder";
 
 const processesQueryBuilder = new ResourceQueryBuilder({
   table: processes,

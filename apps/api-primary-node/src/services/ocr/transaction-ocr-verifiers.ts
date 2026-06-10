@@ -1,11 +1,11 @@
 import { and, count, eq } from "drizzle-orm";
-import { db } from "@server/db";
+import { db } from "@/db";
 import {
   brokerPlatforms,
   securities,
   userAssetSecurities,
   userAssets,
-} from "@server/db/schema";
+} from "@/db/schema";
 import type {
   StatementPlatformBrandCandidate,
   StatementPlatformBrandDbMatch,

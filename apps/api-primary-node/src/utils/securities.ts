@@ -1,5 +1,5 @@
 import { SecuritySearchResult, SecuritySelect } from "@shared/schema/securities";
-import type { SecuritySelect as DBSecuritySelect } from "@server/db/schema/securities";
+import type { SecuritySelect as DBSecuritySelect } from "@/db/schema/securities";
 
 // Type helper to replace null with undefined in all properties
 type NullToUndefined<T> = {

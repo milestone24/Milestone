@@ -1,8 +1,8 @@
-import { AuthService } from "@server/auth";
-import { db } from "@server/db";
-import { invalidateCache } from "@server/services/cache";
-import { AssetValuesService } from "@server/services/process/asset-values";
-import { SecuritiesCacheService } from "@server/services/process/securities-cache";
+import { AuthService } from "@/auth";
+import { db } from "@/db";
+import { invalidateCache } from "@/services/cache";
+import { AssetValuesService } from "@/services/process/asset-values";
+import { SecuritiesCacheService } from "@/services/process/securities-cache";
 import { Router } from "express";
 
 export async function registerRoutes(

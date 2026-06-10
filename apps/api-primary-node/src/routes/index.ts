@@ -11,7 +11,7 @@ import { registerRoutes as registerDocumentsRoutes } from "./documents";
 import { registerRoutes as registerOcrJobsRoutes } from "./ocr-jobs";
 import { registerRoutes as registerEmailIngestInboxesRoutes } from "./email-ingest-inboxes";
 //import { registerRoutes as registerVerificationRoutes } from "./verification"
-import { AuthService } from "server/auth";
+import { AuthService } from "@/auth";
 import { registerRoutes as registerTrackingRoutes } from "./tracking";
 import { registerRoutes as registerProjectionsRoutes } from "./projections";
 import { registerRoutes as registerTriggersRoutes } from "./triggers";

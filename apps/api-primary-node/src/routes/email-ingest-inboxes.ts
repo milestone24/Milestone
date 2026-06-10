@@ -1,6 +1,6 @@
 import { Router, Response } from "express";
-import { AuthRequest, AuthService } from "server/auth";
-import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
+import { AuthRequest, AuthService } from "@/auth";
+import { regExpPath, uuidRouteParam } from "@/utils/uuid";
 import {
   emailIngestInboxCreateRequestSchema,
   emailIngestInboxUpdateAllowedSendersRequestSchema,
@@ -12,7 +12,7 @@ import {
   regenerateEmailIngestInbox,
   revokeEmailIngestInbox,
   updateEmailIngestInboxAllowedSenders,
-} from "@server/services/email-ingest/email-ingest-inbox-service";
+} from "@/services/email-ingest/email-ingest-inbox-service";
 
 function parseIncludeRevoked(query: unknown): boolean {
   const raw =

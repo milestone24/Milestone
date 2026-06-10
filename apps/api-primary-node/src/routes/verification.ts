@@ -6,7 +6,7 @@ import {
   resendEmailVerification,
   resendPhoneVerification,
 } from "../services/verification-service";
-import { AuthRequest, AuthService } from "server/auth";
+import { AuthRequest, AuthService } from "@/auth";
 
 const verifyEmailSchema = z.object({
   token: z.string(),

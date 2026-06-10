@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type {
   LlmGateway,
   LlmRequestOptions,
-} from "@server/services/llm/llm-gateway";
+} from "@/services/llm/llm-gateway";
 
 /**
  * {@link LlmGateway} backed by `@anthropic-ai/sdk` (Messages API, non-streaming).

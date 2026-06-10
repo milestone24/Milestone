@@ -1,5 +1,5 @@
 import type { DataRangeQuery } from "@shared/schema";
-import type { QueryParams } from "@server/utils/resource-query-builder";
+import type { QueryParams } from "@/utils/resource-query-builder";
 
 /**
  * Rounds a date string or Date to the start of the day (UTC)

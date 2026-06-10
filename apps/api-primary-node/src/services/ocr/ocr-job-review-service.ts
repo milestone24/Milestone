@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
-import { db } from "@server/db";
+import { db } from "@/db";
 import {
   documents,
   ocrJobSecurityTransactions,
@@ -7,7 +7,7 @@ import {
   securityTransactions,
   userAssetSecurities,
   userAssets,
-} from "@server/db/schema";
+} from "@/db/schema";
 import type { DocumentOcrPipelineResult } from "@shared/schema/document";
 import type { ExtractedAmount } from "@shared/schema/document";
 

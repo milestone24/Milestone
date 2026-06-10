@@ -2,8 +2,8 @@ import { Router } from "express";
 import { z } from "zod";
 import { milestoneInsertSchema } from "@shared/schema";
 import { AuthRequest, AuthService } from "../auth";
-import { db } from "@server/db";
-import { DatabaseMilestoneService } from "@server/services/milestones/database";
+import { db } from "@/db";
+import { DatabaseMilestoneService } from "@/services/milestones/database";
 
 const milestoneService = new DatabaseMilestoneService(db);
 

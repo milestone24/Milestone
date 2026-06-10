@@ -1,12 +1,12 @@
 import { describe, it, vi } from "vitest";
 
 import { SecuritiesCacheService } from "./securities-cache";
-import { db } from "@server/db";
+import { db } from "@/db";
 import { expect } from "vitest";
 import {
   factory as queueFactory,
   SecuritiesDailyHistoryCacheUpdateMessage,
-} from "@server/services/distributed/queue";
+} from "@/services/distributed/queue";
 
 describe("SecuritiesCacheService", async () => {
   it(

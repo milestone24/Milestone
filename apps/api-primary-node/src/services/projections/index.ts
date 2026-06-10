@@ -1,4 +1,4 @@
-import { Database } from "@server/db";
+import { Database } from "@/db";
 import {
   assetValues,
   fireSettings,
@@ -6,7 +6,7 @@ import {
   recurringContributions,
   userAssets,
   userProfiles,
-} from "@server/db/schema";
+} from "@/db/schema";
 import {
   FireProjection,
   FIREProjectionConfig,

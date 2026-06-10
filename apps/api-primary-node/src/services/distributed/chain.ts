@@ -2,7 +2,7 @@ import { factory as queueFactory } from "./queue";
 import { Message, isDocumentOcrMessage } from "./queue";
 
 import { AssetValuesService } from "../process/asset-values";
-import { db } from "@server/db";
+import { db } from "@/db";
 import { sendNotification } from "../comms/socket";
 import { invalidateCache } from "../cache";
 

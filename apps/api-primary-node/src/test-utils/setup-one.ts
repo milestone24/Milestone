@@ -1,4 +1,4 @@
-import { Database, db, Schema } from "@server/db";
+import { Database, db, Schema } from "@/db";
 
 type DBContext = {
   db: Database;

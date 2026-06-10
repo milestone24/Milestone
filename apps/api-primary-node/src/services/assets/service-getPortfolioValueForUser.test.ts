@@ -1,6 +1,6 @@
 
 
-import { db } from "@server/db";
+import { db } from "@/db";
 import { describe, expect, test } from "vitest";
 import { DatabaseAssetService } from "./database";
 

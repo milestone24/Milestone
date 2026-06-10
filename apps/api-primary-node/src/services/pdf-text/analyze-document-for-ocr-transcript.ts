@@ -1,6 +1,6 @@
-import { extractPdfNativeText } from "@server/services/pdf-text/extract-pdf-native-text";
-import { isNativePdfTextSufficient } from "@server/services/pdf-text/is-text-sufficient";
-import type { PdfTextExtractionConfig } from "@server/services/pdf-text/pdf-text-config";
+import { extractPdfNativeText } from "@/services/pdf-text/extract-pdf-native-text";
+import { isNativePdfTextSufficient } from "@/services/pdf-text/is-text-sufficient";
+import type { PdfTextExtractionConfig } from "@/services/pdf-text/pdf-text-config";
 
 export type DocumentTranscriptAnalysis =
   | { kind: "not_pdf"; mimeType: string }

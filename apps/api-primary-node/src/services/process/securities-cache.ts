@@ -3,12 +3,12 @@
  * cache updates. Uses trigger-and-forget handler invocation; coordination
  * is via DB state and queue events for distributed readiness.
  */
-import { Database } from "@server/db";
+import { Database } from "@/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { UpdateSecuritiesDailyHistoryCacheProcess } from "@shared/schema/process";
-import { processes, ProcessSelect } from "@server/db/schema";
+import { processes, ProcessSelect } from "@/db/schema";
 import { handler } from "./securities-cache-distributed-handler";
-import { factory as queueFactory } from "@server/services/distributed/queue";
+import { factory as queueFactory } from "@/services/distributed/queue";
 import {
   findRunningOrPendingProcesses,
   waitForProcessesToAbort,
@@ -18,8 +18,8 @@ import {
   DEFAULT_RUNNING_TTL_MS,
   startPeriodicReconciliationForResource,
 } from "./process-reconcile";
-import { sendNotification } from "@server/services/comms/socket";
-import { userAssets, userAssetSecurities } from "@server/db/schema";
+import { sendNotification } from "@/services/comms/socket";
+import { userAssets, userAssetSecurities } from "@/db/schema";
 import { assetProcesses } from "@shared/api/queryKeys";
 
 /**

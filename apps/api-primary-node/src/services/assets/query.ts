@@ -5,9 +5,9 @@ import {
   recurringContributions,
   securityTransactions,
   userAssetSecurities,
-} from "@server/db/schema";
-import { Database } from "@server/db";
-import { brokerPlatforms, userAssets } from "@server/db/schema";
+} from "@/db/schema";
+import { Database } from "@/db";
+import { brokerPlatforms, userAssets } from "@/db/schema";
 import { asc, eq, getTableColumns, sql } from "drizzle-orm";
 import { TransactionType, ValueAbstractType } from "@shared/schema";
 

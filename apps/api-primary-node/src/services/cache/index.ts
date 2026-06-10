@@ -1,6 +1,6 @@
 import { CacheProvider, CacheableOptions, CacheStats } from "./types";
 import { getCacheProvider } from "./provider";
-import { hasRequestContext } from "@server/context/request-context";
+import { hasRequestContext } from "@/context/request-context";
 
 export * from "./types";
 export * from "./utils";

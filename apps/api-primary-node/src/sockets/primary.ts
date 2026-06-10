@@ -1,4 +1,4 @@
-import { AuthService } from "@server/auth";
+import { AuthService } from "@/auth";
 import { Response, Request } from "express";
 import type { Server } from "http";
 import { parse } from "cookie";

@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
-import { db } from "@server/db";
-import { documents, ocrJobs, processes } from "@server/db/schema";
+import { db } from "@/db";
+import { documents, ocrJobs, processes } from "@/db/schema";
 import type { ExtractedAmount, OcrJobDetail, OcrJobListItem } from "@shared/schema/document";
 import {
   documentOcrPipelineResultSchema,

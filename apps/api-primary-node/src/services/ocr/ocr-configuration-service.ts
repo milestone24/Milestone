@@ -1,6 +1,6 @@
 import { and, asc, eq } from "drizzle-orm";
-import { db } from "@server/db";
-import { brokerPlatformSecuritiesOcrContextInstructions } from "@server/db/schema";
+import { db } from "@/db";
+import { brokerPlatformSecuritiesOcrContextInstructions } from "@/db/schema";
 
 /**
  * DB access for **OCR configuration** (platform-scoped instructions and similar).

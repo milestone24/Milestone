@@ -1,8 +1,8 @@
 import { and, eq } from "drizzle-orm";
-import { db } from "@server/db";
-import { ocrJobs, processes, userAssets } from "@server/db/schema";
-import { getUserAccountId } from "@server/auth";
-import { DocumentService } from "@server/services/documents";
+import { db } from "@/db";
+import { ocrJobs, processes, userAssets } from "@/db/schema";
+import { getUserAccountId } from "@/auth";
+import { DocumentService } from "@/services/documents";
 import {
   DEFAULT_PENDING_TTL_MS,
   DEFAULT_RUNNING_TTL_MS,

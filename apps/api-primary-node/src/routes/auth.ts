@@ -9,9 +9,9 @@ import {
 import { eq } from "drizzle-orm";
 import { compare } from "bcrypt";
 import { AUTH_COOKIE_NAMES } from "../constants/auth";
-import { AuthRequest, AuthService, requireTenant } from "@server/auth";
-import { db } from "@server/db";
-import { DatabaseUserService } from "@server/services/users/database";
+import { AuthRequest, AuthService, requireTenant } from "@/auth";
+import { db } from "@/db";
+import { DatabaseUserService } from "@/services/users/database";
 
 const userService = new DatabaseUserService(db);
 

@@ -6,7 +6,7 @@ import {
   emailVerifications,
   phoneVerifications,
   userAccounts,
-} from "@server/db/schema";
+} from "@/db/schema";
 
 export async function generateEmailVerification(userId: string): Promise<string> {
   const token = randomBytes(32).toString("hex");

@@ -1,5 +1,5 @@
 import { eq, and } from "drizzle-orm";
-import { coreUsers, userAccounts, userProfiles, passwordResets, passwordChangeHistory, InsertUserAccount, InsertUserProfile } from "@server/db/schema/user-account";
+import { coreUsers, userAccounts, userProfiles, passwordResets, passwordChangeHistory, InsertUserAccount, InsertUserProfile } from "@/db/schema/user-account";
 import {
   CoreUser,
   UserAccount,

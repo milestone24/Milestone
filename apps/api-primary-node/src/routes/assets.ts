@@ -4,8 +4,8 @@ import {
   AuthRequest,
   AuthService,
   requireTenantWithUserAccountId,
-} from "server/auth";
-import { parseQueryParamsExpress } from "@server/utils/resource-query-builder";
+} from "@/auth";
+import { parseQueryParamsExpress } from "@/utils/resource-query-builder";
 import {
   userAssetValueOrphanInsertSchema,
   assetContributionOrphanInsertSchema,
@@ -23,17 +23,17 @@ import {
   transactionBundleResponseSchema,
   securityTransactionInsertSchema,
 } from "@shared/schema";
-import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
-import { db } from "@server/db";
-import { DatabaseAssetService } from "@server/services/assets/database";
+import { regExpPath, uuidRouteParam } from "@/utils/uuid";
+import { db } from "@/db";
+import { DatabaseAssetService } from "@/services/assets/database";
 import {
   NominatedUserAssetInvalidError,
   startDocumentOcr,
-} from "@server/services/process/document-ocr";
-import { runWithContext } from "@server/context/request-context";
+} from "@/services/process/document-ocr";
+import { runWithContext } from "@/context/request-context";
 import { and, eq } from "drizzle-orm";
-import { userAssets } from "@server/db/schema";
-import { listPendingOcrReviewsForAsset } from "@server/services/ocr/ocr-job-review-service";
+import { userAssets } from "@/db/schema";
+import { listPendingOcrReviewsForAsset } from "@/services/ocr/ocr-job-review-service";
 
 const assetService = new DatabaseAssetService(db);
 const documentExtractUpload = multer({ storage: multer.memoryStorage() });

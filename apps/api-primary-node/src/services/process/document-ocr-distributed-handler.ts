@@ -1,11 +1,11 @@
 import { eq } from "drizzle-orm";
-import { db } from "@server/db";
-import { processes } from "@server/db/schema";
+import { db } from "@/db";
+import { processes } from "@/db/schema";
 import {
   factory as queueFactory,
   isDocumentOcrMessage,
   Message,
-} from "@server/services/distributed/queue";
+} from "@/services/distributed/queue";
 import {
   createAbortCompletionPromise,
   racePromiseWithAbortSignal,
@@ -21,13 +21,13 @@ import { createJobScope } from "./job-scope";
 import {
   registerShutdownHandler,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
-} from "@server/utils/shutdown";
-import { DocumentService } from "@server/services/documents";
+} from "@/utils/shutdown";
+import { DocumentService } from "@/services/documents";
 import {
   OcrService,
   isSupportedMimeType,
   runFullDocumentOcrPipeline,
-} from "@server/services/ocr";
+} from "@/services/ocr";
 
 type Event = {
   jobId: string;

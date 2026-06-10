@@ -4,7 +4,7 @@ import { factory as assetValueSyncFactory } from "./sync/asset-value"
 import { factory as gatewayFactory } from "./gateway"
 
 import { DatabaseSecurityService } from "./database";
-import { db } from "@server/db";
+import { db } from "@/db";
 
 const databaseService = new DatabaseSecurityService(db);
 

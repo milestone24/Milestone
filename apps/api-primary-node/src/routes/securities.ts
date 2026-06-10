@@ -2,13 +2,13 @@ import { Router } from "express";
 import {
   AuthRequest,
   AuthService,
-} from "server/auth";
-import { parseQueryParamsExpress } from "@server/utils/resource-query-builder";
+} from "@/auth";
+import { parseQueryParamsExpress } from "@/utils/resource-query-builder";
 import { 
   securityInsertSchema,
 } from "@shared/schema";
-import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
-import { factory as securityServiceFactory } from "@server/services/securities";
+import { regExpPath, uuidRouteParam } from "@/utils/uuid";
+import { factory as securityServiceFactory } from "@/services/securities";
 
 const securityService = securityServiceFactory();
 

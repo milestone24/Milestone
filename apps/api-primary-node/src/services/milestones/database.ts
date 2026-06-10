@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { InsertMilestone, milestones } from "@server/db/schema/portfolio-milestone";
+import { InsertMilestone, milestones } from "@/db/schema/portfolio-milestone";
 import { Milestone, MilestoneInsert, UserAccount } from "@shared/schema";
 import { type Database } from "../../db/index";
 

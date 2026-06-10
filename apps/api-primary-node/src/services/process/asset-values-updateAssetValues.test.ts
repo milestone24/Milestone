@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
-import { db } from "@server/db";
+import { db } from "@/db";
 import { AssetValuesService } from "./asset-values";
 import {
   assetPersistenceFactory,
   DatabaseAssetService,
-} from "@server/services/assets/database";
-import { factory as queueFactory } from "@server/services/distributed/queue";
-import { Message } from "@server/services/distributed/queue";
+} from "@/services/assets/database";
+import { factory as queueFactory } from "@/services/distributed/queue";
+import { Message } from "@/services/distributed/queue";
 import { addDays, startOfMonth } from "date-fns";
 
 describe("AssetValuesService", () => {

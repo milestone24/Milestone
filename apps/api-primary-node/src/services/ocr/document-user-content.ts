@@ -3,8 +3,8 @@ import {
   analyzeDocumentForOcrTranscript,
   type DocumentTranscriptAnalysis,
   type PdfTextExtractionConfig,
-} from "@server/services/pdf-text";
-import { log } from "@server/log";
+} from "@/services/pdf-text";
+import { log } from "@/log";
 
 const SUPPORTED_IMAGE_TYPES = [
   "image/jpeg",

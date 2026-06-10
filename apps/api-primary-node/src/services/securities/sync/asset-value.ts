@@ -16,8 +16,8 @@ import {
   type AssetPersistence,
   assetPersistenceFactory,
   DatabaseAssetService,
-} from "@server/services/assets/database";
-import { withConnection } from "@server/db";
+} from "@/services/assets/database";
+import { withConnection } from "@/db";
 import {
   AssetValueMetadataSecurity,
   createDecimalValueString,

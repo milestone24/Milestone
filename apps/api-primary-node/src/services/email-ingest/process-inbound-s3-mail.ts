@@ -4,15 +4,15 @@ import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { and, eq } from "drizzle-orm";
 import type { AddressObject, Attachment, ParsedMail } from "mailparser";
 import { simpleParser } from "mailparser";
-import { runWithContext } from "@server/context/request-context";
-import { db } from "@server/db";
+import { runWithContext } from "@/context/request-context";
+import { db } from "@/db";
 import {
   emailIngestEvents,
   emailIngestInboxes,
   type EmailIngestAllowedSenders,
-} from "@server/db/schema";
-import { error as logError, info } from "@server/log";
-import { startDocumentOcr } from "@server/services/process/document-ocr";
+} from "@/db/schema";
+import { error as logError, info } from "@/log";
+import { startDocumentOcr } from "@/services/process/document-ocr";
 import { pickShortCodeFromRecipients } from "./inbound-mail-routing";
 
 type IngestPayload =

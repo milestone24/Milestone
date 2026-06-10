@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { fireSettings, InsertFireSettings } from "@server/db/schema/portfolio-fire";
+import { fireSettings, InsertFireSettings } from "@/db/schema/portfolio-fire";
 import { createDecimalValueString, FireSettings, FireSettingsInsert, UserAccount } from "@shared/schema";
 import { type Database } from "../../db/index";
 

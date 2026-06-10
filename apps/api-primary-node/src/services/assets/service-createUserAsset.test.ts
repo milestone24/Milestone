@@ -1,16 +1,16 @@
 import { DatabaseAssetService } from "./database";
-import { DatabaseUserService } from "@server/services/users/database";
+import { DatabaseUserService } from "@/services/users/database";
 import { beforeAll, afterAll, describe, it, expect, vi } from "vitest";
 import { createDecimalValueString } from "@shared/schema/decimal-value";
 import { BrokerPlatform, UserAssetInsert } from "@shared/schema";
 import { createRRulePattern } from "@shared/utils/scheduling";
 import { subDays } from "date-fns";
-import * as schema from "@server/db/schema";
+import * as schema from "@/db/schema";
 
 import { drizzle } from "drizzle-orm/node-postgres";
-import { setupOne } from "@server/test-utils/setup-one";
+import { setupOne } from "@/test-utils/setup-one";
 import { eq, sql } from "drizzle-orm";
-import { db } from "@server/db";
+import { db } from "@/db";
 import { AssetValuesService } from "../process/asset-values";
 // const db = drizzle.mock({
 //   schema,

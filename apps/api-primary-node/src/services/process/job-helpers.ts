@@ -21,10 +21,10 @@
  * (process-reconcile) must be greater than this so we do not mark a job stale during
  * normal shutdown. See process-abort-wait.ts for the full timeout overview.
  */
-import { db } from "@server/db";
-import { processes, ProcessStatus } from "@server/db/schema";
+import { db } from "@/db";
+import { processes, ProcessStatus } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { DEFAULT_SHUTDOWN_TIMEOUT_MS } from "@server/utils/shutdown";
+import { DEFAULT_SHUTDOWN_TIMEOUT_MS } from "@/utils/shutdown";
 
 /**
  * Updates the job record in the DB with the given status.

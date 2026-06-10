@@ -1,5 +1,5 @@
-import { db } from "@server/db"
-import { securities, securityDailyHistory } from "@server/db/schema/securities"
+import { db } from "@/db"
+import { securities, securityDailyHistory } from "@/db/schema/securities"
 import { SecurityContext, SecurityHistory } from "../types"
 import { eq, sql } from "drizzle-orm"
 import { factory as gatewayFactory } from "../gateway"

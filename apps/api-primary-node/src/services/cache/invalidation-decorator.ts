@@ -1,6 +1,6 @@
 import { getCacheProvider } from "./provider";
 import { buildCacheKey } from "./utils";
-import { getUserAccountId, hasRequestContext } from "@server/context/request-context";
+import { getUserAccountId, hasRequestContext } from "@/context/request-context";
 
 export type InvalidationScope = "global" | "account";
 

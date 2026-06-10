@@ -1,6 +1,6 @@
 import { Router, Request } from "express";
-import { AuthService, requireTenantWithUserAccountId } from "@server/auth";
-import { db } from "@server/db";
+import { AuthService, requireTenantWithUserAccountId } from "@/auth";
+import { db } from "@/db";
 import {
   assetProjectionRequestSchema,
   portfolioProjectionRequestSchema,
@@ -8,8 +8,8 @@ import {
   projectionConfigWithDateRangeSchema,
   projectionConfigSchema,
 } from "@shared/schema/projections";
-import { regExpPath, uuidRouteParam } from "@server/utils/uuid";
-import { ProjectionService } from "@server/services/projections";
+import { regExpPath, uuidRouteParam } from "@/utils/uuid";
+import { ProjectionService } from "@/services/projections";
 import { Decimal } from "decimal.js";
 import { createDecimalValueString } from "@shared/schema";
 

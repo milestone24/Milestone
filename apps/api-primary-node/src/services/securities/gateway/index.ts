@@ -1,6 +1,6 @@
 import { factory as eodhdFactory } from "../eodhd"
 import { factory as alphaVantageFactory } from "../alpha-vantage"
-import { combineSecurityResults } from "@server/utils/securities"
+import { combineSecurityResults } from "@/utils/securities"
 import { searchCachedSecurities} from "../cache"
 import { SecurityHistory, SecurityIdentifier, IntradayOptions } from "../types"
 import { createDecimalValueString, SecuritySearchResult } from "@shared/schema";

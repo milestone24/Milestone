@@ -1,8 +1,8 @@
-import { db } from "@server/db"
+import { db } from "@/db"
 import {
   securityDailyHistory,
   SecurityDailyHistoryWithSecurity,
-} from "@server/db/schema";
+} from "@/db/schema";
 import { SecurityDailyHistorySelect } from "@shared/schema/securities";
 import { eq, gte, lt, lte } from "drizzle-orm";
 import { and } from "drizzle-orm";

@@ -1,18 +1,18 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { SecuritiesCacheUpdater } from "../securities/sync/cache";
-import { db } from "@server/db";
+import { db } from "@/db";
 import {
   ProcessSelect,
   processes,
   userAssetSecurities,
   userAssets,
-} from "@server/db/schema";
+} from "@/db/schema";
 import {
   factory as queueFactory,
   isSecuritiesDailyHistoryCacheUpdateMessage,
   Message,
   SecuritiesDailyHistoryCacheUpdateMessageBase,
-} from "@server/services/distributed/queue";
+} from "@/services/distributed/queue";
 import {
   createAbortCompletionPromise,
   shouldContinue,
@@ -20,7 +20,7 @@ import {
   waitForTerminalEvent,
 } from "./job-helpers";
 import { createJobScope } from "./job-scope";
-import { registerShutdownHandler, DEFAULT_SHUTDOWN_TIMEOUT_MS } from "@server/utils/shutdown";
+import { registerShutdownHandler, DEFAULT_SHUTDOWN_TIMEOUT_MS } from "@/utils/shutdown";
 
 /**
  * Describes the input event required to start a securities cache update job.

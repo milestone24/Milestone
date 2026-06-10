@@ -13,7 +13,7 @@ import {
   processes,
   AssetTransactionSelect,
   AssetTransactionInsert,
-} from "@server/db/schema";
+} from "@/db/schema";
 import { Database } from "../../db";
 import {
   and,
@@ -88,7 +88,7 @@ import type { PortfolioReturnsMwrCashFlow } from "@shared/utils/portfolio-return
 import {
   QueryParams,
   ResourceQueryBuilder,
-} from "@server/utils/resource-query-builder";
+} from "@/utils/resource-query-builder";
 import {
   resolveAssetsWithChange,
   resolveDate,
@@ -97,9 +97,9 @@ import {
   queryParamsFilterToDateRange,
   resolveDayTransactionHistoryForAssetsForDateRange,
 } from "@shared/utils/assets";
-import { factory as securitiesFactory } from "@server/services/securities";
+import { factory as securitiesFactory } from "@/services/securities";
 import { AssetSecurity } from "../securities/types";
-import { mapDbSecurityToSelect } from "@server/utils/securities";
+import { mapDbSecurityToSelect } from "@/utils/securities";
 import { getNextExecutionDate } from "@shared/utils/scheduling";
 import { randomUUID } from "node:crypto";
 import {
@@ -110,7 +110,7 @@ import {
   securityTransactionsAccumulatedCTEBuilder,
 } from "./query";
 import Decimal from "decimal.js";
-import { getUserAccountId } from "@server/auth";
+import { getUserAccountId } from "@/auth";
 import { AssetValuesService } from "../process/asset-values";
 import {
   Cached,
@@ -118,7 +118,7 @@ import {
   InvalidatesCache,
   queryParamsToKeyRoundedDates,
   dataRangeQueryToKey,
-} from "@server/services/cache";
+} from "@/services/cache";
 import { createLedgerGroupId } from "@shared/utils/transaction";
 
 const securitiesService = securitiesFactory();

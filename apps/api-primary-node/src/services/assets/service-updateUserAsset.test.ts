@@ -1,6 +1,6 @@
 import { describe, beforeAll, it, expect } from "vitest";
 import { DatabaseAssetService } from "./database";
-import { db } from "@server/db";
+import { db } from "@/db";
 
 
 describe("DatabaseAssetService updateUserAsset", () => {

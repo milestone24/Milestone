@@ -1,12 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { z } from "zod";
-import { ANTHROPIC_MESSAGES_MODEL } from "@server/constants/anthropic-messages-model";
+import { ANTHROPIC_MESSAGES_MODEL } from "@/constants/anthropic-messages-model";
 import {
   createDefaultAnthropicLlmGateway,
   createNonStreamingMessageWithAbort,
   type LlmGateway,
-} from "@server/services/llm";
-import { loadPdfTextExtractionConfigFromEnv } from "@server/services/pdf-text";
+} from "@/services/llm";
+import { loadPdfTextExtractionConfigFromEnv } from "@/services/pdf-text";
 import type { DocumentOcrPipelineResult, ExtractedAmount } from "@shared/schema/document";
 import { statementPlatformBrandIdentificationSchema } from "@shared/schema/platform-brand-ocr";
 import { securityTransactionOcrExtractionListSchema } from "@shared/schema/ocr";

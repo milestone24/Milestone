@@ -9,9 +9,9 @@ import {
   AuthService,
   requireTenantWithUserAccountId,
 } from "../auth";
-import { db } from "@server/db";
-import { DatabaseFireSettingsService } from "@server/services/fire-settings/database";
-import { regExpPath } from "@server/utils/uuid";
+import { db } from "@/db";
+import { DatabaseFireSettingsService } from "@/services/fire-settings/database";
+import { regExpPath } from "@/utils/uuid";
 
 const fireSettingsService = new DatabaseFireSettingsService(db);
 

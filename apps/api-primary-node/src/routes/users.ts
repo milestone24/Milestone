@@ -13,8 +13,8 @@ import {
   requireTenantWithUserAccountId,
   Tenant,
 } from "../auth";
-import { db } from "@server/db";
-import { DatabaseUserService } from "@server/services/users/database";
+import { db } from "@/db";
+import { DatabaseUserService } from "@/services/users/database";
 
 const userService = new DatabaseUserService(db);
 

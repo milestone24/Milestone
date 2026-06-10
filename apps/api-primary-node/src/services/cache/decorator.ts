@@ -1,6 +1,6 @@
 import { getCacheProvider } from "./provider";
 import { CacheOptions } from "./types";
-import { hasRequestContext } from "@server/context/request-context";
+import { hasRequestContext } from "@/context/request-context";
 
 export interface CachedOptions<TArgs extends unknown[], N extends string = string>
   extends Omit<CacheOptions, "namespace"> {

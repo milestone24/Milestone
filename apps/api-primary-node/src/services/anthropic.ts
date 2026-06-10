@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { ANTHROPIC_MESSAGES_MODEL } from '@server/constants/anthropic-messages-model';
+import { ANTHROPIC_MESSAGES_MODEL } from '@/constants/anthropic-messages-model';
 import { log, error } from '../log';
 
 const anthropic = new Anthropic({
