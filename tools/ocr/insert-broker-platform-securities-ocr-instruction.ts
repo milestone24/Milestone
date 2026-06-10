@@ -24,7 +24,7 @@
  *
  * @example Programmatic (same service the CLI uses)
  * ```ts
- * import { insertBrokerPlatformSecuritiesOcrContextInstruction } from "@server/services/ocr/ocr-configuration-service";
+ * import { insertBrokerPlatformSecuritiesOcrContextInstruction } from "../../apps/api-primary-node/src/services/ocr/ocr-configuration-service";
  *
  * const { id } = await insertBrokerPlatformSecuritiesOcrContextInstruction({
  *   brokerPlatformId: "…uuid…",
@@ -38,7 +38,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { z } from "zod";
-import { insertBrokerPlatformSecuritiesOcrContextInstruction } from "@server/services/ocr/ocr-configuration-service";
+import { insertBrokerPlatformSecuritiesOcrContextInstruction } from "../../apps/api-primary-node/src/services/ocr/ocr-configuration-service";
 
 const projectRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "../..");
 dotenv.config({ path: resolve(projectRoot, ".local.env") });

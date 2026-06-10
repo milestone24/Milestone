@@ -9,10 +9,10 @@
  * Usage: npx tsx tools/aws/generate-system-api-key.ts
  */
 
-import { db } from "@server/db";
-import { coreUsers } from "@server/db/schema/user-account";
-import { SYSTEM_TENANT_ID } from "@server/db/schema/api-keys";
-import { apiKeyService } from "@server/services/api-keys";
+import { db } from "../../apps/api-primary-node/src/db";
+import { coreUsers } from "../../apps/api-primary-node/src/db/schema/user-account";
+import { SYSTEM_TENANT_ID } from "../../apps/api-primary-node/src/db/schema/api-keys";
+import { apiKeyService } from "../../apps/api-primary-node/src/services/api-keys";
 import { eq } from "drizzle-orm";
 
 async function main() {

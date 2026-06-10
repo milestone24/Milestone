@@ -17,17 +17,19 @@ import Decimal from "decimal.js";
 import { z } from "zod";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 
-import { db } from "@server/db";
+import { createDatabaseConnection } from "@milestone/data";
 import {
   assetTransactions,
   securityTransactions,
   userAssets,
   userAssetSecurities,
-} from "@server/db/schema";
+} from "@milestone/data/schema";
 import {
   createDecimalValueString,
   type DecimalValueString,
-} from "@shared/schema";
+} from "@milestone/js-common/schema";
+
+const { db } = createDatabaseConnection();
 
 const uuidSchema = z.string().uuid();
 
