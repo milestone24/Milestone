@@ -185,6 +185,10 @@ function Router() {
   );
 }
 
+/**
+ * Renders inside QueryClientProvider and SessionProvider so shared useSocket can
+ * use useQueryClient and only connect once the session is authenticated.
+ */
 function SocketConnection() {
   useSocket();
   return null;
@@ -209,8 +213,8 @@ function AppContent() {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <SessionProvider>
+          <SocketConnection />
           <RecordTransactionProvider>
-            <SocketConnection />
             <StaticDataPrefetch />
             <Router />
             <RecordTransactionDialog />

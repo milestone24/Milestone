@@ -1,3 +1,4 @@
+import { useSessionContext } from "../context/SessionContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { assetOcrPendingReview, assetProcesses } from "../../api/queryKeys";
 import {
@@ -17,8 +18,13 @@ export const useSocket = () => {
   const socketUrl = useSocketUrl();
   const notifications = useNotificationService();
   const queryClient = useQueryClient();
+  const { isAuthenticated, isInitialUserLoading } = useSessionContext();
 
   useEffect(() => {
+    if (!isAuthenticated || isInitialUserLoading) {
+      return;
+    }
+
     const websocketUrl = socketUrl.getWebSocketUrl();
     const websocket = new WebSocket(websocketUrl);
 
@@ -78,5 +84,5 @@ export const useSocket = () => {
       controller.abort();
       websocket.close(1000, "Aborted");
     };
-  }, [notifications, queryClient, socketUrl]);
+  }, [isAuthenticated, isInitialUserLoading, notifications, queryClient, socketUrl]);
 };
