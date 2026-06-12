@@ -12,7 +12,8 @@
     "packages/js-common",
     "apps/client-primary",
     "apps/api-primary-node",
-    "apps/expo-primary"
+    "apps/expo-primary",
+    "infrastructure"
   ],
   "overrides": {
     "react": "19.2.3",
