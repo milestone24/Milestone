@@ -42,6 +42,8 @@
     "check": "npm run check --workspaces --if-present",
     "docker:build": "npm run build --workspace=@milestone/data --workspace=@milestone/js-common --workspace=@milestone/client-primary && esbuild apps/api-primary-node/src/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --tsconfig=apps/api-primary-node/tsconfig.json && rm -rf public && cp -r apps/client-primary/dist public",
     "start": "node dist/index.js",
-    "deploy:container": "tools/container/deploy.sh"
+    "deploy:container": "tools/container/deploy.sh",
+    "deploy:aws": "tools/aws/deploy.sh",
+    "deploy": "npm run deploy:container && npm run deploy:aws"
   }
 }
