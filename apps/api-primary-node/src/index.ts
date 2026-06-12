@@ -96,6 +96,8 @@ app.use(cookieParser(process.env.COOKIE_SECRET || "your-cookie-secret"));
   // It is the only port that is not firewalled.
   const port = process.env.API_PORT || 5001;
 
+  // Temporary monorepo transition: legacy Docker deploy bundles API + client in one
+  // container. Local dev keeps API-only; client-primary runs via Vite separately.
   if (shouldServeClientStatic()) {
     serveClientStatic(app);
   }

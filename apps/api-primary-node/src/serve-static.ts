@@ -1,3 +1,14 @@
+/**
+ * Temporary monorepo transition: serve the built web client from the API process.
+ *
+ * Pre-monorepo, production ran a single bundled Node server that served both API
+ * routes and the Vite client build from `public/`. During monorepo migration the
+ * client lives in `apps/client-primary` and normally runs on its own dev server;
+ * only the legacy Docker image still bundles API + client together.
+ *
+ * Enable explicitly via `SERVE_CLIENT_STATIC=true` (set in the root Dockerfile).
+ * Remove this module once production serves the client separately from the API.
+ */
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
