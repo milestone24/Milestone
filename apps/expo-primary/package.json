@@ -55,7 +55,8 @@
     "build:dev:ios": "eas build --profile development --platform ios",
     "build:dev:android": "eas build --profile development --platform android",
     "build:dev:ios:simulator": "eas build --profile development-simulator --platform ios",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "eas-build-post-install": "cd ../.. && npm run build --workspace=@milestone/data --workspace=@milestone/js-common"
   },
   "private": true,
   "description": "Expo app for Stockzi"
