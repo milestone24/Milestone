@@ -1,0 +1,78 @@
+%% FIRE Now page call graph (baseline vs preview)
+%% Source entrypoint: client/src/pages/fire-now.tsx
+
+flowchart TD
+  FireNowPage["client/src/pages/fire-now.tsx (Fire page)"] --> UseFireProjection["client/src/hooks/use-fire.ts (useFireProjection)"]
+
+  %% ----------------------------
+  %% Settings fetch + save
+  %% ----------------------------
+  UseFireProjection --> UseFireSettings["client/src/hooks/use-fire-settings.ts (GET /api/fire-settings)"]
+  UseFireProjection --> UseCreateFireSettings["client/src/hooks/use-fire-settings-create.ts (POST /api/fire-settings)"]
+  UseFireProjection --> UsePatchFireSettings["client/src/hooks/use-fire-settings-patch.ts (PATCH /api/fire-settings)"]
+  UseFireSettings --> FireSettingsRoute["server/routes/fire-settings.ts"]
+
+  %% ----------------------------
+  %% Baseline projection (server)
+  %% ----------------------------
+  UseFireProjection --> UseFIREProjection["client/src/hooks/use-projections.ts (useFIREProjection → POST /api/projections/fire)"]
+  UseFIREProjection --> ProjectionsRoute["server/routes/projections.ts (/api/projections/fire)"]
+  ProjectionsRoute --> ProjectionService["server/services/projections/index.ts (ProjectionService.checkFIREFeasibility)"]
+  ProjectionService --> HybridFire["shared/utils/projection-fire-calculator.ts (projectRetirementWithContributors)"]
+  HybridFire --> DataSource["server/services/projections/index.ts (defineDataSource → DB)"]
+  HybridFire --> MapAssetsToContributors["shared/utils/projection-utils-contributor.ts (mapAssetsToContributors)"]
+  HybridFire --> AddFireSettingContributor["shared/utils/projection-fire-calculator.ts (Fire Settings Monthly Contribution)"]
+  HybridFire --> MaybeAddStatePension["shared/utils/projection-utils-contributor.ts (defineStatePensionContributor)"]
+  HybridFire --> ProjectToRetirementShared["shared/utils/projection-fire-calculator.ts (projectToRetirement)"]
+
+  %% ----------------------------
+  %% Preview projection (client-only recompute)
+  %% ----------------------------
+  UseFireProjection --> PreviewEnabled{"Preview enabled?"}
+  PreviewEnabled -->|"no"| ActiveProjectionBaseline["activeProjection = baseline (server)"]
+  PreviewEnabled -->|"yes"| UseFirePreviewProjection["client/src/hooks/use-fire-preview-projection.ts (useFirePreviewProjection)"]
+  UseFirePreviewProjection --> ProjectToRetirementShared
+  PreviewEnabled -->|"yes"| ActiveProjectionPreview["activeProjection = preview (client)"]
+
+  %% Preview triggers and inputs
+  UseFireProjection --> UseFirePreviewState["client/src/hooks/use-fire-preview-state.ts (contribution/inflation preview)"]
+  UseFireProjection --> UseStandaloneContributors["client/src/hooks/use-standalone-contributors.ts (localStorage adjustment contributors)"]
+  UseFireProjection --> AccountTypeOffsets["client/src/pages/fire-now.tsx → useFireProjection offsets (per account type)"]
+  UseFireProjection --> ScenarioGrowthRate["client/src/components/fire/FireScenarioSelector.tsx (scenario growth override)"]
+  UseFireProjection --> UseFirePreferences["client/src/hooks/use-fire-preferences.ts (growthMode + showChart localStorage)"]
+
+  %% ----------------------------
+  %% Shared projection engine internals
+  %% ----------------------------
+  ProjectToRetirementShared --> OrchestrateProjection["shared/utils/projection-orchestrator.ts (orchestrateProjection)"]
+  OrchestrateProjection --> ProjectSingleContributor["shared/utils/projection-orchestrator.ts (projectSingleContributor)"]
+  ProjectSingleContributor --> UnifyModifiers["shared/utils/projection-modifiers.ts (unifyModifiersForContributor → createModifierChain)"]
+  ProjectSingleContributor --> SimpleEngine["shared/utils/projection-simple.ts (generateSimpleProjection)"]
+  SimpleEngine --> PeriodContrib["shared/utils/projection-utils.ts (calculatePeriodContributions)"]
+  SimpleEngine --> AccessibleValue["shared/utils/projection-accessible-value.ts (calculateAccessibleValue)"]
+
+  ProjectToRetirementShared --> YearsToTarget["shared/utils/projection-utils.ts (calculateYearsToTarget)"]
+  ProjectToRetirementShared --> MonthlyDiff["shared/utils/projection-utils.ts (calculateMonthlyContributionDifference)"]
+  ProjectToRetirementShared --> AgeSeries["shared/utils/projection-utils.ts (convertToAgeBasedProjection)"]
+  ProjectToRetirementShared --> WithdrawalStrategy["shared/utils/projection-withdrawal.ts (calculateWithdrawalStrategy)"]
+
+  %% ----------------------------
+  %% UI consumers (cards)
+  %% ----------------------------
+  ActiveProjectionBaseline --> FireHeroCard["client/src/components/fire/FireHeroCard.tsx"]
+  ActiveProjectionPreview --> FireHeroCard
+  FireHeroCard --> BreakdownAgg["shared/utils/projection-account-type-breakdown.ts (aggregateContributorBreakdownByAccountType)"]
+  FireHeroCard --> HeroChart["client/src/hooks/use-fire-hero-chart.ts (D3 render)"]
+
+  ActiveProjectionBaseline --> FireOverviewCard["client/src/components/fire/FireOverviewCard.tsx"]
+  ActiveProjectionPreview --> FireOverviewCard
+
+  ActiveProjectionBaseline --> AccountTypeAdjuster["client/src/components/fire/FireAccountTypeContributionAdjuster.tsx"]
+  ActiveProjectionPreview --> AccountTypeAdjuster
+
+  ActiveProjectionBaseline --> ProjectionChartCard["client/src/components/fire/FireProjectionChartCard.tsx"]
+  ActiveProjectionPreview --> ProjectionChartCard
+  ProjectionChartCard --> FireChartD3["client/src/components/charts/FireChartD3.tsx"]
+
+  ActiveProjectionBaseline --> WithdrawalStrategyCard["client/src/components/fire/WithdrawalStrategyCard.tsx"]
+  ActiveProjectionPreview --> WithdrawalStrategyCard

@@ -1,0 +1,104 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1771405975961,
+      "tag": "0000_init",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1775020385901,
+      "tag": "0001_transactions-flag-and-source",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775024903545,
+      "tag": "0002_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1775034107429,
+      "tag": "0003_documents-tranactions-reference",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776135841645,
+      "tag": "0004_ocr-records",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776758985940,
+      "tag": "0005_ocr_review_state_and_junction",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776758427460,
+      "tag": "0006_email_ingest_inboxes",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776759309494,
+      "tag": "0007_broker_platform_securities_ocr_context_instructions",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776761685075,
+      "tag": "0008_ocr-email-nominated-asset",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1777434705443,
+      "tag": "0009_transactions-ledger-group",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1779173523218,
+      "tag": "0010_asset-transaction-groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1779178138235,
+      "tag": "0011_decimal-extend-scale",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1779781685843,
+      "tag": "0012_security-price-per-unit",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1780298159858,
+      "tag": "0013_asset-security-taxes",
+      "breakpoints": true
+    }
+  ]
+}

@@ -10,13 +10,12 @@ Underdstanding the client application, its structure and files
 ## Directory Organization
 - All client pages for routes should be in directory `@/client/src/pages`
 - Reusable UI components should be placed in `@/client/src/components`
-- Feature-specific components should be organized in subdirectories within the components folder (e.g., `components/auth/`, `components/wellness/`)
+- Feature-specific components should be organized in subdirectories within the components folder (e.g., `components/[feature]/`, `components/[feature]/`)
 - Common UI components should be placed in `@/client/src/components/ui/`
 - Layout components should be placed in `@/client/src/components/layouts/`
 
 ## API Integration
 - Any view that requires API calls should use custom hooks when the API call is of our own domain
-- API routes are defined in `@/server/routes/`
 - Custom hooks for API calls should be placed in `@/client/src/hooks/` with the naming convention `use-[feature].ts` (e.g., `use-session.ts`)
 - API utility functions should be placed in `@/client/src/lib/api.ts`
 - Use React Query (TanStack Query) for data fetching, caching, and state management
@@ -25,16 +24,11 @@ Underdstanding the client application, its structure and files
 - Global application state should be managed using React Context
 - Context providers should be placed in `@/client/src/contexts/`
 - Authentication state is managed through `@/client/src/contexts/SessionContext.tsx`
-- Forms should always use react-hook-form.
-
-## Routing
-- The application uses Wouter for routing (`import { Switch, Route } from "wouter"`)
-- Route definitions should be centralized in `App.tsx`
-- Protected routes should use the `ProtectedRoute` component from `@/components/ProtectedRoute`
+- Forms should always use react-hook-form
 
 ## Utilities and Helpers
 - Utility functions should be placed in `@/client/src/lib/`
-- Feature-specific utilities should be organized in subdirectories (e.g., `lib/roster/`)
+- Feature-specific utilities should be organized in subdirectories (e.g., `@client/src/lib/[feature]/`)
 - Error handling utilities should be placed in `@/client/src/lib/error.ts`
 - The query client configuration should be in `@/client/src/lib/queryClient.ts`
 
@@ -42,3 +36,15 @@ Underdstanding the client application, its structure and files
 - Shared types should be placed in `@/shared/schema`
 - Types for API and client data types should be generated using Zod definitionsa and then infered to Typescript.
 - Component-specific types should be defined within the component file
+
+# Components
+- Components should always use custom hooks over nested business or application logic
+_ Components should always choose not to use the useEffect hook where possible
+- The latest built in react hooks should always be evaluated for the best possible solution
+
+## Forms
+- Always use react hook forms with zod resolvers
+
+## Validation
+- When using React Hook Form forms should always be validated using zod resolver
+- When using React Query responses from API’s should always be validated with a zpd schema safeParse

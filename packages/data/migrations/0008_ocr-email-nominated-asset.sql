@@ -1,0 +1,2 @@
+ALTER TABLE "email_ingest_inboxes" ADD COLUMN "nominated_user_asset_id" uuid;--> statement-breakpoint
+ALTER TABLE "email_ingest_inboxes" ADD CONSTRAINT "email_ingest_inboxes_nominated_user_asset_id_user_assets_id_fk" FOREIGN KEY ("nominated_user_asset_id") REFERENCES "public"."user_assets"("id") ON DELETE set null ON UPDATE no action;

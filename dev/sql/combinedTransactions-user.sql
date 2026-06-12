@@ -24,7 +24,7 @@ with tc as (
 	--where uas.user_asset_id='115b8ea3-69a5-4911-962f-ec2b1f41317b'
 	--where uas.user_asset_id='ce95f3e8-5473-40d1-8077-625e4829bcd6'
 	--ORDER BY st.value_date, assrow
-	ORDER BY uasid, asecrow
+	ORDER BY user_asset_id, assrow
 )
 
 select * from tc

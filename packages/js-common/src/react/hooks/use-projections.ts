@@ -1,0 +1,580 @@
+import { apiRequest } from "../../api/transport";
+import { useQuery, useMutation, UseQueryOptions } from "@tanstack/react-query";
+import {
+  ProjectionResult,
+  ProjectionConfig,
+  MilestoneProgress,
+  FireProjection,
+  AssetProjectionRequest,
+  PortfolioProjectionRequest,
+  FIREProjectionConfig,
+  ProjectionConfigWithDateRange,
+  fireProjectionResultSchema,
+  FireProjectionResult,
+  FireProjectionData,
+  fireProjectionDataSchema,
+  fireProjectionSchema,
+  projectionResultSchema,
+  milestoneProgressSchema,
+} from "../../schema/projections";
+import {
+  assetProjection,
+  portfolioProjection,
+  milestoneProjection,
+  milestonesProjection,
+  fireProjection,
+  fireCustomProjection,
+} from "../../api/queryKeys";
+import { DecimalValueString } from "../../schema";
+
+// ============================================================================
+// ASSET PROJECTION HOOK
+// ============================================================================
+
+/**
+ * Hook for projecting a single asset's future value
+ */
+export function useAssetProjection(
+  assetId: string | null,
+  config: ProjectionConfigWithDateRange | null,
+  options?: UseQueryOptions<ProjectionResult>
+) {
+  return useQuery<ProjectionResult>({
+    queryKey: [...assetProjection, assetId, config],
+    queryFn: async () => {
+      if (!assetId || !config) {
+        throw new Error("Asset ID and config are required");
+      }
+
+      const request: AssetProjectionRequest = {
+        assetId,
+        config,
+      };
+
+      const data = await apiRequest<ProjectionResult>(
+        "POST",
+        `/api/projections/asset/${assetId}`,
+        request
+      );
+      const result = projectionResultSchema.safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid asset projection response: ${result.error.message}`);
+      }
+      return result.data;
+    },
+    enabled: !!assetId && !!config && (options?.enabled ?? true),
+    ...options,
+  });
+}
+
+/**
+ * Mutation hook for ad-hoc asset projections
+ */
+export function useAssetProjectionMutation() {
+  return useMutation<
+    ProjectionResult,
+    Error,
+    { assetId: string; config: ProjectionConfigWithDateRange }
+  >({
+    mutationFn: async ({ assetId, config }) => {
+      const request: AssetProjectionRequest = {
+        assetId,
+        config,
+      };
+
+      return apiRequest<ProjectionResult>(
+        "POST",
+        `/api/projections/asset/${assetId}`,
+        request
+      );
+    },
+  });
+}
+
+// ============================================================================
+// PORTFOLIO PROJECTION HOOK
+// ============================================================================
+
+/**
+ * Hook for projecting entire portfolio or filtered assets
+ */
+export function usePortfolioProjection(
+  config: ProjectionConfigWithDateRange | null,
+  options?: {
+    accountTypeFilter?: string | null;
+    assetIds?: string[];
+    enabled?: boolean;
+  } & UseQueryOptions<ProjectionResult>
+) {
+  const { accountTypeFilter, assetIds, enabled, ...queryOptions } =
+    options || {};
+
+  return useQuery<ProjectionResult>({
+    queryKey: [...portfolioProjection, config, accountTypeFilter, assetIds],
+    queryFn: async () => {
+      if (!config) {
+        throw new Error("Config is required");
+      }
+
+      const request: PortfolioProjectionRequest = {
+        config,
+        accountTypeFilter,
+        assetIds,
+      };
+
+      const data = await apiRequest<ProjectionResult>(
+        "POST",
+        `/api/projections/portfolio`,
+        request
+      );
+      const result = projectionResultSchema.safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid portfolio projection response: ${result.error.message}`);
+      }
+      return result.data;
+    },
+    enabled: !!config && (enabled ?? true),
+    ...queryOptions,
+  });
+}
+
+/**
+ * Mutation hook for ad-hoc portfolio projections
+ */
+export function usePortfolioProjectionMutation() {
+  return useMutation<ProjectionResult, Error, PortfolioProjectionRequest>({
+    mutationFn: async (request) => {
+      return apiRequest<ProjectionResult>(
+        "POST",
+        `/api/projections/portfolio`,
+        request
+      );
+    },
+  });
+}
+
+// ============================================================================
+// MILESTONE PROJECTION HOOKS
+// ============================================================================
+
+/**
+ * Hook for checking progress toward a specific milestone
+ */
+export function useMilestoneProjection(
+  milestoneId: string | null,
+  config: ProjectionConfig | null,
+  options?: UseQueryOptions<MilestoneProgress>
+) {
+  return useQuery<MilestoneProgress>({
+    queryKey: [...milestoneProjection, milestoneId, config],
+    queryFn: async () => {
+      if (!milestoneId || !config) {
+        throw new Error("Milestone ID and config are required");
+      }
+
+      const data = await apiRequest<MilestoneProgress>(
+        "POST",
+        `/api/projections/milestone/${milestoneId}`,
+        { config }
+      );
+      const result = milestoneProgressSchema.safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid milestone projection response: ${result.error.message}`);
+      }
+      return result.data;
+    },
+    enabled: !!milestoneId && !!config && (options?.enabled ?? true),
+    ...options,
+  });
+}
+
+/**
+ * Hook for checking progress on all user milestones
+ */
+export function useMilestonesProjection(
+  config: ProjectionConfig | null,
+  options?: UseQueryOptions<MilestoneProgress[]>
+) {
+  return useQuery<MilestoneProgress[]>({
+    queryKey: [...milestonesProjection, config],
+    queryFn: async () => {
+      if (!config) {
+        throw new Error("Config is required");
+      }
+
+      const data = await apiRequest<MilestoneProgress[]>(
+        "POST",
+        `/api/projections/milestones`,
+        { config }
+      );
+      const result = milestoneProgressSchema.array().safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid milestones projection response: ${result.error.message}`);
+      }
+      return result.data;
+    },
+    enabled: !!config && (options?.enabled ?? true),
+    ...options,
+  });
+}
+
+/**
+ * Mutation hook for ad-hoc milestone progress check
+ */
+export function useMilestoneProjectionMutation() {
+  return useMutation<
+    MilestoneProgress,
+    Error,
+    { milestoneId: string; config: ProjectionConfig }
+  >({
+    mutationFn: async ({ milestoneId, config }) => {
+      return apiRequest<MilestoneProgress>(
+        "POST",
+        `/api/projections/milestone/${milestoneId}`,
+        { config }
+      );
+    },
+  });
+}
+
+// ============================================================================
+// FIRE PROJECTION HOOKS
+// ============================================================================
+
+/**
+ * Hook for FIRE retirement projection using saved settings
+ */
+export function useFIREProjection(
+  config: Omit<ProjectionConfig, "startDate" | "endDate"> | null,
+  fireConfig?: FIREProjectionConfig | null,
+  options?: UseQueryOptions<FireProjection>
+) {
+  return useQuery<FireProjection>({
+    queryKey: [...fireProjection, config],
+    queryFn: async () => {
+      if (!config) {
+        throw new Error("Config is required");
+      }
+
+      const data = await apiRequest<FireProjection>(
+        "POST",
+        `/api/projections/fire`,
+        {
+          config,
+        }
+      );
+
+      const result = fireProjectionSchema.safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid FIRE projection response: ${result.error.message}`);
+      }
+      return result.data;
+    },
+    enabled: !!config && (options?.enabled ?? true),
+    ...options,
+  });
+}
+
+// export function useFireProjection(
+//   config: Omit<ProjectionConfig, "startDate" | "endDate"> | null,
+//   fireConfig: FIREProjectionConfig | null,
+//   options?: UseQueryOptions<FIREProgress>
+// ) {
+//   return useQuery<FIREProgress>({
+//     queryKey: [...fireProjection, config, fireConfig],
+//     queryFn: async () => {
+//       if (!config || !fireConfig) {
+//         throw new Error("Config and FIRE config are required");
+//       }
+
+//       const request: PortfolioProjectionRequest = {
+//         config: {
+//           ...config,
+//           startDate: new Date(),
+//           endDate: new Date(
+//             new Date().setFullYear(new Date().getFullYear() + 30)
+//           ),
+//         },
+//         fireConfig: fireConfig ? fireConfig : undefined,
+//       };
+
+//       const result = await apiRequest<FIREProgress>(
+//         "POST",
+//         `/api/projections/fire`,
+//         request
+//       );
+
+//       return result;
+//     },
+//     enabled: !!config && !!fireConfig && (options?.enabled ?? true),
+//     ...options,
+//   });
+// }
+
+/**
+ * Hook for FIRE retirement projection with custom configuration
+ */
+export function useCustomFIREProjection(
+  config: Omit<ProjectionConfig, "startDate" | "endDate"> | null,
+  fireConfig: FIREProjectionConfig | null,
+  options?: UseQueryOptions<FireProjection>
+) {
+  return useQuery<FireProjection>({
+    queryKey: [...fireCustomProjection, config, fireConfig],
+    queryFn: async () => {
+      if (!config || !fireConfig) {
+        throw new Error("Config and FIRE config are required");
+      }
+
+      const data = await apiRequest<FireProjection>(
+        "POST",
+        `/api/projections/fire/custom`,
+        {
+          config,
+          fireConfig,
+        }
+      );
+      const result = fireProjectionSchema.safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid custom FIRE projection response: ${result.error.message}`);
+      }
+      return result.data;
+    },
+    enabled: !!config && !!fireConfig && (options?.enabled ?? true),
+    ...options,
+  });
+}
+
+/**
+ * Mutation hook for ad-hoc FIRE projection
+ * //What is this, why is there a POST here???
+ */
+export function useFIREProjectionMutation() {
+  return useMutation<
+    FireProjection,
+    Error,
+    {
+      config: Omit<ProjectionConfig, "startDate" | "endDate">;
+      fireConfig?: FIREProjectionConfig;
+    }
+  >({
+    mutationFn: async ({ config, fireConfig }) => {
+      if (fireConfig) {
+        return apiRequest<FireProjection>(
+          "POST",
+          `/api/projections/fire/custom`,
+          {
+            config,
+            fireConfig,
+          }
+        );
+      }
+
+      return apiRequest<FireProjection>("POST", `/api/projections/fire`, {
+        config,
+      });
+    },
+  });
+}
+
+// ============================================================================
+// CONVENIENCE HOOKS
+// ============================================================================
+
+/**
+ * Hook that combines portfolio projection with milestone tracking
+ */
+export function usePortfolioWithMilestoneProjection(
+  config: ProjectionConfigWithDateRange | null,
+  milestoneId: string | null,
+  options?: UseQueryOptions<ProjectionResult>
+) {
+  return useQuery<ProjectionResult>({
+    queryKey: [...portfolioProjection, "milestone", milestoneId, config],
+    queryFn: async () => {
+      if (!config) {
+        throw new Error("Config is required");
+      }
+
+      // Get milestone details first
+      if (!milestoneId) {
+        throw new Error("Milestone ID is required");
+      }
+
+      const milestone = await apiRequest<{
+        id: string;
+        name: string;
+        targetValue: DecimalValueString;
+        accountType: string | null;
+      }>("GET", `/api/milestones/${milestoneId}`);
+
+      const request: PortfolioProjectionRequest = {
+        config,
+        accountTypeFilter: milestone.accountType,
+        milestoneTarget: {
+          milestoneId: milestone.id,
+          milestoneName: milestone.name,
+          targetValue: milestone.targetValue,
+          targetDate: config.endDate,
+          accountType: milestone.accountType,
+        },
+      };
+
+      const data = await apiRequest<ProjectionResult>(
+        "POST",
+        `/api/projections/portfolio`,
+        request
+      );
+      const result = projectionResultSchema.safeParse(data);
+      if (!result.success) {
+        throw new Error(`Invalid portfolio with milestone projection response: ${result.error.message}`);
+      }
+      return result.data;
+    },
+    enabled: !!config && !!milestoneId && (options?.enabled ?? true),
+    ...options,
+  });
+}
+
+/**
+ * Hook that combines portfolio projection with FIRE analysis
+ */
+// export function usePortfolioWithFIREProjection(
+//   config: ProjectionConfig | null,
+//   fireConfig?: FIREProjectionConfig | null
+//   //options?: UseQueryOptions<ProjectionResult & { fireProgress: FIREProgress }>
+// ) {
+//   //return useQuery<ProjectionResult & { fireProgress: FIREProgress }>({
+//   return useQuery<ProjectionResult>({
+//     queryKey: [
+//       ...portfolioProjection,
+//       "fire",
+//       {
+//         includeFire: true,
+//       },
+//     ],
+//     queryFn: async () => {
+//       if (!config) {
+//         throw new Error("Config is required");
+//       }
+
+//       const request: PortfolioProjectionRequest = {
+//         config: {
+//           ...config,
+//           startDate: new Date(),
+//           endDate: new Date(
+//             new Date().setFullYear(new Date().getFullYear() + 30)
+//           ),
+//         },
+//         fireConfig: fireConfig ? fireConfig : undefined,
+//       };
+
+//       const result = await apiRequest<ProjectionResult>(
+//         "POST",
+//         `/api/projections/portfolio?includeFire=true`,
+//         request
+//       );
+
+//       return result;
+
+//       // // Portfolio projection endpoint automatically includes FIRE if fireConfig present
+//       // // But we'll use dedicated FIRE endpoint for cleaner separation
+//       // const [portfolioResult, fireProgress] = await Promise.all([
+//       //   apiRequest<ProjectionResult>(
+//       //     "POST",
+//       //     `/api/projections/portfolio`,
+//       //     request
+//       //   ),
+//       //   apiRequest<FIREProgress>("POST", `/api/projections/fire`, request),
+//       // ]);
+
+//       // return {
+//       //   ...portfolioResult,
+//       //   fireProgress,
+//       // };
+//     },
+//     //enabled: !!config && (options?.enabled ?? true),
+//   });
+// }
+
+// ============================================================================
+// UTILITY HOOKS
+// ============================================================================
+
+/**
+ * Hook for creating default simple projection config
+ * Useful for quick projections without user configuration
+ */
+export function useDefaultSimpleProjectionConfig(
+  yearsAhead: number = 5,
+  growthRate: number = 7.0
+): ProjectionConfigWithDateRange {
+  const startDate = new Date();
+  const endDate = new Date();
+  endDate.setFullYear(endDate.getFullYear() + yearsAhead);
+
+  return {
+    mode: "simple",
+    growthModel: "compound",
+    growthRate,
+    startDate,
+    endDate,
+    interval: "yearly",
+    modifiers: [],
+    useContributorSpecificGrowthRates: false,
+    usePortfolioRecurringContributions: false,
+  };
+}
+
+/**
+ * Hook for creating default advanced projection config
+ */
+export function useDefaultAdvancedProjectionConfig(
+  yearsAhead: number = 10,
+  historicalMonths: number = 36
+): ProjectionConfigWithDateRange {
+  const startDate = new Date();
+  const endDate = new Date();
+  endDate.setFullYear(endDate.getFullYear() + yearsAhead);
+
+  return {
+    mode: "advanced",
+    growthModel: "compound",
+    historicalPeriodMonths: historicalMonths,
+    blendRatio: 0.5,
+    useContributorSpecificGrowthRates: false,
+    startDate,
+    endDate,
+    interval: "yearly",
+    modifiers: [],
+    usePortfolioRecurringContributions: false,
+  };
+}
+
+// ============================================================================
+// EXPORTS
+// ============================================================================
+
+export const useProjections = {
+  // Primary hooks
+  asset: useAssetProjection,
+  portfolio: usePortfolioProjection,
+  milestone: useMilestoneProjection,
+  milestones: useMilestonesProjection,
+  fire: useFIREProjection,
+  customFire: useCustomFIREProjection,
+
+  // Mutations
+  assetMutation: useAssetProjectionMutation,
+  portfolioMutation: usePortfolioProjectionMutation,
+  milestoneMutation: useMilestoneProjectionMutation,
+  fireMutation: useFIREProjectionMutation,
+
+  // Convenience
+  portfolioWithMilestone: usePortfolioWithMilestoneProjection,
+  //portfolioWithFire: usePortfolioWithFIREProjection,
+
+  // Utilities
+  defaultSimpleConfig: useDefaultSimpleProjectionConfig,
+  defaultAdvancedConfig: useDefaultAdvancedProjectionConfig,
+};
