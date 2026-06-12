@@ -14,8 +14,6 @@ attached_assets
 public
 *.md
 
-# Workspace sources not required for the container image.
-apps/expo-primary/**
-!apps/expo-primary/package.json
-infrastructure/**
-!infrastructure/package.json
+# Workspaces not required for the container image.
+apps/expo-primary
+infrastructure
