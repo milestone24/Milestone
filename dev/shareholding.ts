@@ -1,5 +1,5 @@
-import { db } from "@server/db";
-import { DatabaseAssetService } from "@server/services/assets/database";
+import { db } from "@api/db";
+import { DatabaseAssetService } from "@api/services/assets/database";
 
 const service = new DatabaseAssetService(db);
 

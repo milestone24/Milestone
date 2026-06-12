@@ -1,0 +1,408 @@
+import { Database } from "@/db";
+import {
+  assetValues,
+  fireSettings,
+  milestones,
+  recurringContributions,
+  userAssets,
+  userProfiles,
+} from "@/db/schema";
+import {
+  FireProjection,
+  FIREProjectionConfig,
+  MilestoneTarget,
+  ProjectionInterval,
+  ProjectionConfigWithDateRange,
+  ProjectionDataSource,
+  ProjectionResult,
+  RecurringContribution,
+  ResolvedUserAsset,
+  UserAssetWithValue,
+  ProjectionConfig,
+} from "@shared/schema";
+import {
+  projectPortfolio as hybridProjectPortfolio,
+  projectAsset as hybridProjectAssetById,
+} from "@shared/utils/projection-orchestrator";
+import {
+  checkMilestoneProgress as hybridCheckMilestoneProgress,
+  getAllMilestonesWithProgress as hybridGetAllMilestonesWithProgress,
+} from "@shared/utils/projection-milestone-tracker";
+import {
+  projectToRetirement as hybridProjectToRetirement,
+  projectRetirementWithContributors as hybridCheckFIREFeasibility,
+} from "@shared/utils/projection-fire-calculator";
+import { and, eq, getTableColumns, inArray, sql } from "drizzle-orm";
+import {
+  calculatedAssetsQueryBuilder,
+  calculatedAssetsWithContributionsQueryBuilder,
+} from "../assets/query";
+import { mapAssetsToContributors } from "@shared/utils/projection-utils-contributor";
+
+export type AssetWithRecurringContributions = UserAssetWithValue & {
+  recurringContributions: RecurringContribution[];
+  platformName?: string;
+};
+
+type AssetValueHistorySlot = {
+  slotDate: Date;
+  value: string;
+  sourceValueDate: Date;
+  sourceType: "exact" | "carried_forward";
+  assetValueId?: string;
+};
+
+/**
+ * Align a date to the interval boundary used by projection grid generation.
+ * Important: weekly currently aligns to month start to match existing `getProjectionGridDates` behaviour.
+ */
+function alignToIntervalBoundary(date: Date, interval: ProjectionInterval): Date {
+  switch (interval) {
+    case "daily":
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    case "weekly":
+    case "monthly":
+      return new Date(date.getFullYear(), date.getMonth(), 1);
+    case "yearly":
+      return new Date(date.getFullYear(), 0, 1);
+    default:
+      return new Date(date.getFullYear(), date.getMonth(), 1);
+  }
+}
+
+/**
+ * Move one interval backwards from a boundary date.
+ * Used to build deterministic, bounded slot windows ending at current interval boundary.
+ */
+function decrementInterval(date: Date, interval: ProjectionInterval): Date {
+  const d = new Date(date);
+  switch (interval) {
+    case "daily":
+      d.setDate(d.getDate() - 1);
+      return d;
+    case "weekly":
+      d.setDate(d.getDate() - 7);
+      return d;
+    case "monthly":
+      return new Date(d.getFullYear(), d.getMonth() - 1, 1);
+    case "yearly":
+      return new Date(d.getFullYear() - 1, 0, 1);
+    default:
+      return d;
+  }
+}
+
+/**
+ * Build ordered slot dates for historical lookup.
+ * Slots are oldest -> newest and bounded by `maxIntervals`.
+ */
+function buildHistorySlots(
+  interval: ProjectionInterval,
+  maxIntervals: number
+): Date[] {
+  const safeMax = Math.max(0, Math.floor(maxIntervals));
+  if (safeMax === 0) return [];
+  const now = new Date();
+  const end = alignToIntervalBoundary(now, interval);
+  const slots: Date[] = [];
+  let cursor = new Date(end);
+  for (let i = 0; i < safeMax; i++) {
+    slots.push(new Date(cursor));
+    cursor = decrementInterval(cursor, interval);
+  }
+  return slots.reverse();
+}
+
+export const mapAssetsWithRecurringContributions = (
+  rows: {
+    asset: UserAssetWithValue;
+    recurringContribution: RecurringContribution | null;
+  }[]
+): AssetWithRecurringContributions[] => {
+  return rows.reduce<AssetWithRecurringContributions[]>((acc, row) => {
+    const existingAsset = acc.find((a) => a.id === row.asset.id);
+    if (existingAsset) {
+      if (row.recurringContribution) {
+        existingAsset.recurringContributions.push(row.recurringContribution);
+      }
+    } else {
+      acc.push({
+        ...row.asset,
+        platformName:
+          "platformName" in row.asset
+            ? (((row.asset as any).platformName ?? undefined) as string | undefined)
+            : undefined,
+        recurringContributions: row.recurringContribution
+          ? [row.recurringContribution]
+          : [],
+      });
+    }
+
+    return acc;
+  }, []);
+};
+
+//Maybe tables could be injected here for use of materialised views
+const defineDataSource = (
+  db: Database,
+  accountId: string
+): ProjectionDataSource => {
+  const assetsQuery = calculatedAssetsWithContributionsQueryBuilder(db).where(
+    eq(userAssets.userAccountId, accountId)
+  );
+
+  const assetQuery = (assetId: string) =>
+    calculatedAssetsWithContributionsQueryBuilder(db).where(
+      and(eq(userAssets.id, assetId), eq(userAssets.userAccountId, accountId))
+    );
+
+  const recurringContrbutionsForAssetsQuery = (assetIds: string[]) =>
+    db.query.recurringContributions.findMany({
+      where: and(inArray(recurringContributions.assetId, assetIds)),
+    });
+
+  const milestonesQuery = () =>
+    db.query.milestones.findMany({
+      where: eq(milestones.userAccountId, accountId),
+    });
+
+  const milestoneQuery = (milestoneId: string) =>
+    db.query.milestones.findFirst({
+      where: and(
+        eq(milestones.id, milestoneId),
+        eq(milestones.userAccountId, accountId)
+      ),
+    });
+
+  const fireSettingsQuery = () =>
+    db.query.fireSettings.findFirst({
+      where: eq(fireSettings.userAccountId, accountId),
+    });
+
+  const userProfileQuery = () =>
+    db.query.userProfiles.findFirst({
+      where: eq(userProfiles.userAccountId, accountId),
+    });
+
+  //const asset = (assetId: string) => assetQuery(assetId).execute();
+
+  return {
+    getAssets: () =>
+      assetsQuery.execute().then(mapAssetsWithRecurringContributions),
+    /**
+     * Return current assets plus bounded history slots used for projection backfill.
+     *
+     * Traceability model for each slot:
+     * - slotDate: requested slot boundary
+     * - sourceValueDate: actual asset_values date selected (<= slotDate)
+     * - sourceType: exact | carried_forward
+     * - assetValueId: selected row id (when available)
+     */
+    getAssetsWithHistory: async ({ interval, maxIntervals }) => {
+      const assets = await assetsQuery
+        .execute()
+        .then(mapAssetsWithRecurringContributions);
+
+      const slots = buildHistorySlots(interval, maxIntervals);
+      if (assets.length === 0 || slots.length === 0) {
+        return assets;
+      }
+
+      const assetIds = assets.map((asset) => asset.id);
+      const latestSlotDate = slots[slots.length - 1];
+
+      const values = await db
+        .select({
+          id: assetValues.id,
+          assetId: assetValues.assetId,
+          value: assetValues.value,
+          valueDate: assetValues.valueDate,
+        })
+        .from(assetValues)
+        .where(
+          and(
+            inArray(assetValues.assetId, assetIds),
+            sql`${assetValues.valueDate} <= ${latestSlotDate}`
+          )
+        )
+        .orderBy(assetValues.assetId, assetValues.valueDate);
+
+      const valueRowsByAsset = values.reduce<
+        Record<
+          string,
+          {
+            id: string;
+            value: string;
+            valueDate: Date;
+          }[]
+        >
+      >((acc, row) => {
+        if (!acc[row.assetId]) {
+          acc[row.assetId] = [];
+        }
+        acc[row.assetId]?.push({
+          id: row.id,
+          value: row.value,
+          valueDate: row.valueDate,
+        });
+        return acc;
+      }, {});
+
+      return assets.map((asset) => {
+        const rows = valueRowsByAsset[asset.id] ?? [];
+        let sourceCursor = 0;
+        let latestEligible:
+          | {
+              id: string;
+              value: string;
+              valueDate: Date;
+            }
+          | undefined;
+
+        const valueHistory: AssetValueHistorySlot[] = [];
+        for (const slotDate of slots) {
+          // Advance cursor to the latest value at/before this slot.
+          while (
+            sourceCursor < rows.length &&
+            rows[sourceCursor] != null &&
+            rows[sourceCursor]!.valueDate <= slotDate
+          ) {
+            latestEligible = rows[sourceCursor];
+            sourceCursor += 1;
+          }
+
+          // No source before this slot means this asset has no resolvable historical value for this slot.
+          if (!latestEligible) {
+            continue;
+          }
+
+          const sourceValueDate = new Date(latestEligible.valueDate);
+          valueHistory.push({
+            slotDate: new Date(slotDate),
+            value: latestEligible.value,
+            sourceValueDate,
+            sourceType:
+              sourceValueDate.getTime() === slotDate.getTime()
+                ? "exact"
+                : "carried_forward",
+            assetValueId: latestEligible.id,
+          });
+        }
+
+        return {
+          ...asset,
+          valueHistory,
+        };
+      });
+    },
+    getAssetById: (assetId) =>
+      assetQuery(assetId)
+        .execute()
+        .then(mapAssetsWithRecurringContributions)
+        .then((assets) => assets.find((a) => a.id === assetId) ?? null),
+    getContributionsForAssets: (assetIds) =>
+      recurringContrbutionsForAssetsQuery(assetIds).execute(),
+    getMilestones: () => milestonesQuery().execute(),
+    getMilestoneById: (milestoneId) =>
+      milestoneQuery(milestoneId)
+        .execute()
+        .then((milestone) => milestone ?? null),
+    getFireSettings: () =>
+      fireSettingsQuery()
+        .execute()
+        .then((fireSettings) => fireSettings ?? null),
+    getUserProfile: () =>
+      userProfileQuery()
+        .execute()
+        .then((userProfile) => userProfile ?? null),
+  };
+};
+
+export class ProjectionService {
+  constructor(private db: Database) {}
+
+  async projectPortfolio(
+    accountId: string,
+    config: ProjectionConfigWithDateRange,
+    milestoneTarget?: MilestoneTarget
+  ): Promise<ProjectionResult> {
+    const dataSource = defineDataSource(this.db, accountId);
+    const assets = await dataSource.getAssets();
+    const contributors = mapAssetsToContributors(assets, true, true);
+    return hybridProjectPortfolio(
+      config,
+      dataSource,
+      contributors,
+      milestoneTarget
+    );
+    //return hybridProjectPortfolio(config, dataSource, milestoneTarget);
+  }
+
+  async projectAssetById(
+    accountId: string,
+    assetId: string,
+    //recurringContributions: RecurringContribution[],
+    //accountId: string,
+    config: ProjectionConfigWithDateRange
+  ) {
+    const dataSource = defineDataSource(this.db, accountId);
+    return hybridProjectAssetById(assetId, config, dataSource);
+  }
+
+  async projectToRetirement(
+    accountId: string,
+    fireConfig: FIREProjectionConfig,
+    config: ProjectionConfigWithDateRange
+  ) {
+    const dataSource = defineDataSource(this.db, accountId);
+    const assets = await dataSource.getAssets();
+    const contributors = mapAssetsToContributors(assets, true, true);
+    return hybridProjectToRetirement(fireConfig, config, contributors);
+    //return hybridProjectToRetirement(fireConfig, config, dataSource);
+  }
+
+  async checkMilestoneProgress(
+    accountId: string,
+    milestoneId: string,
+    config: ProjectionConfigWithDateRange
+  ) {
+    const dataSource = defineDataSource(this.db, accountId);
+
+    const milestone = await dataSource.getMilestoneById(milestoneId);
+
+    const assets = await dataSource.getAssets();
+    const contributors = mapAssetsToContributors(assets, true, true);
+
+    if (!milestone) {
+      throw new Error("Milestone not found");
+    }
+
+    const milestoneTarget: MilestoneTarget = {
+      milestoneId: milestone.id,
+      milestoneName: milestone.name,
+      targetValue: milestone.targetValue,
+      targetDate: config.endDate, // Use projection end date as target
+      accountType: milestone.accountType,
+    };
+
+    return hybridCheckMilestoneProgress(milestoneTarget, config, contributors);
+  }
+
+  async getAllMilestonesWithProgress(
+    accountId: string,
+    config: ProjectionConfigWithDateRange
+  ) {
+    const dataSource = defineDataSource(this.db, accountId);
+    return hybridGetAllMilestonesWithProgress(config, dataSource);
+  }
+
+  async checkFIREFeasibility(
+    accountId: string,
+    config: ProjectionConfig
+    //Should this be passed through?
+    //fireConfig: FIREProjectionConfig
+  ): Promise<FireProjection> {
+    const dataSource = defineDataSource(this.db, accountId);
+    return hybridCheckFIREFeasibility(config, dataSource);
+  }
+}

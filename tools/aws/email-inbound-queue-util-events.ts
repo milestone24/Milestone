@@ -5,12 +5,14 @@
 
 import chalk from "chalk";
 import { desc, eq, sql } from "drizzle-orm";
-import { db } from "@server/db";
+import { createDatabaseConnection } from "@milestone/data";
 import {
   emailIngestEvents,
   emailIngestEventStatuses,
   type EmailIngestEventStatus,
-} from "@server/db/schema/email-ingest";
+} from "@milestone/data/schema/email-ingest";
+
+const { db } = createDatabaseConnection();
 
 function getArgFrom(args: string[], flag: string): string | undefined {
   const i = args.indexOf(flag);

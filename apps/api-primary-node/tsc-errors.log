@@ -1,0 +1,197 @@
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+src/index.ts(8,22): error TS2307: Cannot find module './db' or its corresponding type declarations.
+src/integrations/trading212/service.ts(3,20): error TS2307: Cannot find module '../../db' or its corresponding type declarations.
+src/routes/assets.ts(27,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/routes/assets.ts(35,28): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/routes/auth.ts(3,30): error TS2307: Cannot find module '../db/schema/user-account' or its corresponding type declarations.
+src/routes/auth.ts(8,8): error TS2307: Cannot find module '../../shared/schema/user-account' or its corresponding type declarations.
+src/routes/auth.ts(12,57): error TS2307: Cannot find module '../../server/auth' or its corresponding type declarations.
+src/routes/auth.ts(13,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/routes/auth.ts(151,67): error TS7006: Parameter 'tenant' implicitly has an 'any' type.
+src/routes/fire-settings.ts(12,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/routes/milestones.ts(5,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/routes/projections.ts(3,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/routes/tracking.ts(5,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/routes/tracking.ts(6,27): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/routes/triggers.ts(2,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/routes/users.ts(16,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/api-keys/index.ts(3,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/api-keys/index.ts(10,8): error TS2307: Cannot find module '@server/db/schema/api-keys' or its corresponding type declarations.
+src/services/api-keys/index.ts(68,20): error TS7053: Element implicitly has an 'any' type because expression of type 'ApiKeyType' can't be used to index type '{ user: { live: string; test: string; }; system: { live: string; test: string; }; }'.
+src/services/assets/database.ts(16,8): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/assets/database.ts(17,26): error TS2307: Cannot find module '../../db' or its corresponding type declarations.
+src/services/assets/database.ts(127,31): error TS2344: Type 'unknown' does not satisfy the constraint '(...args: any) => any'.
+src/services/assets/database.ts(434,26): error TS2339: Property 'id' does not exist on type '{ [x: string]: never; } | { [x: string]: never; } | { [x: string]: never; } | {}'.
+  Property 'id' does not exist on type '{}'.
+src/services/assets/database.ts(434,46): error TS2339: Property 'valueDate' does not exist on type '{ [x: string]: never; } | { [x: string]: never; } | { [x: string]: never; } | {}'.
+  Property 'valueDate' does not exist on type '{}'.
+src/services/assets/database.ts(437,20): error TS2345: Argument of type '{ [x: string]: never; } | { [x: string]: never; } | { [x: string]: never; } | {}' is not assignable to parameter of type 'BrandedAssetValue'.
+  Type '{ [x: string]: never; }' is not assignable to type 'BrandedAssetValue'.
+    Type '{ [x: string]: never; }' is missing the following properties from type 'Omit<{ value: string & DecimalValueStringBrand; valueDate: Date; id: string; createdAt: Date | null; updatedAt: Date | null; recordedAt: Date; assetId: string; entryMethod: "manual" | "calculated"; metadata: AssetValueMetadata | null; }, "value">': valueDate, id, createdAt, updatedAt, and 4 more.
+src/services/assets/database.ts(486,36): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/services/assets/database.ts(496,26): error TS7006: Parameter 'asset' implicitly has an 'any' type.
+src/services/assets/database.ts(500,25): error TS7006: Parameter 'asset' implicitly has an 'any' type.
+src/services/assets/database.ts(594,14): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/assets/database.ts(609,21): error TS7006: Parameter 'assetValues' implicitly has an 'any' type.
+src/services/assets/database.ts(609,36): error TS7031: Binding element 'desc' implicitly has an 'any' type.
+src/services/assets/database.ts(651,19): error TS7006: Parameter 'securityDailyHistory' implicitly has an 'any' type.
+src/services/assets/database.ts(651,43): error TS7031: Binding element 'desc' implicitly has an 'any' type.
+src/services/assets/database.ts(705,23): error TS7006: Parameter 'security' implicitly has an 'any' type.
+src/services/assets/database.ts(831,64): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/assets/database.ts(977,63): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/assets/database.ts(1017,77): error TS7006: Parameter 'security' implicitly has an 'any' type.
+src/services/assets/database.ts(1054,76): error TS7006: Parameter 'security' implicitly has an 'any' type.
+src/services/assets/database.ts(1097,53): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/assets/database.ts(1335,55): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/assets/database.ts(1400,38): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/assets/database.ts(1432,66): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/assets/database.ts(1985,34): error TS7006: Parameter 'asset' implicitly has an 'any' type.
+src/services/assets/database.ts(1988,11): error TS7006: Parameter 'asset' implicitly has an 'any' type.
+src/services/assets/database.ts(2005,29): error TS7006: Parameter 'av' implicitly has an 'any' type.
+src/services/assets/database.ts(2007,52): error TS7006: Parameter 'acc' implicitly has an 'any' type.
+src/services/assets/database.ts(2007,57): error TS7006: Parameter 'curr' implicitly has an 'any' type.
+src/services/assets/database.ts(2104,22): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/services/assets/database.ts(2281,59): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/services/assets/database.ts(2300,68): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/assets/database.ts(2483,22): error TS7006: Parameter 'row' implicitly has an 'any' type.
+src/services/assets/database.ts(2529,30): error TS2339: Property 'query' does not exist on type 'never'.
+src/services/assets/database.ts(2561,10): error TS2339: Property 'insert' does not exist on type 'never'.
+src/services/assets/database.ts(2565,33): error TS2339: Property 'query' does not exist on type 'never'.
+src/services/assets/database.ts(2585,12): error TS2339: Property 'insert' does not exist on type 'never'.
+src/services/assets/database.ts(2600,14): error TS2339: Property 'rollback' does not exist on type 'never'.
+src/services/assets/database.ts(2606,47): error TS2339: Property 'insert' does not exist on type 'never'.
+src/services/assets/database.ts(2620,16): error TS2339: Property 'rollback' does not exist on type 'never'.
+src/services/assets/database.ts(2638,42): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/assets/database.ts(2638,54): error TS2345: Argument of type 'any' is not assignable to parameter of type 'never'.
+src/services/assets/database.ts(2688,52): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/assets/database.ts(2772,53): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/assets/database.ts(2795,24): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/services/assets/database.ts(2910,48): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/services/assets/database.ts(2923,89): error TS7006: Parameter 'id' implicitly has an 'any' type.
+src/services/assets/query.ts(8,8): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/assets/query.ts(9,26): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/assets/query.ts(10,45): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/assets/query.ts(94,54): error TS7006: Parameter 'qb' implicitly has an 'any' type.
+src/services/assets/service-createUserAsset.test.ts(8,25): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/assets/service-createUserAsset.test.ts(13,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/assets/service-getPortfolioValueForUser.test.ts(3,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/assets/service-updateUserAsset.test.ts(3,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/auth/index.ts(1,31): error TS2307: Cannot find module '@server/db/schema/user-account' or its corresponding type declarations.
+src/services/auth/index.ts(2,25): error TS2307: Cannot find module '@server/db/schema/api-keys' or its corresponding type declarations.
+src/services/auth/index.ts(5,20): error TS2307: Cannot find module '../../db' or its corresponding type declarations.
+src/services/distributed/chain.ts(5,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/documents/index.ts(9,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/documents/index.ts(16,8): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/documents/index.ts(17,37): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/documents/index.ts(49,33): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/documents/index.ts(131,33): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/services/documents/index.ts(159,18): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/services/documents/index.ts(159,21): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/services/documents/index.ts(162,25): error TS7006: Parameter 'doc' implicitly has an 'any' type.
+src/services/documents/index.ts(171,58): error TS7006: Parameter 'j' implicitly has an 'any' type.
+src/services/documents/index.ts(186,33): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/documents/index.ts(218,17): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/services/documents/index.ts(218,22): error TS7031: Binding element 'and' implicitly has an 'any' type.
+src/services/documents/index.ts(218,27): error TS7031: Binding element 'sql' implicitly has an 'any' type.
+src/services/email-ingest/email-ingest-inbox-service.ts(4,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/email-ingest/email-ingest-inbox-service.ts(10,8): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/email-ingest/email-ingest-inbox-service.ts(289,38): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/email-ingest/process-inbound-s3-mail.ts(8,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/email-ingest/process-inbound-s3-mail.ts(13,8): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/fire-settings/database.ts(2,50): error TS2307: Cannot find module '@server/db/schema/portfolio-fire' or its corresponding type declarations.
+src/services/fire-settings/database.ts(4,31): error TS2307: Cannot find module '../../db/index' or its corresponding type declarations.
+src/services/milestones/database.ts(2,45): error TS2307: Cannot find module '@server/db/schema/portfolio-milestone' or its corresponding type declarations.
+src/services/milestones/database.ts(4,31): error TS2307: Cannot find module '../../db/index' or its corresponding type declarations.
+src/services/milestones/database.ts(22,17): error TS7006: Parameter 'milestones' implicitly has an 'any' type.
+src/services/milestones/database.ts(22,31): error TS7031: Binding element 'desc' implicitly has an 'any' type.
+src/services/ocr/ocr-configuration-service.ts(2,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/ocr/ocr-configuration-service.ts(3,64): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/ocr/ocr-job-review-service.ts(2,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/ocr/ocr-job-review-service.ts(10,8): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/ocr/ocr-job-review-service.ts(62,20): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/services/ocr/ocr-job-review-service.ts(146,31): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/ocr/ocr-jobs-account-service.ts(2,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/ocr/ocr-jobs-account-service.ts(3,47): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/ocr/ocr-jobs-account-service.ts(58,20): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/services/ocr/transaction-ocr-verifiers.ts(2,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/ocr/transaction-ocr-verifiers.ts(8,8): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/process/asset-values-distributed-handler.ts(13,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/process/asset-values-distributed-handler.ts(14,42): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/process/asset-values-initAssetValues.test.ts(2,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/process/asset-values-updateAssetValues.test.ts(2,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/process/asset-values.ts(7,26): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/process/asset-values.ts(9,60): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/process/asset-values.ts(78,8): error TS7006: Parameter 'securityContext' implicitly has an 'any' type.
+src/services/process/asset-values.ts(86,8): error TS7006: Parameter 'min' implicitly has an 'any' type.
+src/services/process/asset-values.ts(86,13): error TS7006: Parameter 'securityContext' implicitly has an 'any' type.
+src/services/process/asset-values.ts(350,19): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/services/process/asset-values.ts(394,38): error TS7006: Parameter 'j' implicitly has an 'any' type.
+src/services/process/asset-values.ts(420,8): error TS7006: Parameter 'j' implicitly has an 'any' type.
+src/services/process/document-ocr-distributed-handler.ts(2,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/process/document-ocr-distributed-handler.ts(3,27): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/process/document-ocr.ts(2,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/process/document-ocr.ts(3,48): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/process/document-ocr.ts(52,57): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/process/job-helpers.ts(24,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/process/job-helpers.ts(25,42): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/process/jobs-meta-test.ts(1,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/process/jobs-meta-test.ts(2,42): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/process/ocr-job-store.ts(8,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/process/ocr-job-store.ts(9,25): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/process/process-abort-wait.ts(26,31): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/process/process-abort-wait.ts(27,27): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/process/process-reconcile.ts(30,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/process/process-reconcile.ts(31,27): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/process/process-reconcile.ts(130,26): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/services/process/process-reconcile.ts(131,26): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/services/process/securities-cache-distributed-handler.ts(3,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/process/securities-cache-distributed-handler.ts(9,8): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/process/securities-cache-distributed-handler.ts(166,27): error TS7006: Parameter 'userAccount' implicitly has an 'any' type.
+src/services/process/securities-cache-distributed-handler.ts(172,39): error TS7006: Parameter 'userAsset' implicitly has an 'any' type.
+src/services/process/securities-cache-distributed-handler.ts(175,54): error TS7006: Parameter 'security' implicitly has an 'any' type.
+src/services/process/securities-cache-updateSecuritiesDailyHistoryCacheForAllSecurities.test.ts(4,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/process/securities-cache.ts(6,26): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/process/securities-cache.ts(9,42): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/process/securities-cache.ts(22,49): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/projections/index.ts(1,26): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/projections/index.ts(9,8): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/projections/index.ts(211,36): error TS7006: Parameter 'asset' implicitly has an 'any' type.
+src/services/projections/index.ts(239,10): error TS7006: Parameter 'acc' implicitly has an 'any' type.
+src/services/projections/index.ts(239,15): error TS7006: Parameter 'row' implicitly has an 'any' type.
+src/services/projections/index.ts(251,26): error TS7006: Parameter 'asset' implicitly has an 'any' type.
+src/services/projections/index.ts(302,16): error TS7006: Parameter 'assets' implicitly has an 'any' type.
+src/services/projections/index.ts(302,40): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/services/projections/index.ts(309,16): error TS7006: Parameter 'milestone' implicitly has an 'any' type.
+src/services/projections/index.ts(313,16): error TS7006: Parameter 'fireSettings' implicitly has an 'any' type.
+src/services/projections/index.ts(317,16): error TS7006: Parameter 'userProfile' implicitly has an 'any' type.
+src/services/securities/cache/history.ts(1,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/securities/cache/history.ts(5,8): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/securities/cache/history.ts(62,19): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/services/securities/cache/history.ts(62,24): error TS7031: Binding element 'desc' implicitly has an 'any' type.
+src/services/securities/cache/security.ts(1,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/securities/cache/security.ts(2,28): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/securities/database.ts(1,26): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/securities/database.ts(2,38): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/securities/index.ts(7,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/securities/sync/asset-value.ts(20,32): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/securities/sync/asset-value.ts(833,27): error TS7006: Parameter 'sessionDb' implicitly has an 'any' type.
+src/services/securities/sync/asset-value.ts(839,15): error TS7006: Parameter 'error' implicitly has an 'any' type.
+src/services/securities/sync/cache.ts(1,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/services/securities/sync/cache.ts(2,50): error TS2307: Cannot find module '@server/db/schema/securities' or its corresponding type declarations.
+src/services/securities/sync/cache.ts(198,31): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/users/database.ts(2,132): error TS2307: Cannot find module '@server/db/schema/user-account' or its corresponding type declarations.
+src/services/users/database.ts(14,35): error TS2307: Cannot find module '../../db/index' or its corresponding type declarations.
+src/services/users/database.ts(185,40): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/users/database.ts(295,38): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/users/database.ts(340,38): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/services/verification-service.ts(2,20): error TS2307: Cannot find module '../db' or its corresponding type declarations.
+src/services/verification-service.ts(9,8): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/services/verification-service.ts(40,15): error TS7006: Parameter 'emailVerifications' implicitly has an 'any' type.
+src/services/verification-service.ts(40,37): error TS7031: Binding element 'desc' implicitly has an 'any' type.
+src/services/verification-service.ts(76,15): error TS7006: Parameter 'phoneVerifications' implicitly has an 'any' type.
+src/services/verification-service.ts(76,37): error TS7031: Binding element 'desc' implicitly has an 'any' type.
+src/sql/queries.ts(1,20): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/sql/queries.ts(2,29): error TS2307: Cannot find module '@server/db/schema' or its corresponding type declarations.
+src/test-utils/setup-one.ts(1,38): error TS2307: Cannot find module '@server/db' or its corresponding type declarations.
+src/utils/securities.ts(2,57): error TS2307: Cannot find module '@server/db/schema/securities' or its corresponding type declarations.
+src/vite.ts(10,24): error TS2307: Cannot find module '../vite.config' or its corresponding type declarations.

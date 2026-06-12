@@ -2,25 +2,25 @@
 
 //This script needs modifying to use the new AssetValuesUpdater Event Emitter
 
-import { factory } from "@server/services/securities";
+import { factory } from "@api/services/securities";
 
-import { db } from "@server/db";
+import { db } from "@api/db";
 
 const securityService = factory();
 
 import dotenv from "dotenv";
-import { userAssetSecurities } from "@server/db/schema";
+import { userAssetSecurities } from "@api/db/schema";
 import { eq } from "drizzle-orm";
 
-import { populateSecuritiesDailyHistoryCache } from "@server/services/securities/sync/cache";
+import { populateSecuritiesDailyHistoryCache } from "@api/services/securities/sync/cache";
 
-import { factory as assetValueFactory } from "@server/services/securities/sync/asset-value";
+import { factory as assetValueFactory } from "@api/services/securities/sync/asset-value";
 
 import {
   assetPersistenceFactory,
   DatabaseAssetService,
-} from "@server/services/assets/database";
-import { createDecimalValueString } from "@shared/schema";
+} from "@api/services/assets/database";
+import { createDecimalValueString } from "@milestone/js-common/schema";
 
 const assetService = new DatabaseAssetService(db);
 const { calculateAssetValueForDateFromCache, updateAssetValues } =

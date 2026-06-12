@@ -1,10 +1,10 @@
-import { DatabaseAssetService } from "@server/services/assets/database";
-import { db } from "@server/db";
+import { DatabaseAssetService } from "@api/services/assets/database";
+import { db } from "@api/db";
 import {
   BrandedAbstractTransactionValue,
   WithAssetHistory,
-} from "@shared/schema";
-import { UserAsset } from "@shared/schema";
+} from "@milestone/js-common/schema";
+import { UserAsset } from "@milestone/js-common/schema";
 
 const assetService = new DatabaseAssetService(db);
 

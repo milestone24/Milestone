@@ -4,7 +4,7 @@ dotenv.config({
   path: '.local.env'
 });
 
-import { getExchanges, getOpenPositions } from '../server/services/intergration/trading212';
+import { getExchanges, getOpenPositions } from '@api/services/intergration/trading212';
 
 // const exchanges = await getExchanges()
 // .catch(err => {
