@@ -40,6 +40,8 @@
     "dev": "concurrently -n api,client -c blue,magenta \"npm run dev -w @milestone/api-primary\" \"npm run dev -w @milestone/client-primary\"",
     "build": "npm run build --workspaces --if-present",
     "check": "npm run check --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:watch": "npm run test:watch --workspaces --if-present",
     "docker:build": "npm run build --workspace=@milestone/data --workspace=@milestone/js-common --workspace=@milestone/client-primary && esbuild apps/api-primary-node/src/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --tsconfig=apps/api-primary-node/tsconfig.json && rm -rf public && cp -r apps/client-primary/dist public",
     "start": "node dist/index.js",
     "deploy:container": "tools/container/deploy.sh",
