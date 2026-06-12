@@ -25,6 +25,7 @@
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "concurrently": "^9.1.2",
     "esbuild": "0.28.0"
   },
   "allowScripts": {
@@ -36,7 +37,7 @@
     "bcrypt@5.1.1": true
   },
   "scripts": {
-    "dev": "npm run dev -w @milestone/api-primary-node && npm run dev -w @milestone/react-primary",
+    "dev": "concurrently -n api,client -c blue,magenta \"npm run dev -w @milestone/api-primary\" \"npm run dev -w @milestone/client-primary\"",
     "build": "npm run build --workspaces --if-present",
     "check": "npm run check --workspaces --if-present",
     "docker:build": "npm run build --workspace=@milestone/data --workspace=@milestone/js-common --workspace=@milestone/client-primary && esbuild apps/api-primary-node/src/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --tsconfig=apps/api-primary-node/tsconfig.json && rm -rf public && cp -r apps/client-primary/dist public",
