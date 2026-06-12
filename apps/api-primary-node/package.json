@@ -8,6 +8,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "start": "node dist/index.js"
   },
   "dependencies": {
@@ -37,8 +39,10 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
+    "@neondatabase/api-client": "^2.7.2",
     "@types/node": "^24.0.0",
     "tsx": "^4.19.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.0.8"
   }
 }

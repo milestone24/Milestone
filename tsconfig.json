@@ -1,5 +1,5 @@
 {
-  "include": ["tools/**/*", "dev/**/*.ts", "vitest.config.ts", "vitest.globalSetup.ts"],
+  "include": ["tools/**/*", "dev/**/*.ts"],
   "exclude": ["node_modules", "build", "dist"],
   "compilerOptions": {
     "noEmit": true,
