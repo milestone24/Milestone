@@ -1,17 +1,17 @@
 import express, { type Request, Response, NextFunction, Router } from "express";
 import { registerRoutes } from "./routes";
-//import { setupVite, serveStatic, log } from "./vite";
-import path from "path";
 import cookieParser from "cookie-parser";
 import { validateAuthEnvVars } from "./utils/time";
 import authService from "./services/auth";
 import { ping } from "./db";
-import http from "http";
-import helmet from "helmet";
 import { applyWebsocket } from "./sockets/primary";
 import semver from "semver";
 import { initUpdateChain } from "./services/distributed/chain";
 import { startEmailInboundSqsWorker } from "./services/email-ingest/email-inbound-sqs-worker";
+import {
+  serveClientStatic,
+  shouldServeClientStatic,
+} from "./serve-static";
 
 const app = express();
 
@@ -25,9 +25,6 @@ validateAuthEnvVars();
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: false, limit: "50mb" }));
 app.use(cookieParser(process.env.COOKIE_SECRET || "your-cookie-secret"));
-
-// Serve static files from public directory (needed for manifest.json and service worker)
-app.use(express.static(path.join(process.cwd(), "public")));
 
 // app.use((req, res, next) => {
 //   const start = Date.now();
@@ -98,6 +95,10 @@ app.use(express.static(path.join(process.cwd(), "public")));
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = process.env.API_PORT || 5001;
+
+  if (shouldServeClientStatic()) {
+    serveClientStatic(app);
+  }
 
   try {
     await ping();
