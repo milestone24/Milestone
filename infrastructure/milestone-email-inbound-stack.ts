@@ -1,0 +1,369 @@
+import * as cdk from "aws-cdk-lib";
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as route53 from "aws-cdk-lib/aws-route53";
+import * as s3 from "aws-cdk-lib/aws-s3";
+import * as ses from "aws-cdk-lib/aws-ses";
+import * as sesActions from "aws-cdk-lib/aws-ses-actions";
+import * as sns from "aws-cdk-lib/aws-sns";
+import * as subs from "aws-cdk-lib/aws-sns-subscriptions";
+import * as sqs from "aws-cdk-lib/aws-sqs";
+import * as ssm from "aws-cdk-lib/aws-ssm";
+import {
+  AwsCustomResource,
+  AwsCustomResourcePolicy,
+  PhysicalResourceId,
+} from "aws-cdk-lib/custom-resources";
+import type { Construct } from "constructs";
+import {
+  EMAIL_INBOUND_LOCAL_PART_PREFIX_PARAMETER_NAME,
+  EMAIL_INBOUND_RAIL_DEFINITIONS,
+  EMAIL_INBOUND_S3_BUCKET_PARAMETER_NAME,
+  EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS_PARAMETER_NAME,
+  EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS_PARAMETER_NAME,
+  emailInboundMailFqdnParameterName,
+  emailInboundSnsTopicArnParameterName,
+  emailInboundSqsQueueUrlParameterName,
+  emailInboundTapSqsQueueUrlParameterName,
+} from "./ssm-email-inbound.ts";
+
+/**
+ * Stable S3 bucket name for raw inbound mail (RFC822). Globally unique per AWS
+ * account. The bucket uses {@link cdk.RemovalPolicy.DESTROY} and
+ * `autoDeleteObjects` so deleting the stack does not leave a retained bucket
+ * that blocks a later deploy with the same name.
+ */
+export const MILESTONE_EMAIL_INBOUND_BUCKET_NAME = "milestone.email-inbound";
+
+export interface MilestoneEmailInboundStackProps extends cdk.StackProps {
+  /** Route 53 public hosted zone ID that owns DNS for {@link hostedZoneName}. */
+  readonly hostedZoneId: string;
+  /** Route 53 zone apex (e.g. `milestone.gaari.me`). */
+  readonly hostedZoneName: string;
+  /**
+   * When true, each rail gets a second SQS queue subscribed to the same SNS
+   * topic (duplicate delivery). Use for local tap tools; URL is published to
+   * SSM under `…/rails/<subdomain>/sqs-tap-queue-url`. The worker queue is unchanged.
+   */
+  readonly enableSnsTapQueues?: boolean;
+}
+
+export interface MilestoneEmailInboundRailResources {
+  readonly mailSubdomain: string;
+  readonly mailFqdn: string;
+  readonly notificationTopic: sns.Topic;
+  readonly notificationQueue: sqs.Queue;
+  /** Present when {@link MilestoneEmailInboundStackProps.enableSnsTapQueues} is true. */
+  readonly tapNotificationQueue?: sqs.Queue;
+}
+
+function dkimCnameTarget(value: string): string {
+  return value.endsWith(".") ? value : `${value}.`;
+}
+
+function cdkIdSuffixFromMailSubdomain(mailSubdomain: string): string {
+  return mailSubdomain.replace(/[^A-Za-z0-9]/g, "");
+}
+
+/**
+ * The first shipped stack used unsuffixed construct IDs for the production
+ * domain only. Reusing those IDs for `doc-inbound` lets stack updates adopt the
+ * existing `AWS::SES::EmailIdentity` (and related topic/queue/DKIM/MX) instead of
+ * failing with "already exists".
+ */
+function isLegacyProdRail(mailSubdomain: string): boolean {
+  return mailSubdomain === "doc-inbound";
+}
+
+/** Publishes SES Easy DKIM CNAME tokens into the given hosted zone. */
+function addDkimCnameRecord(
+  scope: Construct,
+  constructId: string,
+  hostedZoneId: string,
+  record: { name: string; value: string },
+): void {
+  new route53.CfnRecordSet(scope, constructId, {
+    hostedZoneId,
+    name: record.name,
+    type: "CNAME",
+    ttl: "1800",
+    resourceRecords: [dkimCnameTarget(record.value)],
+  });
+}
+
+/**
+ * Document inbound email: SES receive → S3 (raw RFC822) + SNS when stored,
+ * then **SNS → SQS** per environment rail. Three FQDNs under the zone (prod,
+ * staging, dev) share one bucket and one receipt rule set; each rail has its
+ * own SNS topic, SQS queue, and S3 object prefix. The raw-mail bucket is
+ * destroyed when the stack is deleted (`RemovalPolicy.DESTROY`,
+ * `autoDeleteObjects`) so a fixed bucket name does not block redeploys. No CDK
+ * dependencies on other Milestone stacks.
+ */
+export class MilestoneEmailInboundStack extends cdk.Stack {
+  public readonly rawMailBucket: s3.Bucket;
+  public readonly emailInboundRails: readonly MilestoneEmailInboundRailResources[];
+
+  constructor(scope: Construct, id: string, props: MilestoneEmailInboundStackProps) {
+    super(scope, id, props);
+
+    const enableSnsTapQueues = props.enableSnsTapQueues === true;
+
+    const hostedZone = route53.HostedZone.fromHostedZoneAttributes(
+      this,
+      "InboundMailHostedZone",
+      {
+        hostedZoneId: props.hostedZoneId,
+        zoneName: props.hostedZoneName,
+      },
+    );
+
+    this.rawMailBucket = new s3.Bucket(this, "RawInboundMail", {
+      bucketName: MILESTONE_EMAIL_INBOUND_BUCKET_NAME,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    const ruleSet = new ses.ReceiptRuleSet(this, "InboundReceiptRuleSet", {
+      receiptRuleSetName: "milestone-email-inbound",
+    });
+
+    const rails: MilestoneEmailInboundRailResources[] = [];
+
+    for (const rail of EMAIL_INBOUND_RAIL_DEFINITIONS) {
+      const idSuffix = cdkIdSuffixFromMailSubdomain(rail.mailSubdomain);
+      const legacy = isLegacyProdRail(rail.mailSubdomain);
+      const mailFqdn = `${rail.mailSubdomain}.${props.hostedZoneName}`;
+      const objectKeyPrefix = `raw/${rail.mailSubdomain}/`;
+
+      const topicConstructId = legacy ? "InboundMailTopic" : `InboundMailTopic${idSuffix}`;
+      const queueConstructId = legacy
+        ? "InboundMailNotifyQueue"
+        : `InboundMailNotifyQueue${idSuffix}`;
+      const identityConstructId = legacy
+        ? "InboundMailIdentity"
+        : `InboundMailIdentity${idSuffix}`;
+      const mxConstructId = legacy ? "SesInboundMx" : `SesInboundMx${idSuffix}`;
+      const ruleConstructId = legacy
+        ? "StoreRawAndNotify"
+        : `StoreRawAndNotify${idSuffix}`;
+      const snsParamConstructId = legacy
+        ? "EmailInboundSnsTopicArnParam"
+        : `EmailInboundSnsTopicArnParam${idSuffix}`;
+      const sqsParamConstructId = legacy
+        ? "EmailInboundSqsQueueUrlParam"
+        : `EmailInboundSqsQueueUrlParam${idSuffix}`;
+      const mailFqdnParamConstructId = legacy
+        ? "EmailInboundMailFqdnParam"
+        : `EmailInboundMailFqdnParam${idSuffix}`;
+      const outputFqdnId = legacy ? "InboundMailFqdn" : `InboundMailFqdn${idSuffix}`;
+      const outputTopicId = legacy
+        ? "InboundNotificationTopicArn"
+        : `InboundNotificationTopicArn${idSuffix}`;
+      const outputQueueId = legacy
+        ? "InboundNotificationQueueUrl"
+        : `InboundNotificationQueueUrl${idSuffix}`;
+      const tapQueueConstructId = legacy
+        ? "InboundMailTapQueue"
+        : `InboundMailTapQueue${idSuffix}`;
+      const tapSqsParamConstructId = legacy
+        ? "EmailInboundTapSqsQueueUrlParam"
+        : `EmailInboundTapSqsQueueUrlParam${idSuffix}`;
+      const outputTapQueueId = legacy
+        ? "InboundTapNotificationQueueUrl"
+        : `InboundTapNotificationQueueUrl${idSuffix}`;
+
+      const notificationTopic = new sns.Topic(this, topicConstructId, {
+        displayName: `Milestone inbound mail (${rail.mailSubdomain})`,
+      });
+
+      notificationTopic.addToResourcePolicy(
+        new iam.PolicyStatement({
+          sid: `AllowSesPublishInbound${idSuffix}`,
+          effect: iam.Effect.ALLOW,
+          principals: [new iam.ServicePrincipal("ses.amazonaws.com")],
+          actions: ["sns:Publish"],
+          resources: [notificationTopic.topicArn],
+        }),
+      );
+
+      const notificationQueue = new sqs.Queue(this, queueConstructId, {
+        queueName: rail.queueName,
+        encryption: sqs.QueueEncryption.SQS_MANAGED,
+        visibilityTimeout: cdk.Duration.minutes(5),
+        receiveMessageWaitTime: cdk.Duration.seconds(20),
+        retentionPeriod: cdk.Duration.days(14),
+      });
+
+      notificationTopic.addSubscription(
+        new subs.SqsSubscription(notificationQueue),
+      );
+
+      let tapNotificationQueue: sqs.Queue | undefined;
+      if (enableSnsTapQueues) {
+        const tapQueueName = `${rail.queueName}-tap`;
+        tapNotificationQueue = new sqs.Queue(this, tapQueueConstructId, {
+          queueName: tapQueueName,
+          encryption: sqs.QueueEncryption.SQS_MANAGED,
+          visibilityTimeout: cdk.Duration.minutes(5),
+          receiveMessageWaitTime: cdk.Duration.seconds(20),
+          retentionPeriod: cdk.Duration.days(14),
+        });
+        notificationTopic.addSubscription(
+          new subs.SqsSubscription(tapNotificationQueue),
+        );
+
+        new ssm.StringParameter(this, tapSqsParamConstructId, {
+          parameterName: emailInboundTapSqsQueueUrlParameterName(rail.mailSubdomain),
+          stringValue: tapNotificationQueue.queueUrl,
+        });
+
+        new cdk.CfnOutput(this, outputTapQueueId, {
+          value: tapNotificationQueue.queueUrl,
+          description: `Tap SQS queue URL for ${rail.mailSubdomain} (SNS duplicate; not the worker queue)`,
+        });
+      }
+
+      const emailIdentity = new ses.EmailIdentity(this, identityConstructId, {
+        identity: ses.Identity.domain(mailFqdn),
+      });
+
+      for (let i = 0; i < emailIdentity.dkimRecords.length; i += 1) {
+        const record = emailIdentity.dkimRecords[i];
+        if (!record) {
+          continue;
+        }
+        const dkimConstructId = legacy
+          ? `InboundDkim${i}`
+          : `${idSuffix}InboundDkim${i}`;
+        addDkimCnameRecord(this, dkimConstructId, hostedZone.hostedZoneId, record);
+      }
+
+      new route53.MxRecord(this, mxConstructId, {
+        zone: hostedZone,
+        recordName: rail.mailSubdomain,
+        values: [
+          {
+            priority: 10,
+            hostName: `inbound-smtp.${cdk.Aws.REGION}.amazonaws.com`,
+          },
+        ],
+      });
+
+      ruleSet.addRule(ruleConstructId, {
+        recipients: [mailFqdn],
+        actions: [
+          new sesActions.S3({
+            bucket: this.rawMailBucket,
+            objectKeyPrefix,
+            topic: notificationTopic,
+          }),
+        ],
+      });
+
+      new ssm.StringParameter(this, snsParamConstructId, {
+        parameterName: emailInboundSnsTopicArnParameterName(rail.mailSubdomain),
+        stringValue: notificationTopic.topicArn,
+      });
+
+      new ssm.StringParameter(this, sqsParamConstructId, {
+        parameterName: emailInboundSqsQueueUrlParameterName(rail.mailSubdomain),
+        stringValue: notificationQueue.queueUrl,
+      });
+
+      new ssm.StringParameter(this, mailFqdnParamConstructId, {
+        parameterName: emailInboundMailFqdnParameterName(rail.mailSubdomain),
+        stringValue: mailFqdn,
+      });
+
+      new cdk.CfnOutput(this, outputFqdnId, {
+        value: mailFqdn,
+        description: `Inbound host for rail ${rail.mailSubdomain} (MX + SES)`,
+      });
+
+      new cdk.CfnOutput(this, outputTopicId, {
+        value: notificationTopic.topicArn,
+        description: `SNS topic for ${rail.mailSubdomain} after S3 store`,
+      });
+
+      new cdk.CfnOutput(this, outputQueueId, {
+        value: notificationQueue.queueUrl,
+        description: `SQS queue URL for ${rail.mailSubdomain} (SNS subscription)`,
+      });
+
+      rails.push({
+        mailSubdomain: rail.mailSubdomain,
+        mailFqdn,
+        notificationTopic,
+        notificationQueue,
+        tapNotificationQueue,
+      });
+    }
+
+    this.emailInboundRails = rails;
+
+    const activateRuleSet = new AwsCustomResource(this, "ActivateInboundRuleSet", {
+      policy: AwsCustomResourcePolicy.fromSdkCalls({
+        resources: AwsCustomResourcePolicy.ANY_RESOURCE,
+      }),
+      onCreate: {
+        service: "SES",
+        action: "setActiveReceiptRuleSet",
+        parameters: { RuleSetName: ruleSet.receiptRuleSetName },
+        physicalResourceId: PhysicalResourceId.of(
+          `ses-active-ruleset-${ruleSet.receiptRuleSetName}`,
+        ),
+      },
+      onUpdate: {
+        service: "SES",
+        action: "setActiveReceiptRuleSet",
+        parameters: { RuleSetName: ruleSet.receiptRuleSetName },
+        physicalResourceId: PhysicalResourceId.of(
+          `ses-active-ruleset-${ruleSet.receiptRuleSetName}`,
+        ),
+      },
+      onDelete: {
+        service: "SES",
+        action: "setActiveReceiptRuleSet",
+        parameters: { RuleSetName: "" },
+        physicalResourceId: PhysicalResourceId.of(
+          `ses-active-ruleset-${ruleSet.receiptRuleSetName}`,
+        ),
+      },
+    });
+    activateRuleSet.node.addDependency(ruleSet);
+
+    new ssm.StringParameter(this, "EmailInboundS3BucketParam", {
+      parameterName: EMAIL_INBOUND_S3_BUCKET_PARAMETER_NAME,
+      stringValue: this.rawMailBucket.bucketName,
+    });
+
+    new ssm.StringParameter(this, "EmailInboundLocalPartPrefixParam", {
+      parameterName: EMAIL_INBOUND_LOCAL_PART_PREFIX_PARAMETER_NAME,
+      stringValue: "ingest",
+      description:
+        "Local-part prefix for routing addresses (ingest+{shortCode}@mail-fqdn); change only with worker/parser updates",
+    });
+
+    new ssm.StringParameter(this, "EmailInboundSqsWaitTimeSecondsParam", {
+      parameterName: EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS_PARAMETER_NAME,
+      stringValue: "20",
+      description:
+        "SQS ReceiveMessage WaitTimeSeconds (0–20) for inbound notify worker; EC2 → EMAIL_INBOUND_SQS_WAIT_TIME_SECONDS",
+    });
+
+    new ssm.StringParameter(this, "EmailInboundSqsVisibilityTimeoutSecondsParam", {
+      parameterName: EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS_PARAMETER_NAME,
+      stringValue: "300",
+      description:
+        "SQS ReceiveMessage VisibilityTimeout seconds (0–43200) for inbound worker; raise if OCR exceeds this; EC2 → EMAIL_INBOUND_SQS_VISIBILITY_TIMEOUT_SECONDS",
+    });
+
+    new cdk.CfnOutput(this, "RawInboundMailBucketName", {
+      value: this.rawMailBucket.bucketName,
+      description:
+        "S3 bucket for raw inbound RFC822 (fixed name; destroyed with stack so the name can be reused)",
+    });
+  }
+}
