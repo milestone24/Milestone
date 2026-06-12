@@ -1,0 +1,21 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.cursor
+cdk.out
+**/.env
+**/.env.*
+dev
+docs
+reports
+attached_assets
+public
+*.md
+
+# Workspace sources not required for the container image.
+apps/expo-primary/**
+!apps/expo-primary/package.json
+infrastructure/**
+!infrastructure/package.json
